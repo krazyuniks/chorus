@@ -340,10 +340,12 @@ read-only.
 Workstream B defines the Temporal activity boundary as
 `lighthouse.invoke_agent_runtime`. It accepts a contract-shaped
 `AgentInvocationRequest` and returns an `AgentInvocationResponse` aligned with
-`contracts/agents/lighthouse_agent_io.schema.json`. The current implementation
-is a placeholder that validates the generated contract; Workstream C replaces
-the internals with registry lookup, prompt/model policy, provider calls, and
-decision-trail persistence without changing the workflow.
+`contracts/agents/lighthouse_agent_io.schema.json`. Workstream C implements
+the internals behind that activity name: it resolves tenant, agent, prompt,
+and model-route policy from Postgres, invokes the Phase 1A local structured
+model boundary, validates the agent output contract, and persists a
+generated-contract `AgentInvocationRecord` into `decision_trail_entries`.
+The workflow interface did not change.
 
 ## Model Routing
 
@@ -361,6 +363,12 @@ Default Phase 1 posture:
 | Structured qualification | Reliable mid-tier model. |
 | Drafting and nuanced reasoning | Stronger reasoning model. |
 | Validation | Different provider or model family from producer where available. |
+
+The Phase 1A happy path routes to the local `lighthouse-happy-path-v1`
+structured model boundary so the architecture evidence can run without
+production provider credentials. Commercial provider SDK adapters remain behind
+the same boundary and are deferred until provider credentials and eval
+promotion policy are introduced.
 
 Provider/model changes require eval impact review because they can alter
 workflow behaviour without code changes.

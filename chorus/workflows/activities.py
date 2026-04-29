@@ -1,9 +1,4 @@
-"""Temporal activities for Lighthouse Workstream B.
-
-The Agent Runtime and Tool Gateway functions are deliberately contract-shaped
-placeholders. Workstreams C and D should replace their internals behind these
-activity names without changing the Lighthouse workflow.
-"""
+"""Temporal activities for Lighthouse workflow boundaries."""
 
 from __future__ import annotations
 
@@ -17,10 +12,11 @@ from uuid import uuid4
 import psycopg
 from temporalio import activity
 
-from chorus.contracts.generated.agents.lighthouse_agent_io import LighthouseAgentIO
+from chorus.agent_runtime import AgentRuntime, AgentRuntimeStore, LocalLighthouseModelBoundary
 from chorus.contracts.generated.events.workflow_event import WorkflowEvent
 from chorus.contracts.generated.tools.gateway_verdict import GatewayVerdict
 from chorus.contracts.generated.tools.tool_call import ToolCall
+from chorus.observability import set_current_span_attributes
 from chorus.persistence import ProjectionStore
 from chorus.persistence.migrate import database_url_from_env
 from chorus.workflows.lighthouse import (
@@ -30,7 +26,6 @@ from chorus.workflows.lighthouse import (
 )
 from chorus.workflows.mailpit import MailpitPoller, TemporalWorkflowStarter
 from chorus.workflows.types import (
-    AgentCitation,
     AgentInvocationRequest,
     AgentInvocationResponse,
     MailpitPollConfig,
@@ -95,96 +90,30 @@ def _postgres_sink_factory() -> WorkflowEventSink:
 
 @activity.defn(name=ACTIVITY_RECORD_WORKFLOW_EVENT)
 def record_workflow_event_activity(command: WorkflowEventCommand) -> WorkflowEventResult:
+    set_current_span_attributes(
+        tenant_id=command.tenant_id,
+        correlation_id=command.correlation_id,
+        workflow_id=command.workflow_id,
+    )
     return WorkflowEventRecorder(_postgres_sink_factory).record(command)
 
 
 @activity.defn(name=ACTIVITY_INVOKE_AGENT_RUNTIME)
 def invoke_agent_runtime_activity(request: AgentInvocationRequest) -> AgentInvocationResponse:
-    """Stable Agent Runtime activity boundary for Workstream C.
+    """Stable Agent Runtime activity boundary implemented by Workstream C."""
 
-    The placeholder validates a generated Lighthouse agent contract and returns
-    deterministic-looking demo output. It does not call a model provider or
-    write decision-trail rows; Workstream C owns that implementation behind
-    this activity name.
-    """
-
-    invocation_id = uuid4()
-    summary, next_step, structured_data = _placeholder_agent_output(request)
-    contract = LighthouseAgentIO.model_validate(
-        {
-            "schema_version": "1.0.0",
-            "task_id": str(uuid4()),
-            "tenant_id": request.tenant_id,
-            "correlation_id": request.correlation_id,
-            "workflow_id": request.workflow_id,
-            "agent_role": request.agent_role,
-            "task_kind": request.task_kind,
-            "input": request.input,
-            "expected_output_contract": request.expected_output_contract,
-            "result": {
-                "summary": summary,
-                "confidence": 0.88,
-                "structured_data": structured_data,
-                "recommended_next_step": next_step,
-                "rationale": "Phase 1A placeholder for the Agent Runtime boundary.",
-                "citations": [],
-            },
-        }
+    set_current_span_attributes(
+        tenant_id=request.tenant_id,
+        correlation_id=request.correlation_id,
+        workflow_id=request.workflow_id,
     )
-    return AgentInvocationResponse(
-        invocation_id=str(invocation_id),
-        summary=contract.result.summary,
-        confidence=contract.result.confidence,
-        structured_data=contract.result.structured_data,
-        recommended_next_step=contract.result.recommended_next_step.value,
-        rationale=contract.result.rationale,
-        citations=[
-            AgentCitation(source=citation.source, reference=citation.reference)
-            for citation in contract.result.citations
-        ],
-    )
-
-
-def _placeholder_agent_output(
-    request: AgentInvocationRequest,
-) -> tuple[str, str, dict[str, object]]:
-    match request.task_kind:
-        case "company_research":
-            return (
-                "Identified a small operations-led services business from the lead email.",
-                "continue",
-                {"company_name": "Acme Field Services", "fit": "operations automation"},
-            )
-        case "lead_qualification":
-            return (
-                "Lead qualifies for a lightweight Lighthouse pilot conversation.",
-                "continue",
-                {"qualification": "qualified", "priority": "normal"},
-            )
-        case "response_draft":
-            return (
-                "Drafted a concise response proposing a discovery call and pilot outline.",
-                "continue",
-                {
-                    "draft_response": (
-                        "Thanks for getting in touch. A lightweight pilot could qualify "
-                        "new enquiries, research company context, and prepare response "
-                        "drafts for your account team to review."
-                    )
-                },
-            )
-        case "response_validation":
-            return (
-                "Draft is suitable for proposal mode in the local sandbox.",
-                "send",
-                {"validation": "approved"},
-            )
-        case _:
-            return (
-                "Input accepted for Lighthouse processing.",
-                "continue",
-                {"classification": "lead"},
-            )
+    database_url = os.environ.get("CHORUS_DATABASE_URL", database_url_from_env())
+    with psycopg.connect(database_url) as conn:
+        runtime = AgentRuntime(
+            AgentRuntimeStore(conn),
+            LocalLighthouseModelBoundary(),
+        )
+        return runtime.invoke(request)
 
 
 @activity.defn(name=ACTIVITY_INVOKE_TOOL_GATEWAY)
@@ -196,6 +125,11 @@ def invoke_tool_gateway_activity(request: ToolGatewayRequest) -> ToolGatewayResp
     grants, idempotency, audit, and real connector calls behind this activity.
     """
 
+    set_current_span_attributes(
+        tenant_id=request.tenant_id,
+        correlation_id=request.correlation_id,
+        workflow_id=request.workflow_id,
+    )
     now = _now().isoformat()
     tool_call = ToolCall.model_validate(
         {
@@ -247,6 +181,7 @@ def invoke_tool_gateway_activity(request: ToolGatewayRequest) -> ToolGatewayResp
 
 @activity.defn(name="lighthouse.poll_mailpit")
 async def poll_mailpit_activity(config: MailpitPollConfig) -> MailpitPollResult:
+    set_current_span_attributes(tenant_id=config.tenant_id)
     starter = await TemporalWorkflowStarter.connect(
         target_host=config.temporal_target_host,
         namespace=config.temporal_namespace,

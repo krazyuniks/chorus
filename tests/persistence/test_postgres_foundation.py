@@ -135,7 +135,7 @@ def test_migrations_and_seeds_are_idempotent(migrated_database_url: str) -> None
     assert first == ["001_demo_tenants.sql"]
     assert second == ["001_demo_tenants.sql"]
     assert tenant_count == (2,)
-    assert seed_agents == (2,)
+    assert seed_agents == (8,)
 
 
 def test_rls_fails_closed_without_tenant_context(migrated_database_url: str) -> None:
@@ -374,7 +374,7 @@ def test_runtime_policy_snapshot_is_tenant_scoped(migrated_database_url: str) ->
         store.set_tenant_context("tenant_demo_alt")
         alt_snapshot = store.runtime_policy_snapshot("tenant_demo_alt")
 
-    assert [agent.tenant_id for agent in demo_snapshot.agents] == ["tenant_demo"]
-    assert [route.tenant_id for route in demo_snapshot.model_routes] == ["tenant_demo"]
+    assert {agent.tenant_id for agent in demo_snapshot.agents} == {"tenant_demo"}
+    assert {route.tenant_id for route in demo_snapshot.model_routes} == {"tenant_demo"}
     assert [grant.tenant_id for grant in demo_snapshot.tool_grants] == ["tenant_demo"]
-    assert [agent.tenant_id for agent in alt_snapshot.agents] == ["tenant_demo_alt"]
+    assert {agent.tenant_id for agent in alt_snapshot.agents} == {"tenant_demo_alt"}

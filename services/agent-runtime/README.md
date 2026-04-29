@@ -13,6 +13,8 @@ Captures decision-trail records into Postgres for every invocation.
 
 Owns no connector authority — tool calls go through the Tool Gateway.
 
-Workstream B has fixed the Temporal boundary as `lighthouse.invoke_agent_runtime`: it accepts a contract-shaped request and returns output validated against `contracts/agents/lighthouse_agent_io.schema.json`. Phase 1A workstream **C** owns replacing the placeholder implementation with registry lookup, prompt/model policy resolution, provider calls, and decision-trail persistence without changing the workflow.
+Workstream B fixed the Temporal boundary as `lighthouse.invoke_agent_runtime`: it accepts a contract-shaped request and returns output validated against `contracts/agents/lighthouse_agent_io.schema.json`. Phase 1A workstream **C** now implements that boundary in `chorus.agent_runtime`: registry lookup, prompt/model policy resolution, local structured model invocation, generated `AgentInvocationRecord` validation, and decision-trail persistence.
+
+The current happy path uses the local `lighthouse-happy-path-v1` model boundary from seeded routing policy. Commercial provider SDK adapters remain deferred behind the same boundary; adding them must not give agents connector or tool authority.
 
 See [implementation-plan.md](../../docs/implementation-plan.md).

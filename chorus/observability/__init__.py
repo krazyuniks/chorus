@@ -54,4 +54,31 @@ def current_otel_ids() -> dict[str, str]:
     }
 
 
-__all__ = ["OTEL_SPAN_ID_KEY", "OTEL_TRACE_ID_KEY", "current_otel_ids"]
+def set_current_span_attributes(
+    *,
+    tenant_id: str | None = None,
+    correlation_id: str | None = None,
+    workflow_id: str | None = None,
+) -> None:
+    """Stamp ADR 0010 join keys on the active span when OTel is loaded."""
+
+    try:
+        from opentelemetry import trace  # pyright: ignore[reportMissingImports]
+    except ImportError:
+        return
+
+    span = trace.get_current_span()
+    if tenant_id is not None:
+        span.set_attribute("chorus.tenant_id", tenant_id)
+    if correlation_id is not None:
+        span.set_attribute("chorus.correlation_id", correlation_id)
+    if workflow_id is not None:
+        span.set_attribute("chorus.workflow_id", workflow_id)
+
+
+__all__ = [
+    "OTEL_SPAN_ID_KEY",
+    "OTEL_TRACE_ID_KEY",
+    "current_otel_ids",
+    "set_current_span_attributes",
+]

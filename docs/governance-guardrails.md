@@ -88,13 +88,18 @@ The model boundary should support the conversations expected in enterprise adopt
 
 | Provider | Models | Intended use | Notes |
 |---|---|---|---|
+| Local structured boundary | `lighthouse-happy-path-v1` | Phase 1A deterministic local happy-path evidence. | Active implementation for Workstream C; no external credentials or connector authority. |
 | Anthropic | Claude (latest stable Opus/Sonnet) | Primary agent reasoning, drafting, qualification. | Primary route via API key. |
 | OpenAI | GPT-4-class | Validator-route diversity; second opinion on draft validation. | Diversity satisfies governance invariant. |
 | AWS Bedrock | Deferred | Future enterprise hosting boundary. | Phase 2+; signals enterprise-aware routing. |
 
 Routing policy resolves provider per (agent role, workflow stage, tenant tier). Budgets cap cost per invocation and per workflow run.
 
-Phase 1 implements the policy surface enough for Lighthouse. It does not need a complete provider-management platform.
+Phase 1A implements the policy surface enough for Lighthouse through the local
+structured boundary and Postgres routing policy. Commercial provider adapters
+remain behind the same model boundary and are not required for the first
+local evidence slice. Phase 1 does not need a complete provider-management
+platform.
 
 ## Prompt Governance
 
