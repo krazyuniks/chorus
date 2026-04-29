@@ -22,4 +22,3 @@ Temporal uses its own persistence. Redpanda carries in-flight events and project
 - Append-heavy tables should be partitionable and accessed through storage adapters so Scylla remains a production migration option.
 - Scylla implementation is out of scope for Phase 1.
 - Postgres row-level security and tenant IDs are part of the Phase 1 tenant-isolation evidence.
-

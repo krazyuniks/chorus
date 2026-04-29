@@ -22,4 +22,3 @@ Use PydanticAI dynamic schema support only where static generation is awkward an
 - Producers and consumers share generated types.
 - Breaking changes use versioned subjects/topics and migration windows.
 - CI must fail when schemas, generated models, samples, or registered compatibility assumptions drift.
-

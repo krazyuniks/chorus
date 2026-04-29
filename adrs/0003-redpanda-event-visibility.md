@@ -21,4 +21,3 @@ Use Redpanda Community Edition for Kafka-compatible messaging, Redpanda Console,
 - Temporal remains the workflow authority.
 - Consumers must be idempotent and dedupe by event ID or invocation ID.
 - DLQ topics are used for exhausted async processing.
-

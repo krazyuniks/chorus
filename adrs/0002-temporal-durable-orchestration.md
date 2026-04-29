@@ -21,4 +21,3 @@ Use self-hosted Temporal with the Python SDK as the primary orchestration runtim
 - Replay tests are mandatory for workflow changes.
 - Sagas and compensations are explicit workflow branches.
 - Redpanda events support projections and visibility, but do not own the critical workflow state.
-
