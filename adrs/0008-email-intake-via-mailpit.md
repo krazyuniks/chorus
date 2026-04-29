@@ -37,7 +37,7 @@ Mailpit serves dual duty: SMTP receive + HTTP API for inbound (lead intake) and 
 
 ## Primary evidence remains the documentation set
 
-The Chorus evidence claim rests on the documentation set — `overview.md`, `architecture.md`, `governance-guardrails.md`, `sdlc-operating-model.md`, the ADRs, and the public evidence map. These artefacts stand alone as evidence of architectural thinking; the working application is the demonstration that backs them, not the primary evidence asset.
+The Chorus evidence claim rests on the documentation set — `overview.md`, `architecture.md`, `governance-guardrails.md`, the ADRs, and the public evidence map. These artefacts stand alone as evidence of architectural thinking; the working application is the demonstration that backs them, not the primary evidence asset.
 
 ## Screencast deferred to backlog
 

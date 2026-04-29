@@ -12,23 +12,22 @@ This document maps Chorus's engineering claims to the artefacts that support the
 
 The map is structured for architecture review: each capability links to the artefacts and code locations that demonstrate it. Where Phase 1A implementation has not yet landed, the documentation set carries the claim; the map is updated in Phase 1A docs closeout and Phase 1C final pass with cross-links to implemented evidence (code, eval fixture results, audit views, dashboards, screenshots).
 
-## Position — outer loop / programme level
+## Position
 
-Chorus addresses **outer-loop / programme-level** concerns: governance frameworks, provider catalogue, organisational adoption pattern, runtime architecture, and an eval lifecycle that scales across teams. The companion **inner-loop** artefact is **Woof** at [`github.com/krazyuniks/woof`](https://github.com/krazyuniks/woof) — an SDLC tool for AI-assisted developer work (discovery -> definition -> breakdown -> execution -> gate, with schema-governed contracts and a per-epic JSONL audit trail). Together the two projects demonstrate a split between programme-level agent architecture and developer-loop delivery controls.
+Chorus addresses governed runtime orchestration for agent-enabled business processes: durable workflow state, provider/model policy, tool authority, auditability, observability, and evaluation. The companion inner-loop SDLC project is **Woof** at [`github.com/krazyuniks/woof`](https://github.com/krazyuniks/woof), which governs AI-assisted developer work (discovery -> definition -> breakdown -> execution -> gate, with schema-governed contracts and a per-epic JSONL audit trail). Woof is separate from the Chorus runtime architecture.
 
 ## Evidence matrix
 
 | Capability | Chorus artefacts | Status |
 |---|---|---|
-| Governed agent adoption across SDLC | [`sdlc-operating-model.md`](sdlc-operating-model.md) — lifecycle stages, quality gates, change control. [`governance-guardrails.md`](governance-guardrails.md) — control matrix and guardrail layers. | Docs complete (Phase 0). |
+| Governed agent workflow orchestration | [`architecture.md`](architecture.md) — principles, runtime topology, workflow architecture, component boundaries. [`governance-guardrails.md`](governance-guardrails.md) — control matrix and guardrail layers. | Docs complete (Phase 0). |
 | Overarching architecture for multi-agent workflows and LLM integrations | [`architecture.md`](architecture.md) — principles, domain language, components, runtime flow, contracts, testing, operations, and deferrals. [`../adrs/`](../adrs/) — accepted decision record. | Docs complete (Phase 0). |
-| Stakeholder-readable operating model | [`sdlc-operating-model.md`](sdlc-operating-model.md) — Roles and Responsibilities, Provider Collaboration Model, Team Enablement. [`overview.md`](overview.md) — narrative scope and demo shape. | Docs complete (Phase 0). |
-| Provider/model governance | [`governance-guardrails.md`](governance-guardrails.md) — Phase 1 Provider Catalogue, Provider and Model Governance, routing and budget policy. [`sdlc-operating-model.md`](sdlc-operating-model.md) — Provider Collaboration Model. | Docs complete (Phase 0). Implementation: Phase 1A workstream C (Agent Runtime + model boundary). |
+| Stakeholder-readable project brief | [`overview.md`](overview.md) — narrative scope, review path, demo shape, and decision-record pointer. | Docs complete (Phase 0). |
+| Provider/model governance | [`governance-guardrails.md`](governance-guardrails.md) — Phase 1 Provider Catalogue, Provider and Model Governance, routing and budget policy. [`architecture.md`](architecture.md) — Agent Runtime Architecture and Model Routing. | Docs complete (Phase 0). Implementation: Phase 1A workstream C (Agent Runtime + model boundary). |
 | LLM guardrails for transparency, security, prompt governance, auditability, and responsible-AI alignment | [`governance-guardrails.md`](governance-guardrails.md) — Governance Principles, Control Matrix, Guardrail Layers, Prompt Governance, Safety and Evaluation Governance, Responsible-AI Alignment. | Docs complete (Phase 0). |
 | Cross-team component interaction model | [`architecture.md`](architecture.md) — component boundaries, runtime topology, contract ownership, repository structure, testing, and operations surface. [`../adrs/`](../adrs/). | Docs complete (Phase 0). |
-| Team enablement and repeatable architecture practice | [`sdlc-operating-model.md`](sdlc-operating-model.md) — Team Enablement; the artefact set is structured to be readable in order. | Docs complete (Phase 0). |
-| Programme planning and work decomposition | [`implementation-plan.md`](implementation-plan.md) — phased delivery with parallel-workstream decomposition. [`sdlc-operating-model.md`](sdlc-operating-model.md) — lifecycle and gates. | Docs complete (Phase 0). |
-| AI lifecycle management, safety, and evaluation | [`governance-guardrails.md`](governance-guardrails.md) — Safety and Evaluation Governance. [`sdlc-operating-model.md`](sdlc-operating-model.md) — Quality Gates. [`../adrs/0007-trace-evaluation-harness.md`](../adrs/0007-trace-evaluation-harness.md). | Docs complete (Phase 0). Implementation: Phase 1A workstreams B + F; Phase 1B governance fixtures. |
+| Work decomposition and implementation path | [`implementation-plan.md`](implementation-plan.md) — phased delivery with parallel-workstream decomposition. | Docs complete (Phase 0). |
+| AI lifecycle management, safety, and evaluation | [`governance-guardrails.md`](governance-guardrails.md) — Safety and Evaluation Governance. [`architecture.md`](architecture.md) — Evaluation and Assurance. [`../adrs/0007-trace-evaluation-harness.md`](../adrs/0007-trace-evaluation-harness.md). | Docs complete (Phase 0). Implementation: Phase 1A workstreams B + F; Phase 1B governance fixtures. |
 
 ## Evidence by artefact
 
@@ -37,7 +36,6 @@ For reverse navigation, the artefacts that this map cites:
 - [`overview.md`](overview.md) — project brief, review path, demo shape, design inputs, and decision-record pointer.
 - [`architecture.md`](architecture.md) — principles, domain language, component boundaries, runtime flow, contracts, repo structure, testing, operations, and deferrals.
 - [`governance-guardrails.md`](governance-guardrails.md) — control matrix; provider / prompt / safety governance; responsible-AI alignment; out-of-scope.
-- [`sdlc-operating-model.md`](sdlc-operating-model.md) — lifecycle, artefact set, roles, quality gates, change control, provider collaboration, team enablement.
 - [`implementation-plan.md`](implementation-plan.md) — phased delivery, parallel workstreams, deferred items.
 - [`demo-script.md`](demo-script.md) — guided walkthrough script (rewritten in 1A doc closeout for the SMTP-receive trigger).
 - [`../adrs/`](../adrs/) — eight accepted decisions covering evidence-first scope, Temporal orchestration, Redpanda event visibility, Agent Runtime + Tool Gateway, Postgres-first storage, JSON Schema contracts, trace/eval harness, and email intake via Mailpit.

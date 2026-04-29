@@ -18,7 +18,6 @@ REQUIRED_PATHS = [
     "docs/evidence-map.md",
     "docs/fixtures/lead-acme.eml",
     "docs/governance-guardrails.md",
-    "docs/sdlc-operating-model.md",
     "docs/implementation-plan.md",
     "adrs/README.md",
     "contracts/events",

@@ -8,7 +8,7 @@ date: 2026-04-29
 
 ## Purpose
 
-This document describes the enterprise governance posture Chorus is designed to demonstrate. It is written for senior stakeholders evaluating whether agentic AI and LLM-enabled systems can be adopted safely inside a structured SDLC.
+This document describes the enterprise governance posture Chorus is designed to demonstrate. It is written for senior stakeholders evaluating whether agentic AI and LLM-enabled systems can be adopted safely inside controlled operational processes.
 
 The goal is not to claim Chorus is a complete enterprise policy framework. The goal is to show the architectural guardrails, evidence surfaces, and operating controls that a serious programme would require.
 
@@ -48,7 +48,7 @@ The goal is not to claim Chorus is a complete enterprise policy framework. The g
 - Postgres owns Phase 1 audit, policy materialisation, outbox, and projections.
 - Redpanda owns event distribution and event-schema visibility, not critical workflow state.
 
-### SDLC Guardrails
+### Change-Control Guardrails
 
 - Architecture and ADRs are updated with material design changes.
 - Contract changes require schema diffs, generated-code refresh, samples, and drift checks.

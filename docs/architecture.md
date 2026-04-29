@@ -30,14 +30,15 @@ claim to a concrete artefact, contract, service boundary, or deferred item.
 
 Chorus is an outer-loop, programme-level architecture for governed multi-agent
 workflows. It addresses runtime architecture, provider and model governance,
-tool authority, auditability, evaluation, observability, and SDLC adoption
-controls for agent-enabled business processes.
+tool authority, auditability, evaluation, observability, and operational
+governance controls for agent-enabled business processes.
 
-The inner-loop counterpart is Woof: an SDLC tool for the developer's own
-AI-assisted work cycle - discovery, definition, breakdown, execution, and gate
-- with schema-governed contracts and a per-epic JSONL audit trail. Woof is not a
-runtime dependency of Chorus. The relationship is conceptual: Chorus governs
-agentic business workflows; Woof governs agent-assisted software delivery.
+The inner-loop counterpart is Woof: the separate SDLC project for the
+developer's own AI-assisted work cycle - discovery, definition, breakdown,
+execution, and gate - with schema-governed contracts and a per-epic JSONL audit
+trail. Woof is not a runtime dependency of Chorus. The relationship is
+conceptual: Chorus governs agentic business workflows; Woof governs
+agent-assisted software delivery.
 
 ## Core Principles
 
@@ -86,7 +87,7 @@ agent workflows across teams, providers, and business processes.
 | Phase 0 - Foundation | Documentation, ADRs, local runtime scaffold, service layout, command runner, contracts scaffold, and review path. | Repo opens cleanly; docs and ADRs are linked; local prerequisites and scaffold boundaries are explicit. |
 | Phase 1A - Happy path | Mailpit SMTP intake, Temporal Lighthouse workflow, Agent Runtime, Tool Gateway, Postgres projections, Redpanda events, UI progress, audit trail, observability, and happy-path eval. | A reviewer can send a fixture email, follow one workflow by correlation ID, and run the happy-path eval. |
 | Phase 1B - Governance/failure evidence | Blocked write, low-confidence research, validator rejection, connector failure, retry exhaustion, and escalation fixtures. | Failure fixtures produce expected branches, audit verdicts, DLQ or escalation records, and passing eval checks. |
-| Phase 1C - Review packaging | Final README, screenshots or notes, demo script, evidence map, and architecture/governance/SDLC cross-links. | An asynchronous reviewer can inspect the evidence path without hidden context. |
+| Phase 1C - Review packaging | Final README, screenshots or notes, demo script, evidence map, architecture links, and governance evidence. | An asynchronous reviewer can inspect the evidence path without hidden context. |
 
 ## Domain Language
 
@@ -232,7 +233,6 @@ chorus/
 │   ├── architecture.md
 │   ├── evidence-map.md
 │   ├── governance-guardrails.md
-│   ├── sdlc-operating-model.md
 │   ├── implementation-plan.md
 │   ├── demo-script.md
 │   └── runbooks/

@@ -1,6 +1,6 @@
 # Chorus
 
-Chorus is a reference implementation of governed multi-agent workflows designed for adoption inside structured enterprise SDLC. It demonstrates how agentic AI can be integrated into a business process without losing durable orchestration, explicit authority boundaries, traceability, safety controls, and regression discipline.
+Chorus is a reference implementation of governed multi-agent workflow orchestration for enterprise operational processes. It demonstrates how agentic AI can be integrated into a business process without losing durable orchestration, explicit authority boundaries, traceability, safety controls, and regression discipline.
 
 The Phase 1 business slice is **Lighthouse**, an inbound-lead concierge for a fictional small business: a customer email arrives, agents intake, research, qualify, draft, validate, and either propose-and-send or escalate.
 
@@ -18,8 +18,7 @@ For an asynchronous reviewer (~15 minutes):
 2. [`docs/evidence-map.md`](docs/evidence-map.md) — engineering claims and where to inspect the supporting artefacts.
 3. [`docs/architecture.md`](docs/architecture.md) — principles-first architecture reference: domain language, boundaries, runtime flow, contracts, testing, operations, and deferrals.
 4. [`docs/governance-guardrails.md`](docs/governance-guardrails.md) — enterprise governance posture and control matrix.
-5. [`docs/sdlc-operating-model.md`](docs/sdlc-operating-model.md) — delivery lifecycle stages, quality gates, roles, change control, provider collaboration, team enablement.
-6. [`adrs/`](adrs/) — accepted Phase 1 architectural decision record.
+5. [`adrs/`](adrs/) — accepted Phase 1 architectural decision record.
 
 ## Stack
 

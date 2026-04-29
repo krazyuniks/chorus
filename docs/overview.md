@@ -18,7 +18,7 @@ durable decision record is [`../adrs/`](../adrs/).
 
 Chorus is a production-shaped reference implementation and architecture artefact set for governed multi-agent workflows.
 
-It demonstrates how specialised AI agents can participate in a durable business process without becoming an opaque, ungoverned automation blob. The core claim is architectural: agentic systems become credible when orchestration, tool authority, traceability, failure handling, schema evolution, evaluation, governance, and SDLC change control are treated as first-class engineering concerns.
+It demonstrates how specialised AI agents can participate in a durable business process without becoming an opaque, ungoverned automation blob. The core claim is architectural: agentic systems become credible when orchestration, tool authority, traceability, failure handling, schema evolution, evaluation, governance, and change control are treated as first-class engineering concerns.
 
 The first running example shipped inside the repo is **Lighthouse**: an inbound-lead concierge for a fictional small business. A customer email arrives; agents intake, research, qualify, draft, validate, and either propose/send or escalate. Lighthouse is the proof scenario. Chorus is the architecture artefact.
 
@@ -26,7 +26,7 @@ The first running example shipped inside the repo is **Lighthouse**: an inbound-
 
 - **Architecture reviewers** - people evaluating whether the design has credible boundaries, contracts, operations, and failure handling.
 - **Delivery teams** - engineers and architects looking for a concrete pattern for governed agentic workflows.
-- **Platform and governance teams** - groups defining guardrails for LLM-enabled systems inside a structured SDLC.
+- **Platform and governance teams** - groups defining guardrails for LLM-enabled systems inside controlled enterprise environments.
 
 ## What the demo proves
 
@@ -49,7 +49,7 @@ The demo deliberately shows failure modes alongside the happy path:
 
 The 3-minute walkthrough should be possible without opening an editor. The repo must also stand up to asynchronous technical inspection.
 
-The repo also needs to stand up as an architecture package. A reviewer should be able to inspect `architecture.md`, `governance-guardrails.md`, and `sdlc-operating-model.md` and see how the Lighthouse implementation maps to enterprise adoption controls.
+The repo also needs to stand up as an architecture package. A reviewer should be able to inspect `architecture.md`, `governance-guardrails.md`, the ADRs, and the evidence map and see how the Lighthouse implementation maps to enterprise adoption controls.
 
 ## Decision record
 
@@ -63,7 +63,7 @@ The architecture document should reflect accepted decisions, but the ADRs remain
 - Phase 1 must include the happy path and the visible failure paths needed to prove governance.
 - Mutating admin features stay out of the UI; registry, routing, grants, and audit are read-only there.
 - Connector integrations run real software in sandbox/local mode: Mailpit for email, public APIs for research where suitable, and a Postgres-backed local CRM service.
-- Governance, guardrail, and SDLC documentation are first-class Phase 1 deliverables.
+- Governance, guardrail, architecture, and evidence documentation are first-class Phase 1 deliverables.
 
 ## What Chorus is not
 
