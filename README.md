@@ -1,12 +1,11 @@
 # Chorus
 
-<!-- TODO: replace <owner> when the repo is published -->
-[![ci](https://github.com/<owner>/chorus/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/<owner>/chorus/actions/workflows/ci.yml)
-[![contracts](https://github.com/<owner>/chorus/actions/workflows/ci.yml/badge.svg?branch=main&job=contracts-check)](https://github.com/<owner>/chorus/actions/workflows/ci.yml)
-[![doctor](https://github.com/<owner>/chorus/actions/workflows/ci.yml/badge.svg?branch=main&job=doctor)](https://github.com/<owner>/chorus/actions/workflows/ci.yml)
-[![tests](https://github.com/<owner>/chorus/actions/workflows/ci.yml/badge.svg?branch=main&job=test-python)](https://github.com/<owner>/chorus/actions/workflows/ci.yml)
-[![replay](https://github.com/<owner>/chorus/actions/workflows/replay.yml/badge.svg?branch=main)](https://github.com/<owner>/chorus/actions/workflows/replay.yml)
-[![eval](https://github.com/<owner>/chorus/actions/workflows/eval.yml/badge.svg?branch=main)](https://github.com/<owner>/chorus/actions/workflows/eval.yml)
+[![ci](https://github.com/krazyuniks/chorus/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/krazyuniks/chorus/actions/workflows/ci.yml)
+[![contracts](https://github.com/krazyuniks/chorus/actions/workflows/ci.yml/badge.svg?branch=main&job=contracts-check)](https://github.com/krazyuniks/chorus/actions/workflows/ci.yml)
+[![doctor](https://github.com/krazyuniks/chorus/actions/workflows/ci.yml/badge.svg?branch=main&job=doctor)](https://github.com/krazyuniks/chorus/actions/workflows/ci.yml)
+[![tests](https://github.com/krazyuniks/chorus/actions/workflows/ci.yml/badge.svg?branch=main&job=test-python)](https://github.com/krazyuniks/chorus/actions/workflows/ci.yml)
+[![replay](https://github.com/krazyuniks/chorus/actions/workflows/replay.yml/badge.svg?branch=main)](https://github.com/krazyuniks/chorus/actions/workflows/replay.yml)
+[![eval](https://github.com/krazyuniks/chorus/actions/workflows/eval.yml/badge.svg?branch=main)](https://github.com/krazyuniks/chorus/actions/workflows/eval.yml)
 
 Chorus is a reference implementation of governed multi-agent workflow orchestration for enterprise operational processes. It demonstrates how agentic AI can be integrated into a business process without losing durable orchestration, explicit authority boundaries, traceability, safety controls, and regression discipline.
 
