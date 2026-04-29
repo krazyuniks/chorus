@@ -314,7 +314,7 @@ def _expected_event_subjects() -> dict[str, str | None]:
     for path in sorted((ROOT / "contracts" / "events").glob("*.schema.json")):
         try:
             data = json.loads(path.read_text())
-        except (OSError, json.JSONDecodeError):
+        except OSError, json.JSONDecodeError:
             expected[path.name] = None
             continue
         subject = data.get("x-subject")
