@@ -1,19 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Timeline, type TimelineEntry } from "@/components/Timeline";
 import { DataTable, type DataTableColumn } from "@/components/DataTable";
 import { StatusPill } from "@/components/StatusPill";
 import {
-  decisionTrail,
-  toolVerdicts,
-  workflowEvents,
-  workflowRuns,
-} from "@/api/fixtures";
-import type {
-  DecisionTrailEntry,
-  ToolVerdictEntry,
-} from "@/api/types";
+  getWorkflow,
+  listWorkflowDecisionTrail,
+  listWorkflowEvents,
+  listWorkflowToolVerdicts,
+} from "@/api/queries";
+import { subscribeProgress } from "@/api/sse";
+import type { DecisionTrailEntry, ToolVerdictEntry } from "@/api/types";
 import { formatCorrelationId, formatDurationMs, formatTimestamp } from "@/lib/utils";
 
 export const Route = createFileRoute("/workflows/$workflowId")({
@@ -22,29 +21,35 @@ export const Route = createFileRoute("/workflows/$workflowId")({
 
 function WorkflowDetail() {
   const { workflowId } = Route.useParams();
+  const queryClient = useQueryClient();
 
   const { data: run } = useQuery({
     queryKey: ["workflow", workflowId],
-    queryFn: async () =>
-      workflowRuns.find((r) => r.workflow_id === workflowId) ?? null,
+    queryFn: () => getWorkflow(workflowId),
   });
 
   const { data: events = [] } = useQuery({
     queryKey: ["workflow", workflowId, "events"],
-    queryFn: async () => workflowEvents[workflowId] ?? [],
+    queryFn: () => listWorkflowEvents(workflowId),
   });
 
   const { data: decisions = [] } = useQuery({
     queryKey: ["workflow", workflowId, "decisions"],
-    queryFn: async () =>
-      decisionTrail.filter((d) => d.workflow_id === workflowId),
+    queryFn: () => listWorkflowDecisionTrail(workflowId),
   });
 
   const { data: verdicts = [] } = useQuery({
     queryKey: ["workflow", workflowId, "verdicts"],
-    queryFn: async () =>
-      toolVerdicts.filter((v) => v.workflow_id === workflowId),
+    queryFn: () => listWorkflowToolVerdicts(workflowId),
   });
+
+  useEffect(() => {
+    const stream = subscribeProgress("/progress", (event) => {
+      if (event.workflow_id !== workflowId) return;
+      void queryClient.invalidateQueries({ queryKey: ["workflow", workflowId] });
+    });
+    return () => stream.close();
+  }, [queryClient, workflowId]);
 
   const timelineEntries: TimelineEntry[] = events.map((event) => ({
     id: event.id,
@@ -87,7 +92,11 @@ function WorkflowDetail() {
 
   const verdictColumns: DataTableColumn<ToolVerdictEntry>[] = [
     { key: "tool_name", header: "Tool", mono: true, cell: (r) => r.tool_name },
-    { key: "mode", header: "Mode", cell: (r) => <StatusPill value={r.mode} /> },
+    {
+      key: "enforced_mode",
+      header: "Mode",
+      cell: (r) => <StatusPill value={r.enforced_mode ?? r.mode ?? "—"} />,
+    },
     { key: "verdict", header: "Verdict", cell: (r) => <StatusPill value={r.verdict} /> },
     {
       key: "caller_agent_id",
@@ -127,13 +136,14 @@ function WorkflowDetail() {
     <div className="flex h-full flex-col">
       <PageHeader
         title={run.workflow_id}
-        subtitle={`${run.workflow_type} · run ${run.run_id}`}
+        subtitle={`${run.workflow_type}${run.run_id ? ` · run ${run.run_id}` : ""}`}
         actions={<StatusPill value={run.status} />}
       />
 
       <section className="grid grid-cols-2 gap-x-6 gap-y-1 border-b border-border-muted px-4 py-2 text-xs">
         <Field label="Subject" value={run.lead_subject ?? "—"} />
         <Field label="From" mono value={run.lead_from ?? "—"} />
+        <Field label="Step" mono value={run.current_step ?? "—"} />
         <Field label="Started" mono value={formatTimestamp(run.started_at)} />
         <Field label="Closed" mono value={formatTimestamp(run.closed_at)} />
         <Field

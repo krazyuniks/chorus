@@ -14,3 +14,17 @@ test("top nav links to inspection routes", async ({ page }) => {
   await page.getByRole("link", { name: "Tool Verdicts" }).click();
   await expect(page.getByRole("heading", { name: "Tool verdicts" })).toBeVisible();
 });
+
+test("workflow detail rehydrates from the read model after a refresh", async ({
+  page,
+}) => {
+  await page.goto("/workflows/lighthouse-2026-04-29-0001");
+  await expect(
+    page.getByRole("heading", { name: "lighthouse-2026-04-29-0001" }),
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "lighthouse-2026-04-29-0001" }),
+  ).toBeVisible();
+});

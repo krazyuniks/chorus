@@ -23,7 +23,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
+    command: "VITE_USE_FIXTURES=true npm run dev",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     stdout: "pipe",

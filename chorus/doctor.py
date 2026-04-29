@@ -140,7 +140,22 @@ WORKSTREAM_B_PATHS = [
     "tests/workflows/fixtures/lighthouse_happy_history.json",
 ]
 
-REQUIRED_PATHS = PHASE_0_PATHS + WORKSTREAM_F_PATHS + WORKSTREAM_A_PATHS + WORKSTREAM_B_PATHS
+WORKSTREAM_E_PATHS = [
+    "chorus/bff/__init__.py",
+    "chorus/bff/app.py",
+    "services/bff/Dockerfile",
+    "services/bff/pyproject.toml",
+    "tests/bff/test_app.py",
+    "frontend/src/api/queries.ts",
+]
+
+REQUIRED_PATHS = (
+    PHASE_0_PATHS
+    + WORKSTREAM_F_PATHS
+    + WORKSTREAM_A_PATHS
+    + WORKSTREAM_B_PATHS
+    + WORKSTREAM_E_PATHS
+)
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +206,7 @@ def check_paths() -> int:
         ("workstream F", WORKSTREAM_F_PATHS),
         ("workstream A", WORKSTREAM_A_PATHS),
         ("workstream B", WORKSTREAM_B_PATHS),
+        ("workstream E", WORKSTREAM_E_PATHS),
     ):
         _section(section)
         for relative in paths:

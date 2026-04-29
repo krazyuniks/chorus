@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 
 const TONE: Record<string, string> = {
+  received: "border-info text-info",
   pending: "border-border text-text-muted",
   running: "border-info text-info",
   waiting: "border-warning text-warning",
@@ -9,6 +10,12 @@ const TONE: Record<string, string> = {
   failed: "border-error text-error",
   cancelled: "border-border text-text-muted",
   allowed: "border-success text-success",
+  allow: "border-success text-success",
+  propose: "border-info text-info",
+  rewrite: "border-warning text-warning",
+  approval_required: "border-warning text-warning",
+  block: "border-error text-error",
+  recorded: "border-border text-text-muted",
   denied: "border-error text-error",
   deferred: "border-warning text-warning",
   passed: "border-success text-success",

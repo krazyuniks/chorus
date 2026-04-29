@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/DataTable";
 import { StatusPill } from "@/components/StatusPill";
 import { Input } from "@/design-system/designs/dense/forms/Input";
-import { decisionTrail } from "@/api/fixtures";
+import { listDecisionTrail } from "@/api/queries";
 import type { DecisionTrailEntry } from "@/api/types";
 import { formatDurationMs, formatTimestamp } from "@/lib/utils";
 
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/decision-trail")({
 function DecisionTrailRoute() {
   const { data = [] } = useQuery({
     queryKey: ["decision-trail"],
-    queryFn: async () => decisionTrail,
+    queryFn: listDecisionTrail,
   });
   const [filter, setFilter] = useState("");
 

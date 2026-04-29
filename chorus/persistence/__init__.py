@@ -15,10 +15,13 @@ if TYPE_CHECKING:
     from chorus.persistence.outbox import OutboxStore, OutboxWorkflowEvent
     from chorus.persistence.projection import (
         AgentRegistryEntry,
+        DecisionTrailEntryReadModel,
         ModelRoutingPolicy,
         ProjectionStore,
         RuntimePolicySnapshot,
+        ToolActionAuditReadModel,
         ToolGrant,
+        WorkflowHistoryEventReadModel,
         WorkflowRunReadModel,
     )
 
@@ -27,12 +30,15 @@ __all__ = [
     "MIGRATIONS_DIR",
     "SEEDS_DIR",
     "AgentRegistryEntry",
+    "DecisionTrailEntryReadModel",
     "ModelRoutingPolicy",
     "OutboxStore",
     "OutboxWorkflowEvent",
     "ProjectionStore",
     "RuntimePolicySnapshot",
+    "ToolActionAuditReadModel",
     "ToolGrant",
+    "WorkflowHistoryEventReadModel",
     "WorkflowRunReadModel",
     "apply_migrations",
 ]
@@ -49,10 +55,13 @@ def __getattr__(name: str) -> Any:
 
     if name in {
         "AgentRegistryEntry",
+        "DecisionTrailEntryReadModel",
         "ModelRoutingPolicy",
         "ProjectionStore",
         "RuntimePolicySnapshot",
+        "ToolActionAuditReadModel",
         "ToolGrant",
+        "WorkflowHistoryEventReadModel",
         "WorkflowRunReadModel",
     }:
         projection = import_module("chorus.persistence.projection")

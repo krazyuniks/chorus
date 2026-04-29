@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/DataTable";
 import { StatusPill } from "@/components/StatusPill";
 import { Input } from "@/design-system/designs/dense/forms/Input";
-import { toolVerdicts } from "@/api/fixtures";
+import { listToolVerdicts } from "@/api/queries";
 import type { ToolVerdictEntry } from "@/api/types";
 import { formatTimestamp } from "@/lib/utils";
 
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/tool-verdicts")({
 function ToolVerdictsRoute() {
   const { data = [] } = useQuery({
     queryKey: ["tool-verdicts"],
-    queryFn: async () => toolVerdicts,
+    queryFn: listToolVerdicts,
   });
   const [filter, setFilter] = useState("");
 
@@ -24,7 +24,13 @@ function ToolVerdictsRoute() {
     if (!filter.trim()) return data;
     const needle = filter.toLowerCase();
     return data.filter((row) =>
-      [row.workflow_id, row.tool_name, row.caller_agent_id, row.verdict, row.mode]
+      [
+        row.workflow_id,
+        row.tool_name,
+        row.caller_agent_id,
+        row.verdict,
+        row.enforced_mode ?? row.mode,
+      ]
         .join(" ")
         .toLowerCase()
         .includes(needle),
@@ -47,7 +53,11 @@ function ToolVerdictsRoute() {
       ),
     },
     { key: "tool_name", header: "Tool", mono: true, cell: (r) => r.tool_name },
-    { key: "mode", header: "Mode", cell: (r) => <StatusPill value={r.mode} /> },
+    {
+      key: "enforced_mode",
+      header: "Mode",
+      cell: (r) => <StatusPill value={r.enforced_mode ?? r.mode ?? "—"} />,
+    },
     { key: "verdict", header: "Verdict", cell: (r) => <StatusPill value={r.verdict} /> },
     {
       key: "caller_agent_id",

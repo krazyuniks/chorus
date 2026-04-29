@@ -9,10 +9,26 @@ import { buildUrl } from "./client";
 
 export interface ProgressEvent {
   id: string;
-  workflow_id: string | null;
+  workflow_id: string;
   event_type: string;
+  sequence: number;
+  step: string | null;
   payload: Record<string, unknown>;
   occurred_at: string;
+  correlation_id: string;
+}
+
+export interface ProgressFilter {
+  workflow_id?: string;
+  correlation_id?: string;
+}
+
+export function progressPath(filter: ProgressFilter = {}): string {
+  const params = new URLSearchParams();
+  if (filter.workflow_id) params.set("workflow_id", filter.workflow_id);
+  if (filter.correlation_id) params.set("correlation_id", filter.correlation_id);
+  const query = params.toString();
+  return query ? `/progress?${query}` : "/progress";
 }
 
 export interface ProgressStream {
@@ -24,6 +40,14 @@ export function subscribeProgress(
   onEvent: (event: ProgressEvent) => void,
   onConnectionChange?: (connected: boolean) => void,
 ): ProgressStream {
+  if (import.meta.env.VITE_USE_FIXTURES === "true") {
+    return {
+      close() {
+        onConnectionChange?.(false);
+      },
+    };
+  }
+
   const source = new EventSource(buildUrl(path), { withCredentials: false });
 
   source.addEventListener("open", () => {

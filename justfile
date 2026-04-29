@@ -90,6 +90,14 @@ worker:
 intake-once:
     uv run python -m chorus.workflows.intake
 
+# Run the Lighthouse BFF (read endpoints + SSE) on the host for focused dev.
+bff:
+    uv run uvicorn chorus.bff.app:app --host 0.0.0.0 --port ${BFF_PORT:-8000} --reload
+
+# Run the frontend Vite dev server.
+frontend-dev:
+    cd frontend && npm run dev
+
 # ----- Contracts -----
 
 # Generate Pydantic models from JSON Schema contracts when schemas exist.
@@ -120,7 +128,7 @@ test-frontend:
 
 # Run E2E tests via Playwright.
 test-e2e:
-    cd frontend && npm run e2e
+    cd frontend && npm run test:e2e
 
 # ----- Eval -----
 

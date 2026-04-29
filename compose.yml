@@ -178,6 +178,41 @@ services:
         fluentd-async: "true"
         tag: chorus.{{.Name}}
 
+  bff:
+    build:
+      context: .
+      dockerfile: services/bff/Dockerfile
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+        SERVICE_VERSION: ${OTEL_SERVICE_VERSION:-dev}
+    container_name: chorus-bff
+    restart: unless-stopped
+    environment:
+      CHORUS_DATABASE_URL: postgresql://${CHORUS_PG_USER:-chorus}:${CHORUS_PG_PASSWORD:-chorus}@postgres:5432/${CHORUS_PG_DB:-chorus}
+      CHORUS_TENANT_ID: tenant_demo
+      FRONTEND_PORT: ${FRONTEND_PORT:-5173}
+      OTEL_SERVICE_NAME: chorus-bff
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      OTEL_PROPAGATORS: tracecontext,baggage
+    ports:
+      - "${BFF_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:${OTEL_FLUENTD_PORT:-24224}
+        fluentd-async: "true"
+        tag: chorus.{{.Name}}
+
   grafana:
     image: ${GRAFANA_IMAGE:-grafana/grafana:latest}
     ports:

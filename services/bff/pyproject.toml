@@ -1,0 +1,16 @@
+[project]
+name = "chorus-bff"
+version = "0.1.0"
+description = "FastAPI backend-for-frontend for Lighthouse projection and evidence views."
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.125.0",
+    "opentelemetry-distro[otlp]>=0.50b0",
+    "pip>=25.0",
+    "psycopg[binary]>=3.2",
+    "pydantic>=2.13.3",
+    "uvicorn[standard]>=0.38.0",
+]
+
+[tool.ruff]
+extend = "../../pyproject.toml"

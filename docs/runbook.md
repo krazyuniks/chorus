@@ -220,6 +220,53 @@ worker containers. Companies House lookup remains environment-gated by
 `CHORUS_COMPANIES_HOUSE_API_KEY`; absence of that key blocks research connector
 execution instead of falling back to a fake result.
 
+## Workstream E BFF + UI operations
+
+The BFF runs as the `chorus-bff` Compose service under the
+`opentelemetry-instrument` entrypoint and exposes:
+
+- `GET /health` — liveness probe used by `just doctor`.
+- `GET /api/workflows` and `GET /api/workflows/{workflow_id}` — refresh-safe
+  `workflow_read_models` projections.
+- `GET /api/workflows/{workflow_id}/events` — append-only history from
+  `workflow_history_events`, ordered by `sequence`.
+- `GET /api/workflows/{workflow_id}/decision-trail` and
+  `GET /api/workflows/{workflow_id}/tool-verdicts` — per-run audit.
+- `GET /api/decision-trail` and `GET /api/tool-verdicts` — recent rows
+  across the tenant for the index views.
+- `GET /api/runtime/registry`, `/api/runtime/grants`, `/api/runtime/routing`
+  — read-only governance state.
+- `GET /api/progress` — Server-Sent Events stream of workflow-history rows.
+  Optional `workflow_id` / `correlation_id` query parameters scope the
+  stream; `?once=true` makes the stream terminate after one batch (used
+  by tests). Frames carry the `event: progress` type and a JSON payload
+  matching `WorkflowHistoryEventReadModel`.
+
+The SSE endpoint polls `ProjectionStore.list_recent_workflow_history`
+every `CHORUS_BFF_SSE_POLL_INTERVAL_SECONDS` (default `1.0`). It is a
+progress channel only — every UI route fetches its projection on mount,
+so a refresh or a reconnect rebuilds the full view from Postgres without
+relying on retained SSE state. To force a full re-fetch in the browser,
+reload the tab; to cut the live stream, navigate away and back.
+
+For focused host development:
+
+```bash
+just bff           # uvicorn chorus.bff.app:app --reload on $BFF_PORT
+just frontend-dev  # Vite dev server proxying /api to the BFF
+```
+
+The frontend uses the `VITE_USE_FIXTURES=true` env to fall back to the
+in-memory fixtures (used by Playwright's e2e config); this short-circuits
+the SSE EventSource so the offline tests do not require a live BFF.
+
+When SSE looks stuck, check three things in order: the BFF container is
+healthy (`scripts/dc logs chorus-bff`), the projection worker is
+consuming Redpanda into `workflow_history_events` (run
+`uv run python -m chorus.persistence.redpanda project-once` and confirm
+the count increments), and the Vite proxy is reaching the BFF
+(`curl -s http://localhost:${BFF_PORT:-8000}/health`).
+
 ## Operational procedures
 
 ### Stuck Lighthouse workflow

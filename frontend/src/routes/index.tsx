@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { DataTable, type DataTableColumn } from "@/components/DataTable";
 import { StatusPill } from "@/components/StatusPill";
-import { workflowRuns } from "@/api/fixtures";
+import { listWorkflows } from "@/api/queries";
+import { subscribeProgress } from "@/api/sse";
 import type { WorkflowRunSummary } from "@/api/types";
 import { formatCorrelationId, formatTimestamp } from "@/lib/utils";
 
@@ -12,10 +14,23 @@ export const Route = createFileRoute("/")({
 });
 
 function WorkflowsList() {
+  const queryClient = useQueryClient();
   const { data = [] } = useQuery({
     queryKey: ["workflows"],
-    queryFn: async () => workflowRuns,
+    queryFn: listWorkflows,
   });
+
+  useEffect(() => {
+    const stream = subscribeProgress("/progress", (event) => {
+      void queryClient.invalidateQueries({ queryKey: ["workflows"] });
+      if (event.workflow_id) {
+        void queryClient.invalidateQueries({
+          queryKey: ["workflow", event.workflow_id],
+        });
+      }
+    });
+    return () => stream.close();
+  }, [queryClient]);
 
   const columns: DataTableColumn<WorkflowRunSummary>[] = [
     {
@@ -62,6 +77,13 @@ function WorkflowsList() {
       mono: true,
       cell: (row) => formatTimestamp(row.closed_at),
       width: "12rem",
+    },
+    {
+      key: "current_step",
+      header: "Step",
+      mono: true,
+      cell: (row) => row.current_step ?? "—",
+      width: "10rem",
     },
     {
       key: "correlation_id",

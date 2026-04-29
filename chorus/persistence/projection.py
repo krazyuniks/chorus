@@ -39,6 +39,88 @@ class WorkflowRunReadModel(BaseModel):
     metadata: dict[str, Any]
 
 
+class WorkflowHistoryEventReadModel(BaseModel):
+    """Append-only workflow history row projected from Redpanda events."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: str
+    history_event_id: UUID
+    workflow_id: str
+    correlation_id: str
+    source_event_id: UUID
+    event_type: str
+    sequence: int
+    step: str | None
+    payload: dict[str, Any]
+    occurred_at: datetime
+    created_at: datetime
+
+
+class DecisionTrailEntryReadModel(BaseModel):
+    """Reviewer-facing Agent Runtime decision trail row."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: str
+    invocation_id: UUID
+    correlation_id: str
+    workflow_id: str
+    agent_id: str
+    agent_role: str
+    agent_version: str
+    lifecycle_state: str
+    prompt_reference: str
+    prompt_hash: str
+    provider: str
+    model: str
+    task_kind: str
+    budget_cap_usd: Decimal
+    input_summary: str
+    output_summary: str
+    justification: str
+    outcome: str
+    tool_call_ids: list[UUID]
+    cost_amount: Decimal
+    cost_currency: str
+    duration_ms: int
+    started_at: datetime
+    completed_at: datetime
+    contract_refs: list[str]
+    raw_record: dict[str, Any]
+    created_at: datetime
+
+
+class ToolActionAuditReadModel(BaseModel):
+    """Reviewer-facing Tool Gateway audit row."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: str
+    audit_event_id: UUID
+    correlation_id: str
+    workflow_id: str
+    invocation_id: UUID | None
+    tool_call_id: UUID | None
+    verdict_id: UUID | None
+    actor_type: str
+    actor_id: str
+    category: str
+    action: str
+    tool_name: str | None
+    requested_mode: str | None
+    enforced_mode: str | None
+    verdict: str
+    idempotency_key: str | None
+    arguments_redacted: dict[str, Any]
+    rewritten_arguments: dict[str, Any] | None
+    reason: str | None
+    connector_invocation_id: UUID | None
+    occurred_at: datetime
+    raw_event: dict[str, Any]
+    created_at: datetime
+
+
 class AgentRegistryEntry(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -51,6 +133,7 @@ class AgentRegistryEntry(BaseModel):
     prompt_reference: str
     prompt_hash: str
     capability_tags: list[str]
+    updated_at: datetime
 
 
 class ModelRoutingPolicy(BaseModel):
@@ -128,6 +211,20 @@ def _lead_summary_for(event: WorkflowEvent) -> str:
         return subject
 
     return ""
+
+
+def _metadata_for(event: WorkflowEvent) -> dict[str, Any]:
+    metadata: dict[str, Any] = {"last_event_type": event.event_type.value}
+    sender = event.payload.get("sender")
+    if isinstance(sender, str):
+        metadata["sender"] = sender
+    message_id = event.payload.get("message_id")
+    if isinstance(message_id, str):
+        metadata["message_id"] = message_id
+    source = event.payload.get("source")
+    if isinstance(source, str):
+        metadata["source"] = source
+    return metadata
 
 
 def _completed_at_for(status: WorkflowStatus, occurred_at: datetime) -> datetime | None:
@@ -233,6 +330,7 @@ class ProjectionStore:
         current_step = _current_step_for(event)
         completed_at = _completed_at_for(status, event.occurred_at)
         lead_summary = _lead_summary_for(event)
+        metadata = _metadata_for(event)
 
         self._conn.execute(
             """
@@ -308,7 +406,7 @@ class ProjectionStore:
                 event.sequence,
                 event.occurred_at if event.event_type == EventType.WORKFLOW_STARTED else None,
                 completed_at,
-                Jsonb({"last_event_type": event.event_type.value}),
+                Jsonb(metadata),
             ),
         )
 
@@ -377,6 +475,261 @@ class ProjectionStore:
         )
         return rows[0] if rows else None
 
+    def list_workflow_history(
+        self,
+        tenant_id: str,
+        workflow_id: str,
+        *,
+        after_sequence: int | None = None,
+        limit: int = 500,
+    ) -> list[WorkflowHistoryEventReadModel]:
+        if after_sequence is not None:
+            return _fetch_models(
+                self._conn,
+                WorkflowHistoryEventReadModel,
+                """
+                SELECT
+                    tenant_id,
+                    history_event_id,
+                    workflow_id,
+                    correlation_id,
+                    source_event_id,
+                    event_type,
+                    sequence,
+                    step,
+                    payload,
+                    occurred_at,
+                    created_at
+                FROM workflow_history_events
+                WHERE tenant_id = %s AND workflow_id = %s AND sequence > %s
+                ORDER BY sequence ASC, occurred_at ASC
+                LIMIT %s
+                """,
+                (tenant_id, workflow_id, after_sequence, limit),
+            )
+
+        return _fetch_models(
+            self._conn,
+            WorkflowHistoryEventReadModel,
+            """
+            SELECT
+                tenant_id,
+                history_event_id,
+                workflow_id,
+                correlation_id,
+                source_event_id,
+                event_type,
+                sequence,
+                step,
+                payload,
+                occurred_at,
+                created_at
+            FROM workflow_history_events
+            WHERE tenant_id = %s AND workflow_id = %s
+            ORDER BY sequence ASC, occurred_at ASC
+            LIMIT %s
+            """,
+            (tenant_id, workflow_id, limit),
+        )
+
+    def list_recent_workflow_history(
+        self,
+        tenant_id: str,
+        *,
+        limit: int = 100,
+    ) -> list[WorkflowHistoryEventReadModel]:
+        return _fetch_models(
+            self._conn,
+            WorkflowHistoryEventReadModel,
+            """
+            SELECT
+                tenant_id,
+                history_event_id,
+                workflow_id,
+                correlation_id,
+                source_event_id,
+                event_type,
+                sequence,
+                step,
+                payload,
+                occurred_at,
+                created_at
+            FROM workflow_history_events
+            WHERE tenant_id = %s
+            ORDER BY occurred_at DESC, sequence DESC
+            LIMIT %s
+            """,
+            (tenant_id, limit),
+        )
+
+    def list_decision_trail(
+        self,
+        tenant_id: str,
+        *,
+        workflow_id: str | None = None,
+        limit: int = 500,
+    ) -> list[DecisionTrailEntryReadModel]:
+        if workflow_id is not None:
+            return _fetch_models(
+                self._conn,
+                DecisionTrailEntryReadModel,
+                """
+                SELECT
+                    tenant_id,
+                    invocation_id,
+                    correlation_id,
+                    workflow_id,
+                    agent_id,
+                    agent_role,
+                    agent_version,
+                    lifecycle_state,
+                    prompt_reference,
+                    prompt_hash,
+                    provider,
+                    model,
+                    task_kind,
+                    budget_cap_usd,
+                    input_summary,
+                    output_summary,
+                    justification,
+                    outcome,
+                    tool_call_ids,
+                    cost_amount,
+                    cost_currency,
+                    duration_ms,
+                    started_at,
+                    completed_at,
+                    contract_refs,
+                    raw_record,
+                    created_at
+                FROM decision_trail_entries
+                WHERE tenant_id = %s AND workflow_id = %s
+                ORDER BY started_at ASC, invocation_id ASC
+                LIMIT %s
+                """,
+                (tenant_id, workflow_id, limit),
+            )
+
+        return _fetch_models(
+            self._conn,
+            DecisionTrailEntryReadModel,
+            """
+            SELECT
+                tenant_id,
+                invocation_id,
+                correlation_id,
+                workflow_id,
+                agent_id,
+                agent_role,
+                agent_version,
+                lifecycle_state,
+                prompt_reference,
+                prompt_hash,
+                provider,
+                model,
+                task_kind,
+                budget_cap_usd,
+                input_summary,
+                output_summary,
+                justification,
+                outcome,
+                tool_call_ids,
+                cost_amount,
+                cost_currency,
+                duration_ms,
+                started_at,
+                completed_at,
+                contract_refs,
+                raw_record,
+                created_at
+            FROM decision_trail_entries
+            WHERE tenant_id = %s
+            ORDER BY started_at ASC, invocation_id ASC
+            LIMIT %s
+            """,
+            (tenant_id, limit),
+        )
+
+    def list_tool_action_audit(
+        self,
+        tenant_id: str,
+        *,
+        workflow_id: str | None = None,
+        limit: int = 500,
+    ) -> list[ToolActionAuditReadModel]:
+        if workflow_id is not None:
+            return _fetch_models(
+                self._conn,
+                ToolActionAuditReadModel,
+                """
+                SELECT
+                    tenant_id,
+                    audit_event_id,
+                    correlation_id,
+                    workflow_id,
+                    invocation_id,
+                    tool_call_id,
+                    verdict_id,
+                    actor_type,
+                    actor_id,
+                    category,
+                    action,
+                    tool_name,
+                    requested_mode,
+                    enforced_mode,
+                    verdict,
+                    idempotency_key,
+                    arguments_redacted,
+                    rewritten_arguments,
+                    reason,
+                    connector_invocation_id,
+                    occurred_at,
+                    raw_event,
+                    created_at
+                FROM tool_action_audit
+                WHERE tenant_id = %s AND workflow_id = %s
+                ORDER BY occurred_at ASC, audit_event_id ASC
+                LIMIT %s
+                """,
+                (tenant_id, workflow_id, limit),
+            )
+
+        return _fetch_models(
+            self._conn,
+            ToolActionAuditReadModel,
+            """
+            SELECT
+                tenant_id,
+                audit_event_id,
+                correlation_id,
+                workflow_id,
+                invocation_id,
+                tool_call_id,
+                verdict_id,
+                actor_type,
+                actor_id,
+                category,
+                action,
+                tool_name,
+                requested_mode,
+                enforced_mode,
+                verdict,
+                idempotency_key,
+                arguments_redacted,
+                rewritten_arguments,
+                reason,
+                connector_invocation_id,
+                occurred_at,
+                raw_event,
+                created_at
+            FROM tool_action_audit
+            WHERE tenant_id = %s
+            ORDER BY occurred_at ASC, audit_event_id ASC
+            LIMIT %s
+            """,
+            (tenant_id, limit),
+        )
+
     def runtime_policy_snapshot(self, tenant_id: str) -> RuntimePolicySnapshot:
         agents = _fetch_models(
             self._conn,
@@ -391,7 +744,8 @@ class ProjectionStore:
                 owner,
                 prompt_reference,
                 prompt_hash,
-                capability_tags
+                capability_tags,
+                updated_at
             FROM agent_registry
             WHERE tenant_id = %s
             ORDER BY role, agent_id, version

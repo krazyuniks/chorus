@@ -16,12 +16,12 @@ Phase 1 builds one evidence-grade vertical slice for Lighthouse, including the h
 
 ## Phases and Milestones
 
-| Phase | Milestone | Exit criteria |
-|---|---|---|
-| 0. Foundation | Docs, ADRs, architecture/governance artefacts, local dev contract, contracts, and service layout exist. | README explains run/review path; architecture, guardrails, evidence map, and ADRs are linked. |
-| 1A. Lighthouse happy-path slice | Send fixture lead email through Mailpit, run Temporal workflow, invoke governed agents, mediate at least one tool action, project state, stream progress, and show audit trail. | A reviewer can run one command, send the fixture lead to Mailpit SMTP, see workflow state advance, inspect Temporal/Redpanda/Grafana/audit by correlation ID, and run the happy-path eval. |
-| 1B. Governance and failure evidence | Add blocked write, low-confidence research, validator rejection, connector failure, retry/exhaustion, and escalation paths. | Failure fixtures produce expected workflow branches, audit verdicts, DLQ or escalation records, and passing trace/eval checks. |
-| 1C. Review packaging | Tighten README, screenshots or screencast notes, demo script, architecture links, governance evidence, and project-facing summary. | Asynchronous reviewers can answer the evidence-map questions in under 15 minutes; guided demo fits 3 minutes without opening an editor. |
+| Phase | Milestone | Status | Exit criteria |
+|---|---|---|---|
+| 0. Foundation | Docs, ADRs, architecture/governance artefacts, local dev contract, contracts, and service layout exist. | done | README explains run/review path; architecture, guardrails, evidence map, and ADRs are linked. |
+| 1A. Lighthouse happy-path slice | Send fixture lead email through Mailpit, run Temporal workflow, invoke governed agents, mediate at least one tool action, project state, stream progress, and show audit trail. | done | A reviewer can run one command, send the fixture lead to Mailpit SMTP, see workflow state advance through the BFF/UI, inspect Temporal/Redpanda/Grafana/audit by correlation ID, and run the happy-path eval. |
+| 1B. Governance and failure evidence | Add blocked write, low-confidence research, validator rejection, connector failure, retry/exhaustion, and escalation paths. | open | Failure fixtures produce expected workflow branches, audit verdicts, DLQ or escalation records, and passing trace/eval checks. |
+| 1C. Review packaging | Tighten README, screenshots or screencast notes, demo script, architecture links, governance evidence, and project-facing summary. | open | Asynchronous reviewers can answer the evidence-map questions in under 15 minutes; guided demo fits 3 minutes without opening an editor. |
 
 ## Definition of Delivered
 
@@ -209,11 +209,11 @@ could not run is recorded in the handoff.
 
 | ID | Required item | Evidence artefact | Gate | Status | Notes |
 |---|---|---|---|---|---|
-| E-01 | BFF read endpoints over workflow projections | `services/bff/`; BFF tests | BFF tests | open | |
-| E-02 | SSE progress stream backed by projections/events | `services/bff/`; UI tests | BFF/UI tests | open | SSE is not source of truth. |
-| E-03 | Workflow run list/detail and timeline | `frontend/` | `just test-frontend`; E2E | open | |
-| E-04 | Decision trail, tool verdict, runtime registry, grants, and routing inspection views | `frontend/`; BFF endpoints | `just test-frontend`; E2E | open | Read-only in Phase 1. |
-| E-05 | UI survives refresh/reconnect from read model | frontend/BFF tests | E2E | open | |
+| E-01 | BFF read endpoints over workflow projections | `chorus/bff/app.py`; `services/bff/`; `tests/bff/test_app.py`; `tests/bff/test_app_unit.py` | `just test`; `tests/bff` | done | Endpoints expose `workflow_read_models`, `workflow_history_events`, `decision_trail_entries`, `tool_action_audit`, and the runtime policy snapshot under `/api/*` against a real Postgres connection. |
+| E-02 | SSE progress stream backed by projections/events | `chorus/bff/app.py` `_progress_events`; `tests/bff/test_app.py::test_bff_progress_sse_streams_projection_events_once` | `just test`; live-Postgres SSE smoke | done | `/api/progress` polls `list_recent_workflow_history` and emits `event: progress` SSE frames; `?workflow_id=` / `?correlation_id=` filters scope to a single run; `?once=true` makes the stream terminate for tests. The read model remains the source of truth. |
+| E-03 | Workflow run list/detail and timeline | `frontend/src/routes/index.tsx`; `frontend/src/routes/workflows.$workflowId.tsx`; `frontend/src/api/queries.ts`; `frontend/src/api/sse.ts`; `frontend/src/api/queries.test.ts` | `just test-frontend`; `just test-e2e` | done | Run list and detail queries route through `/api/*`; SSE events invalidate TanStack Query keys for live progress; refresh re-fetches the projection. |
+| E-04 | Decision trail, tool verdict, runtime registry, grants, and routing inspection views | `frontend/src/routes/decision-trail.tsx`; `frontend/src/routes/tool-verdicts.tsx`; `frontend/src/routes/registry.tsx`; `frontend/src/routes/grants.tsx`; `frontend/src/routes/routing.tsx` | `just test-frontend` | done | All five inspection views are read-only TanStack tables backed by `/api/decision-trail`, `/api/tool-verdicts`, and `/api/runtime/{registry,grants,routing}`. |
+| E-05 | UI survives refresh/reconnect from read model | `frontend/src/routes/workflows.$workflowId.tsx`; `frontend/tests/e2e/smoke.spec.ts::"workflow detail rehydrates from the read model after a refresh"`; `frontend/src/api/queries.test.ts` | `just test-e2e`; `just test-frontend` | done | Every route fetches projections on mount, so `page.reload()` rebuilds the view; SSE merely invalidates query caches. |
 
 ### Workstream F — Observability and Ops
 
