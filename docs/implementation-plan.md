@@ -126,12 +126,96 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
 
 ## Phase 1B Governance Failure Work Breakdown
 
-- Add low-confidence research branch and deeper-research activity.
-- Add validator rejection loop with structured reason.
-- Add connector failure fixture and compensation or escalation path.
-- Add forbidden write fixture with block or proposal downgrade.
-- Add retry exhaustion and DLQ/escalation evidence.
-- Extend trace/eval fixtures to assert all governance paths.
+Each fixture is a thin vertical slice that exercises one failure mode end-to-end:
+a workflow branch, the agent or gateway decision that triggers it, the audit
+row that proves authority was enforced, a replay fixture that demonstrates
+deterministic re-execution, and an eval fixture that asserts the path/outcome.
+Cross-boundary contracts are frozen after Phase 1A, so fixtures do not require
+schema changes — they extend behaviour and seeded policy/audit.
+
+| Fixture | Intended behaviour | Triggering signal |
+|---|---|---|
+| G-01 Low-confidence research → deeper-research loop | Researcher returns `recommended_next_step="deeper_research"` (or sub-threshold confidence) and the workflow re-runs the researcher with an enriched prompt before falling through to qualification. Bounded by a max-loop counter to escalate after N attempts. | Agent contract `recommended_next_step` (already present); confidence threshold. |
+| G-02 Validator rejection → redraft loop | Validator returns `recommended_next_step="redraft"` with a structured reason and the workflow re-enters the drafter with the reason payload. Bounded loop that escalates on exhaustion. | Agent contract `recommended_next_step="redraft"` (already present). |
+| G-03 Forbidden write → gateway block | A second seeded tenant or agent has a `block`-mode tool grant for `email.send_response`. Workflow asks for `write`, gateway downgrades to `propose` (already implemented) or blocks; audit row carries the verdict and reason. | Tool grant seed addition; gateway `block` verdict already implemented. |
+| G-04 Connector failure → compensation/escalation | Mailpit (or local CRM) connector raises a transient error class, workflow retries within Temporal policy, then enters a compensation activity that records the failed action and escalates. | Connector exception class + activity wrapper; existing retry policy. |
+| G-05 Retry exhaustion → DLQ/escalation evidence | Persistent activity failure exhausts the workflow retry policy; workflow catches the exception, marks an outbox row as `failed`, writes a DLQ-shaped audit row, and escalates. | Temporal activity exhaustion; new persistence DLQ marker. |
+| G-06 Eval and replay coverage | Per-fixture eval assertion file under `chorus/eval/fixtures/` and per-fixture replay history under `tests/workflows/fixtures/`. | Lands incrementally with each of G-01..G-05. |
+
+### Phase 1B Parallelisation Map
+
+The merge-conflict pinch is `chorus/workflows/lighthouse.py`. Each fixture
+edits one branch zone in that file; concurrent sessions are safe when their
+zones do not overlap. The agent runtime and tool gateway modules are the
+secondary collision points.
+
+| Fixture | `lighthouse.py` zone | Other primary file | Collides with |
+|---|---|---|---|
+| G-01 | research/qualification (lines 92–134) | `chorus/agent_runtime/runtime.py` (deeper-research prompt path) | G-02 only on shared loop-counter helper |
+| G-02 | validation (lines 169–198) + drafter re-entry | `chorus/agent_runtime/runtime.py` (validator reason payload) | G-01 only on shared loop-counter helper |
+| G-03 | gateway-verdict branch (lines 200–233; reads existing `block` path) | `infrastructure/postgres/seeds/` (new grant), `chorus/tool_gateway/gateway.py` (assertion only) | G-04 on `chorus/tool_gateway/gateway.py` |
+| G-04 | gateway-verdict branch + new compensation activity | `chorus/tool_gateway/gateway.py` (connector error class), `chorus/workflows/activities.py` (compensation activity) | G-03 on gateway error path; G-05 on `activities.py` |
+| G-05 | module-level retry policy + try/except wrapping every activity | `chorus/workflows/activities.py` (DLQ marker), `chorus/persistence/outbox.py` (DLQ shape) | Everything — structural |
+| G-06 | none (additive files) | `chorus/eval/fixtures/<name>.json`, `tests/workflows/fixtures/<name>_history.json` | Per-fixture, no cross-collision |
+
+Recommended sequencing once the in-flight 1B fixture lands cleanly:
+
+1. **Wave A (parallel, 2–3 sessions).** Pick fixtures whose zones do not
+   overlap with the in-flight one. If G-01 is in-flight, run **G-02** and
+   **G-03** concurrently — `validation`, `gateway-verdict-read`, and
+   `research-qualification` are distant zones in `lighthouse.py`.
+2. **Wave B (after Wave A merges).** Run **G-04** alone or with G-06 prep
+   work. G-04 touches the gateway-verdict branch and `activities.py`; let
+   the wave-A fixtures settle so the gateway branch has one author.
+3. **Wave C (serial, last).** Run **G-05**. It rewraps every activity call
+   site and changes the retry policy module-globally, so it only needs to
+   land once and merging it earlier forces every other fixture to rebase.
+4. **Continuous (G-06).** Each fixture session lands its own eval/replay
+   artefacts in step 3 of its branch — they are file-disjoint by design.
+
+### Phase 1B → 1C overlap
+
+Phase 1C work is unblocked once the demo path is *stable*, not once every
+1B fixture has landed. The Phase 1A happy path is already demo-stable, so
+Phase 1C streams that depend only on the happy path can start the moment
+the first 1B fixture validates without breaking the happy-path replay
+test. Concretely:
+
+- **C-01 (Phase 1C).** Final pass on `docs/evidence-map.md` to cross-link
+  every Phase 1A row to landed evidence. Unblocked now; can start in
+  parallel with Wave A.
+- **C-02 (Phase 1C).** README narrative tighten + first-time-reviewer
+  checklist. Unblocked now.
+- **C-03 (Phase 1C).** `docs/demo-script.md` walkthrough of the happy
+  path with screenshots/screencast notes (Mailpit → Temporal → BFF →
+  Grafana → audit by correlation ID). Unblocked now; defer screenshots
+  until Wave A merges so the UI is stable.
+- **C-04 (Phase 1C).** Governance-evidence narrative — block, retry,
+  validator-rejection, deeper-research stories. Blocked on G-01..G-05;
+  starts after Wave B.
+- **C-05 (Phase 1C).** Project-facing summary in README and overview.
+  Unblocked now.
+
+C-01/C-02/C-03/C-05 are editorial-voice work and should land through one
+session to keep framing consistent. Run them sequentially in a single
+1C session running alongside the parallel 1B sessions.
+
+Worktree convention for parallel 1B sessions:
+`~/Work/chorus-worktrees/phase-1b-<fixture>/` with branch
+`phase-1b/<fixture>` (e.g. `phase-1b/g-02-validator-redraft`). Each
+session merges into `main` after `just doctor`, `just test`,
+`just test-replay`, and the new eval fixture pass.
+
+### Phase 1B Completion Ledger
+
+| ID | Required item | Evidence artefact | Gate | Status | Notes |
+|---|---|---|---|---|---|
+| G-01 | Low-confidence research → deeper-research loop with bounded escalation | `chorus/workflows/lighthouse.py`; `chorus/agent_runtime/runtime.py`; `tests/workflows/fixtures/lighthouse_low_confidence_history.json`; `chorus/eval/fixtures/lighthouse_low_confidence.json` | `just test-replay`; `just eval` | open | Agent contract already supports `recommended_next_step="deeper_research"`. |
+| G-02 | Validator rejection → redraft loop with structured reason | `chorus/workflows/lighthouse.py`; `chorus/agent_runtime/runtime.py`; `tests/workflows/fixtures/lighthouse_validator_redraft_history.json`; `chorus/eval/fixtures/lighthouse_validator_redraft.json` | `just test-replay`; `just eval` | open | Agent contract already supports `recommended_next_step="redraft"`. |
+| G-03 | Forbidden write fixture (gateway block / write→propose downgrade) | `infrastructure/postgres/seeds/`; `chorus/tool_gateway/gateway.py` (assertion); `tests/workflows/fixtures/lighthouse_forbidden_write_history.json`; `chorus/eval/fixtures/lighthouse_forbidden_write.json` | `just eval`; `just test-persistence` | open | Reuses existing block/downgrade code; primarily a seed + assertion fixture. |
+| G-04 | Connector failure → compensation/escalation | `chorus/connectors/local.py`; `chorus/workflows/activities.py` (compensation); `chorus/workflows/lighthouse.py`; eval/replay fixtures | `just test-replay`; `just eval` | open | Add a transient-failure injection toggle on the connector for fixture replay. |
+| G-05 | Retry exhaustion → DLQ/escalation evidence | `chorus/workflows/lighthouse.py`; `chorus/workflows/activities.py`; `chorus/persistence/outbox.py` (DLQ marker); eval/replay fixtures | `just test-replay`; `just eval`; `just test-persistence` | open | Structural — last in sequence to avoid forcing every other fixture to rebase. |
+| G-06 | Trace/eval fixtures assert all five governance paths | `chorus/eval/fixtures/`; `tests/workflows/fixtures/` | `just eval`; `just test-replay` | open | Lands incrementally with G-01..G-05. |
 
 ## Parallel Workstreams
 
@@ -148,7 +232,7 @@ Phase 1A is parallelisable across six workstreams once contracts are stable. Eac
 | E — BFF + UI | Lead intake, SSE progress, timeline view, decision-trail view, registry/grants/routing views. | Read-model endpoints; SSE topic. | Contracts (Phase 0); A's read model. |
 | F — Observability + ops | OpenTelemetry, Grafana dashboards, doctor command, runbook, dev-loop scaffolding (env handling, scripts, pre-commit, services template, CI). | Cross-cutting; integrates after each workstream lands. | Workstreams A–E producing trace data. |
 
-Workstreams A–C run on the longest critical path (storage + workflow + agent runtime). D, E, F start in parallel as soon as their consumed contracts are stable. Phase 1B governance fixtures (Workstream G) attach to A–E once the happy-path runs end-to-end.
+Workstreams A–C run on the longest critical path (storage + workflow + agent runtime). D, E, F start in parallel as soon as their consumed contracts are stable. Phase 1B governance fixtures attach to A–E once the happy-path runs end-to-end; their parallelisation map and completion ledger live in §"Phase 1B Governance Failure Work Breakdown".
 
 ## Phase 1A Completion Ledger
 
