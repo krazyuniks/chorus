@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
+from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
 
@@ -54,7 +55,11 @@ def migrated_database_url() -> Iterator[str]:
             admin.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(dbname)))
 
 
-def _request(task_kind: str = "response_draft", role: str = "drafter") -> AgentInvocationRequest:
+def _request(
+    task_kind: str = "response_draft",
+    role: str = "drafter",
+    input_payload: dict[str, Any] | None = None,
+) -> AgentInvocationRequest:
     return AgentInvocationRequest(
         tenant_id="tenant_demo",
         correlation_id=f"cor_agent_runtime_{uuid4().hex}",
@@ -62,7 +67,7 @@ def _request(task_kind: str = "response_draft", role: str = "drafter") -> AgentI
         lead_id=str(uuid4()),
         agent_role=role,
         task_kind=task_kind,
-        input={"lead_subject": "Need help choosing a CRM automation partner"},
+        input=input_payload or {"lead_subject": "Need help choosing a CRM automation partner"},
         expected_output_contract="contracts/agents/lighthouse_agent_io.schema.json",
     )
 
@@ -159,6 +164,46 @@ def test_runtime_validates_contracts_and_persists_decision_trail(
             },
         }
     )
+
+
+def test_runtime_low_confidence_fixture_requests_deeper_research_then_recovers(
+    migrated_database_url: str,
+) -> None:
+    first_request = _request(
+        task_kind="company_research",
+        role="researcher",
+        input_payload={
+            "lead_subject": "Low-confidence research partner enquiry",
+            "lead_body": "low-confidence research fixture",
+            "sender": "alex.morgan@example.test",
+            "research_attempt": 1,
+        },
+    )
+    second_request = _request(
+        task_kind="company_research",
+        role="researcher",
+        input_payload={
+            "lead_subject": "Low-confidence research partner enquiry",
+            "lead_body": "low-confidence research fixture",
+            "sender": "alex.morgan@example.test",
+            "research_attempt": 2,
+            "deeper_research": True,
+            "previous_research_summary": "Initial company research found ambiguous context.",
+            "previous_research_confidence": 0.42,
+            "previous_recommended_next_step": "deeper_research",
+        },
+    )
+
+    with psycopg.connect(migrated_database_url) as conn:
+        runtime = AgentRuntime(AgentRuntimeStore(conn), LocalLighthouseModelBoundary())
+        first_response = runtime.invoke(first_request)
+        second_response = runtime.invoke(second_request)
+
+    assert first_response.recommended_next_step == "deeper_research"
+    assert first_response.confidence == 0.42
+    assert second_response.recommended_next_step == "continue"
+    assert second_response.confidence == 0.86
+    assert second_response.structured_data["deeper_research_completed"] is True
 
 
 def test_activity_integration_invokes_runtime_boundary(

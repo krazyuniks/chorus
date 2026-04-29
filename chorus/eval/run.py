@@ -83,8 +83,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--fixture",
         type=Path,
-        default=FIXTURE_DIR / "lighthouse_happy_path.json",
-        help="Eval fixture JSON to execute.",
+        action="append",
+        help="Eval fixture JSON to execute. Defaults to every fixture in chorus/eval/fixtures.",
     )
     parser.add_argument(
         "--correlation-id",
@@ -109,36 +109,41 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    fixture = _load_fixture(args.fixture)
-    checks: list[EvalCheck] = []
+    fixture_paths = args.fixture or sorted(FIXTURE_DIR.glob("*.json"))
+    failed = False
 
-    try:
-        offline = _build_offline_evidence(fixture)
-        checks.extend(_assert_offline_evidence(fixture, offline))
-    except Exception as exc:
-        checks.append(EvalCheck("offline fixture", "fail", str(exc)))
+    for index, fixture_path in enumerate(fixture_paths):
+        fixture = _load_fixture(fixture_path)
+        checks: list[EvalCheck] = []
 
-    checks.extend(
-        _run_live_checks(
-            fixture=fixture,
-            database_url=args.database_url,
-            workflow_id=args.workflow_id,
-            correlation_id=args.correlation_id,
-            require_live=args.require_live,
+        try:
+            offline = _build_offline_evidence(fixture)
+            checks.extend(_assert_offline_evidence(fixture, offline))
+        except Exception as exc:
+            checks.append(EvalCheck("offline fixture", "fail", str(exc)))
+
+        checks.extend(
+            _run_live_checks(
+                fixture=fixture,
+                database_url=args.database_url,
+                workflow_id=args.workflow_id,
+                correlation_id=args.correlation_id,
+                require_live=args.require_live,
+            )
         )
-    )
 
-    _print_report(fixture, checks)
-    return 1 if any(check.status == "fail" for check in checks) else 0
+        if index > 0:
+            print()
+        _print_report(fixture, checks)
+        failed = failed or any(check.status == "fail" for check in checks)
+
+    return 1 if failed else 0
 
 
 def _load_fixture(path: Path) -> EvalFixture:
     fixture_path = path if path.is_absolute() else ROOT / path
     data = json.loads(fixture_path.read_text(encoding="utf-8"))
-    fixture = EvalFixture.model_validate(data)
-    if fixture.phase.value != "1A":
-        raise EvalError(f"Only Phase 1A fixtures are executable in this harness: {path}")
-    return fixture
+    return EvalFixture.model_validate(data)
 
 
 def _build_offline_evidence(fixture: EvalFixture) -> OfflineEvidence:
@@ -164,7 +169,7 @@ def _build_offline_evidence(fixture: EvalFixture) -> OfflineEvidence:
             task_kind=task_kind,
             index=index,
         )
-        for index, (role, agent_id, task_kind) in enumerate(HAPPY_PATH_ROLES, start=1)
+        for index, (role, agent_id, task_kind) in enumerate(_fixture_roles(fixture), start=1)
     ]
     tool_call = _tool_call(
         fixture=fixture,
@@ -252,11 +257,83 @@ def _workflow_events(
         },
     )
     append("workflow.started", "intake", {})
+    step_counts: dict[str, int] = {}
     for step in fixture.expected.workflow_path:
+        step_counts[step] = step_counts.get(step, 0) + 1
         append("workflow.step.started", step, {})
-        append("workflow.step.completed", step, {"step_outcome": "completed"})
+        append(
+            "workflow.step.completed",
+            step,
+            _completed_step_payload(fixture, step, step_counts[step]),
+        )
     append("workflow.completed", "complete", {"outcome": "completed"})
     return events
+
+
+def _fixture_roles(fixture: EvalFixture) -> tuple[tuple[str, str, str], ...]:
+    if _is_low_confidence_fixture(fixture):
+        return (
+            ("researcher", "lighthouse.researcher", "company_research"),
+            ("researcher", "lighthouse.researcher", "company_research"),
+            ("qualifier", "lighthouse.qualifier", "lead_qualification"),
+            ("drafter", "lighthouse.drafter", "response_draft"),
+            ("validator", "lighthouse.validator", "response_validation"),
+        )
+    return HAPPY_PATH_ROLES
+
+
+def _completed_step_payload(fixture: EvalFixture, step: str, step_count: int) -> dict[str, Any]:
+    if _is_low_confidence_fixture(fixture) and step == "research_qualification" and step_count == 1:
+        return {
+            "step_outcome": "deeper_research_requested",
+            "research_attempt": 1,
+            "confidence": 0.42,
+            "recommended_next_step": "deeper_research",
+            "deeper_research_requested": True,
+        }
+    if _is_low_confidence_fixture(fixture) and step == "research_qualification" and step_count == 2:
+        return {
+            "step_outcome": "completed",
+            "research_attempt": 2,
+            "confidence": 0.86,
+            "deeper_research_completed": True,
+        }
+    return {"step_outcome": "completed"}
+
+
+def _decision_input_summary(
+    fixture: EvalFixture,
+    role: str,
+    task_kind: str,
+    index: int,
+) -> str:
+    if _is_low_confidence_fixture(fixture) and role == "researcher":
+        attempt = index
+        return f"{task_kind} input from fixture lead with research_attempt={attempt}"
+    return f"{task_kind} input from fixture lead"
+
+
+def _decision_output_summary(
+    fixture: EvalFixture,
+    role: str,
+    task_kind: str,
+    index: int,
+) -> str:
+    if _is_low_confidence_fixture(fixture) and role == "researcher" and index == 1:
+        return "company_research requested deeper research after low-confidence evidence"
+    if _is_low_confidence_fixture(fixture) and role == "researcher" and index == 2:
+        return "company_research completed after deeper research"
+    return f"{task_kind} completed for happy path"
+
+
+def _decision_justification(fixture: EvalFixture) -> str:
+    if fixture.phase.value == "1B":
+        return "Deterministic Phase 1B governance fixture evidence."
+    return "Deterministic Phase 1A fixture evidence."
+
+
+def _is_low_confidence_fixture(fixture: EvalFixture) -> bool:
+    return fixture.fixture_id == "lighthouse-low-confidence-research"
 
 
 def _decision_record(
@@ -293,9 +370,9 @@ def _decision_record(
                 "budget_cap_usd": 0.01,
                 "parameters": {"temperature": 0},
             },
-            "input_summary": f"{task_kind} input from fixture lead",
-            "output_summary": f"{task_kind} completed for happy path",
-            "justification": "Deterministic Phase 1A fixture evidence.",
+            "input_summary": _decision_input_summary(fixture, role, task_kind, index),
+            "output_summary": _decision_output_summary(fixture, role, task_kind, index),
+            "justification": _decision_justification(fixture),
             "outcome": "succeeded",
             "tool_call_ids": [],
             "cost": {"amount": 0.0, "currency": "USD"},
@@ -428,6 +505,8 @@ def _assert_offline_evidence(
             [evidence.audit_event.correlation_id],
         ),
     ]
+    if _is_low_confidence_fixture(fixture):
+        checks.append(_check_deeper_research_branch(evidence.decisions))
     if any(check.status == "fail" for check in checks):
         details = "; ".join(check.detail for check in checks if check.status == "fail")
         raise EvalError(details)
@@ -484,6 +563,8 @@ def _run_live_checks(
             [audit.correlation_id for audit in evidence.tool_audits],
         ),
     ]
+    if _is_low_confidence_fixture(fixture):
+        checks.append(_check_deeper_research_branch(evidence.decisions))
     return checks
 
 
@@ -741,6 +822,40 @@ def _check_decision_trail(
         return EvalCheck("decision trail", "fail", f"missing fields: {missing_fields}")
 
     return EvalCheck("decision trail", "pass", "agent records are complete and contract-valid")
+
+
+def _check_deeper_research_branch(decisions: list[AgentInvocationRecord]) -> EvalCheck:
+    researcher_decisions = [
+        record for record in decisions if record.agent.role.value == "researcher"
+    ]
+    if len(researcher_decisions) < 2:
+        return EvalCheck(
+            "deeper research branch",
+            "fail",
+            f"expected at least two researcher invocations, observed {len(researcher_decisions)}",
+        )
+
+    requested = any(
+        "deeper research" in record.output_summary.lower()
+        or "deeper_research" in record.output_summary.lower()
+        for record in researcher_decisions
+    )
+    enriched_attempt = any(
+        "research_attempt=2" in record.input_summary
+        or '"research_attempt": 2' in record.input_summary
+        for record in researcher_decisions
+    )
+    if requested and enriched_attempt:
+        return EvalCheck(
+            "deeper research branch",
+            "pass",
+            "low-confidence research request and enriched second attempt observed",
+        )
+    return EvalCheck(
+        "deeper research branch",
+        "fail",
+        "missing deeper-research request or enriched second research attempt",
+    )
 
 
 def _decision_has_field(record: AgentInvocationRecord, field: str) -> bool:

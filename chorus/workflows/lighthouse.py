@@ -40,6 +40,8 @@ STEP_ESCALATE = "escalate"
 
 _ACTIVITY_TIMEOUT = timedelta(seconds=30)
 _ACTIVITY_RETRY = RetryPolicy(maximum_attempts=3)
+_MAX_RESEARCH_ATTEMPTS = 2
+_CONFIDENCE_THRESHOLD = 0.5
 
 
 @workflow.defn
@@ -89,17 +91,69 @@ class LighthouseWorkflow:
             {"lead_summary": lead.subject, "body_chars": len(lead.body_text)},
         )
 
-        research = await self._agent(
-            lead,
-            workflow_id,
-            "researcher",
-            "company_research",
-            {
-                "lead_subject": lead.subject,
-                "lead_body": lead.body_text,
-                "sender": lead.sender.email,
-            },
-        )
+        research: AgentInvocationResponse | None = None
+        research_attempt = 1
+        previous_research: AgentInvocationResponse | None = None
+        while research_attempt <= _MAX_RESEARCH_ATTEMPTS:
+            research = await self._agent(
+                lead,
+                workflow_id,
+                "researcher",
+                "company_research",
+                _research_input(
+                    lead=lead,
+                    attempt=research_attempt,
+                    previous_research=previous_research,
+                ),
+            )
+            if not _needs_deeper_research(research):
+                break
+
+            should_retry = research_attempt < _MAX_RESEARCH_ATTEMPTS
+            sequence = await self._step(
+                lead,
+                workflow_id,
+                sequence,
+                path,
+                STEP_RESEARCH_QUALIFICATION,
+                {
+                    "lead_summary": lead.subject,
+                    "research_attempt": research_attempt,
+                    "research_summary": research.summary,
+                    "confidence": research.confidence,
+                    "recommended_next_step": research.recommended_next_step,
+                    "deeper_research_requested": should_retry,
+                    "deeper_research_exhausted": not should_retry,
+                },
+            )
+            if not should_retry:
+                return await self._escalate(
+                    lead,
+                    workflow_id,
+                    sequence,
+                    path,
+                    "research confidence remained below threshold after deeper research",
+                )
+            previous_research = research
+            research_attempt += 1
+
+        if research is None:
+            return await self._escalate(
+                lead,
+                workflow_id,
+                sequence,
+                path,
+                "research did not produce a result",
+            )
+        if research.recommended_next_step == "escalate":
+            return await self._escalate(
+                lead,
+                workflow_id,
+                sequence,
+                path,
+                "researcher requested escalation",
+            )
+
         qualification = await self._agent(
             lead,
             workflow_id,
@@ -122,15 +176,17 @@ class LighthouseWorkflow:
                 "research_summary": research.summary,
                 "qualification_summary": qualification.summary,
                 "confidence": min(research.confidence, qualification.confidence),
+                "research_attempt": research_attempt,
+                "deeper_research_completed": research_attempt > 1,
             },
         )
-        if _should_escalate(research) or _should_escalate(qualification):
+        if _should_escalate(qualification):
             return await self._escalate(
                 lead,
                 workflow_id,
                 sequence,
                 path,
-                "research or qualification requested escalation",
+                "qualification requested escalation",
             )
 
         draft = await self._agent(
@@ -395,4 +451,37 @@ class LighthouseWorkflow:
 
 
 def _should_escalate(response: AgentInvocationResponse) -> bool:
-    return response.recommended_next_step == "escalate" or response.confidence < 0.5
+    return (
+        response.recommended_next_step == "escalate" or response.confidence < _CONFIDENCE_THRESHOLD
+    )
+
+
+def _needs_deeper_research(response: AgentInvocationResponse) -> bool:
+    return (
+        response.recommended_next_step == "deeper_research"
+        or response.confidence < _CONFIDENCE_THRESHOLD
+    )
+
+
+def _research_input(
+    *,
+    lead: LighthouseWorkflowInput,
+    attempt: int,
+    previous_research: AgentInvocationResponse | None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "lead_subject": lead.subject,
+        "lead_body": lead.body_text,
+        "sender": lead.sender.email,
+        "research_attempt": attempt,
+    }
+    if previous_research is not None:
+        payload.update(
+            {
+                "deeper_research": True,
+                "previous_research_summary": previous_research.summary,
+                "previous_research_confidence": previous_research.confidence,
+                "previous_recommended_next_step": previous_research.recommended_next_step,
+            }
+        )
+    return payload

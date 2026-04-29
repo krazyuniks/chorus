@@ -285,10 +285,10 @@ class LocalLighthouseModelBoundary:
                 f"Provider {provider!r} is not available in the local Phase 1A runtime"
             )
 
-        summary, next_step, structured_data = _lighthouse_result_for(request)
+        summary, next_step, structured_data, confidence = _lighthouse_result_for(request)
         return ModelBoundaryResult(
             summary=summary,
-            confidence=0.88,
+            confidence=confidence,
             structured_data={
                 **structured_data,
                 "model_boundary": {
@@ -477,19 +477,46 @@ def _summarise_mapping(payload: dict[str, Any]) -> str:
 
 def _lighthouse_result_for(
     request: AgentInvocationRequest,
-) -> tuple[str, str, dict[str, Any]]:
+) -> tuple[str, str, dict[str, Any], float]:
     match request.task_kind:
         case "company_research":
+            if _is_low_confidence_research_fixture(request):
+                attempt = int(request.input.get("research_attempt", 1))
+                if attempt == 1:
+                    return (
+                        "Initial company research found ambiguous context and needs "
+                        "deeper research.",
+                        "deeper_research",
+                        {
+                            "company_name": "Unknown field services lead",
+                            "fit": "requires_more_evidence",
+                            "research_attempt": attempt,
+                        },
+                        0.42,
+                    )
+                return (
+                    "Deeper research resolved the company context for the lead.",
+                    "continue",
+                    {
+                        "company_name": "Acme Field Services",
+                        "fit": "operations automation",
+                        "research_attempt": attempt,
+                        "deeper_research_completed": True,
+                    },
+                    0.86,
+                )
             return (
                 "Identified a small operations-led services business from the lead email.",
                 "continue",
                 {"company_name": "Acme Field Services", "fit": "operations automation"},
+                0.88,
             )
         case "lead_qualification":
             return (
                 "Lead qualifies for a lightweight Lighthouse pilot conversation.",
                 "continue",
                 {"qualification": "qualified", "priority": "normal"},
+                0.88,
             )
         case "response_draft":
             return (
@@ -502,16 +529,27 @@ def _lighthouse_result_for(
                         "drafts for your account team to review."
                     )
                 },
+                0.88,
             )
         case "response_validation":
             return (
                 "Draft is suitable for proposal mode in the local sandbox.",
                 "send",
                 {"validation": "approved"},
+                0.88,
             )
         case _:
             return (
                 "Input accepted for Lighthouse processing.",
                 "continue",
                 {"classification": "lead"},
+                0.88,
             )
+
+
+def _is_low_confidence_research_fixture(request: AgentInvocationRequest) -> bool:
+    if request.task_kind != "company_research":
+        return False
+    body = str(request.input.get("lead_body", "")).lower()
+    subject = str(request.input.get("lead_subject", "")).lower()
+    return "low-confidence research fixture" in body or "low-confidence research" in subject
