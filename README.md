@@ -16,7 +16,7 @@ Chorus is the architecture artefact. Lighthouse is the proof scenario.
 
 ## Status
 
-Design-frozen 2026-04-29. Phase 0 foundation scaffolding and the initial contract gate are in place. Phase 1A has started with the Postgres persistence foundation: tenant-scoped registry/policy/grant tables, workflow projections, decision trail, tool/action audit, episodic history, transactional outbox, demo tenant seeds, and RLS isolation tests. Phase 1A (the first public ship-checkpoint) builds the Lighthouse vertical slice end-to-end. See [`docs/implementation-plan.md`](docs/implementation-plan.md) for phasing and the parallel-workstream model.
+Design-frozen 2026-04-29. Phase 0 foundation scaffolding and the initial contract gate are in place. Phase 1A Workstream A is complete: Postgres owns tenant-scoped registry/policy/grant tables, workflow read models, decision trail, tool/action audit, episodic history, transactional outbox state, idempotent demo seeds, RLS isolation, and the Redpanda relay/projection path for `workflow_event` events. Phase 1A (the first public ship-checkpoint) builds the Lighthouse vertical slice end-to-end. See [`docs/implementation-plan.md`](docs/implementation-plan.md) for phasing and the workstream model.
 
 ## First-time setup
 
@@ -69,7 +69,11 @@ Phase 1A's demo trigger is real SMTP intake via Mailpit. A real email addressed 
 
 ## Local persistence
 
-Postgres migrations live in [`infrastructure/postgres/migrations`](infrastructure/postgres/migrations). Demo tenant seed data lives in [`infrastructure/postgres/seeds`](infrastructure/postgres/seeds). Apply them with `just db-migrate` after the local Postgres service is running. The persistence tests use real Postgres and can be run with `just test-persistence`; set `CHORUS_TEST_ADMIN_DATABASE_URL` when the local Postgres host port is not `5432`.
+Postgres migrations live in [`infrastructure/postgres/migrations`](infrastructure/postgres/migrations). Demo tenant seed data lives in [`infrastructure/postgres/seeds`](infrastructure/postgres/seeds). Apply them with `just db-migrate` after the local Postgres service is running. The migration and seed path is idempotent and checksum-protected.
+
+Activities should append `workflow_event` rows through `ProjectionStore.record_workflow_event()`. The outbox relay claims due rows with `FOR UPDATE SKIP LOCKED`, marks them `publishing`, publishes canonical `workflow_event` payloads to Redpanda, then marks rows `sent` or `failed` with retry metadata. The projection worker consumes Redpanda workflow events and applies `ProjectionStore.apply_workflow_event()` idempotently into `workflow_read_models` and `workflow_history_events`.
+
+The persistence tests use real Postgres and Redpanda. Run the full Workstream A gate with `just test-persistence` when the default ports are available; set `CHORUS_TEST_ADMIN_DATABASE_URL` and `CHORUS_REDPANDA_BOOTSTRAP_SERVERS` when the local Compose ports are overridden.
 
 ## License
 

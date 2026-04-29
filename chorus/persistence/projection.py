@@ -309,11 +309,16 @@ class ProjectionStore:
         )
 
     def record_workflow_event(self, event: WorkflowEvent) -> None:
-        """Persist a projection update and outbox row in one transaction."""
+        """Persist a workflow event to the transactional outbox.
+
+        Activities use this interface after service-owned state changes.
+        Read models are updated by the Redpanda projection worker consuming
+        the relayed event stream, so replay and reconnect semantics stay
+        aligned with the architecture evidence path.
+        """
 
         with self._conn.transaction():
             self.append_outbox_event(event)
-            self.apply_workflow_event(event)
 
     def list_workflows(self, tenant_id: str, *, limit: int = 100) -> list[WorkflowRunReadModel]:
         return _fetch_models(

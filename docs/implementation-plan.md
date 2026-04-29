@@ -43,11 +43,11 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
    - Cross-link each row to the supporting doc/code/test location (initially doc-only; code links populate during 1A).
    - Exit check: a reviewer can read the map and locate evidence for each responsibility without searching.
 
-4. **(Phase 1A) Persistence and projection**
+4. **(Phase 1A) Persistence and projection** — *delivered (Workstream A)*
    - Add Postgres schema for tenants, agent registry, model policy, tool grants, workflow read model, decision trail, episodic history, and outbox.
    - Add RLS and tenant-isolation tests for two seeded tenants.
-   - Current state: the Phase 1A storage foundation migration, two-tenant seed data, migration runner, minimal projection/read-model adapter, outbox shape, and real-Postgres RLS/fail-closed tests are implemented.
-   - Exit check: read model survives refresh/reconnect and tenant leakage tests fail closed.
+   - Current state: the Phase 1A storage foundation migration, checksum-protected migration runner, idempotent two-tenant seed data, read-model/projection adapter, transactional outbox lifecycle, Redpanda relay, Redpanda projection consumer, real-Postgres RLS/fail-closed tests, outbox transition tests, idempotent projection tests, and real-Redpanda publish/consume projection tests are implemented.
+   - Exit check: read model survives refresh/reconnect, tenant leakage tests fail closed, outbox rows relay to Redpanda, and consumed workflow events project into Postgres idempotently.
 
 5. **(Phase 1A) Temporal workflow**
    - Implement Lighthouse workflow states: intake, research/qualification, draft, validate, propose/send, escalate.
@@ -103,7 +103,7 @@ Phase 1A is parallelisable across six workstreams once contracts are stable. Eac
 
 | Workstream | Output | Integration point | Dependency |
 |---|---|---|---|
-| A — Persistence + projection | Postgres schemas, RLS, tenant tests, projection workers, outbox. | Read-model endpoints exposed for BFF; outbox publishes to Redpanda. | Contracts (Phase 0). |
+| A — Persistence + projection | Postgres schemas, RLS, tenant tests, projection worker path, transactional outbox, Redpanda relay. | Complete. Workstream B can append `workflow_event` rows through `ProjectionStore.record_workflow_event()`; BFF/UI can read `workflow_read_models` without storage policy logic. | Contracts (Phase 0). |
 | B — Temporal workflows + activities | Lighthouse state machine, replay test, deterministic activity boundary, SMTP-receive poll activity (reads Mailpit HTTP API, dedupes by Message-ID, starts Lighthouse per new lead — see ADR 0008). | Activities call Agent Runtime and Tool Gateway through stable interfaces. | Contracts (Phase 0); A's outbox shape. |
 | C — Agent Runtime + model boundary | Agent identity resolution, runtime policy, decision-trail capture, model router with provider catalogue. | Activity invocation interface; decision-trail rows. | Contracts (Phase 0); A's decision-trail schema. |
 | D — Tool Gateway + local connectors | Grants, argument schemas, modes, redaction, idempotency, audit; local connector service against real software (Mailpit, public APIs, local CRM). | Activity invocation interface; tool audit rows. | Contracts (Phase 0); A's tool-audit schema. |

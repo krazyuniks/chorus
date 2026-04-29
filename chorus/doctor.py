@@ -106,8 +106,11 @@ WORKSTREAM_A_PATHS = [
     "infrastructure/postgres/seeds/001_demo_tenants.sql",
     "chorus/persistence/__init__.py",
     "chorus/persistence/migrate.py",
+    "chorus/persistence/outbox.py",
     "chorus/persistence/projection.py",
+    "chorus/persistence/redpanda.py",
     "tests/persistence/test_postgres_foundation.py",
+    "tests/persistence/test_redpanda_projection.py",
 ]
 
 REQUIRED_PATHS = PHASE_0_PATHS + WORKSTREAM_F_PATHS + WORKSTREAM_A_PATHS

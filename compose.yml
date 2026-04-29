@@ -65,11 +65,11 @@ services:
       - --overprovisioned
       - --node-id=0
       - --check=false
-      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
-      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092
+      - --kafka-addr=INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:19092
+      - --advertise-kafka-addr=INTERNAL://redpanda:9092,EXTERNAL://localhost:${REDPANDA_KAFKA_PORT:-9092}
       - --schema-registry-addr=0.0.0.0:8081
     ports:
-      - "${REDPANDA_KAFKA_PORT:-9092}:9092"               # Kafka API
+      - "${REDPANDA_KAFKA_PORT:-9092}:19092"              # Kafka API
       - "${REDPANDA_SCHEMA_REGISTRY_PORT:-8081}:8081"     # Schema Registry
       - "${REDPANDA_ADMIN_PORT:-9644}:9644"               # Admin API
     healthcheck:

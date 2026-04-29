@@ -72,6 +72,40 @@ operations to keep environment handling consistent.
 Override any of these in `.env`. Compose interpolates at config time; rerun
 `just doctor` after edits to catch typos.
 
+## Workstream A persistence operations
+
+Apply the idempotent migration and seed path:
+
+```bash
+just db-migrate
+```
+
+When the default Postgres port is occupied, point the migration runner at the
+Compose port override:
+
+```bash
+CHORUS_DATABASE_URL=postgresql://chorus:chorus@localhost:55432/chorus uv run python -m chorus.persistence.migrate
+```
+
+Relay one due outbox batch to Redpanda:
+
+```bash
+CHORUS_DATABASE_URL=postgresql://chorus:chorus@localhost:55432/chorus CHORUS_REDPANDA_BOOTSTRAP_SERVERS=localhost:19092 uv run python -m chorus.persistence.redpanda relay-once
+```
+
+Project one bounded Redpanda batch into Postgres read models:
+
+```bash
+CHORUS_DATABASE_URL=postgresql://chorus:chorus@localhost:55432/chorus CHORUS_REDPANDA_BOOTSTRAP_SERVERS=localhost:19092 uv run python -m chorus.persistence.redpanda project-once
+```
+
+The relay claims rows with `FOR UPDATE SKIP LOCKED`, changes status to
+`publishing`, increments `attempts`, and then marks each row `sent` or
+`failed`. Failed rows keep `last_error` and retry through `next_attempt_at`.
+The projection worker commits Kafka offsets only after the Postgres projection
+transaction succeeds; redelivery is safe because projections are idempotent by
+source event and workflow sequence.
+
 ## Operational procedures
 
 ### Stuck Lighthouse workflow
@@ -82,13 +116,13 @@ A workflow can hang on a long-poll activity, a wait-for-signal, or a deadlocked 
 2. Inspect the pending activity, signal, or timer in the event history. The last `WorkflowTaskCompleted` event tells you where the deterministic logic last ran.
 3. **Terminate** (`Terminate` button or `temporal workflow terminate -w <id>`) when the run should not be retried — for example, a fixture replay that finished its purpose, or a workflow stuck on a contract that has since been removed. Terminate is final; the workflow will not resume.
 4. **Reset** (`Reset` button or `temporal workflow reset -w <id> --event-id <n>`) when you want to rewind to a prior decision and rerun forward — for example, when an activity returned bad data because of a fixed external bug. Pick the `WorkflowTaskCompleted` immediately before the bad branch.
-5. After either action, confirm in the Postgres `decision_trail` and `tool_audit` tables that the audit trail still makes sense: terminated workflows leave an `escalated` or `terminated` marker; reset workflows append fresh decision rows from the reset point.
+5. After either action, confirm in the Postgres `decision_trail_entries` and `tool_action_audit` tables that the audit trail still makes sense: terminated workflows leave an `escalated` or `terminated` marker; reset workflows append fresh decision rows from the reset point.
 
 Never `down -v` or wipe Postgres to "fix" a stuck workflow. The audit trail is part of the evidence; losing it is worse than the stuck run.
 
 ### Reading the Tool Gateway audit for a denied call
 
-Every Tool Gateway call writes a row to `tool_audit` regardless of verdict. To investigate a denied or downgraded call:
+Every Tool Gateway call writes a row to `tool_action_audit` regardless of verdict. To investigate a denied or downgraded call:
 
 ```bash
 just psql 2>/dev/null || ./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}"
@@ -97,13 +131,13 @@ just psql 2>/dev/null || ./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-c
 Inside psql:
 
 ```sql
-SELECT correlation_id, tenant_id, tool, mode, verdict, reason, requested_at
-FROM tool_audit
+SELECT correlation_id, tenant_id, tool_name, requested_mode, enforced_mode, verdict, reason, occurred_at
+FROM tool_action_audit
 WHERE correlation_id = '<workflow-id>'
-ORDER BY requested_at;
+ORDER BY occurred_at;
 ```
 
-`verdict` is one of `allowed`, `blocked`, `downgraded`, `approval_required`. `reason` carries the gateway's decision rationale (grant mismatch, schema rejection, redaction trigger, idempotency replay). Cross-reference with the workflow's `decision_trail` rows by `correlation_id` to see which agent invocation initiated the call.
+`verdict` is one of `allow`, `rewrite`, `propose`, `approval_required`, `block`, or `recorded`. `reason` carries the gateway's decision rationale (grant mismatch, schema rejection, redaction trigger, idempotency replay). Cross-reference with the workflow's `decision_trail_entries` rows by `correlation_id` to see which agent invocation initiated the call.
 
 If the verdict is unexpected, the gateway grant policy or the connector's argument schema is the next place to look — never the agent prompt; agents have no ambient authority by design.
 

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
         SEEDS_DIR,
         apply_migrations,
     )
+    from chorus.persistence.outbox import OutboxStore, OutboxWorkflowEvent
     from chorus.persistence.projection import (
         AgentRegistryEntry,
         ModelRoutingPolicy,
@@ -27,6 +28,8 @@ __all__ = [
     "SEEDS_DIR",
     "AgentRegistryEntry",
     "ModelRoutingPolicy",
+    "OutboxStore",
+    "OutboxWorkflowEvent",
     "ProjectionStore",
     "RuntimePolicySnapshot",
     "ToolGrant",
@@ -39,6 +42,10 @@ def __getattr__(name: str) -> Any:
     if name in {"DEFAULT_DATABASE_URL", "MIGRATIONS_DIR", "SEEDS_DIR", "apply_migrations"}:
         migrate = import_module("chorus.persistence.migrate")
         return getattr(migrate, name)
+
+    if name in {"OutboxStore", "OutboxWorkflowEvent"}:
+        outbox = import_module("chorus.persistence.outbox")
+        return getattr(outbox, name)
 
     if name in {
         "AgentRegistryEntry",

@@ -13,6 +13,7 @@ authors = [
 # during Phase 1A. The root project carries shared contract-model and
 # persistence-adapter dependencies, dev tooling, and shared linting.
 dependencies = [
+    "confluent-kafka>=2.12.2",
     "psycopg[binary]>=3.2",
     "pydantic>=2.13.3",
 ]

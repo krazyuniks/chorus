@@ -417,14 +417,15 @@ visibility. Redpanda does not replace workflow state or audit storage.
 Tenant isolation is represented through `tenant_id` on all tenant-owned tables,
 row-level security, tenant-scoped policy, and tests that fail closed.
 
-The Phase 1A storage foundation is implemented as SQL migrations under
-`infrastructure/postgres/migrations`, with idempotent demo seeds under
-`infrastructure/postgres/seeds`. The first migration creates tenant-scoped
-tables for tenants, agent registry, model routing policy, tool grants,
-workflow read models, decision trail, tool/action audit, episodic workflow
-history, and transactional outbox. The `chorus.persistence` Python package
-exposes the migration runner and the minimal projection/read-model adapter for
-later BFF and projection-worker workstreams.
+The Phase 1A Workstream A storage and projection foundation is implemented as
+SQL migrations under `infrastructure/postgres/migrations`, with idempotent
+demo seeds under `infrastructure/postgres/seeds`. The first migration creates
+tenant-scoped tables for tenants, agent registry, model routing policy, tool
+grants, workflow read models, decision trail, tool/action audit, episodic
+workflow history, and transactional outbox. The `chorus.persistence` Python
+package exposes the migration runner, read-model adapter, outbox lifecycle
+store, and Redpanda relay/projection adapters for later activity and BFF
+workstreams.
 
 Scylla remains a deferred production option for append-heavy long-retention
 decision trail or episodic history workloads. Phase 1 keeps storage boundaries
@@ -448,6 +449,26 @@ is not lost. Activities and gateway calls still use idempotency keys.
 
 Consumers dedupe by event ID, workflow ID, invocation ID, or idempotency key as
 appropriate.
+
+For `workflow_event` rows, Phase 1A implements the local evidence path:
+
+- activities append canonical event payloads with
+  `ProjectionStore.record_workflow_event()`;
+- `OutboxStore.claim_pending()` safely leases due rows with
+  `FOR UPDATE SKIP LOCKED`, changes status to `publishing`, and increments
+  `attempts`;
+- the Redpanda relay publishes the generated-contract payload to
+  `chorus.workflow.events.v1` and marks rows `sent`;
+- publish failures mark rows `failed`, retain `last_error`, and schedule
+  retry through `next_attempt_at`;
+- abandoned `publishing` leases are returned to the retry path;
+- the projection worker consumes Redpanda events and applies
+  `ProjectionStore.apply_workflow_event()` idempotently into
+  `workflow_history_events` and `workflow_read_models`.
+
+Read-model idempotency is explicit: `workflow_history_events` is unique by
+source event ID and by workflow sequence, and `workflow_read_models` advances
+only when the incoming event sequence is newer than the stored sequence.
 
 ## Frontend and BFF
 
@@ -583,7 +604,7 @@ Local operation is part of the evidence surface.
 | `just up` | Start the local runtime substrate. |
 | `just db-migrate` | Apply Postgres migrations and idempotent demo tenant seed data. |
 | `just doctor` | Phase 0 scaffold checks. Phase 1A extends this to service health, migrations, schema registration, seeded tenants, and sample workflow readiness. |
-| `just test-persistence` | Run Postgres persistence, projection, RLS, and fail-closed tenant-isolation tests. |
+| `just test-persistence` | Run Postgres persistence, outbox, Redpanda relay/projection, RLS, and fail-closed tenant-isolation tests. |
 | `just demo` | Send the fixture lead through Mailpit SMTP and observe workflow execution. |
 | Temporal Console | Inspect workflow execution. |
 | Redpanda Console | Inspect events and schemas. |
