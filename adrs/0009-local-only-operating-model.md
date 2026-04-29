@@ -1,6 +1,6 @@
 ---
 type: adr
-status: proposed
+status: accepted
 date: 2026-04-29
 ---
 
@@ -8,7 +8,7 @@ date: 2026-04-29
 
 ## Status
 
-Proposed — 2026-04-29. Awaiting architect review.
+Accepted — 2026-04-29. The Phase 1A workstreams have landed within the local-only operating model this ADR commits: every connector and backend runs as a containerised local/sandbox service through `compose.yml`, observability terminates at the local Grafana stack, and the deferral surface (production cloud deployment, real third-party connectors, production auth, on-call rotation, incident response) is unbroken.
 
 ## Context
 

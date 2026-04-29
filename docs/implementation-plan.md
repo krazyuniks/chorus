@@ -97,6 +97,7 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
 7. **(Phase 1A) Tool Gateway and local connector service**
    - Build one gateway in front of a local connector service running **real software** (no mocks, no hand-rolled fakes per project policy): Mailpit for SMTP capture, real public APIs for company research, and a Postgres-backed local CRM service implementing the connector contract end-to-end.
    - Enforce grants, argument schemas, modes, idempotency, redaction, approval hook, and audit events.
+   - Current state: `chorus.tool_gateway` implements the `lighthouse.invoke_tool_gateway` activity internals behind Workstream B's stable boundary. It validates generated `ToolCall`, `GatewayVerdict`, `AuditEvent`, and `EmailMessageArgs` contracts; resolves `tool_grants`; enforces allow, block, write-to-propose downgrade, and approval-required decisions; redacts audit arguments; enforces idempotency; writes `tool_action_audit` with OTel metadata; and routes permitted calls to local connectors. `chorus.connectors.local` provides Mailpit SMTP outbound capture, a Postgres-backed local CRM table, and an environment-gated Companies House connector.
    - Exit check: at least one allowed action and one blocked/downgraded action are visible in audit, and the email-send path produces a real Mailpit-captured message.
 
 8. **(Phase 1A) Events, outbox, and UI progress**
@@ -197,12 +198,12 @@ could not run is recorded in the handoff.
 
 | ID | Required item | Evidence artefact | Gate | Status | Notes |
 |---|---|---|---|---|---|
-| D-01 | Gateway request validation against generated tool contracts | `contracts/tools/`; gateway service code | focused gateway tests; `just contracts-check` | open | |
-| D-02 | Grant lookup and mode enforcement by `(agent_id, tenant_id, tool, mode)` | gateway service code; `tool_grants` | focused gateway tests | open | |
-| D-03 | Redaction, idempotency, approval hook, and explicit verdicts | gateway service code; audit rows | focused gateway tests | open | |
-| D-04 | Local connector service backed by real local/sandbox software | `services/connectors-local/`; connector tests | connector/gateway tests | open | No mocks for architecture evidence. |
-| D-05 | Tool/action audit persistence and OTel metadata capture | `tool_action_audit`; gateway audit writer | focused gateway tests; trace/audit inspection | open | |
-| D-06 | Outbound email proposal/send path captured in Mailpit | connector/gateway code; Mailpit evidence | E2E/eval fixture | open | |
+| D-01 | Gateway request validation against generated tool contracts | `contracts/tools/`; `chorus/tool_gateway/gateway.py` | focused gateway tests; `just contracts-check` | done | Validates generated `ToolCall`, `GatewayVerdict`, `AuditEvent`, and `EmailMessageArgs`. |
+| D-02 | Grant lookup and mode enforcement by `(agent_id, tenant_id, tool, mode)` | `chorus/tool_gateway/gateway.py`; `tool_grants` seed | focused gateway tests | done | Covers allowed proposal, write downgrade, approval-required, and block. |
+| D-03 | Redaction, idempotency, approval hook, and explicit verdicts | `chorus/tool_gateway/gateway.py`; audit rows | focused gateway tests | done | Audit arguments are policy-redacted; idempotency returns persisted response without re-invoking connectors. |
+| D-04 | Local connector service backed by real local/sandbox software | `chorus/connectors/local.py`; `infrastructure/postgres/migrations/003_local_connector_crm.sql`; `services/connectors-local/` | connector/gateway tests | done | Mailpit SMTP connector, Postgres-backed local CRM, and environment-gated Companies House connector. |
+| D-05 | Tool/action audit persistence and OTel metadata capture | `tool_action_audit`; `chorus/tool_gateway/gateway.py` | focused gateway tests; trace/audit inspection | done | `metadata` captures `current_otel_ids()` when active. |
+| D-06 | Outbound email proposal/send path captured in Mailpit | `chorus/connectors/local.py`; `tests/tool_gateway/test_mailpit_connector.py` | connector/gateway tests | done | Live Mailpit test skips when Mailpit is unavailable; local validation records the run result in the handoff. |
 
 ### Workstream E — BFF and UI
 
@@ -219,11 +220,11 @@ could not run is recorded in the handoff.
 | ID | Required item | Evidence artefact | Gate | Status | Notes |
 |---|---|---|---|---|---|
 | F-01 | Dev-loop scaffold, service template, CI, hooks, and runbook baseline | project scaffold files; CI config | `just doctor-quick`; hooks | done | |
-| F-02 | OTel collector, Tempo, Loki, Prometheus, and Grafana provisioning | `compose.yml`; `infrastructure/` | `just doctor` | partial | Backends exist; services still need onboarding. |
+| F-02 | OTel collector, Tempo, Loki, Prometheus, and Grafana provisioning | `compose.yml`; `infrastructure/` | `just doctor` | done | `chorus-intake-poller` is the first service running under the template `opentelemetry-instrument` entrypoint; logs reach Loki via the fluent path, traces reach Tempo, OTel-native metrics reach Prometheus through the collector. |
 | F-03 | Grafana dashboards for workflow, gateway, projection, and agent decisions | `infrastructure/grafana/dashboards/` | `just doctor`; dashboard inspection | done | Empty until producers write data. |
-| F-04 | Strict doctor probes for completed runtime contracts | `chorus/doctor.py` | `just doctor` | partial | B task-queue and schema strictness still open. |
-| F-05 | Cross-surface correlation by workflow/correlation ID | runbook; OTel/audit metadata; dashboards | E2E/eval inspection | partial | Awaiting B/C/D telemetry/audit writes. |
-| F-06 | Promote operational ADRs when implementation matches them | `adrs/0009-*`; `adrs/0010-*` | doc review | open | Keep proposed until evidence matches. |
+| F-04 | Strict doctor probes for completed runtime contracts | `chorus/doctor.py` | `just doctor` | done | Schema-registry strict check fails-closed on declared `x-subject`; `_describe_temporal_task_queue` probes the `lighthouse` queue via `DescribeTaskQueue`. |
+| F-05 | Cross-surface correlation by workflow/correlation ID | runbook; OTel/audit metadata; dashboards; `docs/evidence-map.md` | E2E/eval inspection | done | Evidence-map row "Cross-surface correlation by workflow/correlation ID" cites runbook procedure plus the four surfaces. |
+| F-06 | Promote operational ADRs when implementation matches them | `adrs/0009-*`; `adrs/0010-*` | doc review | done | Both ADRs moved from `proposed` to `accepted`; bodies updated to cite the implemented evidence. |
 
 ### Workstream F status
 
@@ -236,11 +237,11 @@ could not run is recorded in the handoff.
 | `frontend/` scaffold seeded with vendored Dense design family | done (Workstream E pre-load) |
 | `chorus.doctor` extended to verify Workstream F contract | done |
 | `docs/runbook.md` | done (initial; grows with the slice) |
-| OpenTelemetry collector pipeline wired through to running services | in progress — compose-side pipeline (Tempo/Loki/Prometheus + collector exporters + Grafana datasources) and service-template auto-instrumentation (ADR 0010 §1, §2, §4) landed. Per-service onboarding now zero-touch: `fluentforward` receiver permanently on for stdout→Loki via the docker `fluentd` log driver (port `${OTEL_FLUENTD_PORT:-24224}`), Prometheus runs `file_sd_configs` against `infrastructure/prometheus/targets/*.yml` so a single dropped file activates `/metrics` scraping. The per-service checklist (container_name + logging block + targets file + boundary span attributes) is in `services/_template/README.md` § "Observability onboarding". Final wiring (services actually starting under `opentelemetry-instrument`, audit-write code calling `chorus.observability.current_otel_ids()`) lands as B/C/D/E services arrive |
+| OpenTelemetry collector pipeline wired through to running services | done — `chorus-intake-poller` runs under the template `opentelemetry-instrument` ENTRYPOINT in `compose.yml`; the worker attaches `temporalio.contrib.opentelemetry.TracingInterceptor`; workflow/activity boundaries call `chorus.observability.set_current_span_attributes()`; audit-write code calls `current_otel_ids()` into `outbox_events.metadata`. Tempo/Loki/Prometheus backends, Grafana datasource provisioning, fluentforward receiver, `file_sd_configs` for per-service Prometheus targets, and the per-service onboarding checklist (services/_template/README.md) all in place |
 | Grafana dashboards (workflow timeline, gateway verdicts, projection lag, agent decisions) | done — provisioned via `infrastructure/grafana/{provisioning,dashboards}` against Postgres, Tempo, Loki, and Prometheus datasources. Tempo carries `tracesToLogsV2`/`tracesToMetrics`/`serviceMap` wiring; Loki carries `derivedFields` for `trace_id=…` → Tempo. Empty tables surface as empty panels until Workstreams B/C/D produce data |
-| Cross-surface correlation (Temporal ↔ Redpanda ↔ Grafana ↔ UI ↔ audit by workflow ID) | in progress — Audit ↔ Grafana half is live (`correlation_id` variable on every dashboard); the Tempo/Loki/Prometheus backends and the `chorus.observability` audit-trace join helper are now in place. Final evidence-map row (UI → Temporal Console → Grafana → SQL audit for one workflow ID) attaches once B/C/D services emit telemetry through the pipeline |
-| Phase 1A `doctor` extension (service health, migration readiness, schema registration, workflow worker readiness) | in progress — `--quick` flag, layered readiness sweeps, Postgres migration check via Workstream A's `schema_migrations` table, TCP/HTTP probes for Redpanda Schema Registry, Temporal frontend, Mailpit, OTel collector, BFF, frontend dev server. Schema-registry check now enumerates `contracts/events/*.schema.json`, classifies declared `x-subject` values against `/subjects`, and reports informationally until Workstream B pins the subjects. Worker discovery follows when Workstream B exposes a probe |
-| Operational ADRs — local-only operating model + observability pipeline | proposed ([ADR 0009](../adrs/0009-local-only-operating-model.md), [ADR 0010](../adrs/0010-observability-pipeline.md)) |
+| Cross-surface correlation (Temporal ↔ Redpanda ↔ Grafana ↔ UI ↔ audit by workflow ID) | done — evidence-map row "Cross-surface correlation by workflow/correlation ID" filed in `docs/evidence-map.md`; `correlation_id` variable on every dashboard; Tempo span attributes `chorus.tenant_id`/`chorus.correlation_id`/`chorus.workflow_id` stamped at workflow/activity boundaries; `metadata->>'otel.trace_id'` joins Postgres audit rows to Tempo; runbook §"Cross-surface correlation" carries the recipe |
+| Phase 1A `doctor` extension (service health, migration readiness, schema registration, workflow worker readiness) | done — `--quick` flag, layered readiness sweeps, Postgres migration check via Workstream A's `schema_migrations` table, TCP/HTTP probes for Redpanda Schema Registry, Temporal frontend, Mailpit, OTel collector, BFF, frontend dev server. Schema-registry check fails-closed on declared `x-subject` values (B-07); Temporal `lighthouse` task-queue discovered via `DescribeTaskQueue` with worker-poller count check (B-06) |
+| Operational ADRs — local-only operating model + observability pipeline | accepted ([ADR 0009](../adrs/0009-local-only-operating-model.md), [ADR 0010](../adrs/0010-observability-pipeline.md)) |
 | Pyright strict in `just lint` and pre-commit | done |
 | Runbook operational procedures (stuck workflow, denied tool audit, contract regeneration, stack reset) | done |
 

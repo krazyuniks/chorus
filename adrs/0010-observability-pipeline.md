@@ -1,6 +1,6 @@
 ---
 type: adr
-status: proposed
+status: accepted
 date: 2026-04-29
 ---
 
@@ -8,9 +8,7 @@ date: 2026-04-29
 
 ## Status
 
-Proposed — 2026-04-29. Awaiting architect review. Implementation lands as
-Workstream B/C/D/E begin emitting telemetry; this ADR pre-commits the
-shape so each workstream wires the same conventions on landing.
+Accepted — 2026-04-29. Workstreams B and C now emit telemetry through the pipeline this ADR commits: the `chorus-intake-poller` service runs under the service-template `opentelemetry-instrument` ENTRYPOINT, the Temporal worker attaches `temporalio.contrib.opentelemetry.TracingInterceptor`, workflow and activity boundaries stamp `chorus.tenant_id`/`chorus.correlation_id`/`chorus.workflow_id` via `chorus.observability.set_current_span_attributes()`, audit-write paths capture `current_otel_ids()` into `metadata` jsonb, and the four event schemas declare canonical Schema Registry subjects (`x-subject`).
 
 ## Context
 
