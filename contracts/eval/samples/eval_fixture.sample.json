@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "lighthouse-happy-path-acme",
+  "name": "Lighthouse happy path from Mailpit SMTP intake",
+  "phase": "1A",
+  "input": {
+    "email_fixture_path": "docs/fixtures/lead-acme.eml",
+    "tenant_id": "tenant_demo"
+  },
+  "expected": {
+    "workflow_path": [
+      "intake",
+      "research_qualification",
+      "draft",
+      "validation",
+      "propose_send",
+      "complete"
+    ],
+    "final_outcome": "propose",
+    "allowed_tool_actions": [
+      "company_research.lookup",
+      "email.propose_response"
+    ],
+    "blocked_tool_actions": [],
+    "max_cost_usd": 1.25,
+    "max_latency_ms": 120000,
+    "required_audit_fields": [
+      "correlation_id",
+      "tenant_id",
+      "agent",
+      "model_route",
+      "prompt_hash",
+      "tool_call_ids"
+    ],
+    "required_event_types": [
+      "lead.received",
+      "workflow.started",
+      "workflow.completed"
+    ]
+  }
+}

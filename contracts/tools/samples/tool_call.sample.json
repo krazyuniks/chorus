@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "tool_call_id": "5a54d79a-d311-4c80-b981-20b216552bf8",
+  "invocation_id": "17cbf78d-3260-47fb-9095-7729d806b721",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_lead_acme_001",
+  "agent_id": "lighthouse-qualifier",
+  "tool_name": "company_research.lookup",
+  "mode": "read",
+  "idempotency_key": "tenant_demo:cor_lead_acme_001:company_research.lookup:acme-field-services",
+  "arguments": {
+    "company_name": "Acme Field Services",
+    "country": "GB"
+  },
+  "requested_at": "2026-04-29T10:00:20Z"
+}

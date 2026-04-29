@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/events/lead_intake.schema.json",
+  "title": "LeadIntake",
+  "description": "Parsed inbound lead email payload created from Mailpit SMTP intake before a Lighthouse workflow starts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lead_id",
+    "tenant_id",
+    "correlation_id",
+    "source",
+    "message_id",
+    "received_at",
+    "sender",
+    "recipients",
+    "subject",
+    "body_text",
+    "message_headers",
+    "attachments_summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "lead_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^cor_[A-Za-z0-9_-]+$"
+    },
+    "source": {
+      "type": "string",
+      "const": "mailpit_smtp"
+    },
+    "message_id": {
+      "type": "string",
+      "minLength": 3
+    },
+    "received_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sender": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "display_name",
+        "email"
+      ],
+      "properties": {
+        "display_name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string",
+          "pattern": "^[^@\\s]+@[^@\\s]+$"
+        }
+      }
+    },
+    "recipients": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[^@\\s]+@[^@\\s]+$"
+      }
+    },
+    "subject": {
+      "type": "string",
+      "minLength": 1
+    },
+    "body_text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "message_headers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "attachments_summary": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "filename",
+          "content_type",
+          "size_bytes"
+        ],
+        "properties": {
+          "filename": {
+            "type": "string"
+          },
+          "content_type": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

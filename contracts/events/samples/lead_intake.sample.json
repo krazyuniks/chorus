@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0.0",
+  "lead_id": "8ac7c0fa-f2d6-47b4-b34d-2f9cddf8a5a1",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_lead_acme_001",
+  "source": "mailpit_smtp",
+  "message_id": "<lead-acme-001@example.test>",
+  "received_at": "2026-04-29T10:00:05Z",
+  "sender": {
+    "display_name": "Alex Morgan",
+    "email": "alex.morgan@example.test"
+  },
+  "recipients": [
+    "leads@chorus.local"
+  ],
+  "subject": "Need help choosing a CRM automation partner",
+  "body_text": "Hello,\n\nI run operations for Acme Field Services. We are looking for help qualifying new inbound enquiries, researching company context, and drafting a response before our account team follows up.\n\nWe have around 40 staff, use a small CRM today, and want to understand what a lightweight pilot would look like.\n\nRegards,\nAlex",
+  "message_headers": {
+    "From": [
+      "Alex Morgan <alex.morgan@example.test>"
+    ],
+    "To": [
+      "leads@chorus.local"
+    ],
+    "Message-ID": [
+      "<lead-acme-001@example.test>"
+    ]
+  },
+  "attachments_summary": []
+}

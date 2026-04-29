@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/tools/tool_call.schema.json",
+  "title": "ToolCall",
+  "description": "Structured request from the Agent Runtime to the Tool Gateway.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tool_call_id",
+    "invocation_id",
+    "tenant_id",
+    "correlation_id",
+    "agent_id",
+    "tool_name",
+    "mode",
+    "idempotency_key",
+    "arguments",
+    "requested_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "tool_call_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "invocation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^cor_[A-Za-z0-9_-]+$"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tool_name": {
+      "type": "string",
+      "enum": [
+        "company_research.lookup",
+        "crm.lookup_company",
+        "crm.create_lead",
+        "email.propose_response",
+        "email.send_response"
+      ]
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "read",
+        "propose",
+        "write"
+      ]
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "arguments": {
+      "type": "object"
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0.0",
+  "invocation_id": "17cbf78d-3260-47fb-9095-7729d806b721",
+  "correlation_id": "cor_lead_acme_001",
+  "workflow_id": "lighthouse-cor_lead_acme_001",
+  "tenant_id": "tenant_demo",
+  "agent": {
+    "agent_id": "lighthouse-qualifier",
+    "role": "qualifier",
+    "version": "v1",
+    "lifecycle_state": "approved",
+    "prompt_reference": "prompts/lighthouse/qualifier.md",
+    "prompt_hash": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  },
+  "model_route": {
+    "provider": "anthropic",
+    "model": "claude-sonnet",
+    "task_kind": "lead_qualification",
+    "budget_cap_usd": 0.25,
+    "parameters": {
+      "temperature": 0.2
+    }
+  },
+  "input_summary": "Inbound lead asks about CRM automation support for a 40-person field services company.",
+  "output_summary": "Lead is relevant and suitable for a lightweight pilot proposal.",
+  "justification": "The request matches the Lighthouse service area and includes enough operating context for a qualified response.",
+  "outcome": "succeeded",
+  "tool_call_ids": [
+    "5a54d79a-d311-4c80-b981-20b216552bf8"
+  ],
+  "cost": {
+    "amount": 0.08,
+    "currency": "USD"
+  },
+  "duration_ms": 1840,
+  "started_at": "2026-04-29T10:00:18Z",
+  "completed_at": "2026-04-29T10:00:20Z",
+  "contract_refs": [
+    "contracts/agents/lighthouse_agent_io.schema.json"
+  ]
+}

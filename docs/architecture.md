@@ -378,6 +378,10 @@ JSON Schema is canonical for cross-boundary contracts:
 | Audit records | `contracts/events/` and Postgres schema | Review, eval, and traceability. |
 | Eval fixtures | `contracts/eval/` | Regression checks for path, outcome, governance, cost, and latency. |
 
+Generated Pydantic models are committed under `chorus/contracts/generated/`.
+`just contracts-gen` regenerates them and `just contracts-check` validates
+schemas, samples, and generated-model drift.
+
 Contract rules:
 
 - Additive changes are allowed within a compatible minor version when samples

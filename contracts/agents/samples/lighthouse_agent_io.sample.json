@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "0507ef11-b72d-4a3f-9cdf-44f47c3f998c",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_lead_acme_001",
+  "workflow_id": "lighthouse-cor_lead_acme_001",
+  "agent_role": "qualifier",
+  "task_kind": "lead_qualification",
+  "input": {
+    "lead_id": "8ac7c0fa-f2d6-47b4-b34d-2f9cddf8a5a1",
+    "company_name": "Acme Field Services",
+    "message_summary": "Operations lead asks about qualifying inbound enquiries and drafting responses."
+  },
+  "expected_output_contract": "contracts/agents/lighthouse_agent_io.schema.json",
+  "result": {
+    "summary": "Relevant operations-led CRM automation enquiry from a small field services company.",
+    "confidence": 0.82,
+    "structured_data": {
+      "company_size": "around 40 staff",
+      "interest": "lightweight pilot"
+    },
+    "recommended_next_step": "continue",
+    "rationale": "The lead describes a concrete operational need and asks for pilot guidance.",
+    "citations": [
+      {
+        "source": "lead_email",
+        "reference": "Message-ID <lead-acme-001@example.test>"
+      }
+    ]
+  }
+}

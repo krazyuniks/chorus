@@ -9,12 +9,17 @@ authors = [
     { name = "Krazyuniks" },
 ]
 
-# Runtime dependencies are declared per-service in `services/*/pyproject.toml`
-# during Phase 1A. The root project carries dev tooling and shared linting.
-dependencies = []
+# Service-specific runtime dependencies are declared in `services/*/pyproject.toml`
+# during Phase 1A. The root project carries shared contract-model dependencies,
+# dev tooling, and shared linting.
+dependencies = [
+    "pydantic>=2.13.3",
+]
 
 [dependency-groups]
 dev = [
+    "datamodel-code-generator>=0.56.1",
+    "jsonschema[format]>=4.26.0",
     "pyright>=1.1",
     "pytest>=8.3",
     "pytest-asyncio>=0.25",
@@ -44,4 +49,5 @@ pythonVersion = "3.14"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+pythonpath = ["."]
 testpaths = ["tests"]

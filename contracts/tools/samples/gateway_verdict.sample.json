@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "verdict_id": "9bb180e2-7cf4-4aa5-8344-a238bb2e0429",
+  "tool_call_id": "5a54d79a-d311-4c80-b981-20b216552bf8",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_lead_acme_001",
+  "verdict": "allow",
+  "enforced_mode": "read",
+  "reason": "Researcher has read grant for company research lookup in the demo tenant.",
+  "approval_required": false,
+  "audit_event_id": "1be8df60-0d95-4902-9147-5df042fe3d8e",
+  "connector_invocation_id": "2373e750-17fb-4ddc-84b4-7b26998d8988",
+  "decided_at": "2026-04-29T10:00:21Z"
+}

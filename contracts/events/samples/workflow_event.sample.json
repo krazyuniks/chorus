@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "event_id": "bc5d1a69-4f0b-4d12-920d-85000ea7228b",
+  "event_type": "workflow.step.completed",
+  "occurred_at": "2026-04-29T10:00:30Z",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_lead_acme_001",
+  "workflow_id": "lighthouse-cor_lead_acme_001",
+  "lead_id": "8ac7c0fa-f2d6-47b4-b34d-2f9cddf8a5a1",
+  "sequence": 3,
+  "step": "research_qualification",
+  "payload": {
+    "status": "qualified",
+    "confidence": 0.82
+  }
+}

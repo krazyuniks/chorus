@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/agents/lighthouse_agent_io.schema.json",
+  "title": "LighthouseAgentIO",
+  "description": "Structured request and result envelope for Lighthouse agent tasks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "tenant_id",
+    "correlation_id",
+    "workflow_id",
+    "agent_role",
+    "task_kind",
+    "input",
+    "expected_output_contract",
+    "result"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "task_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^cor_[A-Za-z0-9_-]+$"
+    },
+    "workflow_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "agent_role": {
+      "type": "string",
+      "enum": [
+        "intake",
+        "researcher",
+        "qualifier",
+        "drafter",
+        "validator"
+      ]
+    },
+    "task_kind": {
+      "type": "string",
+      "enum": [
+        "intake_classification",
+        "company_research",
+        "lead_qualification",
+        "response_draft",
+        "response_validation"
+      ]
+    },
+    "input": {
+      "type": "object"
+    },
+    "expected_output_contract": {
+      "type": "string",
+      "minLength": 1
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "confidence",
+        "structured_data",
+        "recommended_next_step",
+        "rationale",
+        "citations"
+      ],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "structured_data": {
+          "type": "object"
+        },
+        "recommended_next_step": {
+          "type": "string",
+          "enum": [
+            "continue",
+            "deeper_research",
+            "redraft",
+            "propose",
+            "send",
+            "escalate",
+            "reject"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "citations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source",
+              "reference"
+            ],
+            "properties": {
+              "source": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

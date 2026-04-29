@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/events/audit_event.schema.json",
+  "title": "AuditEvent",
+  "description": "Authority-sensitive audit event for runtime, workflow, gateway, connector, and policy actions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "audit_event_id",
+    "occurred_at",
+    "tenant_id",
+    "correlation_id",
+    "workflow_id",
+    "actor",
+    "category",
+    "action",
+    "verdict",
+    "details"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "audit_event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^cor_[A-Za-z0-9_-]+$"
+    },
+    "workflow_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "agent",
+            "system",
+            "human"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "runtime",
+        "workflow",
+        "tool_gateway",
+        "connector",
+        "policy"
+      ]
+    },
+    "action": {
+      "type": "string",
+      "minLength": 1
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "allow",
+        "rewrite",
+        "propose",
+        "approval_required",
+        "block",
+        "recorded"
+      ]
+    },
+    "details": {
+      "type": "object"
+    }
+  }
+}

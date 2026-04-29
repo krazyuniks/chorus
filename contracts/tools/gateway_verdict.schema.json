@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/tools/gateway_verdict.schema.json",
+  "title": "GatewayVerdict",
+  "description": "Tool Gateway decision over a requested tool call.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "verdict_id",
+    "tool_call_id",
+    "tenant_id",
+    "correlation_id",
+    "verdict",
+    "enforced_mode",
+    "reason",
+    "audit_event_id",
+    "decided_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "verdict_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tool_call_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^cor_[A-Za-z0-9_-]+$"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "allow",
+        "rewrite",
+        "propose",
+        "approval_required",
+        "block"
+      ]
+    },
+    "enforced_mode": {
+      "type": "string",
+      "enum": [
+        "read",
+        "propose",
+        "write"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rewritten_arguments": {
+      "type": "object"
+    },
+    "approval_required": {
+      "type": "boolean"
+    },
+    "audit_event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "connector_invocation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "decided_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "audit_event_id": "1be8df60-0d95-4902-9147-5df042fe3d8e",
+  "occurred_at": "2026-04-29T10:00:21Z",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_lead_acme_001",
+  "workflow_id": "lighthouse-cor_lead_acme_001",
+  "actor": {
+    "type": "agent",
+    "id": "lighthouse-qualifier"
+  },
+  "category": "tool_gateway",
+  "action": "company_research.lookup",
+  "verdict": "allow",
+  "details": {
+    "tool_call_id": "5a54d79a-d311-4c80-b981-20b216552bf8",
+    "mode": "read"
+  }
+}

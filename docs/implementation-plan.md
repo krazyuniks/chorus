@@ -34,6 +34,7 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
 2. **(Phase 0) Contracts first**
    - Define JSON Schemas for lead intake, workflow events, agent invocation records, tool calls, gateway verdicts, audit events, and eval fixture expectations.
    - Generate Pydantic models and add sample validation/drift checks.
+   - Current state: the initial Phase 0 contract set, representative samples, generated Pydantic models, and `just contracts-check` drift gate are implemented.
    - Exit check: contract CI fails on schema/model/sample drift.
 
 3. **(Phase 0) Public evidence map**

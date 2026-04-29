@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/events/workflow_event.schema.json",
+  "title": "WorkflowEvent",
+  "description": "Schema-governed Lighthouse workflow event emitted through the transactional outbox to Redpanda.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "event_type",
+    "occurred_at",
+    "tenant_id",
+    "correlation_id",
+    "workflow_id",
+    "lead_id",
+    "sequence",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "lead.received",
+        "workflow.started",
+        "workflow.step.started",
+        "workflow.step.completed",
+        "workflow.completed",
+        "workflow.escalated",
+        "workflow.failed"
+      ]
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^cor_[A-Za-z0-9_-]+$"
+    },
+    "workflow_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "lead_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "step": {
+      "type": "string",
+      "enum": [
+        "intake",
+        "research_qualification",
+        "draft",
+        "validation",
+        "propose_send",
+        "complete",
+        "escalate"
+      ]
+    },
+    "payload": {
+      "type": "object"
+    }
+  }
+}
