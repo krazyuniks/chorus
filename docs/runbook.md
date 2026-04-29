@@ -47,6 +47,7 @@ operations to keep environment handling consistent.
 | `just contracts-check` | Schema/model/sample drift gate. |
 | `just db-migrate` | Apply Postgres migrations and demo seed (Workstream A). |
 | `just schemas-register` | Register event JSON Schemas with Redpanda Schema Registry. |
+| `just relay-once` / `just project-once` | Move workflow events through Redpanda into Postgres projections. |
 | `just worker` | Run the Lighthouse Temporal worker. |
 | `just intake-once` | Poll Mailpit once and start new Lighthouse workflows. |
 | `just test` / `just test-replay` / `just test-persistence` | Python gates. |
@@ -94,13 +95,13 @@ CHORUS_DATABASE_URL=postgresql://chorus:chorus@localhost:55432/chorus uv run pyt
 Relay one due outbox batch to Redpanda:
 
 ```bash
-CHORUS_DATABASE_URL=postgresql://chorus:chorus@localhost:55432/chorus CHORUS_REDPANDA_BOOTSTRAP_SERVERS=localhost:19092 uv run python -m chorus.persistence.redpanda relay-once
+just relay-once
 ```
 
 Project one bounded Redpanda batch into Postgres read models:
 
 ```bash
-CHORUS_DATABASE_URL=postgresql://chorus:chorus@localhost:55432/chorus CHORUS_REDPANDA_BOOTSTRAP_SERVERS=localhost:19092 uv run python -m chorus.persistence.redpanda project-once
+just project-once
 ```
 
 The relay claims rows with `FOR UPDATE SKIP LOCKED`, changes status to
@@ -153,7 +154,7 @@ To see the BFF/UI read model advance, run the Workstream A relay/projection
 commands after workflow activity events have been written:
 
 ```bash
-uv run python -m chorus.persistence.redpanda relay-once && uv run python -m chorus.persistence.redpanda project-once
+just relay-once && just project-once
 ```
 
 Worker metrics are emitted through the OpenTelemetry SDK to the collector and
@@ -169,7 +170,7 @@ the deterministic eval as the final release gate:
 ```bash
 just up && just db-migrate && just schemas-register && just doctor
 just demo && just intake-once
-uv run python -m chorus.persistence.redpanda relay-once && uv run python -m chorus.persistence.redpanda project-once
+just relay-once && just project-once
 just eval
 ```
 
@@ -299,7 +300,7 @@ the SSE EventSource so the offline tests do not require a live BFF.
 When SSE looks stuck, check three things in order: the BFF container is
 healthy (`just logs bff`), the projection worker is
 consuming Redpanda into `workflow_history_events` (run
-`uv run python -m chorus.persistence.redpanda project-once` and confirm
+`just project-once` and confirm
 the count increments), and the Vite proxy is reaching the BFF
 (`curl -s http://localhost:${BFF_PORT:-8000}/health`).
 

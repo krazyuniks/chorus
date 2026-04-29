@@ -38,7 +38,13 @@ def bootstrap_servers_from_env() -> str:
 
 
 def schema_registry_url_from_env() -> str:
-    return os.environ.get("CHORUS_SCHEMA_REGISTRY_URL", DEFAULT_SCHEMA_REGISTRY_URL)
+    explicit_url = os.environ.get("CHORUS_SCHEMA_REGISTRY_URL")
+    if explicit_url:
+        return explicit_url
+    port = os.environ.get("REDPANDA_SCHEMA_REGISTRY_PORT")
+    if port:
+        return f"http://localhost:{port}"
+    return DEFAULT_SCHEMA_REGISTRY_URL
 
 
 def _event_schema_subjects() -> dict[str, str]:

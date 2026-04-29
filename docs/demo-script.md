@@ -24,7 +24,7 @@ Show that Chorus is a production-shaped governed agent workflow and enterprise a
 | Time | Screen | Action | Point to make |
 |---|---|---|---|
 | 0:00-0:20 | README or evidence map | State the claim and show the artefact set: working slice plus architecture, guardrails, decision record, and evidence map. | "This is both a governed workflow implementation and an adoption pattern an enterprise architecture team can inspect." |
-| 0:20-0:40 | Mailpit + Lighthouse UI | Run `just demo`, then `just intake-once`; relay/project events and copy/open the workflow correlation ID. | A real SMTP intake event starts a durable workflow, not a loose chain of prompts or a hand-fed form. |
+| 0:20-0:40 | Mailpit + Lighthouse UI | Run `just demo`, `just intake-once`, `just relay-once`, and `just project-once`; copy/open the workflow correlation ID. | A real SMTP intake event starts a durable workflow, not a loose chain of prompts or a hand-fed form. |
 | 0:40-1:05 | Temporal Console | Show intake, research/qualification, drafting, validation, and propose/send or escalation states. | Temporal owns retries, waits, replay, and branches. |
 | 1:05-1:30 | Lighthouse decision trail | Open the agent invocation details. | Each step records agent version, prompt hash, model route, input/output summary, justification, cost, duration, and correlation ID. |
 | 1:30-1:55 | Tool verdict/audit view | Show the `email.propose_response` proposal verdict and the redacted audit row. | Agents do not hold ambient authority; gateway grants and argument schemas decide action permissions. |

@@ -249,10 +249,18 @@ def check_compose() -> int:
 
 def _tcp_reachable(host: str, port: int, timeout: float = 0.5) -> bool:
     try:
-        with socket.create_connection((host, port), timeout=timeout):
-            return True
+        addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
     except OSError:
         return False
+    for family, socktype, proto, _canonname, sockaddr in addresses:
+        try:
+            with socket.socket(family, socktype, proto) as sock:
+                sock.settimeout(timeout)
+                sock.connect(sockaddr)
+                return True
+        except OSError:
+            continue
+    return False
 
 
 def _http_get(url: str, timeout: float = 1.5) -> tuple[int | None, str | None]:

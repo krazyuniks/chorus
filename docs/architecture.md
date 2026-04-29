@@ -679,6 +679,7 @@ Local operation is part of the evidence surface.
 | `just db-migrate` | Apply Postgres migrations and idempotent demo tenant seed data. |
 | `just worker` | Run the Lighthouse Temporal worker with workflow and activity registrations. |
 | `just intake-once` | Poll Mailpit once and start one Lighthouse workflow per new lead Message-ID. |
+| `just relay-once` / `just project-once` | Move workflow events through Redpanda and into refresh-safe Postgres projections. |
 | `just doctor` | Phase 0 scaffold checks. Phase 1A extends this to service health, migrations, schema registration, seeded tenants, and sample workflow readiness. |
 | `just test-persistence` | Run Postgres persistence, outbox, Redpanda relay/projection, RLS, and fail-closed tenant-isolation tests. |
 | `just demo` | Send the fixture lead through Mailpit SMTP and observe workflow execution. |

@@ -39,7 +39,7 @@ hooks:
 
 # Bring up the runtime substrate (Postgres, Redpanda, Temporal, Mailpit, Grafana, OTel).
 up:
-    {{dc}} up -d
+    {{dc}} up -d --build
 
 # Tear the stack down.
 down:
@@ -74,6 +74,14 @@ db-migrate:
 # Register event JSON Schemas with Redpanda Schema Registry.
 schemas-register:
     uv run python -m chorus.persistence.redpanda register-schemas
+
+# Relay one pending outbox batch to Redpanda.
+relay-once:
+    uv run python -m chorus.persistence.redpanda relay-once
+
+# Project one Redpanda workflow-event batch into Postgres read models.
+project-once:
+    uv run python -m chorus.persistence.redpanda project-once
 
 # ----- Demo -----
 
