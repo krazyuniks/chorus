@@ -36,9 +36,29 @@ just test
 just lint
 ```
 
-Prefer existing recipes over ad-hoc commands. Use `uv run ...` only for focused Python commands when no `just` recipe exists or when the recipe itself documents that invocation. Frontend commands run from `frontend/` only when the relevant `just` recipe is missing.
+Prefer existing recipes over ad-hoc commands. Use `uv run ...` only for focused Python commands when no `just` recipe exists or when the recipe itself documents that invocation. Frontend commands run from `frontend/` only when the relevant `just` recipe is missing; the frontend uses **npm** (not pnpm).
 
 Do not run `just down-volumes` unless explicitly requested; it destroys local data.
+
+## First-Time Setup
+
+`./scripts/first-time-setup.sh` is the idempotent host bootstrap. It installs `just`, `uv`, Python 3.14, `prek`, runs `uv sync --all-extras`, copies `.env.example` to `.env` if missing, and registers prek-managed git hooks. Re-run any time host tooling changes.
+
+`scripts/dc` is the canonical wrapper for `docker compose`: it sources `.env`, exports `UID`/`GID` from the host, and execs `docker compose`. Use `scripts/dc` (or recipes that route through it) instead of bare `docker compose` so environment handling stays consistent across the stack.
+
+`compose.yml` parameterises every credential, port, and image tag through `${VAR:-default}`. Override values by editing `.env`; see `.env.example` for the full set. The `chown-init` service rewrites bind-mounted ownership on startup so files created inside containers stay owned by the host user.
+
+## Pre-commit Gate
+
+`.pre-commit-config.yaml` is prek-compatible (drop-in for `pre-commit`). Builtins enforce hygiene; local hooks run `just lint`, `just contracts-check`, and JSON syntax over `contracts/`. Register with `just install-hooks`; reproduce CI locally with `just hooks`. Do not bypass with `--no-verify` (project policy).
+
+## CI
+
+`.github/workflows/ci.yml` runs lint, contracts-check, doctor, Python tests, and frontend lint/test on every push and PR. `replay.yml` and `eval.yml` run their respective gates with `continue-on-error: true` until the fixtures land in Phase 1A. Treat a red CI as the same severity as a red local `just doctor`; both signal a workstream contract slipping.
+
+## Service Template
+
+`services/_template/` is the canonical scaffold for new Python services. Copy the directory, rename it, customise `Dockerfile` `CMD`/`EXPOSE`, declare deps in `pyproject.toml`, and wire the service into `compose.yml`. The template is multi-stage uv-based, runs as a non-root user matching `${UID}:${GID}`, and inherits ruff config from the root.
 
 ## Stack
 

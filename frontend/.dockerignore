@@ -1,0 +1,9 @@
+node_modules
+dist
+.vite
+test-results
+playwright-report
+tests/e2e/recordings
+.env
+.env.local
+.env.*.local

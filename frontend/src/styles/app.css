@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@import "../design-system/tokens/foundation.css";
+@import "../design-system/tokens/preset.css";
+@import "../design-system/tokens/themes/neutral.css";
+
+/* Default theme + mode applied via the <html> element classes (theme-neutral mode-light).
+ * Keeping this here as a fallback so the app renders sensibly even if those classes are missing.
+ */
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tabular figures for timestamps, IDs, and numeric columns — non-negotiable for a dense data UI. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Monospace correlation IDs and references. */
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* Workflow-tool scrollbar. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-subtle);
+}

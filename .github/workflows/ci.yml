@@ -1,0 +1,125 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-python:
+    name: lint-python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      # XXX: pyproject.toml requires Python >=3.14. If 3.14 is not available
+      # in uv's index on the runner, fall back to 3.13 and align with pyproject.toml
+      # once 3.14 is widely available in CI runners.
+      - name: Install Python
+        run: uv python install 3.14
+      - name: Sync dependencies
+        run: uv sync --all-extras
+      - name: Ruff check
+        run: uv run ruff check .
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+  contracts-check:
+    name: contracts-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - name: Install Python
+        run: uv python install 3.14
+      - name: Sync dependencies
+        run: uv sync --all-extras
+      - name: Contracts check
+        run: uv run python -m chorus.contracts.check
+
+  doctor:
+    name: doctor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - name: Install Python
+        run: uv python install 3.14
+      - name: Sync dependencies
+        run: uv sync --all-extras
+      - name: Install just
+        uses: extractions/setup-just@v2
+      - name: Run doctor
+        # `just doctor` calls `docker compose config --quiet`, which only parses
+        # YAML and does not require services to be up. Docker is preinstalled
+        # on ubuntu-latest runners.
+        run: just doctor
+
+  test-python:
+    name: test-python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - name: Install Python
+        run: uv python install 3.14
+      - name: Sync dependencies
+        run: uv sync --all-extras
+      - name: Run pytest
+        run: uv run pytest tests/ -v
+
+  lint-frontend:
+    name: lint-frontend
+    runs-on: ubuntu-latest
+    if: hashFiles('frontend/package.json') != ''
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Type-check
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+  test-frontend:
+    name: test-frontend
+    runs-on: ubuntu-latest
+    if: hashFiles('frontend/package.json') != ''
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Run vitest
+        working-directory: frontend
+        run: npm test -- --run

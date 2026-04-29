@@ -6,27 +6,57 @@
 #
 # All connectors are backed by real software in sandbox/local mode (no
 # mocks, no hand-rolled fakes per project policy).
+#
+# Every credential, port, image tag, and bind-mount permission is
+# parameterised through `.env` (see `.env.example`). Use `scripts/dc`
+# instead of bare `docker compose` so UID/GID and `.env` are sourced
+# consistently.
 
 services:
 
-  postgres:
-    image: postgres:17-alpine
+  # ---------------------------------------------------------------------------
+  # chown-init — one-shot helper that fixes ownership on bind-mounted host
+  # paths so files created inside containers stay owned by the host user.
+  # Services that bind-mount workspace directories should depend on this with
+  # `condition: service_completed_successfully` (see otel-collector below).
+  # ---------------------------------------------------------------------------
+  chown-init:
+    image: alpine:3.20
+    restart: "no"
+    user: "0:0"
     environment:
-      POSTGRES_USER: chorus
-      POSTGRES_PASSWORD: chorus
-      POSTGRES_DB: chorus
+      TARGET_UID: ${UID:-1000}
+      TARGET_GID: ${GID:-1000}
+    volumes:
+      - .:/workspace
+    command:
+      - sh
+      - -ceu
+      - |
+        mkdir -p /workspace/infrastructure/otel /workspace/tmp
+        for root in /workspace/infrastructure /workspace/tmp; do
+          [ -d "$$root" ] || continue
+          find "$$root" -xdev \( -user 0 -o -group 0 \) -exec chown "$$TARGET_UID:$$TARGET_GID" {} + || true
+        done
+
+  postgres:
+    image: ${CHORUS_PG_IMAGE:-postgres:17-alpine}
+    environment:
+      POSTGRES_USER: ${CHORUS_PG_USER:-chorus}
+      POSTGRES_PASSWORD: ${CHORUS_PG_PASSWORD:-chorus}
+      POSTGRES_DB: ${CHORUS_PG_DB:-chorus}
     ports:
-      - "5432:5432"
+      - "${CHORUS_PG_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U chorus"]
+      test: ["CMD-SHELL", "pg_isready -U ${CHORUS_PG_USER:-chorus}"]
       interval: 5s
       timeout: 3s
       retries: 10
 
   redpanda:
-    image: docker.redpanda.com/redpandadata/redpanda:latest
+    image: ${REDPANDA_IMAGE:-docker.redpanda.com/redpandadata/redpanda:latest}
     command:
       - redpanda
       - start
@@ -39,9 +69,9 @@ services:
       - --advertise-kafka-addr=PLAINTEXT://redpanda:9092
       - --schema-registry-addr=0.0.0.0:8081
     ports:
-      - "9092:9092"   # Kafka API
-      - "8081:8081"   # Schema Registry
-      - "9644:9644"   # Admin API
+      - "${REDPANDA_KAFKA_PORT:-9092}:9092"               # Kafka API
+      - "${REDPANDA_SCHEMA_REGISTRY_PORT:-8081}:8081"     # Schema Registry
+      - "${REDPANDA_ADMIN_PORT:-9644}:9644"               # Admin API
     healthcheck:
       test: ["CMD", "rpk", "cluster", "info"]
       interval: 10s
@@ -49,85 +79,88 @@ services:
       retries: 10
 
   redpanda-console:
-    image: docker.redpanda.com/redpandadata/console:latest
+    image: ${REDPANDA_CONSOLE_IMAGE:-docker.redpanda.com/redpandadata/console:latest}
     environment:
       KAFKA_BROKERS: redpanda:9092
       KAFKA_SCHEMAREGISTRY_ENABLED: "true"
       KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
     ports:
-      - "8080:8080"
+      - "${REDPANDA_CONSOLE_PORT:-8080}:8080"
     depends_on:
       - redpanda
 
   temporal-postgres:
-    image: postgres:17-alpine
+    image: ${TEMPORAL_PG_IMAGE:-postgres:17-alpine}
     environment:
-      POSTGRES_USER: temporal
-      POSTGRES_PASSWORD: temporal
-      POSTGRES_DB: temporal
+      POSTGRES_USER: ${TEMPORAL_PG_USER:-temporal}
+      POSTGRES_PASSWORD: ${TEMPORAL_PG_PASSWORD:-temporal}
+      POSTGRES_DB: ${TEMPORAL_PG_DB:-temporal}
     volumes:
       - temporal-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      test: ["CMD-SHELL", "pg_isready -U ${TEMPORAL_PG_USER:-temporal}"]
       interval: 5s
       timeout: 3s
       retries: 10
 
   temporal:
-    image: temporalio/auto-setup:latest
+    image: ${TEMPORAL_IMAGE:-temporalio/auto-setup:latest}
     environment:
       DB: postgres12
       DB_PORT: 5432
-      POSTGRES_USER: temporal
-      POSTGRES_PWD: temporal
+      POSTGRES_USER: ${TEMPORAL_PG_USER:-temporal}
+      POSTGRES_PWD: ${TEMPORAL_PG_PASSWORD:-temporal}
       POSTGRES_SEEDS: temporal-postgres
     ports:
-      - "7233:7233"
+      - "${TEMPORAL_PORT:-7233}:7233"
     depends_on:
       temporal-postgres:
         condition: service_healthy
 
   temporal-ui:
-    image: temporalio/ui:latest
+    image: ${TEMPORAL_UI_IMAGE:-temporalio/ui:latest}
     environment:
       TEMPORAL_ADDRESS: temporal:7233
-      TEMPORAL_CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+      TEMPORAL_CORS_ORIGINS: http://localhost:3000,http://localhost:${FRONTEND_PORT:-5173}
     ports:
-      - "8233:8080"
+      - "${TEMPORAL_UI_PORT:-8233}:8080"
     depends_on:
       - temporal
 
   mailpit:
-    image: axllent/mailpit:latest
+    image: ${MAILPIT_IMAGE:-axllent/mailpit:latest}
     environment:
       MP_MAX_MESSAGES: "5000"
       MP_DATABASE: /data/mailpit.db
     volumes:
       - mailpit-data:/data
     ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # Web UI + HTTP API
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"   # SMTP
+      - "${MAILPIT_HTTP_PORT:-8025}:8025"   # Web UI + HTTP API
 
   grafana:
-    image: grafana/grafana:latest
+    image: ${GRAFANA_IMAGE:-grafana/grafana:latest}
     ports:
-      - "3001:3000"
+      - "${GRAFANA_PORT:-3001}:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: chorus
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-chorus}
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
     volumes:
       - grafana-data:/var/lib/grafana
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    image: ${OTEL_COLLECTOR_IMAGE:-otel/opentelemetry-collector-contrib:latest}
     command: ["--config=/etc/otelcol/config.yaml"]
     volumes:
       - ./infrastructure/otel/config.yaml:/etc/otelcol/config.yaml:ro
     ports:
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
+      - "${OTEL_GRPC_PORT:-4317}:4317"   # OTLP gRPC
+      - "${OTEL_HTTP_PORT:-4318}:4318"   # OTLP HTTP
+    depends_on:
+      chown-init:
+        condition: service_completed_successfully
 
 volumes:
   postgres-data:

@@ -42,6 +42,11 @@ Thumbs.db
 .vscode/
 *.iml
 
+# Agent session state (per-project, never committed)
+.claude/
+.gemini/
+.aider*
+
 # Logs and run state
 logs/
 *.log

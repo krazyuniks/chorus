@@ -2,34 +2,60 @@
 # Common operations for the local stack and the Phase 1 vertical slice.
 #
 # `just --list` shows all available commands.
+#
+# `dc` wraps `docker compose`: it sources `.env`, exports UID/GID from the
+# host, then invokes `docker compose`. Recipes route through it so the env
+# model stays consistent without requiring direnv.
 
 set shell := ["zsh", "-cu"]
+set dotenv-load
+set positional-arguments
+
+dc := "./scripts/dc"
 
 # Default: list available commands.
 default:
     @just --list
 
+# ----- Setup -----
+
+# Run the first-time host bootstrap (just, uv, Python 3.14, prek, .env).
+setup:
+    ./scripts/first-time-setup.sh
+
+# Ensure .env exists by copying .env.example if missing.
+env:
+    @if [[ ! -f .env && -f .env.example ]]; then cp .env.example .env && echo "[OK] .env created from .env.example"; else echo "[OK] .env already present"; fi
+
+# Register prek-managed git hooks.
+install-hooks:
+    prek install
+
+# Run every prek hook against the whole tree.
+hooks:
+    prek run --all-files
+
 # ----- Local stack -----
 
 # Bring up the runtime substrate (Postgres, Redpanda, Temporal, Mailpit, Grafana, OTel).
 up:
-    docker compose up -d
+    {{dc}} up -d
 
 # Tear the stack down.
 down:
-    docker compose down
+    {{dc}} down
 
 # Tear the stack down including volumes (destroys data).
 down-volumes:
-    docker compose down -v
+    {{dc}} down -v
 
 # Show the status of the stack.
 status:
-    docker compose ps
+    {{dc}} ps
 
 # Tail logs for all services or a specific one (e.g. `just logs temporal`).
 logs *service:
-    docker compose logs -f {{service}}
+    {{dc}} logs -f {{service}}
 
 # ----- Health -----
 
@@ -74,11 +100,11 @@ test-replay:
 
 # Run frontend tests.
 test-frontend:
-    cd frontend && pnpm test
+    cd frontend && npm test -- --run
 
 # Run E2E tests via Playwright.
 test-e2e:
-    cd frontend && pnpm test:e2e
+    cd frontend && npm run e2e
 
 # ----- Eval -----
 
@@ -91,9 +117,9 @@ eval:
 # Run linters (Python + frontend).
 lint:
     uv run ruff check .
-    cd frontend && pnpm lint
+    cd frontend && npm run lint
 
 # Format (Python + frontend).
 fmt:
     uv run ruff format .
-    cd frontend && pnpm fmt
+    cd frontend && npm run fmt

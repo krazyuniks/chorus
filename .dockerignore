@@ -1,0 +1,47 @@
+# Files and directories excluded from Docker build contexts.
+
+# VCS / IDE
+.git
+.gitignore
+.idea
+.vscode
+
+# Python
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.pyright
+
+# Build artefacts
+dist
+build
+.next
+.vite
+
+# Test / coverage
+coverage
+htmlcov
+test-results
+playwright-report
+.playwright-cli
+
+# Node / frontend
+node_modules
+frontend/node_modules
+frontend/dist
+
+# Local state and data volumes
+.env
+.env.local
+.DS_Store
+*.log
+logs/
+tmp/
+.tmp/
+postgres-data/
+redpanda-data/
+mailpit-data/
+grafana-data/

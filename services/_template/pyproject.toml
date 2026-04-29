@@ -1,0 +1,15 @@
+[project]
+name = "chorus-service-template"
+version = "0.0.0"
+description = "Template stub for new Chorus services. Copy this directory under services/<your-service>/ and rename."
+requires-python = ">=3.14"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.9",
+]
+
+[tool.ruff]
+extend = "../../pyproject.toml"

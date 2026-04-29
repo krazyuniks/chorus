@@ -1,0 +1,36 @@
+name: replay
+
+# Temporal workflow replay tests land during Phase 1A workstream B
+# (Temporal workflows + activities). Until tests/workflows/ contains
+# replay coverage this workflow is a no-op. continue-on-error is kept on
+# so a missing replay suite cannot block PRs while the workstream is in flight.
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: replay-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    name: replay
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    if: hashFiles('tests/workflows/**') != ''
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - name: Install Python
+        run: uv python install 3.14
+      - name: Sync dependencies
+        run: uv sync --all-extras
+      - name: Install just
+        uses: extractions/setup-just@v2
+      - name: Run replay tests
+        run: just test-replay

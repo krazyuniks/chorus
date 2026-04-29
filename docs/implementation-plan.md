@@ -27,9 +27,10 @@ Phase 1 builds one evidence-grade vertical slice for Lighthouse, including the h
 
 Items are tagged with the phase that owns them. **(Phase 0)** items must complete before Phase 1 begins. **(Phase 1A)** items are the first public ship-checkpoint. **(Phase 1B)** items extend failure-fixture evidence. **(Phase 1C)** items finalise review packaging.
 
-1. **(Phase 0) Developer workflow and service layout**
+1. **(Phase 0) Developer workflow and service layout** — *delivered (Workstream F first pass)*
    - Create docs tree, ADR tree, architecture/governance artefact set, service layout, Compose skeleton, command runner, and `doctor` command contract.
-   - Exit check: repo opens cleanly, docs are linked, and local prerequisites are explicit.
+   - Phase 0A scaffold finishing pass landed alongside Workstream F's opening shipment: `.env.example` + parameterised `compose.yml` with `chown-init`; `scripts/dc` wrapper and `scripts/first-time-setup.sh` host bootstrap; prek-driven `.pre-commit-config.yaml`; `.editorconfig`/`.dockerignore`/`.gitattributes`; `services/_template/` (Dockerfile + pyproject + README); CI workflows (`ci.yml`, `eval.yml`, `replay.yml`) with dependabot, issue/PR templates; `SECURITY.md`/`CONTRIBUTING.md`/`CHANGELOG.md`; README badges + first-time-setup section; `docs/runbook.md` (the Workstream F operational artefact); `frontend/` scaffold (React 19 + Vite 8 + TS + TanStack Router/Query + Tailwind v4 + Radix) seeded with the Dense design family vendored wholesale from a sibling design system project (no external dependency, no `@radianit/*` references).
+   - Exit check: repo opens cleanly, docs are linked, local prerequisites are explicit, and a fresh clone reaches `just up` via one bootstrap command.
 
 2. **(Phase 0) Contracts first**
    - Define JSON Schemas for lead intake, workflow events, agent invocation records, tool calls, gateway verdicts, audit events, and eval fixture expectations.
@@ -107,9 +108,25 @@ Phase 1A is parallelisable across six workstreams once contracts are stable. Eac
 | C — Agent Runtime + model boundary | Agent identity resolution, runtime policy, decision-trail capture, model router with provider catalogue. | Activity invocation interface; decision-trail rows. | Contracts (Phase 0); A's decision-trail schema. |
 | D — Tool Gateway + local connectors | Grants, argument schemas, modes, redaction, idempotency, audit; local connector service against real software (Mailpit, public APIs, local CRM). | Activity invocation interface; tool audit rows. | Contracts (Phase 0); A's tool-audit schema. |
 | E — BFF + UI | Lead intake, SSE progress, timeline view, decision-trail view, registry/grants/routing views. | Read-model endpoints; SSE topic. | Contracts (Phase 0); A's read model. |
-| F — Observability + ops | OpenTelemetry, Grafana dashboards, doctor command, runbook. | Cross-cutting; integrates after each workstream lands. | Workstreams A–E producing trace data. |
+| F — Observability + ops | OpenTelemetry, Grafana dashboards, doctor command, runbook, dev-loop scaffolding (env handling, scripts, pre-commit, services template, CI). | Cross-cutting; integrates after each workstream lands. | Workstreams A–E producing trace data. |
 
 Workstreams A–C run on the longest critical path (storage + workflow + agent runtime). D, E, F start in parallel as soon as their consumed contracts are stable. Phase 1B governance fixtures (Workstream G) attach to A–E once the happy-path runs end-to-end.
+
+### Workstream F status
+
+| Deliverable | State |
+|---|---|
+| Dev-loop scaffolding (env, `scripts/dc`, first-time setup, prek hooks, editor/dockerignore/gitattributes) | done |
+| `services/_template/` (Dockerfile, pyproject, README) | done |
+| CI gates (`ci.yml`, `eval.yml`, `replay.yml`, dependabot, issue/PR templates) | done |
+| Project-meta (`SECURITY.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, README badges) | done |
+| `frontend/` scaffold seeded with vendored Dense design family | done (Workstream E pre-load) |
+| `chorus.doctor` extended to verify Workstream F contract | done |
+| `docs/runbook.md` | done (initial; grows with the slice) |
+| OpenTelemetry collector pipeline wired through to running services | open — gated by services landing |
+| Grafana dashboards (workflow timeline, gateway verdicts, projection lag) | open — gated by event production |
+| Cross-surface correlation (Temporal ↔ Redpanda ↔ Grafana ↔ UI ↔ audit by workflow ID) | open — Workstream F integration milestone |
+| Phase 1A `doctor` extension (service health, migration readiness, schema registration, workflow worker readiness) | open — depends on each workstream landing its check |
 
 Each workstream description is structured to be a self-contained agent-session prompt: scope, outputs, integration points, and dependency on other workstreams. A parallel-development run launches one agent per workstream against its own branch, all synchronising via the contracts directory and integration points.
 
