@@ -376,5 +376,9 @@ def test_runtime_policy_snapshot_is_tenant_scoped(migrated_database_url: str) ->
 
     assert {agent.tenant_id for agent in demo_snapshot.agents} == {"tenant_demo"}
     assert {route.tenant_id for route in demo_snapshot.model_routes} == {"tenant_demo"}
-    assert [grant.tenant_id for grant in demo_snapshot.tool_grants] == ["tenant_demo"]
+    assert {grant.tenant_id for grant in demo_snapshot.tool_grants} == {"tenant_demo"}
+    assert {grant.tool_name for grant in demo_snapshot.tool_grants} >= {
+        "company_research.lookup",
+        "email.propose_response",
+    }
     assert {agent.tenant_id for agent in alt_snapshot.agents} == {"tenant_demo_alt"}

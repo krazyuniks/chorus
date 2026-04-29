@@ -14,11 +14,10 @@ from temporalio import activity
 
 from chorus.agent_runtime import AgentRuntime, AgentRuntimeStore, LocalLighthouseModelBoundary
 from chorus.contracts.generated.events.workflow_event import WorkflowEvent
-from chorus.contracts.generated.tools.gateway_verdict import GatewayVerdict
-from chorus.contracts.generated.tools.tool_call import ToolCall
 from chorus.observability import set_current_span_attributes
 from chorus.persistence import ProjectionStore
 from chorus.persistence.migrate import database_url_from_env
+from chorus.tool_gateway.gateway import LocalToolConnector, ToolGateway, ToolGatewayStore
 from chorus.workflows.lighthouse import (
     ACTIVITY_INVOKE_AGENT_RUNTIME,
     ACTIVITY_INVOKE_TOOL_GATEWAY,
@@ -118,65 +117,17 @@ def invoke_agent_runtime_activity(request: AgentInvocationRequest) -> AgentInvoc
 
 @activity.defn(name=ACTIVITY_INVOKE_TOOL_GATEWAY)
 def invoke_tool_gateway_activity(request: ToolGatewayRequest) -> ToolGatewayResponse:
-    """Stable Tool Gateway activity boundary for Workstream D.
-
-    The placeholder validates generated ToolCall and GatewayVerdict contracts.
-    It does not perform connector IO or persist tool audit; Workstream D owns
-    grants, idempotency, audit, and real connector calls behind this activity.
-    """
+    """Stable Tool Gateway activity boundary implemented by Workstream D."""
 
     set_current_span_attributes(
         tenant_id=request.tenant_id,
         correlation_id=request.correlation_id,
         workflow_id=request.workflow_id,
     )
-    now = _now().isoformat()
-    tool_call = ToolCall.model_validate(
-        {
-            "schema_version": "1.0.0",
-            "tool_call_id": str(uuid4()),
-            "invocation_id": request.invocation_id,
-            "tenant_id": request.tenant_id,
-            "correlation_id": request.correlation_id,
-            "agent_id": request.agent_id,
-            "tool_name": request.tool_name,
-            "mode": request.mode,
-            "idempotency_key": request.idempotency_key,
-            "arguments": request.arguments,
-            "requested_at": now,
-        }
-    )
-    verdict = GatewayVerdict.model_validate(
-        {
-            "schema_version": "1.0.0",
-            "verdict_id": str(uuid4()),
-            "tool_call_id": str(tool_call.tool_call_id),
-            "tenant_id": request.tenant_id,
-            "correlation_id": request.correlation_id,
-            "verdict": "allow",
-            "enforced_mode": request.mode,
-            "reason": "Phase 1A placeholder accepted contract-shaped gateway request.",
-            "rewritten_arguments": None,
-            "approval_required": False,
-            "audit_event_id": str(uuid4()),
-            "connector_invocation_id": str(uuid4()),
-            "decided_at": now,
-        }
-    )
-    return ToolGatewayResponse(
-        verdict_id=str(verdict.verdict_id),
-        tool_call_id=str(tool_call.tool_call_id),
-        audit_event_id=str(verdict.audit_event_id),
-        verdict=verdict.verdict.value,
-        enforced_mode=verdict.enforced_mode.value,
-        reason=verdict.reason,
-        connector_invocation_id=(
-            str(verdict.connector_invocation_id)
-            if verdict.connector_invocation_id is not None
-            else None
-        ),
-        output={"accepted_arguments": request.arguments},
-    )
+    database_url = os.environ.get("CHORUS_DATABASE_URL", database_url_from_env())
+    with psycopg.connect(database_url) as conn:
+        gateway = ToolGateway(ToolGatewayStore(conn), LocalToolConnector(conn))
+        return gateway.invoke(request)
 
 
 @activity.defn(name="lighthouse.poll_mailpit")

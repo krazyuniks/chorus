@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/tools/email_message_args.schema.json",
+  "title": "EmailMessageArgs",
+  "description": "Arguments accepted by the local Mailpit-backed email proposal/send connector.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "to",
+    "subject",
+    "body_text"
+  ],
+  "properties": {
+    "to": {
+      "type": "string",
+      "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+    },
+    "subject": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "body_text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000
+    }
+  }
+}

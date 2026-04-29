@@ -189,6 +189,37 @@ Agents still have no tool authority. Decision rows contain structured agent
 reasoning evidence and an empty `tool_call_ids` array until Workstream D records
 Tool Gateway calls behind `lighthouse.invoke_tool_gateway`.
 
+## Workstream D Tool Gateway operations
+
+`lighthouse.invoke_tool_gateway` now resolves grants, validates tool contracts,
+enforces modes, redacts audit arguments, applies idempotency, and invokes local
+connectors only after the gateway has emitted an explicit verdict. The
+Lighthouse happy path calls `email.propose_response` in `propose` mode; Mailpit
+captures the resulting sandbox outbound message.
+
+Inspect grants for the Lighthouse drafter:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT agent_id, agent_version, tool_name, mode, allowed, approval_required, redaction_policy FROM tool_grants WHERE tenant_id = 'tenant_demo' AND agent_id = 'lighthouse.drafter' ORDER BY tool_name, mode;"
+```
+
+Inspect gateway audit for a workflow correlation ID:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT correlation_id, agent_id, tool_name, requested_mode, enforced_mode, verdict, reason, arguments_redacted, metadata, occurred_at FROM tool_action_audit WHERE correlation_id = '<correlation-id>' ORDER BY occurred_at;"
+```
+
+Idempotency is enforced by `tenant_id`, `tool_name`, and `idempotency_key`: a
+replayed activity returns the original persisted `ToolGatewayResponse` and does
+not invoke the connector again. Audit rows store the generated `AuditEvent`
+payload in `raw_event`, including the generated `GatewayVerdict`.
+
+The Mailpit connector defaults to `localhost:1025` for host tests. In Compose,
+set `CHORUS_MAILPIT_SMTP_HOST=mailpit` and `CHORUS_MAILPIT_SMTP_PORT=1025` for
+worker containers. Companies House lookup remains environment-gated by
+`CHORUS_COMPANIES_HOUSE_API_KEY`; absence of that key blocks research connector
+execution instead of falling back to a fake result.
+
 ## Operational procedures
 
 ### Stuck Lighthouse workflow

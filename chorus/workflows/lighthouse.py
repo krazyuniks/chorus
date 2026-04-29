@@ -201,7 +201,7 @@ class LighthouseWorkflow:
             lead,
             workflow_id,
             validation.invocation_id,
-            "lighthouse-drafter",
+            "lighthouse.drafter",
             "email.propose_response",
             "propose",
             f"{workflow_id}:email.propose_response",

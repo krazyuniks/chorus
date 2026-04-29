@@ -311,6 +311,66 @@ VALUES
         false,
         '{"persist": "summary_only"}'::jsonb,
         '{"seed": true}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000003',
+        'tenant_demo',
+        'lighthouse.drafter',
+        'v1',
+        'email.propose_response',
+        'propose',
+        true,
+        false,
+        '{"redact_fields": ["body_text"]}'::jsonb,
+        '{"seed": true, "evidence": "happy path outbound proposal captured by Mailpit"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000004',
+        'tenant_demo',
+        'lighthouse.drafter',
+        'v1',
+        'email.send_response',
+        'propose',
+        true,
+        false,
+        '{"redact_fields": ["body_text"]}'::jsonb,
+        '{"seed": true, "evidence": "write downgrade target"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000005',
+        'tenant_demo',
+        'lighthouse.drafter',
+        'v1',
+        'crm.create_lead',
+        'propose',
+        true,
+        false,
+        '{"redact_fields": ["lead_summary"]}'::jsonb,
+        '{"seed": true}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000006',
+        'tenant_demo',
+        'lighthouse.drafter',
+        'v1',
+        'crm.lookup_company',
+        'read',
+        true,
+        false,
+        '{"redact_fields": []}'::jsonb,
+        '{"seed": true}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000007',
+        'tenant_demo',
+        'lighthouse.drafter',
+        'v1',
+        'crm.create_lead',
+        'write',
+        true,
+        true,
+        '{"redact_fields": ["lead_summary"]}'::jsonb,
+        '{"seed": true, "evidence": "approval hook"}'::jsonb
     )
 ON CONFLICT (tenant_id, agent_id, agent_version, tool_name, mode) DO UPDATE
 SET

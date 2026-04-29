@@ -153,6 +153,8 @@ services:
       TEMPORAL_NAMESPACE: default
       LIGHTHOUSE_TASK_QUEUE: lighthouse
       CHORUS_DATABASE_URL: postgresql://${CHORUS_PG_USER:-chorus}:${CHORUS_PG_PASSWORD:-chorus}@postgres:5432/${CHORUS_PG_DB:-chorus}
+      CHORUS_MAILPIT_SMTP_HOST: mailpit
+      CHORUS_MAILPIT_SMTP_PORT: 1025
       OTEL_SERVICE_NAME: chorus-intake-poller
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc

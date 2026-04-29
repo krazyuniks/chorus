@@ -398,10 +398,12 @@ not treated as an authority model by itself.
 Workstream B defines the Temporal activity boundary as
 `lighthouse.invoke_tool_gateway`. It accepts a contract-shaped
 `ToolGatewayRequest`, validates generated `ToolCall`/`GatewayVerdict` payloads,
-and returns a `ToolGatewayResponse`. The current implementation is a placeholder
-for the happy path; Workstream D replaces the internals with grants, schema
-validation, idempotency, audit, connector invocation, and real Mailpit outbound
-capture behind the same activity name.
+and returns a `ToolGatewayResponse`. Workstream D implements the internals
+behind that stable activity name: generated tool-contract validation,
+per-tool argument validation, grant lookup, mode enforcement, redaction,
+idempotency, approval-required decisions, audit persistence, connector
+invocation, and real Mailpit outbound capture. The workflow interface did not
+change, and agents still have no connector authority.
 
 ## Connector Substrate
 
@@ -417,6 +419,13 @@ Phase 1 connectors use real software in sandbox/local mode:
 The local connector service is contract-faithful and sits behind the Tool
 Gateway. Phase 1 does not write to real CRMs, production mailboxes, payment
 systems, or other closed third-party platforms.
+
+The Phase 1A implementation currently routes `email.propose_response` and
+`email.send_response` through the Mailpit SMTP connector, stores local CRM lead
+state in Postgres through `crm.lookup_company` and `crm.create_lead`, and keeps
+Companies House research behind an environment-gated connector. The gateway
+records every decided call in `tool_action_audit` with generated
+`AuditEvent`/`GatewayVerdict` payloads and active OTel metadata where present.
 
 ## Contracts and Schema Evolution
 

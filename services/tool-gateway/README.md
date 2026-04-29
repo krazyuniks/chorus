@@ -14,6 +14,17 @@ Owns no agent reasoning. Owns no workflow state. Owns nothing except the gate.
 
 See [ADR 0004 — Agent Runtime and Tool Gateway](../../adrs/0004-agent-runtime-and-tool-gateway.md).
 
-Workstream B has fixed the Temporal boundary as `lighthouse.invoke_tool_gateway`: it accepts a contract-shaped request, validates generated `ToolCall` / `GatewayVerdict` payloads, and returns a `ToolGatewayResponse`. Phase 1A workstream **D** owns replacing the placeholder implementation with grant lookup, mode enforcement, idempotency, audit persistence, connector invocation, and outbound Mailpit capture behind that activity name.
+Workstream D implements the boundary in `chorus.tool_gateway`. The Temporal
+activity `lighthouse.invoke_tool_gateway` now:
+
+- validates generated `ToolCall`, `GatewayVerdict`, `AuditEvent`, and outbound
+  email argument contracts;
+- resolves `tool_grants` for `(agent_id, tenant_id, tool, mode)`;
+- enforces allow, block, write-to-propose downgrade, and approval-required
+  decisions;
+- redacts audit arguments by grant policy;
+- returns an idempotent persisted response for replayed keys;
+- writes `tool_action_audit` with OTel metadata where active;
+- invokes local connectors only after the gateway verdict permits it.
 
 See [implementation-plan.md](../../docs/implementation-plan.md).
