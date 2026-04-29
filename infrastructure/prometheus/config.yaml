@@ -1,0 +1,19 @@
+# Prometheus — Phase 1 local metrics backend. Scrapes the OTel collector's
+# Prometheus exporter and itself. Service `/metrics` endpoints are added to
+# this scrape list as Workstreams B/C/D/E expose them.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    deployment: local
+    service_namespace: chorus
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: otel-collector
+    static_configs:
+      - targets: ['otel-collector:8889']

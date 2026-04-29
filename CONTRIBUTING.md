@@ -54,6 +54,7 @@ just hooks
 - Conventional commits are required: `type(scope): description`.
 - Do not add `Co-Authored-By`, generated-by, or any AI attribution to commits, PRs, issues, or other artefacts.
 - Keep commits focused. Prefer multiple small commits to one omnibus commit when changes cross component boundaries.
+- **Stage paths explicitly** — `git add path/one path/two`, never `git add -A` and never `git add .`. Phase 1A is parallelised across six workstreams (A persistence, B temporal, C agent runtime, D tool gateway, E BFF/UI, F observability/ops) which may run as concurrent sessions against the same working tree and the same git index. A blanket `git add -A` from one session sweeps another session's in-flight files into a commit titled for the wrong concern; this has happened in earlier passes and the resulting commit history is hard to untangle. Stage by path so each workstream's commit carries only its own artefacts.
 
 ## Documentation moves with code
 

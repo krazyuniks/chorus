@@ -160,20 +160,75 @@ services:
       postgres:
         condition: service_healthy
 
+  tempo:
+    image: ${TEMPO_IMAGE:-grafana/tempo:latest}
+    command: ["-config.file=/etc/tempo/config.yaml"]
+    volumes:
+      - ./infrastructure/tempo/config.yaml:/etc/tempo/config.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - "${TEMPO_HTTP_PORT:-3200}:3200"   # Tempo HTTP API (read)
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3200/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  loki:
+    image: ${LOKI_IMAGE:-grafana/loki:latest}
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ./infrastructure/loki/config.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/var/loki
+    ports:
+      - "${LOKI_HTTP_PORT:-3100}:3100"   # Loki HTTP API
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3100/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  prometheus:
+    image: ${PROMETHEUS_IMAGE:-prom/prometheus:latest}
+    command:
+      - --config.file=/etc/prometheus/config.yaml
+      - --storage.tsdb.retention.time=24h
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./infrastructure/prometheus/config.yaml:/etc/prometheus/config.yaml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "${PROMETHEUS_HTTP_PORT:-9090}:9090"   # Prometheus UI + API
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
   otel-collector:
     image: ${OTEL_COLLECTOR_IMAGE:-otel/opentelemetry-collector-contrib:latest}
     command: ["--config=/etc/otelcol/config.yaml"]
     volumes:
       - ./infrastructure/otel/config.yaml:/etc/otelcol/config.yaml:ro
     ports:
-      - "${OTEL_GRPC_PORT:-4317}:4317"   # OTLP gRPC
-      - "${OTEL_HTTP_PORT:-4318}:4318"   # OTLP HTTP
+      - "${OTEL_GRPC_PORT:-4317}:4317"          # OTLP gRPC
+      - "${OTEL_HTTP_PORT:-4318}:4318"          # OTLP HTTP
+      - "${OTEL_PROMETHEUS_PORT:-8889}:8889"    # Prometheus scrape target
     depends_on:
       chown-init:
         condition: service_completed_successfully
+      tempo:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
 
 volumes:
   postgres-data:
   temporal-postgres-data:
   mailpit-data:
   grafana-data:
+  tempo-data:
+  loki-data:
+  prometheus-data:

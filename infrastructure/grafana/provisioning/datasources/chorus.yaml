@@ -4,16 +4,17 @@
 # bind-mount in compose.yml. Environment variables come from the Grafana
 # service's container environment, which compose.yml populates from `.env`.
 #
-# Phase 1A ships **Postgres** as the primary datasource: every Workstream A
-# table (workflow_read_models, decision_trail_entries, tool_action_audit,
-# outbox_events) is queryable directly. This gives the Lighthouse review
-# surface a working "UI → Grafana panel → audit row by correlation_id" trail
-# before any OTel-driven trace/metric/log backend lands.
+# Datasources land in the order the architecture review walks them:
 #
-# Tempo, Loki, and Prometheus datasources are intentionally omitted until
-# the OTel collector pipeline (ADR 0010) is wired through to running
-# services — see infrastructure/otel/config.yaml. Add them here in the same
-# additive shape when they land; nothing else in this file needs to change.
+#   Postgres   — read models, decision trail, tool/action audit (Workstream A).
+#   Tempo      — distributed traces (OTel pipeline; ADR 0010).
+#   Loki       — structured logs                 ("            ").
+#   Prometheus — service + collector metrics     ("            ").
+#
+# The Postgres datasource stays default so panel queries that target the
+# audit row remain authoritative for accountability questions; OTel-backed
+# datasources answer operational ones (latency, retry rate, dependency
+# health). Audit ↔ trace join is by `metadata->>'otel.trace_id'` per ADR 0010.
 
 apiVersion: 1
 
@@ -33,3 +34,51 @@ datasources:
       timescaledb: false
     isDefault: true
     editable: false
+
+  - name: Chorus Tempo
+    uid: chorus-tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: false
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: chorus-loki
+        spanStartTimeShift: "-1h"
+        spanEndTimeShift: "1h"
+        tags:
+          - key: chorus.tenant_id
+            value: tenant_id
+          - key: chorus.workflow_id
+            value: workflow_id
+          - key: chorus.correlation_id
+            value: correlation_id
+        filterByTraceID: true
+      tracesToMetrics:
+        datasourceUid: chorus-prometheus
+      serviceMap:
+        datasourceUid: chorus-prometheus
+      nodeGraph:
+        enabled: true
+
+  - name: Chorus Loki
+    uid: chorus-loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      derivedFields:
+        - matcherRegex: "trace_id=(\\w+)"
+          name: TraceID
+          url: "$${__value.raw}"
+          datasourceUid: chorus-tempo
+
+  - name: Chorus Prometheus
+    uid: chorus-prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    editable: false
+    jsonData:
+      timeInterval: 15s

@@ -252,11 +252,45 @@ Today the trail is **UI/Postgres → Grafana → SQL audit**:
 3. Drill into a row in the dashboard's table panel; copy `workflow_id` for the Temporal UI search.
 4. Run the runbook's `tool_action_audit` SQL with the same `correlation_id` for the authoritative gateway record.
 
-Tempo (traces) lands with the OTel pipeline. When it does, step 3 picks
-up a "View trace" link from the workflow span attribute
-`chorus.correlation_id`; audit rows already record `otel.trace_id` /
-`otel.span_id` in their `metadata` jsonb so the join survives a
-restart.
+The Tempo/Loki/Prometheus backends now run alongside Grafana. Once
+Workstream B/C/D services emit OTel through the template's
+`opentelemetry-instrument` entrypoint, step 3 picks up a "View trace" link
+keyed off the `chorus.correlation_id` span attribute, and audit rows record
+the active `otel.trace_id` / `otel.span_id` in their `metadata` jsonb so
+the join survives a restart. Audit-write code calls
+`chorus.observability.current_otel_ids()` at the row-write boundary; the
+helper returns an empty dict when no SDK is loaded, so the same code is
+safe under tests and in pure-persistence paths.
+
+### Observability stack operations
+
+The OTel pipeline shipped in Phase 1 follows ADR 0010. Operating notes:
+
+- **Reach the backends.** Tempo on `localhost:3200` (HTTP), Loki on
+  `localhost:3100`, Prometheus on `localhost:9090`, collector OTLP on
+  `localhost:4317`/`4318`, collector Prometheus scrape endpoint on
+  `localhost:8889`. `just doctor` probes each one's `/ready` (or
+  `/-/ready`) and reports `skip` when the service is not up.
+- **Reset noisy telemetry without touching application data.** Each
+  backend has its own named volume (`tempo-data`, `loki-data`,
+  `prometheus-data`). Tempo and Loki are pinned to 24h retention so a
+  long-running stack does not bloat. To drop telemetry only, use
+  `scripts/dc rm -fsv tempo loki prometheus` and `just up` again. Do
+  **not** run `just down-volumes` — that also wipes Postgres and
+  Mailpit.
+- **Triage "is anything reaching the collector?"** The collector keeps
+  the `debug` exporter on every pipeline, so `scripts/dc logs
+  otel-collector` shows a one-line summary per batch forwarded to
+  Tempo, Loki, and Prometheus. Use this before opening Grafana when a
+  panel looks empty.
+- **Datasource provisioning is read-only.** The Tempo datasource carries
+  `tracesToLogsV2` (Tempo→Loki by `chorus.tenant_id`/`workflow_id`/
+  `correlation_id` span attributes) and `tracesToMetrics`/`serviceMap`
+  (→ Prometheus); Loki carries a `derivedFields` rule that turns
+  log-line `trace_id=…` into a Tempo link. Edit
+  `infrastructure/grafana/provisioning/datasources/chorus.yaml` and
+  restart the Grafana container — Grafana itself rejects edits in the
+  UI.
 
 ## CI gates
 

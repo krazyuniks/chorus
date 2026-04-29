@@ -1,7 +1,15 @@
 # OpenTelemetry Collector configuration — Phase 1 local development.
 #
-# Receives OTLP from services, exports traces/metrics/logs to the Grafana
-# stack. Production deployment is deferred.
+# Receives OTLP from services on 4317/4318 and fans the three signals out
+# to the Grafana stack:
+#   - traces  -> Tempo  (OTLP/gRPC over the docker network)
+#   - logs    -> Loki   (HTTP push)
+#   - metrics -> Prometheus (scrape the collector's prometheus exporter)
+#
+# The `debug` exporter is kept on every pipeline so `docker logs
+# chorus-otel-collector` still shows what the collector is forwarding while
+# the upstream services land. Production deployment is deferred (ADR 0009).
+# Pipeline shape per ADR 0010.
 
 receivers:
   otlp:
@@ -20,9 +28,31 @@ processors:
     check_interval: 1s
     limit_mib: 512
 
+  # Stamp deployment.environment on everything; per-service service.name and
+  # service.version come from the emitter (see services/_template).
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: local
+        action: upsert
+      - key: service.namespace
+        value: chorus
+        action: upsert
+
 exporters:
-  # Replace with concrete Grafana / Tempo / Loki / Prometheus exporters
-  # during Phase 1A workstream F (observability + ops).
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: true
+
   debug:
     verbosity: basic
 
@@ -30,13 +60,13 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
-      exporters: [debug]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp/tempo, debug]
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
-      exporters: [debug]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus, debug]
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
-      exporters: [debug]
+      processors: [memory_limiter, resource, batch]
+      exporters: [loki, debug]

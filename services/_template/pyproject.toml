@@ -3,7 +3,16 @@ name = "chorus-service-template"
 version = "0.0.0"
 description = "Template stub for new Chorus services. Copy this directory under services/<your-service>/ and rename."
 requires-python = ">=3.14"
-dependencies = []
+
+# OpenTelemetry auto-instrumentation is wired in by default per ADR 0010.
+# `opentelemetry-distro[otlp]` pulls the API, SDK, OTLP exporter, W3C
+# propagators, and the `opentelemetry-instrument` / `opentelemetry-bootstrap`
+# CLIs. The Dockerfile runs `opentelemetry-bootstrap -a install` after the
+# venv is built so per-library auto-instrumentation packages are added based
+# on the dependencies the service has actually declared.
+dependencies = [
+    "opentelemetry-distro[otlp]>=0.50b0",
+]
 
 [dependency-groups]
 dev = [

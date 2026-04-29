@@ -102,6 +102,10 @@ WORKSTREAM_F_PATHS = [
     "infrastructure/grafana/dashboards/gateway-verdicts.json",
     "infrastructure/grafana/dashboards/projection-lag.json",
     "infrastructure/grafana/dashboards/agent-decisions.json",
+    "infrastructure/tempo/config.yaml",
+    "infrastructure/loki/config.yaml",
+    "infrastructure/prometheus/config.yaml",
+    "chorus/observability/__init__.py",
 ]
 
 # Workstream A (Persistence + projection) — Postgres migrations, seeds,
@@ -438,6 +442,48 @@ def check_otel() -> int:
     return 0 if grpc_up and http_up else 1
 
 
+def check_tempo() -> int:
+    _section("tempo (workstream F — traces backend)")
+    port = _env_int("TEMPO_HTTP_PORT", 3200)
+    if not _tcp_reachable("localhost", port):
+        _skip(f"tempo not reachable on localhost:{port} (run 'just up')")
+        return 0
+    status, _ = _http_get(f"http://localhost:{port}/ready")
+    if status == 200:
+        _ok(f"tempo /ready responding on localhost:{port}")
+        return 0
+    _fail(f"tempo on localhost:{port} /ready returned status {status}")
+    return 1
+
+
+def check_loki() -> int:
+    _section("loki (workstream F — logs backend)")
+    port = _env_int("LOKI_HTTP_PORT", 3100)
+    if not _tcp_reachable("localhost", port):
+        _skip(f"loki not reachable on localhost:{port} (run 'just up')")
+        return 0
+    status, _ = _http_get(f"http://localhost:{port}/ready")
+    if status == 200:
+        _ok(f"loki /ready responding on localhost:{port}")
+        return 0
+    _fail(f"loki on localhost:{port} /ready returned status {status}")
+    return 1
+
+
+def check_prometheus() -> int:
+    _section("prometheus (workstream F — metrics backend)")
+    port = _env_int("PROMETHEUS_HTTP_PORT", 9090)
+    if not _tcp_reachable("localhost", port):
+        _skip(f"prometheus not reachable on localhost:{port} (run 'just up')")
+        return 0
+    status, _ = _http_get(f"http://localhost:{port}/-/ready")
+    if status == 200:
+        _ok(f"prometheus /-/ready responding on localhost:{port}")
+        return 0
+    _fail(f"prometheus on localhost:{port} /-/ready returned status {status}")
+    return 1
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -470,6 +516,9 @@ def main(argv: list[str] | None = None) -> int:
         failures += check_schema_registry()
         failures += check_mailpit()
         failures += check_otel()
+        failures += check_tempo()
+        failures += check_loki()
+        failures += check_prometheus()
         failures += check_bff()
         failures += check_frontend_dev()
 
