@@ -417,6 +417,15 @@ visibility. Redpanda does not replace workflow state or audit storage.
 Tenant isolation is represented through `tenant_id` on all tenant-owned tables,
 row-level security, tenant-scoped policy, and tests that fail closed.
 
+The Phase 1A storage foundation is implemented as SQL migrations under
+`infrastructure/postgres/migrations`, with idempotent demo seeds under
+`infrastructure/postgres/seeds`. The first migration creates tenant-scoped
+tables for tenants, agent registry, model routing policy, tool grants,
+workflow read models, decision trail, tool/action audit, episodic workflow
+history, and transactional outbox. The `chorus.persistence` Python package
+exposes the migration runner and the minimal projection/read-model adapter for
+later BFF and projection-worker workstreams.
+
 Scylla remains a deferred production option for append-heavy long-retention
 decision trail or episodic history workloads. Phase 1 keeps storage boundaries
 clear enough that this remains an adapter change, not an architectural rewrite.
@@ -572,7 +581,9 @@ Local operation is part of the evidence surface.
 | Command/surface | Purpose |
 |---|---|
 | `just up` | Start the local runtime substrate. |
+| `just db-migrate` | Apply Postgres migrations and idempotent demo tenant seed data. |
 | `just doctor` | Phase 0 scaffold checks. Phase 1A extends this to service health, migrations, schema registration, seeded tenants, and sample workflow readiness. |
+| `just test-persistence` | Run Postgres persistence, projection, RLS, and fail-closed tenant-isolation tests. |
 | `just demo` | Send the fixture lead through Mailpit SMTP and observe workflow execution. |
 | Temporal Console | Inspect workflow execution. |
 | Redpanda Console | Inspect events and schemas. |

@@ -45,6 +45,7 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
 4. **(Phase 1A) Persistence and projection**
    - Add Postgres schema for tenants, agent registry, model policy, tool grants, workflow read model, decision trail, episodic history, and outbox.
    - Add RLS and tenant-isolation tests for two seeded tenants.
+   - Current state: the Phase 1A storage foundation migration, two-tenant seed data, migration runner, minimal projection/read-model adapter, outbox shape, and real-Postgres RLS/fail-closed tests are implemented.
    - Exit check: read model survives refresh/reconnect and tenant leakage tests fail closed.
 
 5. **(Phase 1A) Temporal workflow**

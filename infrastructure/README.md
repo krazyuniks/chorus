@@ -2,6 +2,7 @@
 
 Local-first runtime substrate configuration.
 
+- `postgres/` — Phase 1A Postgres migrations and idempotent demo seed data for tenant-scoped policy, audit, projections, and transactional outbox.
 - `otel/` — OpenTelemetry Collector pipeline configuration (traces, metrics, logs export to the Grafana stack).
 - `grafana/` — Grafana dashboards, datasource provisioning, alert rules (Phase 1A).
 

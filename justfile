@@ -37,6 +37,10 @@ logs *service:
 doctor:
     uv run python -m chorus.doctor
 
+# Apply Postgres migrations and idempotent Phase 1A demo seed data.
+db-migrate:
+    uv run python -m chorus.persistence.migrate
+
 # ----- Demo -----
 
 # Send a fixture lead email through Mailpit and watch the workflow execute.
@@ -59,6 +63,10 @@ contracts-check:
 # Run all Python tests.
 test:
     uv run pytest
+
+# Run Postgres persistence and tenant-isolation tests.
+test-persistence:
+    uv run pytest tests/persistence
 
 # Run Temporal replay tests.
 test-replay:

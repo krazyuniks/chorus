@@ -10,9 +10,10 @@ authors = [
 ]
 
 # Service-specific runtime dependencies are declared in `services/*/pyproject.toml`
-# during Phase 1A. The root project carries shared contract-model dependencies,
-# dev tooling, and shared linting.
+# during Phase 1A. The root project carries shared contract-model and
+# persistence-adapter dependencies, dev tooling, and shared linting.
 dependencies = [
+    "psycopg[binary]>=3.2",
     "pydantic>=2.13.3",
 ]
 

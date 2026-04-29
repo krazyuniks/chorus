@@ -8,7 +8,7 @@ Chorus is the architecture artefact. Lighthouse is the proof scenario.
 
 ## Status
 
-Design-frozen 2026-04-29. Phase 0 foundation scaffolding and the initial contract gate are in place. Phase 1A (the first public ship-checkpoint) builds the Lighthouse vertical slice end-to-end. See [`docs/implementation-plan.md`](docs/implementation-plan.md) for phasing and the parallel-workstream model.
+Design-frozen 2026-04-29. Phase 0 foundation scaffolding and the initial contract gate are in place. Phase 1A has started with the Postgres persistence foundation: tenant-scoped registry/policy/grant tables, workflow projections, decision trail, tool/action audit, episodic history, transactional outbox, demo tenant seeds, and RLS isolation tests. Phase 1A (the first public ship-checkpoint) builds the Lighthouse vertical slice end-to-end. See [`docs/implementation-plan.md`](docs/implementation-plan.md) for phasing and the parallel-workstream model.
 
 ## Review path
 
@@ -35,6 +35,10 @@ Temporal (Python SDK) for durable orchestration. Python + FastAPI + PydanticAI a
 ## Demo
 
 Phase 1A's demo trigger is real SMTP intake via Mailpit. A real email addressed to `leads@chorus.local` is sent to Mailpit's local SMTP port `1025`; a Temporal poller activity reads new messages, deduplicates by Message-ID, and starts a Lighthouse workflow per new lead. See [ADR 0008](adrs/0008-email-intake-via-mailpit.md). A polished screencast is deferred to backlog until the application reaches a holistic working state.
+
+## Local persistence
+
+Postgres migrations live in [`infrastructure/postgres/migrations`](infrastructure/postgres/migrations). Demo tenant seed data lives in [`infrastructure/postgres/seeds`](infrastructure/postgres/seeds). Apply them with `just db-migrate` after the local Postgres service is running. The persistence tests use real Postgres and can be run with `just test-persistence`; set `CHORUS_TEST_ADMIN_DATABASE_URL` when the local Postgres host port is not `5432`.
 
 ## License
 

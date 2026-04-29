@@ -34,6 +34,13 @@ REQUIRED_PATHS = [
     "frontend",
     "eval",
     "infrastructure/otel/config.yaml",
+    "infrastructure/postgres/README.md",
+    "infrastructure/postgres/migrations/001_phase_1a_persistence_foundation.sql",
+    "infrastructure/postgres/seeds/001_demo_tenants.sql",
+    "chorus/persistence/__init__.py",
+    "chorus/persistence/migrate.py",
+    "chorus/persistence/projection.py",
+    "tests/persistence/test_postgres_foundation.py",
 ]
 
 

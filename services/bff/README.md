@@ -8,4 +8,6 @@ FastAPI service that fronts the Lighthouse UI. Exposes:
 
 Owns no workflow state and makes no orchestration or connector calls. Delegates to Postgres projections and Temporal Console links.
 
+Phase 1A persistence exposes the initial read-model interface in [`../../chorus/persistence/projection.py`](../../chorus/persistence/projection.py). BFF endpoints should read workflow summaries and runtime policy snapshots through that adapter or through equivalent SQL that preserves the same tenant-scoped RLS boundary.
+
 Phase 1A workstream **E** (BFF + UI). See [implementation-plan.md](../../docs/implementation-plan.md).

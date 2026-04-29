@@ -30,7 +30,7 @@ The goal is not to claim Chorus is a complete enterprise policy framework. The g
 | Prompt change alters behaviour silently | Prompt references and hashes captured per invocation | Decision trail shows prompt identity for each run. |
 | Model/provider change causes regression | Runtime model policy plus eval fixtures | Eval gate checks path, outcome, cost, latency, and validator diversity. |
 | Unsafe or low-quality output reaches customer | Explicit validation workflow state | Validator can approve, reject with reason, or escalate. |
-| Data crosses tenant boundary | Tenant IDs, RLS, tenant-scoped policies | Seeded two-tenant tests and fail-closed access checks. |
+| Data crosses tenant boundary | Tenant IDs, RLS, tenant-scoped policies | Phase 1A Postgres migration, two demo tenants, and real-Postgres fail-closed RLS tests. |
 | Tool arguments are malformed or unsafe | JSON Schema validation at gateway | Invalid argument fixtures fail before connector execution. |
 | Audit record is incomplete | Decision trail schema and required fields | Contract tests and eval assertions over persisted records. |
 | External provider or connector fails | Temporal retries, circuit breakers, DLQ/escalation | Connector-failure fixture and retry/exhaustion evidence. |
