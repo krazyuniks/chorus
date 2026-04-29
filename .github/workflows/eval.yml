@@ -1,11 +1,8 @@
 name: eval
 
-# Eval fixtures land during Phase 1A. This workflow is currently expected to
-# be a no-op (or skip gracefully) until fixtures exist under chorus/eval/ or
-# tests/eval/. continue-on-error keeps PRs unblocked while the harness is
-# still being assembled.
-
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -18,7 +15,6 @@ jobs:
   eval:
     name: eval
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Set up uv
@@ -33,13 +29,5 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y zsh
       - name: Install just
         uses: extractions/setup-just@v2
-      - name: Run eval if fixtures exist
-        run: |
-          if [ -d chorus/eval/fixtures ] && [ -n "$(ls -A chorus/eval/fixtures 2>/dev/null)" ]; then
-            just eval
-          elif [ -d tests/eval ] && [ -n "$(ls -A tests/eval 2>/dev/null)" ]; then
-            just eval
-          else
-            echo "no eval fixtures yet"
-            exit 0
-          fi
+      - name: Run eval
+        run: just eval

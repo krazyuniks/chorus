@@ -54,6 +54,7 @@ operations to keep environment handling consistent.
 | `just lint` / `just fmt` | Linters and formatters across Python and frontend. |
 | `just hooks` | Run every prek hook against the whole tree. |
 | `just demo` | Send the fixture lead via Mailpit (Phase 1A). |
+| `just eval` | Run the Phase 1A happy-path eval fixture; inspect live Postgres evidence when a workflow/correlation ID is supplied. |
 
 ## Local endpoints
 
@@ -159,6 +160,41 @@ Worker metrics are emitted through the OpenTelemetry SDK to the collector and
 scraped from the collector's Prometheus endpoint. There is intentionally no
 worker sidecar HTTP `/metrics` endpoint or
 `infrastructure/prometheus/targets/intake-poller.yml` file in Phase 1A.
+
+## Phase 1A review path
+
+The 3-minute review path uses the live local stack for evidence surfaces and
+the deterministic eval as the final release gate:
+
+```bash
+just up && just db-migrate && just schemas-register && just doctor
+just demo && just intake-once
+uv run python -m chorus.persistence.redpanda relay-once && uv run python -m chorus.persistence.redpanda project-once
+just eval
+```
+
+Capture the workflow's `correlation_id` from the BFF/UI or SQL, then inspect:
+
+- Lighthouse UI/BFF workflow detail, decision trail, tool verdicts, registry,
+  grants, and routing views.
+- Temporal UI by workflow ID.
+- Redpanda Console for `chorus.workflow.events.v1` and registered event schemas.
+- Grafana dashboards by pasting the same `correlation_id` into `$correlation`.
+- Postgres `decision_trail_entries` and `tool_action_audit` by correlation ID.
+
+To make `just eval` assert the persisted live evidence as well as the
+deterministic fixture, rerun it with the join key:
+
+```bash
+CHORUS_EVAL_CORRELATION_ID=<correlation-id> just eval
+```
+
+Set `CHORUS_EVAL_REQUIRE_LIVE=1` when the live substrate is expected to be
+available and missing persisted evidence should fail the gate. Full live
+inspection requires Postgres migrations/seeds, the Mailpit-triggered workflow,
+the Redpanda relay/projection path, decision-trail rows from Agent Runtime, and
+Tool Gateway audit rows. Temporal, Redpanda, Grafana, and Mailpit are review
+surfaces; the eval harness reads the persisted Postgres evidence.
 
 ## Workstream C Agent Runtime operations
 
@@ -489,10 +525,10 @@ the scrape and log-flow steps above.
 ## CI gates
 
 The `.github/workflows/ci.yml` pipeline runs lint, contracts-check, doctor,
-Python tests, and frontend lint/test on every push and PR. `eval.yml` and
-`replay.yml` run their respective gates with `continue-on-error` until the
-fixtures land in Phase 1A. Treat a red CI as the same severity as a red
-local `just doctor`; both signal a project-level contract slipping.
+Python tests, and frontend lint/test on every push and PR. `eval.yml` runs the
+Phase 1A happy-path fixture as a normal gate; `replay.yml` runs workflow replay
+coverage. Treat a red CI as the same severity as a red local `just doctor`;
+both signal a project-level contract slipping.
 
 ## Deferrals (Phase 1)
 

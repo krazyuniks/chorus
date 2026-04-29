@@ -1,7 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const port = Number(process.env.VITE_PORT ?? "5173");
+const port = Number(process.env.PLAYWRIGHT_PORT ?? process.env.VITE_PORT ?? "5174");
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${port}`;
+const reuseExistingServer = process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === "1";
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -23,9 +24,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "VITE_USE_FIXTURES=true npm run dev",
+    command: `VITE_USE_FIXTURES=true VITE_PORT=${port} npm run dev`,
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer,
     stdout: "pipe",
     stderr: "pipe",
     timeout: 60_000,

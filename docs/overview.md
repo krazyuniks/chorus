@@ -38,14 +38,9 @@ The demo is a trace-first vertical slice, not a broad platform showcase. A real 
 4. **Decision provenance** - every agent step records input summary, prompt hash, model, tool calls, output, justification, cost, duration, and correlation ID.
 5. **Event visibility** - Redpanda carries schema-governed domain events and live progress updates; Redpanda Console shows the stream.
 6. **Operational visibility** - Grafana shows traces, latency, errors, and cost per workflow.
-7. **Evaluation discipline** - fixture leads exercise expected paths, tool grants, escalation rules, cost budgets, and trace-contract checks.
+7. **Evaluation discipline** - the Phase 1A happy-path fixture checks the expected path, final outcome, workflow events, decision-trail completeness, tool verdict evidence, budget, latency, and correlation IDs.
 
-The demo deliberately shows failure modes alongside the happy path:
-
-- Low-confidence research triggers a deeper-research branch.
-- Validator rejection loops back to the drafter with structured reasoning.
-- A forced connector failure routes to compensation or human escalation.
-- A prohibited write action is blocked or downgraded to proposal mode by the tool gateway.
+Phase 1B deliberately adds the governance and failure fixtures: low-confidence research, validator rejection, connector failure, retry exhaustion, escalation, and forbidden-write downgrade/block checks. Those paths are architecture commitments, not Phase 1A shipped evidence.
 
 The 3-minute walkthrough should be possible without opening an editor. The repo must also stand up to asynchronous technical inspection.
 
@@ -60,7 +55,7 @@ The architecture document should reflect accepted decisions, but the ADRs remain
 ## Design-freeze boundaries
 
 - Lighthouse remains the only Phase 1 workflow.
-- Phase 1 must include the happy path and the visible failure paths needed to prove governance.
+- Phase 1A includes the happy path; Phase 1B adds the visible failure paths needed to prove governance.
 - Mutating admin features stay out of the UI; registry, routing, grants, and audit are read-only there.
 - Connector integrations run real software in sandbox/local mode: Mailpit for email, public APIs for research where suitable, and a Postgres-backed local CRM service.
 - Governance, guardrail, architecture, and evidence documentation are first-class Phase 1 deliverables.

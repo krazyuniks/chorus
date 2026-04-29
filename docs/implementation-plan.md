@@ -110,12 +110,14 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
    - Keep the UI dense, plain, and data-first.
    - Exit check: the 3-minute demo can be performed without opening an editor.
 
-10. **(Phase 1A) Observability and assurance**
+10. **(Phase 1A) Observability and assurance** — *delivered (Workstream F plus eval closeout)*
     - Add OpenTelemetry traces/logs/metrics, Grafana dashboard, and happy-path eval fixtures.
+    - Current state: Workstream F provides the local observability substrate and cross-surface correlation recipe. `just eval` runs the Phase 1A Lighthouse happy-path fixture, validates contract-shaped workflow/agent/tool evidence, and optionally inspects persisted Postgres evidence for a supplied workflow/correlation ID.
     - Exit check: Temporal, Redpanda, Grafana, UI, and audit views can be correlated from one workflow ID; happy-path eval passes.
 
-11. **(Phase 1A) Phase 1A documentation pass**
+11. **(Phase 1A) Phase 1A documentation pass** — *delivered (Phase 1A closeout)*
     - Update README, overview, architecture, governance guardrails, runbook, demo script, and evidence map to reflect the implemented slice.
+    - Current state: documentation names the implemented Phase 1A happy path, marks Phase 1B governance/failure fixtures as open, and makes the 3-minute Mailpit → Temporal → Redpanda/projection → BFF/UI/Grafana/audit → eval review path explicit.
     - Exit check: docs describe the current code and no deferred feature is presented as implemented.
 
 12. **(Phase 1C) Architecture artefact packaging — final pass**
@@ -225,6 +227,14 @@ could not run is recorded in the handoff.
 | F-04 | Strict doctor probes for completed runtime contracts | `chorus/doctor.py` | `just doctor` | done | Schema-registry strict check fails-closed on declared `x-subject`; `_describe_temporal_task_queue` probes the `lighthouse` queue via `DescribeTaskQueue`. |
 | F-05 | Cross-surface correlation by workflow/correlation ID | runbook; OTel/audit metadata; dashboards; `docs/evidence-map.md` | E2E/eval inspection | done | Evidence-map row "Cross-surface correlation by workflow/correlation ID" cites runbook procedure plus the four surfaces. |
 | F-06 | Promote operational ADRs when implementation matches them | `adrs/0009-*`; `adrs/0010-*` | doc review | done | Both ADRs moved from `proposed` to `accepted`; bodies updated to cite the implemented evidence. |
+
+### Phase 1A Assurance and Documentation Closeout
+
+| ID | Required item | Evidence artefact | Gate | Status | Notes |
+|---|---|---|---|---|---|
+| Z-01 | Happy-path eval fixture asserts path, outcome, events, decision trail, tool verdict/audit, cost, latency, and correlation ID | `chorus/eval/run.py`; `chorus/eval/fixtures/lighthouse_happy_path.json`; `tests/eval/test_run.py` | `just eval`; focused eval tests | done | Default run is deterministic and contract-shaped; `CHORUS_EVAL_CORRELATION_ID` or `CHORUS_EVAL_WORKFLOW_ID` adds persisted Postgres evidence checks. |
+| Z-02 | Live eval requirements documented without requiring unavailable substrate | `docs/runbook.md`; `README.md`; `docs/architecture.md` | doc review; `just eval` | done | Full live evidence requires a Mailpit-triggered workflow, Postgres evidence, relay/projection, decision trail, and tool audit rows. |
+| Z-03 | Phase 1A docs match implemented slice and do not present Phase 1B fixtures as shipped | `README.md`; `docs/overview.md`; `docs/architecture.md`; `docs/governance-guardrails.md`; `docs/evidence-map.md`; `docs/runbook.md`; `docs/demo-script.md` | doc review | done | 3-minute review path is explicit. |
 
 ### Workstream F status
 

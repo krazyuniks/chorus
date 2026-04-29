@@ -15,7 +15,7 @@ Chorus is the architecture artefact. Lighthouse is the proof scenario.
 
 ## Status
 
-Design-frozen 2026-04-29. Phase 0 foundation scaffolding and the initial contract gate are in place. Phase 1A Workstream A is complete: Postgres owns tenant-scoped registry/policy/grant tables, workflow read models, decision trail, tool/action audit, episodic history, transactional outbox state, idempotent demo seeds, RLS isolation, and the Redpanda relay/projection path for `workflow_event` events. Phase 1A Workstream B is complete: the Lighthouse Temporal workflow, Mailpit poll intake, workflow event activity, Agent Runtime activity boundary, Tool Gateway activity boundary, and replay fixture are implemented. Phase 1A (the first public ship-checkpoint) builds the Lighthouse vertical slice end-to-end. See [`docs/implementation-plan.md`](docs/implementation-plan.md) for phasing and the workstream model.
+Design-frozen 2026-04-29. Phase 1A is the current first public ship-checkpoint: Postgres persistence/projections, Mailpit intake, the Temporal Lighthouse workflow, Agent Runtime, Tool Gateway, BFF/UI inspection surfaces, OpenTelemetry/Grafana scaffolding, and the happy-path eval are implemented. Phase 1B governance/failure fixtures remain open and are not presented as shipped evidence. See [`docs/implementation-plan.md`](docs/implementation-plan.md) for phasing and the workstream ledger.
 
 ## First-time setup
 
@@ -38,6 +38,7 @@ just lint              # Python and frontend linters
 just demo              # send the fixture lead through Mailpit (Phase 1A)
 just worker            # run the Lighthouse Temporal worker
 just intake-once       # poll Mailpit once and start workflows for new leads
+just eval              # run the Phase 1A happy-path eval fixture
 ```
 
 `just --list` is the discovery command. See [`AGENTS.md`](AGENTS.md) for the full gate hierarchy and which gate proves which kind of change.
@@ -66,7 +67,13 @@ Temporal (Python SDK) for durable orchestration. Python + FastAPI + PydanticAI a
 
 ## Demo
 
-Phase 1A's demo trigger is real SMTP intake via Mailpit. A real email addressed to `leads@chorus.local` is sent to Mailpit's local SMTP port `1025`; the Mailpit poll activity reads messages through the HTTP API, deduplicates by Message-ID using a stable Message-ID-derived Temporal workflow ID, and starts a Lighthouse workflow per new lead. Run `just worker` in one terminal, then `just demo` and `just intake-once` in another to exercise the Workstream B path. See [ADR 0008](adrs/0008-email-intake-via-mailpit.md). A polished screencast is deferred to backlog until the application reaches a holistic working state.
+Phase 1A's demo trigger is real SMTP intake via Mailpit. A real email addressed to `leads@chorus.local` is sent to Mailpit's local SMTP port `1025`; the Mailpit poll activity reads messages through the HTTP API, deduplicates by Message-ID using a stable Message-ID-derived Temporal workflow ID, and starts a Lighthouse workflow per new lead. Run `just up`, `just db-migrate`, `just schemas-register`, then use `just demo` and `just intake-once` to trigger the run. Inspect the BFF/UI, Temporal, Redpanda, Grafana, decision trail, and tool audit by `correlation_id`, then run `just eval`. See [ADR 0008](adrs/0008-email-intake-via-mailpit.md) and [`docs/demo-script.md`](docs/demo-script.md).
+
+`just eval` always runs the deterministic Phase 1A happy-path fixture. To assert a live run's persisted Postgres evidence as well, pass the workflow join key after the relay/projection path has processed events:
+
+```zsh
+CHORUS_EVAL_CORRELATION_ID=<correlation-id> just eval
+```
 
 ## Local persistence
 
@@ -74,7 +81,7 @@ Postgres migrations live in [`infrastructure/postgres/migrations`](infrastructur
 
 Activities should append `workflow_event` rows through `ProjectionStore.record_workflow_event()`. The outbox relay claims due rows with `FOR UPDATE SKIP LOCKED`, marks them `publishing`, publishes canonical `workflow_event` payloads to Redpanda, then marks rows `sent` or `failed` with retry metadata. The projection worker consumes Redpanda workflow events and applies `ProjectionStore.apply_workflow_event()` idempotently into `workflow_read_models` and `workflow_history_events`.
 
-The Lighthouse workflow emits `lead.received`, `workflow.started`, step started/completed, and terminal workflow events through the `lighthouse.record_workflow_event` activity. The workflow never writes projections directly; Workstream E should observe progress through Workstream A read models after the outbox relay and projection worker have processed those events.
+The Lighthouse workflow emits `lead.received`, `workflow.started`, step started/completed, and terminal workflow events through the `lighthouse.record_workflow_event` activity. The workflow never writes projections directly; the BFF/UI observe progress through Workstream A read models after the outbox relay and projection worker have processed those events.
 
 The persistence tests use real Postgres and Redpanda. Run the full Workstream A gate with `just test-persistence` when the default ports are available; set `CHORUS_TEST_ADMIN_DATABASE_URL` and `CHORUS_REDPANDA_BOOTSTRAP_SERVERS` when the local Compose ports are overridden.
 

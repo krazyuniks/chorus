@@ -1,6 +1,6 @@
 ---
 type: project-doc
-status: phase-0-draft
+status: phase-1a
 date: 2026-04-29
 ---
 
@@ -10,7 +10,7 @@ date: 2026-04-29
 
 This document maps Chorus's engineering claims to the artefacts that support them.
 
-The map is structured for architecture review: each capability links to the artefacts and code locations that demonstrate it. Where Phase 1A implementation has not yet landed, the documentation set carries the claim; the map is updated in Phase 1A docs closeout and Phase 1C final pass with cross-links to implemented evidence (code, eval fixture results, audit views, dashboards, screenshots).
+The map is structured for architecture review: each capability links to the artefacts and code locations that demonstrate it. Phase 1A rows point to implemented happy-path evidence. Phase 1B governance/failure fixtures remain open and are labelled as future evidence rather than shipped behaviour.
 
 ## Position
 
@@ -34,7 +34,7 @@ Chorus addresses governed runtime orchestration for agent-enabled business proce
 | Lighthouse run inspection surface (BFF + UI) | [`../chorus/bff/app.py`](../chorus/bff/app.py) — read-only FastAPI service exposing `workflow_read_models`, `workflow_history_events`, `decision_trail_entries`, `tool_action_audit`, agent registry, model routing, and tool grants under `/api/*`, plus a Postgres-polling `/api/progress` SSE stream. [`../services/bff/`](../services/bff/) — multi-stage uv Dockerfile and pyproject under the `opentelemetry-instrument` entrypoint. [`../compose.yml`](../compose.yml) — `chorus-bff` service entry. [`../frontend/src/routes/`](../frontend/src/routes/) — TanStack routes for workflow run list/detail/timeline, decision trail, tool verdicts, registry, grants, routing. [`../frontend/src/api/queries.ts`](../frontend/src/api/queries.ts) — single-source BFF query layer. [`../tests/bff/test_app.py`](../tests/bff/test_app.py) and [`../tests/bff/test_app_unit.py`](../tests/bff/test_app_unit.py) — live-Postgres + dependency-override coverage of every endpoint and the SSE stream. [`../frontend/src/api/queries.test.ts`](../frontend/src/api/queries.test.ts) — Vitest coverage that the UI talks to the documented BFF paths. [`../frontend/tests/e2e/smoke.spec.ts`](../frontend/tests/e2e/smoke.spec.ts) — Playwright refresh-survives-from-projection assertion (E-05). | Phase 1A Workstream E complete. |
 | Tool authority mediated outside agents | [`../chorus/tool_gateway/gateway.py`](../chorus/tool_gateway/gateway.py) — grant lookup, generated tool contract validation, mode enforcement, redaction, idempotency, approval-required decisions, connector invocation, and `tool_action_audit` writes. [`../chorus/connectors/local.py`](../chorus/connectors/local.py) — Mailpit SMTP, Postgres CRM, and Companies House connector substrate. [`../tests/tool_gateway/test_gateway.py`](../tests/tool_gateway/test_gateway.py) — allowed proposal, write downgrade, approval-required, blocked grant, idempotency, and audit assertions. [`../tests/tool_gateway/test_mailpit_connector.py`](../tests/tool_gateway/test_mailpit_connector.py) — live Mailpit outbound capture evidence when the local stack is running. | Phase 1A Workstream D implemented for the happy path and governance-visible gateway verdicts. |
 | Work decomposition and implementation path | [`implementation-plan.md`](implementation-plan.md) — phased delivery with parallel-workstream decomposition. | Docs complete (Phase 0). |
-| AI lifecycle management, safety, and evaluation | [`governance-guardrails.md`](governance-guardrails.md) — Safety and Evaluation Governance. [`architecture.md`](architecture.md) — Evaluation and Assurance. [`../adrs/0007-trace-evaluation-harness.md`](../adrs/0007-trace-evaluation-harness.md). | Docs complete (Phase 0). Implementation: Phase 1A workstreams B + F; Phase 1B governance fixtures. |
+| AI lifecycle management, safety, and evaluation | [`governance-guardrails.md`](governance-guardrails.md) — Safety and Evaluation Governance. [`architecture.md`](architecture.md) — Evaluation and Assurance. [`../adrs/0007-trace-evaluation-harness.md`](../adrs/0007-trace-evaluation-harness.md). [`../chorus/eval/run.py`](../chorus/eval/run.py) — Phase 1A eval runner. [`../chorus/eval/fixtures/lighthouse_happy_path.json`](../chorus/eval/fixtures/lighthouse_happy_path.json) — happy-path fixture. [`../tests/eval/test_run.py`](../tests/eval/test_run.py) — eval harness regression coverage. | Phase 1A happy-path eval implemented; Phase 1B governance/failure fixtures remain open. |
 
 ## Evidence by artefact
 
@@ -49,7 +49,6 @@ For reverse navigation, the artefacts that this map cites:
 
 ## Updates
 
-This map is a Phase 0 deliverable. It is updated in:
-
-- **Phase 1A docs closeout** (implementation-plan item 11) — cross-link each row to the implementation that lands during 1A.
-- **Phase 1C final pass** (implementation-plan item 12) — cross-link to eval results, audit views, dashboards, and the polished review path.
+This map now carries the Phase 1A closeout links. Phase 1C adds screenshots,
+screencast notes, and final review packaging once Phase 1B failure evidence is
+available.

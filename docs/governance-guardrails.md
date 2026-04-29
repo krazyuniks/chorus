@@ -26,14 +26,14 @@ The goal is not to claim Chorus is a complete enterprise policy framework. The g
 
 | Risk | Guardrail | Chorus evidence |
 |---|---|---|
-| Agent performs an unauthorised action | Tool Gateway grants by `(agent_id, tenant_id, tool, mode)` | Blocked/downgraded write fixture and audit verdict. |
+| Agent performs an unauthorised action | Tool Gateway grants by `(agent_id, tenant_id, tool, mode)` | Phase 1A gateway tests cover block, approval-required, and downgrade verdicts; Phase 1B adds end-to-end failure fixtures. |
 | Prompt change alters behaviour silently | Prompt references and hashes captured per invocation | Decision trail shows prompt identity for each run. |
-| Model/provider change causes regression | Runtime model policy plus eval fixtures | Eval gate checks path, outcome, cost, latency, and validator diversity. |
-| Unsafe or low-quality output reaches customer | Explicit validation workflow state | Validator can approve, reject with reason, or escalate. |
+| Model/provider change causes regression | Runtime model policy plus eval fixtures | Phase 1A eval checks path, outcome, cost, latency, contracts, and persisted evidence; validator diversity is Phase 1B+. |
+| Unsafe or low-quality output reaches customer | Explicit validation workflow state | Phase 1A validator approves the happy path; reject/escalate fixtures land in Phase 1B. |
 | Data crosses tenant boundary | Tenant IDs, RLS, tenant-scoped policies | Phase 1A Postgres migration, two demo tenants, and real-Postgres fail-closed RLS tests. |
 | Tool arguments are malformed or unsafe | JSON Schema validation at gateway | Invalid argument fixtures fail before connector execution. |
 | Audit record is incomplete | Decision trail schema and required fields | Contract tests and eval assertions over persisted records. |
-| External provider or connector fails | Temporal retries, circuit breakers, DLQ/escalation | Connector-failure fixture and retry/exhaustion evidence. |
+| External provider or connector fails | Temporal retries, connector error classification, DLQ/escalation design | Connector-failure and retry/exhaustion evidence are Phase 1B scope. |
 | Cost grows without visibility | Runtime budget caps and per-invocation cost capture | Eval budget checks and Grafana cost view. |
 | Teams bypass approved patterns | Architecture docs, ADRs, contract gates, quality gates | Repo structure makes approved boundaries explicit. |
 
@@ -54,7 +54,7 @@ The goal is not to claim Chorus is a complete enterprise policy framework. The g
 - Contract changes require schema diffs, generated-code refresh, samples, and drift checks.
 - Workflow changes require replay tests.
 - Agent, prompt, model, and tool-policy changes require trace/eval fixtures or documented exception.
-- Governance fixtures must include happy path, blocked write, validator rejection, connector failure, and low-confidence research.
+- Phase 1A ships the happy-path eval. Phase 1B must add blocked write, validator rejection, connector failure, retry/exhaustion, and low-confidence research fixtures.
 
 ### Runtime Guardrails
 
@@ -121,7 +121,7 @@ Evaluation is split into technical and behavioural checks:
 | Contract validation | Prove payloads conform to governed schemas. |
 | Workflow replay | Prove Temporal determinism survives code change. |
 | Trace/eval fixtures | Prove expected business path and final outcome. |
-| Governance invariants | Prove forbidden actions are blocked and approvals are required. |
+| Governance invariants | Phase 1A proves happy-path authority evidence and gateway enforcement in focused tests; Phase 1B proves forbidden actions end-to-end. |
 | Budget checks | Prove latency and cost remain visible and bounded. |
 | Fault injection | Prove failure branches are real, not diagram-only. |
 
