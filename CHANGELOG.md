@@ -33,6 +33,12 @@ The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - ADR 0009 (proposed): local-only operating model for Phase 1, codifying the deferral surface and consolidating the operating-model assumptions across ADRs 0001/0007/0008.
 - `just doctor-quick` and `just typecheck` recipes; `just lint-python` and `just lint-frontend` now compose into `just lint`.
 
+### Added (Workstream F third pass)
+
+- ADR 0010 (proposed): observability pipeline shape — OpenTelemetry auto-instrumentation, Tempo/Loki/Prometheus stack, W3C trace context propagation, audit ↔ trace join via `correlation_id` plus `otel.trace_id`/`otel.span_id` in audit metadata. Pre-commits the contract that B/C/D/E follow on landing.
+- `infrastructure/grafana/` provisioning: Postgres datasource (`chorus-postgres`) and four dashboards loaded automatically by Grafana on `just up` — workflow timeline, Tool Gateway verdicts, projection lag, and agent decisions. Every dashboard exposes `$tenant` and `$correlation` variables to scope panels to a single workflow for the audit ↔ Grafana cross-surface trail. Tempo/Loki/Prometheus datasources land with the OTel pipeline (ADR 0010).
+- `chorus.doctor` schema-registry check enumerates `contracts/events/*.schema.json`, classifies declared `x-subject` values against the registry's `/subjects` listing, and reports informationally until Workstream B pins canonical subject names. When a schema declares `x-subject` and the registry is reachable but the subject is missing, the check fails with a contract-violation message.
+
 ### Removed
 
 - Earlier internal "Chorus SDLC operating model" scope draft (superseded by `docs/implementation-plan.md`).

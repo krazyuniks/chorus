@@ -15,3 +15,4 @@ architecture is described in [`../docs/architecture.md`](../docs/architecture.md
 | [0007](0007-trace-evaluation-harness.md) | Trace/evaluation harness as Phase 1 requirement. |
 | [0008](0008-email-intake-via-mailpit.md) | Email intake via Mailpit. |
 | [0009](0009-local-only-operating-model.md) | Local-only operating model for Phase 1 (proposed). |
+| [0010](0010-observability-pipeline.md) | Observability pipeline shape — OTel + Tempo/Loki/Prometheus + audit join (proposed). |

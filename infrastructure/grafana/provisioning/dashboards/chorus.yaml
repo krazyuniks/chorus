@@ -1,0 +1,20 @@
+# Chorus — Grafana dashboard provisioning (Phase 1A).
+#
+# Tells Grafana to load every JSON file under /etc/grafana/dashboards into
+# the "Chorus" folder on startup. Edits made through the UI are not
+# persisted (provisioning owns the file); change the JSON in
+# infrastructure/grafana/dashboards/ instead.
+
+apiVersion: 1
+
+providers:
+  - name: chorus
+    orgId: 1
+    folder: Chorus
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: false

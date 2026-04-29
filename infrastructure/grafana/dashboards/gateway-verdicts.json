@@ -1,0 +1,119 @@
+{
+  "annotations": {"list": []},
+  "description": "Tool Gateway verdicts from tool_action_audit. Every gateway call writes a row regardless of verdict; this dashboard slices the population by tool, verdict, and tenant for the architecture review surface.",
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Verdicts in window",
+      "gridPos": {"h": 6, "w": 24, "x": 0, "y": 0},
+      "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {"type": "value", "options": {"allow": {"color": "green", "index": 0}}},
+            {"type": "value", "options": {"block": {"color": "red", "index": 1}}},
+            {"type": "value", "options": {"approval_required": {"color": "orange", "index": 2}}},
+            {"type": "value", "options": {"rewrite": {"color": "yellow", "index": 3}}}
+          ],
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT verdict AS metric, COUNT(*)::int AS value FROM tool_action_audit WHERE tenant_id LIKE '$tenant' AND $__timeFilter(occurred_at) GROUP BY verdict ORDER BY verdict"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "barchart",
+      "title": "Verdicts by tool",
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 6},
+      "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+      "options": {
+        "orientation": "horizontal",
+        "stacking": "normal",
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}
+      },
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(tool_name, action) AS tool, verdict, COUNT(*)::int AS value FROM tool_action_audit WHERE tenant_id LIKE '$tenant' AND $__timeFilter(occurred_at) GROUP BY tool, verdict ORDER BY tool, verdict"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Recent denied / downgraded calls",
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 15},
+      "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+      "options": {"showHeader": true},
+      "fieldConfig": {"defaults": {"custom": {"align": "left"}}, "overrides": []},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT occurred_at, tenant_id, correlation_id, workflow_id, tool_name, requested_mode, enforced_mode, verdict, reason FROM tool_action_audit WHERE tenant_id LIKE '$tenant' AND correlation_id LIKE '$correlation' AND verdict IN ('block','approval_required','rewrite','propose') AND $__timeFilter(occurred_at) ORDER BY occurred_at DESC LIMIT 200"
+        }
+      ]
+    }
+  ],
+  "preload": false,
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["chorus", "phase-1a", "tool-gateway"],
+  "templating": {
+    "list": [
+      {
+        "name": "tenant",
+        "label": "Tenant",
+        "type": "query",
+        "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+        "query": "SELECT tenant_id FROM tenants ORDER BY tenant_id",
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": "%",
+        "current": {"text": "All", "value": "%"}
+      },
+      {
+        "name": "correlation",
+        "label": "Correlation ID",
+        "type": "textbox",
+        "current": {"text": "%", "value": "%"}
+      }
+    ]
+  },
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Chorus / Tool Gateway verdicts",
+  "uid": "chorus-gateway-verdicts",
+  "version": 1,
+  "weekStart": ""
+}

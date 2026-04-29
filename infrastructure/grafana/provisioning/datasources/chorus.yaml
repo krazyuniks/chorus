@@ -1,0 +1,35 @@
+# Chorus — Grafana datasource provisioning (Phase 1A).
+#
+# Loaded automatically by Grafana on startup via the `provisioning/`
+# bind-mount in compose.yml. Environment variables come from the Grafana
+# service's container environment, which compose.yml populates from `.env`.
+#
+# Phase 1A ships **Postgres** as the primary datasource: every Workstream A
+# table (workflow_read_models, decision_trail_entries, tool_action_audit,
+# outbox_events) is queryable directly. This gives the Lighthouse review
+# surface a working "UI → Grafana panel → audit row by correlation_id" trail
+# before any OTel-driven trace/metric/log backend lands.
+#
+# Tempo, Loki, and Prometheus datasources are intentionally omitted until
+# the OTel collector pipeline (ADR 0010) is wired through to running
+# services — see infrastructure/otel/config.yaml. Add them here in the same
+# additive shape when they land; nothing else in this file needs to change.
+
+apiVersion: 1
+
+datasources:
+  - name: Chorus Postgres
+    uid: chorus-postgres
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: $CHORUS_PG_DB
+    user: $CHORUS_PG_USER
+    secureJsonData:
+      password: $CHORUS_PG_PASSWORD
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1700
+      timescaledb: false
+    isDefault: true
+    editable: false

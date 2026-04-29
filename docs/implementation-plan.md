@@ -123,11 +123,11 @@ Workstreams A–C run on the longest critical path (storage + workflow + agent r
 | `frontend/` scaffold seeded with vendored Dense design family | done (Workstream E pre-load) |
 | `chorus.doctor` extended to verify Workstream F contract | done |
 | `docs/runbook.md` | done (initial; grows with the slice) |
-| OpenTelemetry collector pipeline wired through to running services | open — gated by services landing |
-| Grafana dashboards (workflow timeline, gateway verdicts, projection lag) | open — gated by event production |
-| Cross-surface correlation (Temporal ↔ Redpanda ↔ Grafana ↔ UI ↔ audit by workflow ID) | open — Workstream F integration milestone |
-| Phase 1A `doctor` extension (service health, migration readiness, schema registration, workflow worker readiness) | in progress — `--quick` flag, layered readiness sweeps, Postgres migration check via Workstream A's `schema_migrations` table, TCP/HTTP probes for Redpanda Schema Registry, Temporal frontend, Mailpit, OTel collector, BFF, frontend dev server. Each layer skips when unreachable. Per-event subject registration and worker discovery follow when Workstream B publishes |
-| Operational ADR — local-only operating model | proposed (ADR 0009) |
+| OpenTelemetry collector pipeline wired through to running services | open — gated by services landing; pipeline shape pre-committed in [ADR 0010](../adrs/0010-observability-pipeline.md) |
+| Grafana dashboards (workflow timeline, gateway verdicts, projection lag, agent decisions) | done — provisioned via `infrastructure/grafana/{provisioning,dashboards}` against the Postgres datasource. Tempo/Loki/Prometheus datasources land with the OTel pipeline (ADR 0010). Empty tables surface as empty panels until Workstreams B/C/D produce data |
+| Cross-surface correlation (Temporal ↔ Redpanda ↔ Grafana ↔ UI ↔ audit by workflow ID) | open — Workstream F integration milestone. Audit ↔ Grafana half is live (`correlation_id` variable on every dashboard); Temporal ↔ trace half lands with the OTel pipeline |
+| Phase 1A `doctor` extension (service health, migration readiness, schema registration, workflow worker readiness) | in progress — `--quick` flag, layered readiness sweeps, Postgres migration check via Workstream A's `schema_migrations` table, TCP/HTTP probes for Redpanda Schema Registry, Temporal frontend, Mailpit, OTel collector, BFF, frontend dev server. Schema-registry check now enumerates `contracts/events/*.schema.json`, classifies declared `x-subject` values against `/subjects`, and reports informationally until Workstream B pins the subjects. Worker discovery follows when Workstream B exposes a probe |
+| Operational ADRs — local-only operating model + observability pipeline | proposed ([ADR 0009](../adrs/0009-local-only-operating-model.md), [ADR 0010](../adrs/0010-observability-pipeline.md)) |
 | Pyright strict in `just lint` and pre-commit | done |
 | Runbook operational procedures (stuck workflow, denied tool audit, contract regeneration, stack reset) | done |
 

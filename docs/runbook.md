@@ -215,9 +215,48 @@ policy).
 ## Observability surfaces
 
 Phase 1A ships OpenTelemetry traces/logs/metrics through the OTel collector
-into Grafana. Workstream F's exit criterion is that Temporal, Redpanda,
-Grafana, the UI, and the audit views can be correlated from one workflow ID.
-Until those surfaces land, the runbook is intentionally thin.
+into Grafana. The pipeline shape is committed in
+[ADR 0010](../adrs/0010-observability-pipeline.md). Workstream F's exit
+criterion is that Temporal, Redpanda, Grafana, the UI, and the audit views
+can be correlated from one workflow ID.
+
+### Grafana
+
+`just up` launches Grafana at `http://localhost:${GRAFANA_PORT:-3001}` with
+provisioned dashboards under the **Chorus** folder, all backed by the
+in-network Postgres datasource (`chorus-postgres`):
+
+| Dashboard | What it surfaces | Source table |
+|---|---|---|
+| Chorus / Workflow timeline | Lighthouse status counts, recent runs, outbox events per step. | `workflow_read_models`, `outbox_events` |
+| Chorus / Tool Gateway verdicts | Verdict mix, denied/downgraded calls, per-tool slices. | `tool_action_audit` |
+| Chorus / Projection lag | Pending outbox depth, oldest pending age, retry pressure, failing rows. | `outbox_events` |
+| Chorus / Agent decisions | Provider/model route mix, outcome mix, per-role cost over time. | `decision_trail_entries` |
+
+Every dashboard exposes a `$tenant` query variable and a `$correlation`
+text variable. Pasting a `cor_*` ID narrows every panel uniformly; the
+same ID then drops into the SQL audit queries below.
+
+Edit dashboards by changing the JSON under
+`infrastructure/grafana/dashboards/`; Grafana reloads within ~30s. The UI
+is read-only — do not export-and-overwrite without stripping
+`__inputs`/`__requires` and resetting `id` to `null` (see
+`infrastructure/grafana/README.md`).
+
+### Cross-surface correlation
+
+Today the trail is **UI/Postgres → Grafana → SQL audit**:
+
+1. From the BFF/UI, capture the `correlation_id` for the workflow under review.
+2. Open Grafana → Chorus folder → paste the ID into `$correlation` in any dashboard.
+3. Drill into a row in the dashboard's table panel; copy `workflow_id` for the Temporal UI search.
+4. Run the runbook's `tool_action_audit` SQL with the same `correlation_id` for the authoritative gateway record.
+
+Tempo (traces) lands with the OTel pipeline. When it does, step 3 picks
+up a "View trace" link from the workflow span attribute
+`chorus.correlation_id`; audit rows already record `otel.trace_id` /
+`otel.span_id` in their `metadata` jsonb so the join survives a
+restart.
 
 ## CI gates
 

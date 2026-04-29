@@ -96,6 +96,12 @@ WORKSTREAM_F_PATHS = [
     "frontend/tsconfig.json",
     "frontend/src/main.tsx",
     "frontend/src/design-system/tokens/foundation.css",
+    "infrastructure/grafana/provisioning/datasources/chorus.yaml",
+    "infrastructure/grafana/provisioning/dashboards/chorus.yaml",
+    "infrastructure/grafana/dashboards/workflow-timeline.json",
+    "infrastructure/grafana/dashboards/gateway-verdicts.json",
+    "infrastructure/grafana/dashboards/projection-lag.json",
+    "infrastructure/grafana/dashboards/agent-decisions.json",
 ]
 
 # Workstream A (Persistence + projection) — Postgres migrations, seeds,
@@ -292,22 +298,86 @@ def check_temporal() -> int:
     return 0
 
 
+def _expected_event_subjects() -> dict[str, str | None]:
+    """Map contracts/events/*.schema.json to their declared registry subject.
+
+    A schema opts into the strict check by setting ``x-subject`` at top level
+    (string) or ``x-subjects`` (list of strings). Schemas without that
+    declaration are reported informationally and never fail the check;
+    Workstream B owns adding the field when it pins the canonical subject
+    name for each event.
+    """
+
+    import json
+
+    expected: dict[str, str | None] = {}
+    for path in sorted((ROOT / "contracts" / "events").glob("*.schema.json")):
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            expected[path.name] = None
+            continue
+        subject = data.get("x-subject")
+        if isinstance(subject, str) and subject:
+            expected[path.name] = subject
+        else:
+            expected[path.name] = None
+    return expected
+
+
 def check_schema_registry() -> int:
     _section("redpanda schema registry (workstream B + A contract)")
     port = _env_int("REDPANDA_SCHEMA_REGISTRY_PORT", 8081)
     if not _tcp_reachable("localhost", port):
         _skip(f"schema registry not reachable on localhost:{port} (run 'just up')")
         return 0
-    status, _ = _http_get(f"http://localhost:{port}/subjects")
-    if status == 200:
-        _ok(f"schema registry responding on localhost:{port}")
-    else:
+    status, body = _http_get(f"http://localhost:{port}/subjects")
+    if status != 200:
         _fail(f"schema registry on localhost:{port} returned status {status}")
         return 1
-    # Per-event subject registration verification lands when Workstream B
-    # publishes the first event and the contracts/events JSON Schemas pin
-    # their canonical subject names.
-    return 0
+    _ok(f"schema registry responding on localhost:{port}")
+
+    import json as _json
+
+    try:
+        registered = set(_json.loads(body or "[]"))
+    except _json.JSONDecodeError:
+        _fail("schema registry /subjects returned non-JSON body")
+        return 1
+
+    expected = _expected_event_subjects()
+    if not expected:
+        _skip("no event contracts under contracts/events to verify")
+        return 0
+
+    failures = 0
+    declared = {name: subj for name, subj in expected.items() if subj}
+    undeclared = [name for name, subj in expected.items() if not subj]
+
+    if not declared and not registered:
+        _skip(
+            "no x-subject declared on event contracts and no subjects registered "
+            "(workstream B has not yet pinned canonical subject names)"
+        )
+    elif not declared and registered:
+        _skip(
+            f"{len(registered)} subject(s) registered but no contract declares "
+            "x-subject — declare in contracts/events/*.schema.json to enable strict drift check"
+        )
+        for subject in sorted(registered):
+            print(f"info  - registry subject: {subject}")
+    else:
+        for name, subject in declared.items():
+            if subject in registered:
+                _ok(f"{name}: subject '{subject}' registered")
+            else:
+                _fail(f"{name}: subject '{subject}' missing from registry")
+                failures += 1
+
+    for name in undeclared:
+        print(f"info  - {name}: no x-subject declared (informational)")
+
+    return failures
 
 
 def check_mailpit() -> int:

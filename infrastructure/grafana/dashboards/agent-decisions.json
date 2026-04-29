@@ -1,0 +1,145 @@
+{
+  "annotations": {"list": []},
+  "description": "Agent decision-trail rollups. Driven by Workstream A's decision_trail_entries (populated by Workstream C). Surfaces model route distribution, budget consumption, and outcome mix per agent role.",
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "barchart",
+      "title": "Invocations by provider / model",
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+      "options": {
+        "orientation": "horizontal",
+        "stacking": "normal",
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}
+      },
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT provider || '/' || model AS route, agent_role AS metric, COUNT(*)::int AS value FROM decision_trail_entries WHERE tenant_id LIKE '$tenant' AND $__timeFilter(occurred_at) GROUP BY route, metric ORDER BY route"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Outcome mix",
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {"type": "value", "options": {"completed": {"color": "green", "index": 0}}},
+            {"type": "value", "options": {"escalated": {"color": "orange", "index": 1}}},
+            {"type": "value", "options": {"failed": {"color": "red", "index": 2}}}
+          ],
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT outcome AS metric, COUNT(*)::int AS value FROM decision_trail_entries WHERE tenant_id LIKE '$tenant' AND $__timeFilter(occurred_at) GROUP BY outcome ORDER BY outcome"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Cost per minute (USD, by agent role)",
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 9},
+      "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+      "options": {
+        "tooltip": {"mode": "multi", "sort": "desc"},
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {"drawStyle": "line", "fillOpacity": 25, "stacking": {"mode": "normal"}},
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('minute', occurred_at) AS time, agent_role AS metric, SUM(cost_amount)::float AS value FROM decision_trail_entries WHERE tenant_id LIKE '$tenant' AND $__timeFilter(occurred_at) GROUP BY time, metric ORDER BY time"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Recent decisions",
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 18},
+      "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+      "options": {"showHeader": true},
+      "fieldConfig": {"defaults": {"custom": {"align": "left"}}, "overrides": []},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT occurred_at, tenant_id, correlation_id, workflow_id, agent_role, agent_id, provider || '/' || model AS route, lifecycle_state, outcome, cost_amount, justification FROM decision_trail_entries WHERE tenant_id LIKE '$tenant' AND correlation_id LIKE '$correlation' AND $__timeFilter(occurred_at) ORDER BY occurred_at DESC LIMIT 200"
+        }
+      ]
+    }
+  ],
+  "preload": false,
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["chorus", "phase-1a", "agent-runtime"],
+  "templating": {
+    "list": [
+      {
+        "name": "tenant",
+        "label": "Tenant",
+        "type": "query",
+        "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+        "query": "SELECT tenant_id FROM tenants ORDER BY tenant_id",
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": "%",
+        "current": {"text": "All", "value": "%"}
+      },
+      {
+        "name": "correlation",
+        "label": "Correlation ID",
+        "type": "textbox",
+        "current": {"text": "%", "value": "%"}
+      }
+    ]
+  },
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Chorus / Agent decisions",
+  "uid": "chorus-agent-decisions",
+  "version": 1,
+  "weekStart": ""
+}

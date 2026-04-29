@@ -1,0 +1,148 @@
+{
+  "annotations": {"list": []},
+  "description": "Lighthouse workflow progress and outcome distribution. Driven by Workstream A's workflow_read_models and outbox_events. Filter by tenant or correlation_id; click a row to copy the workflow ID for the Temporal UI.",
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "title": "Temporal UI",
+      "url": "http://localhost:8233",
+      "type": "link",
+      "icon": "external link",
+      "targetBlank": true
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Workflows by status",
+      "gridPos": {"h": 6, "w": 24, "x": 0, "y": 0},
+      "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "green", "value": null}]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT status AS metric, COUNT(*)::int AS value FROM workflow_read_models WHERE tenant_id LIKE '$tenant' GROUP BY status ORDER BY status"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Recent workflows",
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 6},
+      "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+      "options": {"showHeader": true},
+      "fieldConfig": {
+        "defaults": {
+          "custom": {"align": "left", "displayMode": "auto"},
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "status"},
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {"type": "value", "options": {"escalated": {"color": "orange", "index": 0}}},
+                  {"type": "value", "options": {"failed": {"color": "red", "index": 1}}},
+                  {"type": "value", "options": {"completed": {"color": "green", "index": 2}}}
+                ]
+              },
+              {"id": "custom.cellOptions", "value": {"type": "color-text"}}
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT updated_at, tenant_id, workflow_id, correlation_id, status, current_step, started_at, completed_at FROM workflow_read_models WHERE tenant_id LIKE '$tenant' AND correlation_id LIKE '$correlation' ORDER BY updated_at DESC LIMIT 100"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Outbox events by step (per minute)",
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 18},
+      "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+      "options": {
+        "tooltip": {"mode": "multi", "sort": "desc"},
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}
+      },
+      "fieldConfig": {
+        "defaults": {"custom": {"drawStyle": "bars", "stacking": {"mode": "normal"}}},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('minute', occurred_at) AS time, COALESCE(step, event_type) AS metric, COUNT(*)::int AS value FROM outbox_events WHERE tenant_id LIKE '$tenant' AND correlation_id LIKE '$correlation' AND $__timeFilter(occurred_at) GROUP BY time, metric ORDER BY time"
+        }
+      ]
+    }
+  ],
+  "preload": false,
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["chorus", "phase-1a", "workflow"],
+  "templating": {
+    "list": [
+      {
+        "name": "tenant",
+        "label": "Tenant",
+        "type": "query",
+        "datasource": {"type": "postgres", "uid": "chorus-postgres"},
+        "query": "SELECT tenant_id FROM tenants ORDER BY tenant_id",
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": "%",
+        "current": {"text": "All", "value": "%"}
+      },
+      {
+        "name": "correlation",
+        "label": "Correlation ID",
+        "type": "textbox",
+        "current": {"text": "%", "value": "%"}
+      }
+    ]
+  },
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Chorus / Workflow timeline",
+  "uid": "chorus-workflow-timeline",
+  "version": 1,
+  "weekStart": ""
+}
