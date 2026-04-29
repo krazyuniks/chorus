@@ -46,6 +46,8 @@ operations to keep environment handling consistent.
 | `just doctor` | Scaffold + dev-loop readiness check. |
 | `just contracts-check` | Schema/model/sample drift gate. |
 | `just db-migrate` | Apply Postgres migrations and demo seed (Workstream A). |
+| `just worker` | Run the Lighthouse Temporal worker. |
+| `just intake-once` | Poll Mailpit once and start new Lighthouse workflows. |
 | `just test` / `just test-replay` / `just test-persistence` | Python gates. |
 | `just test-frontend` / `just test-e2e` | Frontend gates. |
 | `just lint` / `just fmt` | Linters and formatters across Python and frontend. |
@@ -105,6 +107,36 @@ The relay claims rows with `FOR UPDATE SKIP LOCKED`, changes status to
 The projection worker commits Kafka offsets only after the Postgres projection
 transaction succeeds; redelivery is safe because projections are idempotent by
 source event and workflow sequence.
+
+## Workstream B workflow operations
+
+Run the Lighthouse worker:
+
+```bash
+just worker
+```
+
+Send the fixture email and poll Mailpit once:
+
+```bash
+just demo && just intake-once
+```
+
+The poller reads `http://localhost:8025/api/v1/messages`, fetches message detail,
+parses the generated `lead_intake` contract, deduplicates by `Message-ID`, and
+starts one Lighthouse workflow using a stable `lighthouse-<sha256>` workflow ID.
+If a workflow with that Message-ID-derived ID already exists, the poll result
+records it as a duplicate rather than starting another run.
+
+The workflow emits `WorkflowEvent` payloads through
+`lighthouse.record_workflow_event`; that activity calls
+`ProjectionStore.record_workflow_event()`. To see the BFF/UI read model advance,
+run the Workstream A relay/projection commands after workflow activity events
+have been written:
+
+```bash
+uv run python -m chorus.persistence.redpanda relay-once && uv run python -m chorus.persistence.redpanda project-once
+```
 
 ## Operational procedures
 

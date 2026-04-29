@@ -137,9 +137,10 @@ failure/governance branches:
 ```
 
 The demo trigger is real SMTP intake via Mailpit. A fixture email is sent to
-`leads@chorus.local` through Mailpit's SMTP port. A Temporal poll activity reads
-Mailpit's HTTP API, deduplicates by Message-ID, parses the email into the lead
-intake contract, and starts a workflow run.
+`leads@chorus.local` through Mailpit's SMTP port. The implemented Mailpit poll
+activity reads Mailpit's HTTP API, deduplicates by Message-ID using a stable
+Message-ID-derived Temporal workflow ID, parses the email into the lead-intake
+contract, and starts a Lighthouse workflow run.
 
 UI fixture replay can exist as a development convenience, but the public demo
 path leads with SMTP intake because it demonstrates an integration boundary
@@ -282,9 +283,29 @@ no random values, wall-clock time, network IO, database IO, model calls, or
 connector calls run inside workflow logic. Fallible and effectful operations are
 activities.
 
-Workflow changes require replay coverage. The workflow should remain readable
-in Temporal Console: states and branches are part of the review surface, not an
-implementation detail hidden in agent loops.
+Workflow changes require replay coverage. Workstream B commits a replay fixture
+for the Phase 1A happy path and tests it with Temporal's replayer. The workflow
+should remain readable in Temporal Console: states and branches are part of the
+review surface, not an implementation detail hidden in agent loops.
+
+The Workstream B Lighthouse state machine is:
+
+```text
+intake
+  -> research_qualification
+  -> draft
+  -> validation
+  -> propose_send
+  -> complete
+
+escalation branch:
+  -> escalate
+```
+
+Every state transition emits a generated-contract `WorkflowEvent` through the
+`lighthouse.record_workflow_event` activity, which calls
+`ProjectionStore.record_workflow_event()` and writes only to the transactional
+outbox. Read models remain Redpanda/projection-worker derived.
 
 Redpanda events are used for visibility, projections, and async consumers. They
 do not own critical workflow state.
@@ -307,6 +328,14 @@ created early enough that failed invocations remain inspectable.
 
 Phase 1 runtime mutation is CLI/config driven. The UI shows runtime state
 read-only.
+
+Workstream B defines the Temporal activity boundary as
+`lighthouse.invoke_agent_runtime`. It accepts a contract-shaped
+`AgentInvocationRequest` and returns an `AgentInvocationResponse` aligned with
+`contracts/agents/lighthouse_agent_io.schema.json`. The current implementation
+is a placeholder that validates the generated contract; Workstream C replaces
+the internals with registry lookup, prompt/model policy, provider calls, and
+decision-trail persistence without changing the workflow.
 
 ## Model Routing
 
@@ -349,6 +378,14 @@ Verdicts are explicit: `allow`, `rewrite`, `propose`, `approval_required`, or
 
 MCP can be an integration protocol at the tool boundary in a later phase. It is
 not treated as an authority model by itself.
+
+Workstream B defines the Temporal activity boundary as
+`lighthouse.invoke_tool_gateway`. It accepts a contract-shaped
+`ToolGatewayRequest`, validates generated `ToolCall`/`GatewayVerdict` payloads,
+and returns a `ToolGatewayResponse`. The current implementation is a placeholder
+for the happy path; Workstream D replaces the internals with grants, schema
+validation, idempotency, audit, connector invocation, and real Mailpit outbound
+capture behind the same activity name.
 
 ## Connector Substrate
 
@@ -603,6 +640,8 @@ Local operation is part of the evidence surface.
 |---|---|
 | `just up` | Start the local runtime substrate. |
 | `just db-migrate` | Apply Postgres migrations and idempotent demo tenant seed data. |
+| `just worker` | Run the Lighthouse Temporal worker with workflow and activity registrations. |
+| `just intake-once` | Poll Mailpit once and start one Lighthouse workflow per new lead Message-ID. |
 | `just doctor` | Phase 0 scaffold checks. Phase 1A extends this to service health, migrations, schema registration, seeded tenants, and sample workflow readiness. |
 | `just test-persistence` | Run Postgres persistence, outbox, Redpanda relay/projection, RLS, and fail-closed tenant-isolation tests. |
 | `just demo` | Send the fixture lead through Mailpit SMTP and observe workflow execution. |

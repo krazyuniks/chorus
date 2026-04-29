@@ -1,0 +1,2115 @@
+{
+  "events": [
+    {
+      "eventId": "1",
+      "eventTime": "2026-04-29T15:40:43.487Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_STARTED",
+      "workflowExecutionStartedEventAttributes": {
+        "workflowType": {
+          "name": "LighthouseWorkflow"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJhdHRhY2htZW50c19zdW1tYXJ5IjpbXSwiYm9keV90ZXh0IjoiV2UgYXJlIGxvb2tpbmcgZm9yIGhlbHAgcXVhbGlmeWluZyBuZXcgaW5ib3VuZCBlbnF1aXJpZXMuIiwiY29ycmVsYXRpb25faWQiOiJjb3Jfd29ya2Zsb3dfaGFwcHlfZml4dHVyZSIsImxlYWRfaWQiOiJiMTY0NzlkZi00NzMwLTRhMzgtOWE1NS0yM2I0NTYyZjAyMDUiLCJtZXNzYWdlX2hlYWRlcnMiOnsiTWVzc2FnZS1JRCI6WyI8bGVhZC1hY21lLTAwMUBleGFtcGxlLnRlc3Q+Il19LCJtZXNzYWdlX2lkIjoiPGxlYWQtYWNtZS0wMDFAZXhhbXBsZS50ZXN0PiIsInJlY2VpdmVkX2F0IjoiMjAyNi0wNC0yOVQxMDowMDowMCswMDowMCIsInJlY2lwaWVudHMiOlsibGVhZHNAY2hvcnVzLmxvY2FsIl0sInNjaGVtYV92ZXJzaW9uIjoiMS4wLjAiLCJzZW5kZXIiOnsiZGlzcGxheV9uYW1lIjoiQWxleCBNb3JnYW4iLCJlbWFpbCI6ImFsZXgubW9yZ2FuQGV4YW1wbGUudGVzdCJ9LCJzb3VyY2UiOiJtYWlscGl0X3NtdHAiLCJzdWJqZWN0IjoiTmVlZCBoZWxwIGNob29zaW5nIGEgQ1JNIGF1dG9tYXRpb24gcGFydG5lciIsInRlbmFudF9pZCI6InRlbmFudF9kZW1vIn0="
+            }
+          ]
+        },
+        "workflowExecutionTimeout": "315360000s",
+        "workflowRunTimeout": "315360000s",
+        "workflowTaskTimeout": "10s",
+        "originalExecutionRunId": "02a6f464-fd55-47f1-9032-e93a4c1b442b",
+        "identity": "1511170@hetzner1",
+        "firstExecutionRunId": "02a6f464-fd55-47f1-9032-e93a4c1b442b",
+        "attempt": 1,
+        "firstWorkflowTaskBackoff": "0s",
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "2",
+      "eventTime": "2026-04-29T15:40:43.487Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "3",
+      "eventTime": "2026-04-29T15:40:43.487Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "2",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "4",
+      "eventTime": "2026-04-29T15:40:43.507Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "2",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {
+          "coreUsedFlags": [
+            3,
+            1,
+            2
+          ],
+          "sdkName": "temporal-python",
+          "sdkVersion": "1.26.0"
+        },
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "5",
+      "eventTime": "2026-04-29T15:40:43.507Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "1",
+        "activityType": {
+          "name": "lighthouse.record_workflow_event"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjb3JyZWxhdGlvbl9pZCI6ImNvcl93b3JrZmxvd19oYXBweV9maXh0dXJlIiwiZXZlbnRfdHlwZSI6ImxlYWQucmVjZWl2ZWQiLCJsZWFkX2lkIjoiYjE2NDc5ZGYtNDczMC00YTM4LTlhNTUtMjNiNDU2MmYwMjA1IiwicGF5bG9hZCI6eyJsZWFkX3N1bW1hcnkiOiJOZWVkIGhlbHAgY2hvb3NpbmcgYSBDUk0gYXV0b21hdGlvbiBwYXJ0bmVyIiwibWVzc2FnZV9pZCI6IjxsZWFkLWFjbWUtMDAxQGV4YW1wbGUudGVzdD4iLCJzZW5kZXIiOiJhbGV4Lm1vcmdhbkBleGFtcGxlLnRlc3QiLCJzb3VyY2UiOiJtYWlscGl0X3NtdHAiLCJzdWJqZWN0IjoiTmVlZCBoZWxwIGNob29zaW5nIGEgQ1JNIGF1dG9tYXRpb24gcGFydG5lciJ9LCJzZXF1ZW5jZSI6MSwic3RlcCI6ImludGFrZSIsInRlbmFudF9pZCI6InRlbmFudF9kZW1vIiwid29ya2Zsb3dfaWQiOiJsaWdodGhvdXNlLXdvcmtmbG93LWhhcHB5LWZpeHR1cmUifQ=="
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "3",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "6",
+      "eventTime": "2026-04-29T15:40:43.507Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "5",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "7",
+      "eventTime": "2026-04-29T15:40:43.509Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJldmVudF9pZCI6ImNiMDgzODg4LTdhMDItNGQ1OC1hMWU1LWVmYWRjYTUyYzMwNSIsImV2ZW50X3R5cGUiOiJsZWFkLnJlY2VpdmVkIiwic2VxdWVuY2UiOjEsInN0ZXAiOiJpbnRha2UifQ=="
+            }
+          ]
+        },
+        "scheduledEventId": "5",
+        "startedEventId": "6",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "8",
+      "eventTime": "2026-04-29T15:40:43.509Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "9",
+      "eventTime": "2026-04-29T15:40:43.509Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "8",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "10",
+      "eventTime": "2026-04-29T15:40:43.512Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "8",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "11",
+      "eventTime": "2026-04-29T15:40:43.512Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "2",
+        "activityType": {
+          "name": "lighthouse.record_workflow_event"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjb3JyZWxhdGlvbl9pZCI6ImNvcl93b3JrZmxvd19oYXBweV9maXh0dXJlIiwiZXZlbnRfdHlwZSI6IndvcmtmbG93LnN0YXJ0ZWQiLCJsZWFkX2lkIjoiYjE2NDc5ZGYtNDczMC00YTM4LTlhNTUtMjNiNDU2MmYwMjA1IiwicGF5bG9hZCI6eyJsZWFkX3N1bW1hcnkiOiJOZWVkIGhlbHAgY2hvb3NpbmcgYSBDUk0gYXV0b21hdGlvbiBwYXJ0bmVyIn0sInNlcXVlbmNlIjoyLCJzdGVwIjoiaW50YWtlIiwidGVuYW50X2lkIjoidGVuYW50X2RlbW8iLCJ3b3JrZmxvd19pZCI6ImxpZ2h0aG91c2Utd29ya2Zsb3ctaGFwcHktZml4dHVyZSJ9"
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "9",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "12",
+      "eventTime": "2026-04-29T15:40:43.512Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "11",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "13",
+      "eventTime": "2026-04-29T15:40:43.514Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJldmVudF9pZCI6ImQwNmQ3NDkwLTQxZGEtNDk3Yy04OTViLWI0OTI4ZjlhY2YxMSIsImV2ZW50X3R5cGUiOiJ3b3JrZmxvdy5zdGFydGVkIiwic2VxdWVuY2UiOjIsInN0ZXAiOiJpbnRha2UifQ=="
+            }
+          ]
+        },
+        "scheduledEventId": "11",
+        "startedEventId": "12",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "14",
+      "eventTime": "2026-04-29T15:40:43.514Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "15",
+      "eventTime": "2026-04-29T15:40:43.514Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "14",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "16",
+      "eventTime": "2026-04-29T15:40:43.516Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "14",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "17",
+      "eventTime": "2026-04-29T15:40:43.516Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "3",
+        "activityType": {
+          "name": "lighthouse.record_workflow_event"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjb3JyZWxhdGlvbl9pZCI6ImNvcl93b3JrZmxvd19oYXBweV9maXh0dXJlIiwiZXZlbnRfdHlwZSI6IndvcmtmbG93LnN0ZXAuc3RhcnRlZCIsImxlYWRfaWQiOiJiMTY0NzlkZi00NzMwLTRhMzgtOWE1NS0yM2I0NTYyZjAyMDUiLCJwYXlsb2FkIjp7ImxlYWRfc3VtbWFyeSI6Ik5lZWQgaGVscCBjaG9vc2luZyBhIENSTSBhdXRvbWF0aW9uIHBhcnRuZXIifSwic2VxdWVuY2UiOjMsInN0ZXAiOiJpbnRha2UiLCJ0ZW5hbnRfaWQiOiJ0ZW5hbnRfZGVtbyIsIndvcmtmbG93X2lkIjoibGlnaHRob3VzZS13b3JrZmxvdy1oYXBweS1maXh0dXJlIn0="
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "15",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "18",
+      "eventTime": "2026-04-29T15:40:43.516Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "17",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "19",
+      "eventTime": "2026-04-29T15:40:43.517Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJldmVudF9pZCI6IjM1MjAyYTlmLTY1ODktNGFhYi05ZGRhLTgzYzgzNWZlZjdiYiIsImV2ZW50X3R5cGUiOiJ3b3JrZmxvdy5zdGVwLnN0YXJ0ZWQiLCJzZXF1ZW5jZSI6Mywic3RlcCI6ImludGFrZSJ9"
+            }
+          ]
+        },
+        "scheduledEventId": "17",
+        "startedEventId": "18",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "20",
+      "eventTime": "2026-04-29T15:40:43.517Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "21",
+      "eventTime": "2026-04-29T15:40:43.517Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "20",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "22",
+      "eventTime": "2026-04-29T15:40:43.519Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "20",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "23",
+      "eventTime": "2026-04-29T15:40:43.519Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "4",
+        "activityType": {
+          "name": "lighthouse.record_workflow_event"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjb3JyZWxhdGlvbl9pZCI6ImNvcl93b3JrZmxvd19oYXBweV9maXh0dXJlIiwiZXZlbnRfdHlwZSI6IndvcmtmbG93LnN0ZXAuY29tcGxldGVkIiwibGVhZF9pZCI6ImIxNjQ3OWRmLTQ3MzAtNGEzOC05YTU1LTIzYjQ1NjJmMDIwNSIsInBheWxvYWQiOnsiYm9keV9jaGFycyI6NTcsImxlYWRfc3VtbWFyeSI6Ik5lZWQgaGVscCBjaG9vc2luZyBhIENSTSBhdXRvbWF0aW9uIHBhcnRuZXIifSwic2VxdWVuY2UiOjQsInN0ZXAiOiJpbnRha2UiLCJ0ZW5hbnRfaWQiOiJ0ZW5hbnRfZGVtbyIsIndvcmtmbG93X2lkIjoibGlnaHRob3VzZS13b3JrZmxvdy1oYXBweS1maXh0dXJlIn0="
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "21",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "24",
+      "eventTime": "2026-04-29T15:40:43.519Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "23",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "25",
+      "eventTime": "2026-04-29T15:40:43.520Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJldmVudF9pZCI6ImE4OTc0ZTkzLTFjMzgtNDA1Mi1iMTRiLWY2NmRmNWYwYTUyNCIsImV2ZW50X3R5cGUiOiJ3b3JrZmxvdy5zdGVwLmNvbXBsZXRlZCIsInNlcXVlbmNlIjo0LCJzdGVwIjoiaW50YWtlIn0="
+            }
+          ]
+        },
+        "scheduledEventId": "23",
+        "startedEventId": "24",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "26",
+      "eventTime": "2026-04-29T15:40:43.520Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "27",
+      "eventTime": "2026-04-29T15:40:43.520Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "26",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "28",
+      "eventTime": "2026-04-29T15:40:43.522Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "26",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "29",
+      "eventTime": "2026-04-29T15:40:43.522Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "5",
+        "activityType": {
+          "name": "lighthouse.invoke_agent_runtime"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJhZ2VudF9yb2xlIjoicmVzZWFyY2hlciIsImNvcnJlbGF0aW9uX2lkIjoiY29yX3dvcmtmbG93X2hhcHB5X2ZpeHR1cmUiLCJleHBlY3RlZF9vdXRwdXRfY29udHJhY3QiOiJjb250cmFjdHMvYWdlbnRzL2xpZ2h0aG91c2VfYWdlbnRfaW8uc2NoZW1hLmpzb24iLCJpbnB1dCI6eyJsZWFkX2JvZHkiOiJXZSBhcmUgbG9va2luZyBmb3IgaGVscCBxdWFsaWZ5aW5nIG5ldyBpbmJvdW5kIGVucXVpcmllcy4iLCJsZWFkX3N1YmplY3QiOiJOZWVkIGhlbHAgY2hvb3NpbmcgYSBDUk0gYXV0b21hdGlvbiBwYXJ0bmVyIiwic2VuZGVyIjoiYWxleC5tb3JnYW5AZXhhbXBsZS50ZXN0In0sImxlYWRfaWQiOiJiMTY0NzlkZi00NzMwLTRhMzgtOWE1NS0yM2I0NTYyZjAyMDUiLCJ0YXNrX2tpbmQiOiJjb21wYW55X3Jlc2VhcmNoIiwidGVuYW50X2lkIjoidGVuYW50X2RlbW8iLCJ3b3JrZmxvd19pZCI6ImxpZ2h0aG91c2Utd29ya2Zsb3ctaGFwcHktZml4dHVyZSJ9"
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "27",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "30",
+      "eventTime": "2026-04-29T15:40:43.522Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "29",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "31",
+      "eventTime": "2026-04-29T15:40:43.523Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjaXRhdGlvbnMiOltdLCJjb25maWRlbmNlIjowLjksImludm9jYXRpb25faWQiOiJiOTdhNzYzNC0wYzQ3LTRiMDUtOWM0Yy00MDEzZDAzMGVjOTciLCJyYXRpb25hbGUiOiJmaXh0dXJlIGJvdW5kYXJ5IiwicmVjb21tZW5kZWRfbmV4dF9zdGVwIjoiY29udGludWUiLCJzdHJ1Y3R1cmVkX2RhdGEiOnt9LCJzdW1tYXJ5IjoiY29tcGFueV9yZXNlYXJjaCBjb21wbGV0ZSJ9"
+            }
+          ]
+        },
+        "scheduledEventId": "29",
+        "startedEventId": "30",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "32",
+      "eventTime": "2026-04-29T15:40:43.523Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "33",
+      "eventTime": "2026-04-29T15:40:43.523Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "32",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "34",
+      "eventTime": "2026-04-29T15:40:43.524Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "32",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "35",
+      "eventTime": "2026-04-29T15:40:43.524Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "6",
+        "activityType": {
+          "name": "lighthouse.invoke_agent_runtime"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJhZ2VudF9yb2xlIjoicXVhbGlmaWVyIiwiY29ycmVsYXRpb25faWQiOiJjb3Jfd29ya2Zsb3dfaGFwcHlfZml4dHVyZSIsImV4cGVjdGVkX291dHB1dF9jb250cmFjdCI6ImNvbnRyYWN0cy9hZ2VudHMvbGlnaHRob3VzZV9hZ2VudF9pby5zY2hlbWEuanNvbiIsImlucHV0Ijp7ImxlYWRfc3ViamVjdCI6Ik5lZWQgaGVscCBjaG9vc2luZyBhIENSTSBhdXRvbWF0aW9uIHBhcnRuZXIiLCJyZXNlYXJjaF9kYXRhIjp7fSwicmVzZWFyY2hfc3VtbWFyeSI6ImNvbXBhbnlfcmVzZWFyY2ggY29tcGxldGUifSwibGVhZF9pZCI6ImIxNjQ3OWRmLTQ3MzAtNGEzOC05YTU1LTIzYjQ1NjJmMDIwNSIsInRhc2tfa2luZCI6ImxlYWRfcXVhbGlmaWNhdGlvbiIsInRlbmFudF9pZCI6InRlbmFudF9kZW1vIiwid29ya2Zsb3dfaWQiOiJsaWdodGhvdXNlLXdvcmtmbG93LWhhcHB5LWZpeHR1cmUifQ=="
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "33",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "36",
+      "eventTime": "2026-04-29T15:40:43.524Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "35",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "37",
+      "eventTime": "2026-04-29T15:40:43.525Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjaXRhdGlvbnMiOltdLCJjb25maWRlbmNlIjowLjksImludm9jYXRpb25faWQiOiI2YjFlMGY2NC1iNDM2LTRkYmMtODU0OS1iZjBjNjRlYmU3ZjQiLCJyYXRpb25hbGUiOiJmaXh0dXJlIGJvdW5kYXJ5IiwicmVjb21tZW5kZWRfbmV4dF9zdGVwIjoiY29udGludWUiLCJzdHJ1Y3R1cmVkX2RhdGEiOnt9LCJzdW1tYXJ5IjoibGVhZF9xdWFsaWZpY2F0aW9uIGNvbXBsZXRlIn0="
+            }
+          ]
+        },
+        "scheduledEventId": "35",
+        "startedEventId": "36",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "38",
+      "eventTime": "2026-04-29T15:40:43.525Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "39",
+      "eventTime": "2026-04-29T15:40:43.525Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "38",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "40",
+      "eventTime": "2026-04-29T15:40:43.527Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "38",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "41",
+      "eventTime": "2026-04-29T15:40:43.527Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "7",
+        "activityType": {
+          "name": "lighthouse.record_workflow_event"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjb3JyZWxhdGlvbl9pZCI6ImNvcl93b3JrZmxvd19oYXBweV9maXh0dXJlIiwiZXZlbnRfdHlwZSI6IndvcmtmbG93LnN0ZXAuc3RhcnRlZCIsImxlYWRfaWQiOiJiMTY0NzlkZi00NzMwLTRhMzgtOWE1NS0yM2I0NTYyZjAyMDUiLCJwYXlsb2FkIjp7ImxlYWRfc3VtbWFyeSI6Ik5lZWQgaGVscCBjaG9vc2luZyBhIENSTSBhdXRvbWF0aW9uIHBhcnRuZXIifSwic2VxdWVuY2UiOjUsInN0ZXAiOiJyZXNlYXJjaF9xdWFsaWZpY2F0aW9uIiwidGVuYW50X2lkIjoidGVuYW50X2RlbW8iLCJ3b3JrZmxvd19pZCI6ImxpZ2h0aG91c2Utd29ya2Zsb3ctaGFwcHktZml4dHVyZSJ9"
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "39",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "42",
+      "eventTime": "2026-04-29T15:40:43.527Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "41",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "43",
+      "eventTime": "2026-04-29T15:40:43.528Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJldmVudF9pZCI6ImQ5NTRkZjFmLTgxZjctNDgwMi05ZTA1LTEwOTg3YzcwNzYwNyIsImV2ZW50X3R5cGUiOiJ3b3JrZmxvdy5zdGVwLnN0YXJ0ZWQiLCJzZXF1ZW5jZSI6NSwic3RlcCI6InJlc2VhcmNoX3F1YWxpZmljYXRpb24ifQ=="
+            }
+          ]
+        },
+        "scheduledEventId": "41",
+        "startedEventId": "42",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "44",
+      "eventTime": "2026-04-29T15:40:43.528Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "45",
+      "eventTime": "2026-04-29T15:40:43.528Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "44",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "46",
+      "eventTime": "2026-04-29T15:40:43.530Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "44",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "47",
+      "eventTime": "2026-04-29T15:40:43.530Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "8",
+        "activityType": {
+          "name": "lighthouse.record_workflow_event"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjb3JyZWxhdGlvbl9pZCI6ImNvcl93b3JrZmxvd19oYXBweV9maXh0dXJlIiwiZXZlbnRfdHlwZSI6IndvcmtmbG93LnN0ZXAuY29tcGxldGVkIiwibGVhZF9pZCI6ImIxNjQ3OWRmLTQ3MzAtNGEzOC05YTU1LTIzYjQ1NjJmMDIwNSIsInBheWxvYWQiOnsiY29uZmlkZW5jZSI6MC45LCJsZWFkX3N1bW1hcnkiOiJOZWVkIGhlbHAgY2hvb3NpbmcgYSBDUk0gYXV0b21hdGlvbiBwYXJ0bmVyIiwicXVhbGlmaWNhdGlvbl9zdW1tYXJ5IjoibGVhZF9xdWFsaWZpY2F0aW9uIGNvbXBsZXRlIiwicmVzZWFyY2hfc3VtbWFyeSI6ImNvbXBhbnlfcmVzZWFyY2ggY29tcGxldGUifSwic2VxdWVuY2UiOjYsInN0ZXAiOiJyZXNlYXJjaF9xdWFsaWZpY2F0aW9uIiwidGVuYW50X2lkIjoidGVuYW50X2RlbW8iLCJ3b3JrZmxvd19pZCI6ImxpZ2h0aG91c2Utd29ya2Zsb3ctaGFwcHktZml4dHVyZSJ9"
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "45",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "48",
+      "eventTime": "2026-04-29T15:40:43.530Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "47",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "49",
+      "eventTime": "2026-04-29T15:40:43.531Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJldmVudF9pZCI6IjMwOGZmNzUxLTI1MjctNDA5MC1iMWM0LWYyNDVjMzFlZTIzMiIsImV2ZW50X3R5cGUiOiJ3b3JrZmxvdy5zdGVwLmNvbXBsZXRlZCIsInNlcXVlbmNlIjo2LCJzdGVwIjoicmVzZWFyY2hfcXVhbGlmaWNhdGlvbiJ9"
+            }
+          ]
+        },
+        "scheduledEventId": "47",
+        "startedEventId": "48",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "50",
+      "eventTime": "2026-04-29T15:40:43.531Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "51",
+      "eventTime": "2026-04-29T15:40:43.531Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "50",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "52",
+      "eventTime": "2026-04-29T15:40:43.532Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "50",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "53",
+      "eventTime": "2026-04-29T15:40:43.532Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "9",
+        "activityType": {
+          "name": "lighthouse.invoke_agent_runtime"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJhZ2VudF9yb2xlIjoiZHJhZnRlciIsImNvcnJlbGF0aW9uX2lkIjoiY29yX3dvcmtmbG93X2hhcHB5X2ZpeHR1cmUiLCJleHBlY3RlZF9vdXRwdXRfY29udHJhY3QiOiJjb250cmFjdHMvYWdlbnRzL2xpZ2h0aG91c2VfYWdlbnRfaW8uc2NoZW1hLmpzb24iLCJpbnB1dCI6eyJsZWFkX2JvZHkiOiJXZSBhcmUgbG9va2luZyBmb3IgaGVscCBxdWFsaWZ5aW5nIG5ldyBpbmJvdW5kIGVucXVpcmllcy4iLCJsZWFkX3N1YmplY3QiOiJOZWVkIGhlbHAgY2hvb3NpbmcgYSBDUk0gYXV0b21hdGlvbiBwYXJ0bmVyIiwicXVhbGlmaWNhdGlvbl9zdW1tYXJ5IjoibGVhZF9xdWFsaWZpY2F0aW9uIGNvbXBsZXRlIiwicmVzZWFyY2hfc3VtbWFyeSI6ImNvbXBhbnlfcmVzZWFyY2ggY29tcGxldGUifSwibGVhZF9pZCI6ImIxNjQ3OWRmLTQ3MzAtNGEzOC05YTU1LTIzYjQ1NjJmMDIwNSIsInRhc2tfa2luZCI6InJlc3BvbnNlX2RyYWZ0IiwidGVuYW50X2lkIjoidGVuYW50X2RlbW8iLCJ3b3JrZmxvd19pZCI6ImxpZ2h0aG91c2Utd29ya2Zsb3ctaGFwcHktZml4dHVyZSJ9"
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "51",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "54",
+      "eventTime": "2026-04-29T15:40:43.532Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "53",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "55",
+      "eventTime": "2026-04-29T15:40:43.533Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjaXRhdGlvbnMiOltdLCJjb25maWRlbmNlIjowLjksImludm9jYXRpb25faWQiOiI5YjAwZGI1Yi0zMzIxLTRlZjgtYTc4Ni1kYzUzMmIwNDhmMDIiLCJyYXRpb25hbGUiOiJmaXh0dXJlIGJvdW5kYXJ5IiwicmVjb21tZW5kZWRfbmV4dF9zdGVwIjoiY29udGludWUiLCJzdHJ1Y3R1cmVkX2RhdGEiOnsiZHJhZnRfcmVzcG9uc2UiOiJEcmFmdCByZXNwb25zZSJ9LCJzdW1tYXJ5IjoicmVzcG9uc2VfZHJhZnQgY29tcGxldGUifQ=="
+            }
+          ]
+        },
+        "scheduledEventId": "53",
+        "startedEventId": "54",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "56",
+      "eventTime": "2026-04-29T15:40:43.533Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "57",
+      "eventTime": "2026-04-29T15:40:43.533Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "56",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "58",
+      "eventTime": "2026-04-29T15:40:43.535Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "56",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "59",
+      "eventTime": "2026-04-29T15:40:43.535Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "10",
+        "activityType": {
+          "name": "lighthouse.record_workflow_event"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjb3JyZWxhdGlvbl9pZCI6ImNvcl93b3JrZmxvd19oYXBweV9maXh0dXJlIiwiZXZlbnRfdHlwZSI6IndvcmtmbG93LnN0ZXAuc3RhcnRlZCIsImxlYWRfaWQiOiJiMTY0NzlkZi00NzMwLTRhMzgtOWE1NS0yM2I0NTYyZjAyMDUiLCJwYXlsb2FkIjp7ImxlYWRfc3VtbWFyeSI6Ik5lZWQgaGVscCBjaG9vc2luZyBhIENSTSBhdXRvbWF0aW9uIHBhcnRuZXIifSwic2VxdWVuY2UiOjcsInN0ZXAiOiJkcmFmdCIsInRlbmFudF9pZCI6InRlbmFudF9kZW1vIiwid29ya2Zsb3dfaWQiOiJsaWdodGhvdXNlLXdvcmtmbG93LWhhcHB5LWZpeHR1cmUifQ=="
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "57",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "60",
+      "eventTime": "2026-04-29T15:40:43.535Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "59",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "61",
+      "eventTime": "2026-04-29T15:40:43.536Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJldmVudF9pZCI6IjAyYjYyMjY0LWY3OGEtNGUzOS1iYjc2LTM1OThjZTFjMDE5YSIsImV2ZW50X3R5cGUiOiJ3b3JrZmxvdy5zdGVwLnN0YXJ0ZWQiLCJzZXF1ZW5jZSI6Nywic3RlcCI6ImRyYWZ0In0="
+            }
+          ]
+        },
+        "scheduledEventId": "59",
+        "startedEventId": "60",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "62",
+      "eventTime": "2026-04-29T15:40:43.536Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "63",
+      "eventTime": "2026-04-29T15:40:43.536Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "62",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "64",
+      "eventTime": "2026-04-29T15:40:43.537Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "62",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "65",
+      "eventTime": "2026-04-29T15:40:43.537Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "11",
+        "activityType": {
+          "name": "lighthouse.record_workflow_event"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjb3JyZWxhdGlvbl9pZCI6ImNvcl93b3JrZmxvd19oYXBweV9maXh0dXJlIiwiZXZlbnRfdHlwZSI6IndvcmtmbG93LnN0ZXAuY29tcGxldGVkIiwibGVhZF9pZCI6ImIxNjQ3OWRmLTQ3MzAtNGEzOC05YTU1LTIzYjQ1NjJmMDIwNSIsInBheWxvYWQiOnsiZHJhZnRfcmVzcG9uc2UiOiJEcmFmdCByZXNwb25zZSIsImRyYWZ0X3N1bW1hcnkiOiJyZXNwb25zZV9kcmFmdCBjb21wbGV0ZSIsImxlYWRfc3VtbWFyeSI6Ik5lZWQgaGVscCBjaG9vc2luZyBhIENSTSBhdXRvbWF0aW9uIHBhcnRuZXIifSwic2VxdWVuY2UiOjgsInN0ZXAiOiJkcmFmdCIsInRlbmFudF9pZCI6InRlbmFudF9kZW1vIiwid29ya2Zsb3dfaWQiOiJsaWdodGhvdXNlLXdvcmtmbG93LWhhcHB5LWZpeHR1cmUifQ=="
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "63",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "66",
+      "eventTime": "2026-04-29T15:40:43.537Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "65",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "67",
+      "eventTime": "2026-04-29T15:40:43.538Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJldmVudF9pZCI6IjE2NWJhNzc5LTVmN2ItNDI4OC1hOTlmLTU2ZTM2ZWNjNDM1NSIsImV2ZW50X3R5cGUiOiJ3b3JrZmxvdy5zdGVwLmNvbXBsZXRlZCIsInNlcXVlbmNlIjo4LCJzdGVwIjoiZHJhZnQifQ=="
+            }
+          ]
+        },
+        "scheduledEventId": "65",
+        "startedEventId": "66",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "68",
+      "eventTime": "2026-04-29T15:40:43.538Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "69",
+      "eventTime": "2026-04-29T15:40:43.539Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "68",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "70",
+      "eventTime": "2026-04-29T15:40:43.540Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "68",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "71",
+      "eventTime": "2026-04-29T15:40:43.540Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "12",
+        "activityType": {
+          "name": "lighthouse.invoke_agent_runtime"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJhZ2VudF9yb2xlIjoidmFsaWRhdG9yIiwiY29ycmVsYXRpb25faWQiOiJjb3Jfd29ya2Zsb3dfaGFwcHlfZml4dHVyZSIsImV4cGVjdGVkX291dHB1dF9jb250cmFjdCI6ImNvbnRyYWN0cy9hZ2VudHMvbGlnaHRob3VzZV9hZ2VudF9pby5zY2hlbWEuanNvbiIsImlucHV0Ijp7ImRyYWZ0X3Jlc3BvbnNlIjoiRHJhZnQgcmVzcG9uc2UiLCJsZWFkX3N1YmplY3QiOiJOZWVkIGhlbHAgY2hvb3NpbmcgYSBDUk0gYXV0b21hdGlvbiBwYXJ0bmVyIn0sImxlYWRfaWQiOiJiMTY0NzlkZi00NzMwLTRhMzgtOWE1NS0yM2I0NTYyZjAyMDUiLCJ0YXNrX2tpbmQiOiJyZXNwb25zZV92YWxpZGF0aW9uIiwidGVuYW50X2lkIjoidGVuYW50X2RlbW8iLCJ3b3JrZmxvd19pZCI6ImxpZ2h0aG91c2Utd29ya2Zsb3ctaGFwcHktZml4dHVyZSJ9"
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "69",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "72",
+      "eventTime": "2026-04-29T15:40:43.540Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "71",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "73",
+      "eventTime": "2026-04-29T15:40:43.542Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjaXRhdGlvbnMiOltdLCJjb25maWRlbmNlIjowLjksImludm9jYXRpb25faWQiOiIxNzk5ZGEwZi02ZDMzLTQ4ZTctYjQ0ZS1hZTBiZDA4YzViYzEiLCJyYXRpb25hbGUiOiJmaXh0dXJlIGJvdW5kYXJ5IiwicmVjb21tZW5kZWRfbmV4dF9zdGVwIjoic2VuZCIsInN0cnVjdHVyZWRfZGF0YSI6eyJ2YWxpZGF0aW9uIjoiYXBwcm92ZWQifSwic3VtbWFyeSI6InJlc3BvbnNlX3ZhbGlkYXRpb24gY29tcGxldGUifQ=="
+            }
+          ]
+        },
+        "scheduledEventId": "71",
+        "startedEventId": "72",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "74",
+      "eventTime": "2026-04-29T15:40:43.542Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "75",
+      "eventTime": "2026-04-29T15:40:43.542Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "74",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "76",
+      "eventTime": "2026-04-29T15:40:43.544Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "74",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "77",
+      "eventTime": "2026-04-29T15:40:43.544Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "13",
+        "activityType": {
+          "name": "lighthouse.record_workflow_event"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjb3JyZWxhdGlvbl9pZCI6ImNvcl93b3JrZmxvd19oYXBweV9maXh0dXJlIiwiZXZlbnRfdHlwZSI6IndvcmtmbG93LnN0ZXAuc3RhcnRlZCIsImxlYWRfaWQiOiJiMTY0NzlkZi00NzMwLTRhMzgtOWE1NS0yM2I0NTYyZjAyMDUiLCJwYXlsb2FkIjp7ImxlYWRfc3VtbWFyeSI6Ik5lZWQgaGVscCBjaG9vc2luZyBhIENSTSBhdXRvbWF0aW9uIHBhcnRuZXIifSwic2VxdWVuY2UiOjksInN0ZXAiOiJ2YWxpZGF0aW9uIiwidGVuYW50X2lkIjoidGVuYW50X2RlbW8iLCJ3b3JrZmxvd19pZCI6ImxpZ2h0aG91c2Utd29ya2Zsb3ctaGFwcHktZml4dHVyZSJ9"
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "75",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "78",
+      "eventTime": "2026-04-29T15:40:43.544Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "77",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "79",
+      "eventTime": "2026-04-29T15:40:43.545Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJldmVudF9pZCI6IjgxODA2OWZkLTZmYjgtNDlhZC1iOGJlLTFiNDcxNWZkODYwMSIsImV2ZW50X3R5cGUiOiJ3b3JrZmxvdy5zdGVwLnN0YXJ0ZWQiLCJzZXF1ZW5jZSI6OSwic3RlcCI6InZhbGlkYXRpb24ifQ=="
+            }
+          ]
+        },
+        "scheduledEventId": "77",
+        "startedEventId": "78",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "80",
+      "eventTime": "2026-04-29T15:40:43.545Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "81",
+      "eventTime": "2026-04-29T15:40:43.545Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "80",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "82",
+      "eventTime": "2026-04-29T15:40:43.547Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "80",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "83",
+      "eventTime": "2026-04-29T15:40:43.547Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "14",
+        "activityType": {
+          "name": "lighthouse.record_workflow_event"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjb3JyZWxhdGlvbl9pZCI6ImNvcl93b3JrZmxvd19oYXBweV9maXh0dXJlIiwiZXZlbnRfdHlwZSI6IndvcmtmbG93LnN0ZXAuY29tcGxldGVkIiwibGVhZF9pZCI6ImIxNjQ3OWRmLTQ3MzAtNGEzOC05YTU1LTIzYjQ1NjJmMDIwNSIsInBheWxvYWQiOnsibGVhZF9zdW1tYXJ5IjoiTmVlZCBoZWxwIGNob29zaW5nIGEgQ1JNIGF1dG9tYXRpb24gcGFydG5lciIsInJlY29tbWVuZGVkX25leHRfc3RlcCI6InNlbmQiLCJ2YWxpZGF0aW9uX3N1bW1hcnkiOiJyZXNwb25zZV92YWxpZGF0aW9uIGNvbXBsZXRlIn0sInNlcXVlbmNlIjoxMCwic3RlcCI6InZhbGlkYXRpb24iLCJ0ZW5hbnRfaWQiOiJ0ZW5hbnRfZGVtbyIsIndvcmtmbG93X2lkIjoibGlnaHRob3VzZS13b3JrZmxvdy1oYXBweS1maXh0dXJlIn0="
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "81",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "84",
+      "eventTime": "2026-04-29T15:40:43.547Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "83",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "85",
+      "eventTime": "2026-04-29T15:40:43.548Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJldmVudF9pZCI6IjYyOWNjYTMwLWFiZmMtNDM5Ny05MmY3LTZiNGQ2YmVlOWYyNyIsImV2ZW50X3R5cGUiOiJ3b3JrZmxvdy5zdGVwLmNvbXBsZXRlZCIsInNlcXVlbmNlIjoxMCwic3RlcCI6InZhbGlkYXRpb24ifQ=="
+            }
+          ]
+        },
+        "scheduledEventId": "83",
+        "startedEventId": "84",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "86",
+      "eventTime": "2026-04-29T15:40:43.548Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "87",
+      "eventTime": "2026-04-29T15:40:43.548Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "86",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "88",
+      "eventTime": "2026-04-29T15:40:43.551Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "86",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "89",
+      "eventTime": "2026-04-29T15:40:43.551Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "15",
+        "activityType": {
+          "name": "lighthouse.invoke_tool_gateway"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJhZ2VudF9pZCI6ImxpZ2h0aG91c2UtZHJhZnRlciIsImFyZ3VtZW50cyI6eyJib2R5X3RleHQiOiJEcmFmdCByZXNwb25zZSIsInN1YmplY3QiOiJSZTogTmVlZCBoZWxwIGNob29zaW5nIGEgQ1JNIGF1dG9tYXRpb24gcGFydG5lciIsInRvIjoiYWxleC5tb3JnYW5AZXhhbXBsZS50ZXN0In0sImNvcnJlbGF0aW9uX2lkIjoiY29yX3dvcmtmbG93X2hhcHB5X2ZpeHR1cmUiLCJpZGVtcG90ZW5jeV9rZXkiOiJsaWdodGhvdXNlLXdvcmtmbG93LWhhcHB5LWZpeHR1cmU6ZW1haWwucHJvcG9zZV9yZXNwb25zZSIsImludm9jYXRpb25faWQiOiIxNzk5ZGEwZi02ZDMzLTQ4ZTctYjQ0ZS1hZTBiZDA4YzViYzEiLCJtb2RlIjoicHJvcG9zZSIsInRlbmFudF9pZCI6InRlbmFudF9kZW1vIiwidG9vbF9uYW1lIjoiZW1haWwucHJvcG9zZV9yZXNwb25zZSIsIndvcmtmbG93X2lkIjoibGlnaHRob3VzZS13b3JrZmxvdy1oYXBweS1maXh0dXJlIn0="
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "87",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "90",
+      "eventTime": "2026-04-29T15:40:43.551Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "89",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "91",
+      "eventTime": "2026-04-29T15:40:43.553Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJhdWRpdF9ldmVudF9pZCI6IjNiMDg4Y2NiLTI5NWYtNDk2Ni1iYmUxLWQ1YzJjNDAwZjYyNSIsImNvbm5lY3Rvcl9pbnZvY2F0aW9uX2lkIjoiODdjNjZkN2MtNjYxYi00NGFiLWE0MjctYmZmM2Y4NzA1MjBkIiwiZW5mb3JjZWRfbW9kZSI6InByb3Bvc2UiLCJvdXRwdXQiOnsiYWNjZXB0ZWRfYXJndW1lbnRzIjp7ImJvZHlfdGV4dCI6IkRyYWZ0IHJlc3BvbnNlIiwic3ViamVjdCI6IlJlOiBOZWVkIGhlbHAgY2hvb3NpbmcgYSBDUk0gYXV0b21hdGlvbiBwYXJ0bmVyIiwidG8iOiJhbGV4Lm1vcmdhbkBleGFtcGxlLnRlc3QifX0sInJlYXNvbiI6InByb3Bvc2FsIGFjY2VwdGVkIGJ5IGZpeHR1cmUgZ2F0ZXdheSIsInRvb2xfY2FsbF9pZCI6IjliOGQ0MzM5LTY4OGItNDhiOC05MGM3LWQ2OTlkOTI2N2MwOCIsInZlcmRpY3QiOiJhbGxvdyIsInZlcmRpY3RfaWQiOiI5ODA1NGYxZC1mY2ZlLTRmOTEtOTMwMi04YmM3MzNiNGIyNDMifQ=="
+            }
+          ]
+        },
+        "scheduledEventId": "89",
+        "startedEventId": "90",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "92",
+      "eventTime": "2026-04-29T15:40:43.553Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "93",
+      "eventTime": "2026-04-29T15:40:43.553Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "92",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "94",
+      "eventTime": "2026-04-29T15:40:43.555Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "92",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "95",
+      "eventTime": "2026-04-29T15:40:43.555Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "16",
+        "activityType": {
+          "name": "lighthouse.record_workflow_event"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjb3JyZWxhdGlvbl9pZCI6ImNvcl93b3JrZmxvd19oYXBweV9maXh0dXJlIiwiZXZlbnRfdHlwZSI6IndvcmtmbG93LnN0ZXAuc3RhcnRlZCIsImxlYWRfaWQiOiJiMTY0NzlkZi00NzMwLTRhMzgtOWE1NS0yM2I0NTYyZjAyMDUiLCJwYXlsb2FkIjp7ImxlYWRfc3VtbWFyeSI6Ik5lZWQgaGVscCBjaG9vc2luZyBhIENSTSBhdXRvbWF0aW9uIHBhcnRuZXIifSwic2VxdWVuY2UiOjExLCJzdGVwIjoicHJvcG9zZV9zZW5kIiwidGVuYW50X2lkIjoidGVuYW50X2RlbW8iLCJ3b3JrZmxvd19pZCI6ImxpZ2h0aG91c2Utd29ya2Zsb3ctaGFwcHktZml4dHVyZSJ9"
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "93",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "96",
+      "eventTime": "2026-04-29T15:40:43.555Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "95",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "97",
+      "eventTime": "2026-04-29T15:40:43.556Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJldmVudF9pZCI6IjNjOTdkZGEzLTI1YjMtNDM4YS05MWU2LTY5MWNhMmE4NzdiNSIsImV2ZW50X3R5cGUiOiJ3b3JrZmxvdy5zdGVwLnN0YXJ0ZWQiLCJzZXF1ZW5jZSI6MTEsInN0ZXAiOiJwcm9wb3NlX3NlbmQifQ=="
+            }
+          ]
+        },
+        "scheduledEventId": "95",
+        "startedEventId": "96",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "98",
+      "eventTime": "2026-04-29T15:40:43.556Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "99",
+      "eventTime": "2026-04-29T15:40:43.556Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "98",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "100",
+      "eventTime": "2026-04-29T15:40:43.558Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "98",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "101",
+      "eventTime": "2026-04-29T15:40:43.558Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "17",
+        "activityType": {
+          "name": "lighthouse.record_workflow_event"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjb3JyZWxhdGlvbl9pZCI6ImNvcl93b3JrZmxvd19oYXBweV9maXh0dXJlIiwiZXZlbnRfdHlwZSI6IndvcmtmbG93LnN0ZXAuY29tcGxldGVkIiwibGVhZF9pZCI6ImIxNjQ3OWRmLTQ3MzAtNGEzOC05YTU1LTIzYjQ1NjJmMDIwNSIsInBheWxvYWQiOnsiZW5mb3JjZWRfbW9kZSI6InByb3Bvc2UiLCJnYXRld2F5X3ZlcmRpY3QiOiJhbGxvdyIsImxlYWRfc3VtbWFyeSI6Ik5lZWQgaGVscCBjaG9vc2luZyBhIENSTSBhdXRvbWF0aW9uIHBhcnRuZXIifSwic2VxdWVuY2UiOjEyLCJzdGVwIjoicHJvcG9zZV9zZW5kIiwidGVuYW50X2lkIjoidGVuYW50X2RlbW8iLCJ3b3JrZmxvd19pZCI6ImxpZ2h0aG91c2Utd29ya2Zsb3ctaGFwcHktZml4dHVyZSJ9"
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "99",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "102",
+      "eventTime": "2026-04-29T15:40:43.558Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "101",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "103",
+      "eventTime": "2026-04-29T15:40:43.559Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJldmVudF9pZCI6ImJjZTIxZjgwLWU1OWQtNDM3MS1hNDljLWE1ZjhiYjc2ZDFjNSIsImV2ZW50X3R5cGUiOiJ3b3JrZmxvdy5zdGVwLmNvbXBsZXRlZCIsInNlcXVlbmNlIjoxMiwic3RlcCI6InByb3Bvc2Vfc2VuZCJ9"
+            }
+          ]
+        },
+        "scheduledEventId": "101",
+        "startedEventId": "102",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "104",
+      "eventTime": "2026-04-29T15:40:43.559Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "105",
+      "eventTime": "2026-04-29T15:40:43.559Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "104",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "106",
+      "eventTime": "2026-04-29T15:40:43.561Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "104",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "107",
+      "eventTime": "2026-04-29T15:40:43.561Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "18",
+        "activityType": {
+          "name": "lighthouse.record_workflow_event"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjb3JyZWxhdGlvbl9pZCI6ImNvcl93b3JrZmxvd19oYXBweV9maXh0dXJlIiwiZXZlbnRfdHlwZSI6IndvcmtmbG93LnN0ZXAuc3RhcnRlZCIsImxlYWRfaWQiOiJiMTY0NzlkZi00NzMwLTRhMzgtOWE1NS0yM2I0NTYyZjAyMDUiLCJwYXlsb2FkIjp7ImxlYWRfc3VtbWFyeSI6Ik5lZWQgaGVscCBjaG9vc2luZyBhIENSTSBhdXRvbWF0aW9uIHBhcnRuZXIifSwic2VxdWVuY2UiOjEzLCJzdGVwIjoiY29tcGxldGUiLCJ0ZW5hbnRfaWQiOiJ0ZW5hbnRfZGVtbyIsIndvcmtmbG93X2lkIjoibGlnaHRob3VzZS13b3JrZmxvdy1oYXBweS1maXh0dXJlIn0="
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "105",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "108",
+      "eventTime": "2026-04-29T15:40:43.561Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "107",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "109",
+      "eventTime": "2026-04-29T15:40:43.562Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJldmVudF9pZCI6IjMzZjYyZTEwLTYxMzktNDVjMi04ZDEyLTk4YTU5YzE4NWM1ZCIsImV2ZW50X3R5cGUiOiJ3b3JrZmxvdy5zdGVwLnN0YXJ0ZWQiLCJzZXF1ZW5jZSI6MTMsInN0ZXAiOiJjb21wbGV0ZSJ9"
+            }
+          ]
+        },
+        "scheduledEventId": "107",
+        "startedEventId": "108",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "110",
+      "eventTime": "2026-04-29T15:40:43.562Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "111",
+      "eventTime": "2026-04-29T15:40:43.562Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "110",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "112",
+      "eventTime": "2026-04-29T15:40:43.564Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "110",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "113",
+      "eventTime": "2026-04-29T15:40:43.564Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "19",
+        "activityType": {
+          "name": "lighthouse.record_workflow_event"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjb3JyZWxhdGlvbl9pZCI6ImNvcl93b3JrZmxvd19oYXBweV9maXh0dXJlIiwiZXZlbnRfdHlwZSI6IndvcmtmbG93LnN0ZXAuY29tcGxldGVkIiwibGVhZF9pZCI6ImIxNjQ3OWRmLTQ3MzAtNGEzOC05YTU1LTIzYjQ1NjJmMDIwNSIsInBheWxvYWQiOnsiZmluYWxfc3VtbWFyeSI6InByb3Bvc2FsIGFjY2VwdGVkIGJ5IGZpeHR1cmUgZ2F0ZXdheSIsImxlYWRfc3VtbWFyeSI6Ik5lZWQgaGVscCBjaG9vc2luZyBhIENSTSBhdXRvbWF0aW9uIHBhcnRuZXIifSwic2VxdWVuY2UiOjE0LCJzdGVwIjoiY29tcGxldGUiLCJ0ZW5hbnRfaWQiOiJ0ZW5hbnRfZGVtbyIsIndvcmtmbG93X2lkIjoibGlnaHRob3VzZS13b3JrZmxvdy1oYXBweS1maXh0dXJlIn0="
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "111",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "114",
+      "eventTime": "2026-04-29T15:40:43.564Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "113",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "115",
+      "eventTime": "2026-04-29T15:40:43.565Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJldmVudF9pZCI6Ijg2MzJlODE2LTZjYWQtNDk3Zi1hYTQwLTU3YjgxOWZjNjVlOSIsImV2ZW50X3R5cGUiOiJ3b3JrZmxvdy5zdGVwLmNvbXBsZXRlZCIsInNlcXVlbmNlIjoxNCwic3RlcCI6ImNvbXBsZXRlIn0="
+            }
+          ]
+        },
+        "scheduledEventId": "113",
+        "startedEventId": "114",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "116",
+      "eventTime": "2026-04-29T15:40:43.565Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "117",
+      "eventTime": "2026-04-29T15:40:43.565Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "116",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "118",
+      "eventTime": "2026-04-29T15:40:43.567Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "116",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "119",
+      "eventTime": "2026-04-29T15:40:43.567Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "20",
+        "activityType": {
+          "name": "lighthouse.record_workflow_event"
+        },
+        "taskQueue": {
+          "name": "fixture-lighthouse",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjb3JyZWxhdGlvbl9pZCI6ImNvcl93b3JrZmxvd19oYXBweV9maXh0dXJlIiwiZXZlbnRfdHlwZSI6IndvcmtmbG93LmNvbXBsZXRlZCIsImxlYWRfaWQiOiJiMTY0NzlkZi00NzMwLTRhMzgtOWE1NS0yM2I0NTYyZjAyMDUiLCJwYXlsb2FkIjp7ImxlYWRfc3VtbWFyeSI6Ik5lZWQgaGVscCBjaG9vc2luZyBhIENSTSBhdXRvbWF0aW9uIHBhcnRuZXIiLCJvdXRjb21lIjoiY29tcGxldGVkIn0sInNlcXVlbmNlIjoxNSwic3RlcCI6ImNvbXBsZXRlIiwidGVuYW50X2lkIjoidGVuYW50X2RlbW8iLCJ3b3JrZmxvd19pZCI6ImxpZ2h0aG91c2Utd29ya2Zsb3ctaGFwcHktZml4dHVyZSJ9"
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "30s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "117",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "100s",
+          "maximumAttempts": 3
+        },
+        "priority": {}
+      }
+    },
+    {
+      "eventId": "120",
+      "eventTime": "2026-04-29T15:40:43.567Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "119",
+        "identity": "1511170@hetzner1",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "121",
+      "eventTime": "2026-04-29T15:40:43.568Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJldmVudF9pZCI6ImY2OTE4Y2RhLTUwNmYtNGIyNS1hMzI1LTEzM2ZjNGU2YjVlZiIsImV2ZW50X3R5cGUiOiJ3b3JrZmxvdy5jb21wbGV0ZWQiLCJzZXF1ZW5jZSI6MTUsInN0ZXAiOiJjb21wbGV0ZSJ9"
+            }
+          ]
+        },
+        "scheduledEventId": "119",
+        "startedEventId": "120",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "122",
+      "eventTime": "2026-04-29T15:40:43.568Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "fixture-lighthouse"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "123",
+      "eventTime": "2026-04-29T15:40:43.568Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "122",
+        "identity": "1511170@hetzner1"
+      }
+    },
+    {
+      "eventId": "124",
+      "eventTime": "2026-04-29T15:40:43.570Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "122",
+        "identity": "1511170@hetzner1",
+        "binaryChecksum": "e9e0e528ccbd59d3f51b419d67b28ca3",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "125",
+      "eventTime": "2026-04-29T15:40:43.570Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED",
+      "workflowExecutionCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJjb3JyZWxhdGlvbl9pZCI6ImNvcl93b3JrZmxvd19oYXBweV9maXh0dXJlIiwiZXNjYWxhdGlvbl9yZWFzb24iOm51bGwsImZpbmFsX3N1bW1hcnkiOiJwcm9wb3NhbCBhY2NlcHRlZCBieSBmaXh0dXJlIGdhdGV3YXkiLCJsZWFkX2lkIjoiYjE2NDc5ZGYtNDczMC00YTM4LTlhNTUtMjNiNDU2MmYwMjA1Iiwib3V0Y29tZSI6ImNvbXBsZXRlZCIsInBhdGgiOlsiaW50YWtlIiwicmVzZWFyY2hfcXVhbGlmaWNhdGlvbiIsImRyYWZ0IiwidmFsaWRhdGlvbiIsInByb3Bvc2Vfc2VuZCIsImNvbXBsZXRlIl0sInRlbmFudF9pZCI6InRlbmFudF9kZW1vIiwid29ya2Zsb3dfaWQiOiJsaWdodGhvdXNlLXdvcmtmbG93LWhhcHB5LWZpeHR1cmUifQ=="
+            }
+          ]
+        },
+        "workflowTaskCompletedEventId": "123"
+      }
+    }
+  ]
+}

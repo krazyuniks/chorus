@@ -78,6 +78,14 @@ db-migrate:
 demo fixture="docs/fixtures/lead-acme.eml":
     uv run python -m chorus.demo.send_fixture {{fixture}}
 
+# Run the Lighthouse Temporal worker.
+worker:
+    uv run python -m chorus.workflows.worker
+
+# Poll Mailpit once and start one Lighthouse workflow per new lead Message-ID.
+intake-once:
+    uv run python -m chorus.workflows.intake
+
 # ----- Contracts -----
 
 # Generate Pydantic models from JSON Schema contracts when schemas exist.

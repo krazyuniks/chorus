@@ -49,9 +49,10 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
    - Current state: the Phase 1A storage foundation migration, checksum-protected migration runner, idempotent two-tenant seed data, read-model/projection adapter, transactional outbox lifecycle, Redpanda relay, Redpanda projection consumer, real-Postgres RLS/fail-closed tests, outbox transition tests, idempotent projection tests, and real-Redpanda publish/consume projection tests are implemented.
    - Exit check: read model survives refresh/reconnect, tenant leakage tests fail closed, outbox rows relay to Redpanda, and consumed workflow events project into Postgres idempotently.
 
-5. **(Phase 1A) Temporal workflow**
+5. **(Phase 1A) Temporal workflow** — *delivered (Workstream B)*
    - Implement Lighthouse workflow states: intake, research/qualification, draft, validate, propose/send, escalate.
    - Keep workflow logic deterministic and push IO into activities.
+   - Current state: `chorus.workflows.lighthouse` implements the deterministic Lighthouse state machine with intake, research/qualification, draft, validation, propose/send, complete, and escalation branches. `chorus.workflows.activities` emits generated-contract `WorkflowEvent` payloads through `ProjectionStore.record_workflow_event()`, validates placeholder Agent Runtime and Tool Gateway contract boundaries, and exposes the Mailpit poll activity. `chorus.workflows.mailpit` reads Mailpit's HTTP API, parses lead-intake payloads, dedupes by Message-ID, and starts workflows with stable Message-ID-derived IDs. Replay and focused workflow tests live under `tests/workflows/`.
    - Exit check: happy-path workflow replay test passes and Temporal Console shows the state machine clearly.
 
 6. **(Phase 1A) Agent Runtime**
@@ -104,7 +105,7 @@ Phase 1A is parallelisable across six workstreams once contracts are stable. Eac
 | Workstream | Output | Integration point | Dependency |
 |---|---|---|---|
 | A — Persistence + projection | Postgres schemas, RLS, tenant tests, projection worker path, transactional outbox, Redpanda relay. | Complete. Workstream B can append `workflow_event` rows through `ProjectionStore.record_workflow_event()`; BFF/UI can read `workflow_read_models` without storage policy logic. | Contracts (Phase 0). |
-| B — Temporal workflows + activities | Lighthouse state machine, replay test, deterministic activity boundary, SMTP-receive poll activity (reads Mailpit HTTP API, dedupes by Message-ID, starts Lighthouse per new lead — see ADR 0008). | Activities call Agent Runtime and Tool Gateway through stable interfaces. | Contracts (Phase 0); A's outbox shape. |
+| B — Temporal workflows + activities | Complete. Lighthouse state machine, replay test, deterministic activity boundary, SMTP-receive poll activity (reads Mailpit HTTP API, dedupes by Message-ID, starts Lighthouse per new lead — see ADR 0008), worker CLI, and poll-once CLI are implemented. | Activities call Agent Runtime and Tool Gateway through stable interfaces. | Contracts (Phase 0); A's outbox shape. |
 | C — Agent Runtime + model boundary | Agent identity resolution, runtime policy, decision-trail capture, model router with provider catalogue. | Activity invocation interface; decision-trail rows. | Contracts (Phase 0); A's decision-trail schema. |
 | D — Tool Gateway + local connectors | Grants, argument schemas, modes, redaction, idempotency, audit; local connector service against real software (Mailpit, public APIs, local CRM). | Activity invocation interface; tool audit rows. | Contracts (Phase 0); A's tool-audit schema. |
 | E — BFF + UI | Lead intake, SSE progress, timeline view, decision-trail view, registry/grants/routing views. | Read-model endpoints; SSE topic. | Contracts (Phase 0); A's read model. |

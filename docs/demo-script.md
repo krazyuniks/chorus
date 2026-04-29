@@ -13,6 +13,7 @@ Show that Chorus is a production-shaped governed agent workflow and enterprise a
 ## Setup Assumptions
 
 - Local stack is already running.
+- The Lighthouse worker is running with `just worker`.
 - Browser tabs are open for Lighthouse UI, Mailpit, Temporal Console, Redpanda Console, Grafana, and the eval result.
 - The demo tenant exists and the fixture lead email is ready to send through Mailpit.
 - No editor is required during the walkthrough.
@@ -22,7 +23,7 @@ Show that Chorus is a production-shaped governed agent workflow and enterprise a
 | Time | Screen | Action | Point to make |
 |---|---|---|---|
 | 0:00-0:20 | README or evidence map | State the claim and show the artefact set: working slice plus architecture, guardrails, decision record, and evidence map. | "This is both a governed workflow implementation and an adoption pattern an enterprise architecture team can inspect." |
-| 0:20-0:40 | Mailpit + Lighthouse UI | Send the fixture email to `leads@chorus.local` through Mailpit and copy/open the workflow correlation ID. | A real SMTP intake event starts a durable workflow, not a loose chain of prompts or a hand-fed form. |
+| 0:20-0:40 | Mailpit + Lighthouse UI | Run `just demo`, then `just intake-once`, and copy/open the workflow correlation ID. | A real SMTP intake event starts a durable workflow, not a loose chain of prompts or a hand-fed form. |
 | 0:40-1:05 | Temporal Console | Show intake, research/qualification, drafting, validation, and propose/send or escalation states. | Temporal owns retries, waits, replay, and branches. |
 | 1:05-1:30 | Lighthouse decision trail | Open the agent invocation details. | Each step records agent version, prompt hash, model route, input/output summary, justification, cost, duration, and correlation ID. |
 | 1:30-1:55 | Tool verdict/audit view | Show an allowed tool action, then the blocked or downgraded write fixture. | Agents do not hold ambient authority; gateway grants and argument schemas decide action permissions. |
@@ -41,3 +42,5 @@ Show that Chorus is a production-shaped governed agent workflow and enterprise a
 ## Fallback for Screencast Recording
 
 If a live model call or local service is slow, use a committed trace fixture for the same workflow ID and say so plainly. The evidence point is repeatability: the recorded trace, audit rows, events, and eval assertions must still line up.
+
+Workstream B currently uses contract-valid Agent Runtime and Tool Gateway placeholders behind stable Temporal activity names. For a Workstream B-only demo, frame the model/gateway screens as boundary evidence; Workstreams C and D fill in decision trail, policy resolution, gateway grants, audit, and outbound Mailpit capture behind the existing activity interfaces.

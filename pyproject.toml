@@ -14,8 +14,10 @@ authors = [
 # persistence-adapter dependencies, dev tooling, and shared linting.
 dependencies = [
     "confluent-kafka>=2.12.2",
+    "httpx>=0.28.1",
     "psycopg[binary]>=3.2",
     "pydantic>=2.13.3",
+    "temporalio>=1.26.0",
 ]
 
 [dependency-groups]

@@ -6,4 +6,4 @@ This is the **Phase 1A demo trigger** — sending a real email addressed to `lea
 
 Mailpit serves dual duty: SMTP receive + HTTP API for inbound (this service); SMTP capture for outbound (the email-send connector). One operational footprint covers both intake and outbound surfaces.
 
-Phase 1A workstream **B** (Temporal workflows + activities — sub-component).
+Phase 1A workstream **B** is implemented in [`../../chorus/workflows/mailpit.py`](../../chorus/workflows/mailpit.py) and exposed through the `lighthouse.poll_mailpit` Temporal activity plus the `just intake-once` CLI. Dedupe is by stable Message-ID-derived Temporal workflow ID, so repeat polls do not start duplicate Lighthouse runs.
