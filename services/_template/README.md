@@ -46,6 +46,75 @@ Then in the new directory:
   `deployment.environment=local`, `service.version`) and OTLP exporter
   target (`http://otel-collector:4317`) per ADR 0010.
 
+## Observability onboarding
+
+Once the service runs in `compose.yml`, three small steps light it up
+in Loki, Prometheus, and Grafana. None of them require a collector or
+Prometheus restart — both are configured to pick up new services on
+their next refresh tick.
+
+### 1. Stable container name
+
+Set `container_name: chorus-<role>` on the compose entry (e.g.
+`chorus-bff`, `chorus-tool-gateway`). The Grafana dashboards and the
+runbook key off the `chorus-` prefix; downstream tooling assumes it.
+
+### 2. Stdout logs into Loki
+
+Opt the service into the host's fluentd logging driver so the docker
+daemon forwards stdout to the OpenTelemetry collector's
+`fluentforward` receiver:
+
+```yaml
+logging:
+  driver: fluentd
+  options:
+    fluentd-address: localhost:${OTEL_FLUENTD_PORT:-24224}
+    fluentd-async: "true"
+    tag: chorus.{{.Name}}
+```
+
+`fluentd-async: "true"` means the daemon retries instead of blocking
+container start when the collector is briefly down (e.g. during
+`just up` ordering). Auto-instrumented Python services already emit
+logs over OTLP — the fluent path adds the structured stdout lines and
+covers any service that writes JSON logs without the OTel SDK.
+
+### 3. Prometheus `/metrics`
+
+If the service exposes `/metrics`, drop a discovery file under
+`infrastructure/prometheus/targets/`:
+
+```yaml
+# infrastructure/prometheus/targets/<service>.yml
+- targets:
+    - chorus-<role>:8000
+  labels:
+    service: <role>
+```
+
+Prometheus's `file_sd_configs` picks it up within 30 seconds. The
+`service` label is promoted to the standard `job` label by the relabel
+rule, so dashboards keyed off `job="<role>"` work immediately.
+
+### 4. Span attributes for cross-surface correlation
+
+At the request boundary (BFF, workflow start, activity start), stamp
+the active span with the join keys ADR 0010 §4 commits to:
+
+```python
+from opentelemetry import trace
+
+span = trace.get_current_span()
+span.set_attribute("chorus.tenant_id", tenant_id)
+span.set_attribute("chorus.correlation_id", correlation_id)
+span.set_attribute("chorus.workflow_id", workflow_id)
+```
+
+Tempo's provisioned datasource carries `tracesToLogsV2` and
+`tracesToMetrics` rules keyed off these attributes, so a Tempo trace
+links straight into Loki and Prometheus once they're set.
+
 ## Capturing trace IDs in audit rows
 
 Audit-write code that needs to record the active OTel trace/span IDs into

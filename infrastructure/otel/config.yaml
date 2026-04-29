@@ -19,6 +19,17 @@ receivers:
       http:
         endpoint: 0.0.0.0:4318
 
+  # Per ADR 0010 §5: stdout JSON logs are the local-developer surface. Phase
+  # 1 services that opt in by setting `logging.driver: fluentd` in their
+  # `compose.yml` entry forward stdout to the collector via the docker
+  # daemon's fluentd driver. The fluent receiver runs alongside `otlp` so
+  # auto-instrumented services (which already emit logs over OTLP) keep
+  # working without duplication; only services that explicitly opt in via
+  # the logging driver feed this path. See `services/_template/README.md`
+  # for the per-service onboarding stanza.
+  fluentforward:
+    endpoint: 0.0.0.0:24224
+
 processors:
   batch:
     timeout: 1s
@@ -67,6 +78,6 @@ service:
       processors: [memory_limiter, resource, batch]
       exporters: [prometheus, debug]
     logs:
-      receivers: [otlp]
+      receivers: [otlp, fluentforward]
       processors: [memory_limiter, resource, batch]
       exporters: [loki, debug]

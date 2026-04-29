@@ -324,6 +324,39 @@ The OTel pipeline shipped in Phase 1 follows ADR 0010. Operating notes:
   restart the Grafana container — Grafana itself rejects edits in the
   UI.
 
+### Onboarding a Phase 1A service
+
+When a Workstream adds an application service to `compose.yml`, three
+small steps wire it into the observability plane without restarting
+the collector or Prometheus. The full per-service checklist lives in
+[`services/_template/README.md` § "Observability onboarding"](../services/_template/README.md);
+the operational summary:
+
+1. **Stable container name.** Use `container_name: chorus-<role>` so
+   Grafana panels, Loki labels, and the runbook all key off the same
+   prefix.
+2. **Stdout → Loki.** Add a `logging.driver: fluentd` block on the
+   compose entry pointing at
+   `localhost:${OTEL_FLUENTD_PORT:-24224}` with
+   `fluentd-async: "true"` and `tag: chorus.{{.Name}}`. The collector's
+   `fluentforward` receiver is permanently on; logs flow as soon as
+   the service's first stdout line is emitted. Auto-instrumented
+   Python services keep emitting OTLP logs in parallel — the fluent
+   path is the structured-stdout fallback for anything that bypasses
+   the SDK (and for non-Python containers).
+3. **`/metrics` → Prometheus.** Drop
+   `infrastructure/prometheus/targets/<service>.yml` declaring the
+   in-network address(es) where the service exposes `/metrics`, with a
+   `service: <role>` label. Prometheus picks it up within 30 seconds
+   (`http://localhost:9090/targets` confirms). No edit to the central
+   `infrastructure/prometheus/config.yaml` required.
+
+Removing a service is symmetric: drop the target file, drop the
+compose entry, and Prometheus / fluent reflect the change on the next
+refresh tick. Per ADR 0010 §6, alert rules are deferred until at least
+two end-to-end runs produce baselines; until then onboarding stops at
+the scrape and log-flow steps above.
+
 ## CI gates
 
 The `.github/workflows/ci.yml` pipeline runs lint, contracts-check, doctor,

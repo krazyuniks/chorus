@@ -105,6 +105,7 @@ WORKSTREAM_F_PATHS = [
     "infrastructure/tempo/config.yaml",
     "infrastructure/loki/config.yaml",
     "infrastructure/prometheus/config.yaml",
+    "infrastructure/prometheus/targets/README.md",
     "chorus/observability/__init__.py",
 ]
 
