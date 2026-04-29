@@ -1,4 +1,4 @@
-import type { CardProps } from "../../contracts/surfaces";
+import type { CardProps } from "../../../contracts/surfaces";
 
 export function Card({
   children,

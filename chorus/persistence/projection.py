@@ -17,6 +17,7 @@ from chorus.contracts.generated.events.workflow_event import EventType, Workflow
 
 WorkflowStatus = Literal["received", "running", "completed", "escalated", "failed"]
 
+
 class WorkflowRunReadModel(BaseModel):
     """Refresh-safe workflow projection consumed by the BFF/UI."""
 

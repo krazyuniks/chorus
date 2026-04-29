@@ -1,4 +1,4 @@
-import type { HeroProps } from "../../contracts/content";
+import type { HeroProps } from "../../../contracts/content";
 
 export function Hero({
   children,

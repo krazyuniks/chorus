@@ -1,4 +1,4 @@
-import type { TopBarProps } from "../../contracts/navigation";
+import type { TopBarProps } from "../../../contracts/navigation";
 
 export function TopBar({
   children,

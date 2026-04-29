@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { AlertProps } from "../../contracts/feedback";
+import type { AlertProps } from "../../../contracts/feedback";
 
 const severityStyles = {
   success: "border-success bg-success/10 text-success",

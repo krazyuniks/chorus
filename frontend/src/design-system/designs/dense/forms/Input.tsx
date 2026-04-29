@@ -1,5 +1,5 @@
 import { useId } from "react";
-import type { InputProps } from "../../contracts/forms";
+import type { InputProps } from "../../../contracts/forms";
 
 export function Input({
   className = "",

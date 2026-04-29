@@ -1,4 +1,4 @@
-import type { ButtonProps } from "../../contracts/actions";
+import type { ButtonProps } from "../../../contracts/actions";
 
 export function Button({
   children,
