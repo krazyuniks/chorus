@@ -1,18 +1,45 @@
-"""Phase 0 scaffold checks for the Chorus local runtime contract.
+"""Phase 0 + Phase 1A readiness checks for the Chorus local runtime contract.
 
 Doctor is the single command a reviewer or contributor runs to verify the
-project layout is intact. Each section corresponds to a phase or workstream
-contract: when a workstream lands new structural files, append their paths
-here so drift is caught before it reaches CI.
+project layout and the local stack are ready for the Lighthouse slice.
+
+Two modes:
+
+- ``--quick`` runs path/executable/compose-validate checks only. No network,
+  no database, no docker daemon required beyond ``docker compose config``.
+  This is the cheap sanity check used by pre-commit and CI.
+- default mode adds **layered readiness sweeps** that probe the running
+  stack: Postgres migration state, Redpanda schema registry, Temporal
+  frontend, BFF and frontend HTTP endpoints. Each layer reports ``skip``
+  with the reason when its backend is unreachable, and ``fail`` only when
+  the backend is reachable but the contract it owns is not satisfied.
+
+When a workstream lands new structural files, append their paths to the
+matching list so drift is caught before it reaches CI. When a workstream
+exposes a runtime contract (e.g. an ``/_health`` endpoint, a registered
+schema), add a layered check below.
 """
 
 from __future__ import annotations
 
+import argparse
+import os
+import socket
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
+from typing import Any
+
+import psycopg
+from psycopg import Connection
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# ---------------------------------------------------------------------------
+# Structural contracts (path existence)
+# ---------------------------------------------------------------------------
 
 # Phase 0 scaffold — documentation, ADRs, contracts, service stubs.
 PHASE_0_PATHS = [
@@ -86,6 +113,37 @@ WORKSTREAM_A_PATHS = [
 REQUIRED_PATHS = PHASE_0_PATHS + WORKSTREAM_F_PATHS + WORKSTREAM_A_PATHS
 
 
+# ---------------------------------------------------------------------------
+# Reporting helpers
+# ---------------------------------------------------------------------------
+
+
+def _ok(message: str) -> None:
+    print(f"ok    - {message}")
+
+
+def _fail(message: str) -> None:
+    print(f"fail  - {message}")
+
+
+def _skip(message: str) -> None:
+    print(f"skip  - {message}")
+
+
+def _section(title: str) -> None:
+    print(f"\n# {title}")
+
+
+# ---------------------------------------------------------------------------
+# Quick (offline) checks
+# ---------------------------------------------------------------------------
+
+
+def _check_executable(relative: str) -> bool:
+    path = ROOT / relative
+    return path.exists() and path.stat().st_mode & 0o111 != 0
+
+
 def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         command,
@@ -96,64 +154,263 @@ def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _ok(message: str) -> None:
-    print(f"ok - {message}")
-
-
-def _fail(message: str) -> None:
-    print(f"fail - {message}")
-
-
-def _check_executable(relative: str) -> bool:
-    path = ROOT / relative
-    return path.exists() and path.stat().st_mode & 0o111 != 0
-
-
-def main() -> int:
+def check_paths() -> int:
     failures = 0
-
-    print("Chorus doctor - Phase 0 scaffold + Workstream F dev loop")
-
     for section, paths in (
         ("phase 0", PHASE_0_PATHS),
         ("workstream F", WORKSTREAM_F_PATHS),
         ("workstream A", WORKSTREAM_A_PATHS),
     ):
-        print(f"\n# {section}")
+        _section(section)
         for relative in paths:
             if (ROOT / relative).exists():
                 _ok(relative)
             else:
                 _fail(f"missing {relative}")
                 failures += 1
+    return failures
 
-    print("\n# executables")
+
+def check_executables() -> int:
+    failures = 0
+    _section("executables")
     for relative in ("scripts/dc", "scripts/first-time-setup.sh"):
         if _check_executable(relative):
             _ok(f"{relative} is executable")
         elif (ROOT / relative).exists():
             _fail(f"{relative} exists but is not executable")
             failures += 1
+    return failures
 
-    print("\n# compose")
-    compose = _run(["docker", "compose", "config", "--quiet"])
-    if compose.returncode == 0:
+
+def check_compose() -> int:
+    _section("compose")
+    result = _run(["docker", "compose", "config", "--quiet"])
+    if result.returncode == 0:
         _ok("compose.yml validates")
+        return 0
+    _fail("compose.yml failed validation")
+    if result.stderr.strip():
+        print(result.stderr.strip())
+    return 1
+
+
+# ---------------------------------------------------------------------------
+# Layered readiness sweeps (online)
+# ---------------------------------------------------------------------------
+
+
+def _tcp_reachable(host: str, port: int, timeout: float = 0.5) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _http_get(url: str, timeout: float = 1.5) -> tuple[int | None, str | None]:
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            return response.status, response.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        return exc.code, None
+    except urllib.error.URLError, OSError, ValueError:
+        return None, None
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _applied_migrations(conn: Connection[Any]) -> set[str]:
+    rows = conn.execute("SELECT filename FROM schema_migrations").fetchall()
+    return {str(r[0]) for r in rows}
+
+
+def check_postgres_migrations() -> int:
+    _section("postgres migrations (workstream A contract)")
+    pg_port = _env_int("CHORUS_PG_PORT", 5432)
+    if not _tcp_reachable("localhost", pg_port):
+        _skip(f"postgres not reachable on localhost:{pg_port} (run 'just up')")
+        return 0
+
+    from chorus.persistence.migrate import (
+        MIGRATIONS_DIR,
+        database_url_from_env,
+        sql_files,
+    )
+
+    expected = [f.filename for f in sql_files(MIGRATIONS_DIR)]
+    if not expected:
+        _skip("no migration files present yet")
+        return 0
+
+    try:
+        with psycopg.connect(database_url_from_env(), connect_timeout=2) as conn:
+            row = conn.execute("SELECT to_regclass('public.schema_migrations')").fetchone()
+            if row is None or row[0] is None:
+                _fail("schema_migrations table missing — run 'just db-migrate'")
+                return 1
+            applied = _applied_migrations(conn)
+    except psycopg.Error as exc:
+        _fail(f"postgres reachable but query failed: {exc}")
+        return 1
+
+    failures = 0
+    for filename in expected:
+        if filename in applied:
+            _ok(f"migration applied: {filename}")
+        else:
+            _fail(f"migration not applied: {filename} — run 'just db-migrate'")
+            failures += 1
+    return failures
+
+
+def check_temporal() -> int:
+    _section("temporal (workstream B contract)")
+    port = _env_int("TEMPORAL_PORT", 7233)
+    ui_port = _env_int("TEMPORAL_UI_PORT", 8233)
+    if not _tcp_reachable("localhost", port):
+        _skip(f"temporal frontend not reachable on localhost:{port} (run 'just up')")
+        return 0
+    _ok(f"temporal frontend reachable on localhost:{port}")
+    if _tcp_reachable("localhost", ui_port):
+        _ok(f"temporal UI reachable on localhost:{ui_port}")
     else:
-        _fail("compose.yml failed validation")
-        if compose.stderr.strip():
-            print(compose.stderr.strip())
-        failures += 1
+        _skip(f"temporal UI not reachable on localhost:{ui_port}")
+    # Worker registration check lands when Workstream B exposes a discovery
+    # endpoint or a deterministic worker probe.
+    return 0
+
+
+def check_schema_registry() -> int:
+    _section("redpanda schema registry (workstream B + A contract)")
+    port = _env_int("REDPANDA_SCHEMA_REGISTRY_PORT", 8081)
+    if not _tcp_reachable("localhost", port):
+        _skip(f"schema registry not reachable on localhost:{port} (run 'just up')")
+        return 0
+    status, _ = _http_get(f"http://localhost:{port}/subjects")
+    if status == 200:
+        _ok(f"schema registry responding on localhost:{port}")
+    else:
+        _fail(f"schema registry on localhost:{port} returned status {status}")
+        return 1
+    # Per-event subject registration verification lands when Workstream B
+    # publishes the first event and the contracts/events JSON Schemas pin
+    # their canonical subject names.
+    return 0
+
+
+def check_mailpit() -> int:
+    _section("mailpit (workstream B + D contract)")
+    port = _env_int("MAILPIT_HTTP_PORT", 8025)
+    if not _tcp_reachable("localhost", port):
+        _skip(f"mailpit not reachable on localhost:{port} (run 'just up')")
+        return 0
+    status, _ = _http_get(f"http://localhost:{port}/api/v1/info")
+    if status == 200:
+        _ok(f"mailpit HTTP API responding on localhost:{port}")
+        return 0
+    _fail(f"mailpit on localhost:{port} returned status {status}")
+    return 1
+
+
+def check_bff() -> int:
+    _section("bff (workstream E contract)")
+    port = _env_int("BFF_PORT", 8000)
+    if not _tcp_reachable("localhost", port):
+        _skip(f"bff not reachable on localhost:{port} (workstream E pending)")
+        return 0
+    status, _ = _http_get(f"http://localhost:{port}/health")
+    if status == 200:
+        _ok(f"bff /health responding on localhost:{port}")
+        return 0
+    _fail(f"bff on localhost:{port} /health returned status {status}")
+    return 1
+
+
+def check_frontend_dev() -> int:
+    _section("frontend dev server (workstream E)")
+    port = _env_int("FRONTEND_PORT", 5173)
+    if not _tcp_reachable("localhost", port):
+        _skip(f"frontend dev server not reachable on localhost:{port} (run 'npm run dev')")
+        return 0
+    _ok(f"frontend dev server reachable on localhost:{port}")
+    return 0
+
+
+def check_otel() -> int:
+    _section("otel collector (workstream F)")
+    grpc_port = _env_int("OTEL_GRPC_PORT", 4317)
+    http_port = _env_int("OTEL_HTTP_PORT", 4318)
+    grpc_up = _tcp_reachable("localhost", grpc_port)
+    http_up = _tcp_reachable("localhost", http_port)
+    if not grpc_up and not http_up:
+        _skip(f"otel collector not reachable on localhost:{grpc_port}/{http_port} (run 'just up')")
+        return 0
+    if grpc_up:
+        _ok(f"otel collector gRPC reachable on localhost:{grpc_port}")
+    else:
+        _fail(f"otel collector gRPC not reachable on localhost:{grpc_port}")
+    if http_up:
+        _ok(f"otel collector HTTP reachable on localhost:{http_port}")
+    else:
+        _fail(f"otel collector HTTP not reachable on localhost:{http_port}")
+    return 0 if grpc_up and http_up else 1
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Verify the Chorus local runtime contract.",
+    )
+    parser.add_argument(
+        "--quick",
+        action="store_true",
+        help=(
+            "Run path/executable/compose checks only. Skips runtime probes — "
+            "used by pre-commit and CI."
+        ),
+    )
+    args = parser.parse_args(argv)
+
+    failures = 0
+    print("Chorus doctor - Phase 0 scaffold + Phase 1A readiness")
+
+    failures += check_paths()
+    failures += check_executables()
+    failures += check_compose()
+
+    if not args.quick:
+        failures += check_postgres_migrations()
+        failures += check_temporal()
+        failures += check_schema_registry()
+        failures += check_mailpit()
+        failures += check_otel()
+        failures += check_bff()
+        failures += check_frontend_dev()
 
     if failures:
         print(f"\n{failures} check(s) failed")
         return 1
 
-    print("\nPhase 0 scaffold checks passed.")
-    print(
-        "Phase 1A extends doctor with service health, migrations, schema registration, "
-        "and workflow readiness."
-    )
+    if args.quick:
+        print("\nQuick checks passed. Run 'just doctor' (without --quick) to probe the live stack.")
+    else:
+        print(
+            "\nAll checks passed. Skipped probes mark workstreams whose runtime "
+            "contracts have not yet landed; rerun once 'just up' has those services."
+        )
     return 0
 
 

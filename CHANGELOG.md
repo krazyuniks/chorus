@@ -24,6 +24,14 @@ The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 ### Changed
 
 - README updated with CI badges, first-time setup guidance, and a daily-commands reference for reviewers.
+- **Workstream F second pass:** `chorus.doctor` gained a `--quick` flag (path/executable/compose-validate only) and a default mode with layered readiness sweeps for Postgres migrations, Redpanda Schema Registry, Temporal frontend, Mailpit HTTP API, OpenTelemetry collector, BFF, and frontend dev server. Each sweep skips with a reason when its backend is unreachable. CI now invokes `just doctor-quick`.
+- **Workstream F second pass:** Pyright strict added to the gate. `just lint` runs ruff check, ruff format check, and pyright; `just typecheck` runs pyright in isolation; `.pre-commit-config.yaml` enforces ruff + pyright + frontend tsc; CI gains a pyright step.
+- **Workstream F second pass:** Runbook expanded with operational procedures — stuck-workflow terminate vs reset, reading the Tool Gateway audit for a denied call, regenerating Pydantic models after a contract change, reset-the-local-stack recovery.
+
+### Added (Workstream F second pass)
+
+- ADR 0009 (proposed): local-only operating model for Phase 1, codifying the deferral surface and consolidating the operating-model assumptions across ADRs 0001/0007/0008.
+- `just doctor-quick` and `just typecheck` recipes; `just lint-python` and `just lint-frontend` now compose into `just lint`.
 
 ### Removed
 

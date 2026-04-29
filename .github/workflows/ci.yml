@@ -32,6 +32,8 @@ jobs:
         run: uv run ruff check .
       - name: Ruff format check
         run: uv run ruff format --check .
+      - name: Pyright (strict)
+        run: uv run pyright
 
   contracts-check:
     name: contracts-check
@@ -64,11 +66,12 @@ jobs:
         run: uv sync --all-extras
       - name: Install just
         uses: extractions/setup-just@v2
-      - name: Run doctor
-        # `just doctor` calls `docker compose config --quiet`, which only parses
-        # YAML and does not require services to be up. Docker is preinstalled
-        # on ubuntu-latest runners.
-        run: just doctor
+      - name: Run doctor (quick, no runtime probes)
+        # `just doctor-quick` runs path/executable/compose-validate checks
+        # only — `docker compose config --quiet` parses YAML without
+        # requiring services to be up. Runtime probes belong on a developer
+        # machine after `just up`.
+        run: just doctor-quick
 
   test-python:
     name: test-python
@@ -89,7 +92,6 @@ jobs:
   lint-frontend:
     name: lint-frontend
     runs-on: ubuntu-latest
-    if: hashFiles('frontend/package.json') != ''
     steps:
       - uses: actions/checkout@v4
       - name: Set up Node.js
@@ -108,7 +110,6 @@ jobs:
   test-frontend:
     name: test-frontend
     runs-on: ubuntu-latest
-    if: hashFiles('frontend/package.json') != ''
     steps:
       - uses: actions/checkout@v4
       - name: Set up Node.js

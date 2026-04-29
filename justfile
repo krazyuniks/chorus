@@ -59,9 +59,13 @@ logs *service:
 
 # ----- Health -----
 
-# Verify Phase 0 scaffold; Phase 1A adds service health, migrations, schemas, and workflow readiness.
+# Verify Phase 0 scaffold and probe the live local stack (skips probes for services that aren't up).
 doctor:
     uv run python -m chorus.doctor
+
+# Verify scaffold paths/executables/compose only — no runtime probes. Used by CI and pre-commit.
+doctor-quick:
+    uv run python -m chorus.doctor --quick
 
 # Apply Postgres migrations and idempotent Phase 1A demo seed data.
 db-migrate:
@@ -114,10 +118,22 @@ eval:
 
 # ----- Lint / format -----
 
-# Run linters (Python + frontend).
-lint:
+# Run linters (Python ruff + pyright, frontend tsc).
+lint: lint-python lint-frontend
+
+# Run Python ruff lint + format check + pyright strict.
+lint-python:
     uv run ruff check .
+    uv run ruff format --check .
+    uv run pyright
+
+# Run frontend type-check.
+lint-frontend:
     cd frontend && npm run lint
+
+# Run pyright strict over the Python tree.
+typecheck:
+    uv run pyright
 
 # Format (Python + frontend).
 fmt:

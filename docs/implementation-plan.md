@@ -126,7 +126,10 @@ Workstreams A–C run on the longest critical path (storage + workflow + agent r
 | OpenTelemetry collector pipeline wired through to running services | open — gated by services landing |
 | Grafana dashboards (workflow timeline, gateway verdicts, projection lag) | open — gated by event production |
 | Cross-surface correlation (Temporal ↔ Redpanda ↔ Grafana ↔ UI ↔ audit by workflow ID) | open — Workstream F integration milestone |
-| Phase 1A `doctor` extension (service health, migration readiness, schema registration, workflow worker readiness) | open — depends on each workstream landing its check |
+| Phase 1A `doctor` extension (service health, migration readiness, schema registration, workflow worker readiness) | in progress — `--quick` flag, layered readiness sweeps, Postgres migration check via Workstream A's `schema_migrations` table, TCP/HTTP probes for Redpanda Schema Registry, Temporal frontend, Mailpit, OTel collector, BFF, frontend dev server. Each layer skips when unreachable. Per-event subject registration and worker discovery follow when Workstream B publishes |
+| Operational ADR — local-only operating model | proposed (ADR 0009) |
+| Pyright strict in `just lint` and pre-commit | done |
+| Runbook operational procedures (stuck workflow, denied tool audit, contract regeneration, stack reset) | done |
 
 Each workstream description is structured to be a self-contained agent-session prompt: scope, outputs, integration points, and dependency on other workstreams. A parallel-development run launches one agent per workstream against its own branch, all synchronising via the contracts directory and integration points.
 
