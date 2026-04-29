@@ -142,6 +142,14 @@ activity reads Mailpit's HTTP API, deduplicates by Message-ID using a stable
 Message-ID-derived Temporal workflow ID, parses the email into the lead-intake
 contract, and starts a Lighthouse workflow run.
 
+Phase 1 deliberately keeps ingress narrow: the poller validates the
+`lead_intake` contract and mints the `correlation_id` before calling Temporal,
+but it does not persist a Chorus-owned ingress outbox event before workflow
+start. Retry before Temporal starts relies on Mailpit retaining the message and
+the idempotent Message-ID-derived workflow ID. A production or multi-source
+ingress layer would record the intake event durably, publish it through
+Redpanda, and start Temporal from an idempotent workflow-starter consumer.
+
 UI fixture replay can exist as a development convenience, but the public demo
 path leads with SMTP intake because it demonstrates an integration boundary
 rather than a hand-fed form.
