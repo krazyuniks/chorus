@@ -50,6 +50,25 @@ def _validate_schema(schema_path: Path) -> int:
     return 0
 
 
+def _validate_event_subject(schema_path: Path) -> int:
+    if schema_path.parent.name != "events":
+        return 0
+
+    try:
+        schema = _load_json(schema_path)
+    except json.JSONDecodeError as exc:
+        print(f"fail - invalid JSON in {schema_path.relative_to(ROOT)}: {exc}")
+        return 1
+
+    subject = schema.get("x-subject")
+    if isinstance(subject, str) and subject:
+        print(f"ok - event subject {schema_path.relative_to(ROOT)} -> {subject}")
+        return 0
+
+    print(f"fail - event schema {schema_path.relative_to(ROOT)} missing x-subject")
+    return 1
+
+
 def _validate_sample(schema_path: Path) -> int:
     sample_path = _sample_path(schema_path)
     if not sample_path.exists():
@@ -99,6 +118,7 @@ def main() -> int:
 
     for schema in schemas:
         failures += _validate_schema(schema)
+        failures += _validate_event_subject(schema)
         failures += _validate_sample(schema)
 
     failures += generate_all(check=True)

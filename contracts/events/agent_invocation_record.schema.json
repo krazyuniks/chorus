@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://chorus.local/contracts/events/agent_invocation_record.schema.json",
+  "x-subject": "chorus.agent-invocations.v1-value",
   "title": "AgentInvocationRecord",
   "description": "Decision-trail record captured by the Agent Runtime for every governed agent invocation.",
   "type": "object",

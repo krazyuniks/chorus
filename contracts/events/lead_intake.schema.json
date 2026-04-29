@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://chorus.local/contracts/events/lead_intake.schema.json",
+  "x-subject": "chorus.lead-intake.v1-value",
   "title": "LeadIntake",
   "description": "Parsed inbound lead email payload created from Mailpit SMTP intake before a Lighthouse workflow starts.",
   "type": "object",

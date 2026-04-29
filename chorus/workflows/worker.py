@@ -6,6 +6,8 @@ import argparse
 import asyncio
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
 from temporalio.client import Client
 from temporalio.worker import Worker
@@ -33,20 +35,32 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _tracing_interceptors() -> list[Any]:
+    try:
+        from temporalio.contrib.opentelemetry import TracingInterceptor
+    except ImportError:
+        return []
+    return [TracingInterceptor()]
+
+
 async def _run(target_host: str, namespace: str, task_queue: str) -> None:
-    client = await Client.connect(target_host, namespace=namespace)
-    worker = Worker(
-        client,
-        task_queue=task_queue,
-        workflows=[LighthouseWorkflow],
-        activities=[
-            record_workflow_event_activity,
-            invoke_agent_runtime_activity,
-            invoke_tool_gateway_activity,
-            poll_mailpit_activity,
-        ],
-    )
-    await worker.run()
+    interceptors = _tracing_interceptors()
+    client = await Client.connect(target_host, namespace=namespace, interceptors=interceptors)
+    with ThreadPoolExecutor(max_workers=8) as activity_executor:
+        worker = Worker(
+            client,
+            task_queue=task_queue,
+            workflows=[LighthouseWorkflow],
+            activities=[
+                record_workflow_event_activity,
+                invoke_agent_runtime_activity,
+                invoke_tool_gateway_activity,
+                poll_mailpit_activity,
+            ],
+            activity_executor=activity_executor,
+            interceptors=interceptors,
+        )
+        await worker.run()
 
 
 def main() -> int:

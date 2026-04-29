@@ -6,9 +6,12 @@ import argparse
 import json
 import os
 import sys
+import urllib.error
+import urllib.request
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import timedelta
+from pathlib import Path
 from typing import Any, cast
 
 import psycopg
@@ -20,8 +23,10 @@ from chorus.persistence.outbox import OutboxStore, OutboxWorkflowEvent
 from chorus.persistence.projection import ProjectionStore
 
 DEFAULT_BOOTSTRAP_SERVERS = "localhost:9092"
+DEFAULT_SCHEMA_REGISTRY_URL = "http://localhost:8081"
 DEFAULT_WORKFLOW_TOPIC = "chorus.workflow.events.v1"
 DEFAULT_CONSUMER_GROUP = "chorus.projection-worker.v1"
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class WorkflowEventPublishError(RuntimeError):
@@ -30,6 +35,55 @@ class WorkflowEventPublishError(RuntimeError):
 
 def bootstrap_servers_from_env() -> str:
     return os.environ.get("CHORUS_REDPANDA_BOOTSTRAP_SERVERS", DEFAULT_BOOTSTRAP_SERVERS)
+
+
+def schema_registry_url_from_env() -> str:
+    return os.environ.get("CHORUS_SCHEMA_REGISTRY_URL", DEFAULT_SCHEMA_REGISTRY_URL)
+
+
+def _event_schema_subjects() -> dict[str, str]:
+    subjects: dict[str, str] = {}
+    for path in sorted((ROOT / "contracts" / "events").glob("*.schema.json")):
+        schema = json.loads(path.read_text(encoding="utf-8"))
+        subject = schema.get("x-subject")
+        if isinstance(subject, str) and subject:
+            subjects[str(path)] = subject
+    return subjects
+
+
+def register_event_schemas_once(*, schema_registry_url: str | None = None) -> int:
+    """Register event JSON Schemas with Redpanda Schema Registry."""
+
+    base_url = (schema_registry_url or schema_registry_url_from_env()).rstrip("/")
+    registered = 0
+    for path_text, subject in _event_schema_subjects().items():
+        path = Path(path_text)
+        schema_text = path.read_text(encoding="utf-8")
+        body = json.dumps(
+            {
+                "schemaType": "JSON",
+                "schema": schema_text,
+            }
+        ).encode("utf-8")
+        request = urllib.request.Request(
+            f"{base_url}/subjects/{subject}/versions",
+            data=body,
+            headers={"Content-Type": "application/vnd.schemaregistry.v1+json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=5) as response:
+                if response.status not in {200, 201}:
+                    raise WorkflowEventPublishError(
+                        f"Schema Registry returned {response.status} for {subject}"
+                    )
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise WorkflowEventPublishError(
+                f"Schema Registry rejected {subject}: HTTP {exc.code} {detail}"
+            ) from exc
+        registered += 1
+    return registered
 
 
 def _event_bytes(event: WorkflowEvent) -> bytes:
@@ -226,6 +280,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Relay or project Chorus workflow events.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    schemas = subparsers.add_parser(
+        "register-schemas",
+        help="Register event JSON Schemas with Redpanda Schema Registry.",
+    )
+    schemas.add_argument("--schema-registry-url", default=None)
+
     relay = subparsers.add_parser("relay-once", help="Publish one due outbox batch to Redpanda.")
     relay.add_argument("--database-url", default=None)
     relay.add_argument("--bootstrap-servers", default=None)
@@ -242,6 +302,11 @@ def main(argv: list[str] | None = None) -> int:
     project.add_argument("--poll-timeout", type=float, default=1.0)
 
     args = parser.parse_args(argv)
+    if args.command == "register-schemas":
+        count = register_event_schemas_once(schema_registry_url=args.schema_registry_url)
+        print(f"Registered {count} event schema subject(s).")
+        return 0
+
     if args.command == "relay-once":
         count = relay_outbox_once(
             database_url=args.database_url,

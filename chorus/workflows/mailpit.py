@@ -18,6 +18,7 @@ from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
 from temporalio.exceptions import WorkflowAlreadyStartedError
 
 from chorus.contracts.generated.events.lead_intake import LeadIntake
+from chorus.observability import set_current_span_attributes
 from chorus.workflows.lighthouse import LighthouseWorkflow
 from chorus.workflows.types import (
     LeadAttachmentSummary,
@@ -59,6 +60,11 @@ class TemporalWorkflowStarter:
         return cls(client, task_queue)
 
     async def start_lighthouse(self, lead: LighthouseWorkflowInput, workflow_id: str) -> bool:
+        set_current_span_attributes(
+            tenant_id=lead.tenant_id,
+            correlation_id=lead.correlation_id,
+            workflow_id=workflow_id,
+        )
         try:
             await self._client.start_workflow(
                 LighthouseWorkflow.run,

@@ -71,6 +71,10 @@ doctor-quick:
 db-migrate:
     uv run python -m chorus.persistence.migrate
 
+# Register event JSON Schemas with Redpanda Schema Registry.
+schemas-register:
+    uv run python -m chorus.persistence.redpanda register-schemas
+
 # ----- Demo -----
 
 # Send a fixture lead email through Mailpit and watch the workflow execute.

@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://chorus.local/contracts/events/workflow_event.schema.json",
+  "x-subject": "chorus.workflow.events.v1-value",
   "title": "WorkflowEvent",
   "description": "Schema-governed Lighthouse workflow event emitted through the transactional outbox to Redpanda.",
   "type": "object",

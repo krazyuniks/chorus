@@ -23,6 +23,39 @@ Phase 1 builds one evidence-grade vertical slice for Lighthouse, including the h
 | 1B. Governance and failure evidence | Add blocked write, low-confidence research, validator rejection, connector failure, retry/exhaustion, and escalation paths. | Failure fixtures produce expected workflow branches, audit verdicts, DLQ or escalation records, and passing trace/eval checks. |
 | 1C. Review packaging | Tighten README, screenshots or screencast notes, demo script, architecture links, governance evidence, and project-facing summary. | Asynchronous reviewers can answer the evidence-map questions in under 15 minutes; guided demo fits 3 minutes without opening an editor. |
 
+## Definition of Delivered
+
+A workstream is delivered only when every scoped item in the completion ledger
+is `done`, or explicitly `deferred` with an owner, reason, impact, and follow-up
+phase. Producing a subset of code, a placeholder boundary, host-only command, or
+focused test is partial evidence, not delivery.
+
+Status values are constrained:
+
+| Status | Meaning |
+|---|---|
+| `open` | Required work has not started. |
+| `in_progress` | Work is actively being changed in the current stream. |
+| `blocked` | Work cannot proceed until a named dependency is resolved. |
+| `partial` | Some scoped artefacts exist, but at least one required item is missing or not evidenced. |
+| `done` | Required artefact exists, docs are aligned, and the named gate/evidence passes. |
+| `deferred` | Deliberately moved out of the phase with owner, reason, impact, and follow-up phase documented. |
+
+The outcome criteria for each workstream are:
+
+- all required code/config/schema/docs artefacts exist in the repo;
+- cross-boundary payloads are contract-shaped and validated;
+- integration points consumed by downstream workstreams are runnable, not only described;
+- observability, audit, and `doctor` hooks are present where the scope requires them;
+- relevant tests/gates have run and failures are recorded;
+- docs state the actual implementation state and do not promote placeholders to delivery.
+
+The outcome criteria for Phase 1A are stricter than individual workstream
+completion: the Mailpit-triggered Lighthouse happy path must run through the
+local stack, write workflow events and decision/tool audit evidence, project
+state for refresh-safe reads, expose progress/inspection surfaces, and pass the
+happy-path eval by correlation ID.
+
 ## Detailed Work Breakdown
 
 Items are tagged with the phase that owns them. **(Phase 0)** items must complete before Phase 1 begins. **(Phase 1A)** items are the first public ship-checkpoint. **(Phase 1B)** items extend failure-fixture evidence. **(Phase 1C)** items finalise review packaging.
@@ -52,12 +85,13 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
 5. **(Phase 1A) Temporal workflow** — *delivered (Workstream B)*
    - Implement Lighthouse workflow states: intake, research/qualification, draft, validate, propose/send, escalate.
    - Keep workflow logic deterministic and push IO into activities.
-   - Current state: `chorus.workflows.lighthouse` implements the deterministic Lighthouse state machine with intake, research/qualification, draft, validation, propose/send, complete, and escalation branches. `chorus.workflows.activities` emits generated-contract `WorkflowEvent` payloads through `ProjectionStore.record_workflow_event()`, validates placeholder Agent Runtime and Tool Gateway contract boundaries, and exposes the Mailpit poll activity. `chorus.workflows.mailpit` reads Mailpit's HTTP API, parses lead-intake payloads, dedupes by Message-ID, mints the correlation ID, and starts workflows with stable Message-ID-derived IDs. Phase 1 intentionally does not persist a pre-Temporal ingress outbox event; retry before workflow start relies on Mailpit retention plus Temporal workflow-start idempotency. Replay and focused workflow tests live under `tests/workflows/`.
-   - Exit check: happy-path workflow replay test passes and Temporal Console shows the state machine clearly.
+   - Current state: the deterministic workflow module, Mailpit parser, activity boundaries, worker CLI, replay fixture, and focused workflow tests exist. The worker now also runs as the `chorus-intake-poller` Compose service under `opentelemetry-instrument`, `doctor` verifies the `lighthouse` Temporal task queue via `DescribeTaskQueue`, event contracts declare Schema Registry subjects, workflow/activity boundaries stamp correlation span attributes, workflow outbox rows capture active OTel IDs in `metadata`, and worker metrics flow through the OTel collector rather than a side `/metrics` endpoint.
+   - Exit check: happy-path workflow replay test passes, the worker runs in the local stack, Temporal can discover the `lighthouse` task queue, and the workflow/activity path emits contract, audit, and observability evidence by correlation ID.
 
-6. **(Phase 1A) Agent Runtime**
+6. **(Phase 1A) Agent Runtime** — *delivered (Workstream C)*
    - Resolve agent version, prompt reference, lifecycle state, model route, budget caps, tenant policy, and invocation ID before each agent call.
    - Capture decision-trail records with correlation IDs.
+   - Current state: `chorus.agent_runtime` resolves active tenant policy, approved agent versions, prompt references/hashes, approved model routes, and budget caps from Workstream A's Postgres tables. `lighthouse.invoke_agent_runtime` uses that runtime behind Workstream B's stable activity boundary, returns generated-contract Lighthouse agent output, and persists `AgentInvocationRecord`-shaped decision-trail rows with active OTel IDs in `metadata`. The happy path uses the local `lighthouse-happy-path-v1` structured model boundary; commercial provider SDK adapters remain deferred behind the same boundary.
    - Exit check: reviewer can inspect which agent/model/prompt ran and why.
 
 7. **(Phase 1A) Tool Gateway and local connector service**
@@ -105,13 +139,91 @@ Phase 1A is parallelisable across six workstreams once contracts are stable. Eac
 | Workstream | Output | Integration point | Dependency |
 |---|---|---|---|
 | A — Persistence + projection | Postgres schemas, RLS, tenant tests, projection worker path, transactional outbox, Redpanda relay. | Complete. Workstream B can append `workflow_event` rows through `ProjectionStore.record_workflow_event()`; BFF/UI can read `workflow_read_models` without storage policy logic. | Contracts (Phase 0). |
-| B — Temporal workflows + activities | Complete. Lighthouse state machine, replay test, deterministic activity boundary, SMTP-receive poll activity (reads Mailpit HTTP API, dedupes by Message-ID, starts Lighthouse per new lead — see ADR 0008), worker CLI, and poll-once CLI are implemented. | Activities call Agent Runtime and Tool Gateway through stable interfaces. | Contracts (Phase 0); A's outbox shape. |
-| C — Agent Runtime + model boundary | Agent identity resolution, runtime policy, decision-trail capture, model router with provider catalogue. | Activity invocation interface; decision-trail rows. | Contracts (Phase 0); A's decision-trail schema. |
+| B — Temporal workflows + activities | Complete. Lighthouse state machine, replay test, deterministic activity boundary, SMTP-receive poll activity, worker CLI, poll-once CLI, containerised worker runtime, task-queue discovery, event subjects, and workflow trace/audit metadata are implemented. | Activities call Agent Runtime and Tool Gateway through stable interfaces. | Contracts (Phase 0); A's outbox shape; F's observability contract. |
+| C — Agent Runtime + model boundary | Complete. Agent identity resolution, runtime policy, decision-trail capture, and local structured model boundary are wired behind `lighthouse.invoke_agent_runtime`. | Activity invocation interface; decision-trail rows. | Contracts (Phase 0); A's decision-trail schema; B's worker/runtime boundary. |
 | D — Tool Gateway + local connectors | Grants, argument schemas, modes, redaction, idempotency, audit; local connector service against real software (Mailpit, public APIs, local CRM). | Activity invocation interface; tool audit rows. | Contracts (Phase 0); A's tool-audit schema. |
 | E — BFF + UI | Lead intake, SSE progress, timeline view, decision-trail view, registry/grants/routing views. | Read-model endpoints; SSE topic. | Contracts (Phase 0); A's read model. |
 | F — Observability + ops | OpenTelemetry, Grafana dashboards, doctor command, runbook, dev-loop scaffolding (env handling, scripts, pre-commit, services template, CI). | Cross-cutting; integrates after each workstream lands. | Workstreams A–E producing trace data. |
 
 Workstreams A–C run on the longest critical path (storage + workflow + agent runtime). D, E, F start in parallel as soon as their consumed contracts are stable. Phase 1B governance fixtures (Workstream G) attach to A–E once the happy-path runs end-to-end.
+
+## Phase 1A Completion Ledger
+
+Update this ledger as part of every continuation handoff. A row reaches `done`
+only when the evidence artefact exists and the gate has run or the reason it
+could not run is recorded in the handoff.
+
+### Workstream A — Persistence and Projection
+
+| ID | Required item | Evidence artefact | Gate | Status | Notes |
+|---|---|---|---|---|---|
+| A-01 | Postgres tenant, registry, model policy, grant, read-model, audit, history, and outbox schema | `infrastructure/postgres/migrations/001_phase_1a_persistence_foundation.sql` | `just test-persistence` | done | |
+| A-02 | Idempotent two-tenant seed data | `infrastructure/postgres/seeds/001_demo_tenants.sql` | `just db-migrate`; `just test-persistence` | done | Seed grows with runtime roles. |
+| A-03 | Tenant isolation and RLS fail-closed tests | `tests/persistence/test_postgres_foundation.py` | `just test-persistence` | done | Requires live Postgres. |
+| A-04 | Transactional outbox lifecycle | `chorus/persistence/outbox.py`; `tests/persistence/test_postgres_foundation.py` | `just test-persistence` | done | |
+| A-05 | Redpanda relay and projection consumer | `chorus/persistence/redpanda.py`; `tests/persistence/test_redpanda_projection.py` | `just test-persistence` | done | Requires live Redpanda. |
+| A-06 | Runtime policy read models for BFF/admin inspection | `chorus/persistence/projection.py` | `just test-persistence` | done | |
+
+### Workstream B — Temporal Workflow and Activities
+
+| ID | Required item | Evidence artefact | Gate | Status | Notes |
+|---|---|---|---|---|---|
+| B-01 | Deterministic Lighthouse state machine | `chorus/workflows/lighthouse.py`; `tests/workflows/test_lighthouse_workflow.py` | `just test-replay`; focused workflow tests | done | |
+| B-02 | Contract-shaped workflow event activity | `chorus/workflows/activities.py`; `tests/workflows/test_activities.py` | `just test` | done | Writes through `ProjectionStore.record_workflow_event()`. |
+| B-03 | Mailpit HTTP intake, lead parsing, Message-ID dedupe, stable workflow ID, and correlation ID minting | `chorus/workflows/mailpit.py`; `tests/workflows/test_mailpit_intake.py` | focused workflow tests | done | |
+| B-04 | Host worker and intake CLI recipes | `chorus/workflows/worker.py`; `chorus/workflows/intake.py`; `justfile` | `just --list`; focused CLI smoke where applicable | done | Host-only is not the final runtime evidence. |
+| B-05 | Containerised worker runtime under Compose and service template instrumentation | `services/intake-poller/Dockerfile`; `services/intake-poller/pyproject.toml`; `compose.yml` | `just doctor`; `scripts/dc config` | done | Runs `chorus.workflows.worker` under `opentelemetry-instrument`. |
+| B-06 | Temporal worker discovery probe for `lighthouse` task queue | `chorus/doctor.py` | `just doctor` | done | Uses Temporal `DescribeTaskQueue`; no extra port. |
+| B-07 | Canonical event schema subjects pinned and checked | `contracts/events/*.schema.json`; `chorus/doctor.py`; schema registration path | `just contracts-check`; `just doctor` | done | `just schemas-register` registers declared subjects. |
+| B-08 | Workflow/activity trace propagation and boundary span attributes | `chorus/workflows/worker.py`; `chorus/workflows/mailpit.py`; `chorus/workflows/activities.py` | trace inspection; `just doctor` where possible | done | Required attributes: `chorus.tenant_id`, `chorus.correlation_id`, `chorus.workflow_id`. |
+| B-09 | Worker metrics posture documented or implemented | `docs/runbook.md`; optional Prometheus target file | `just doctor` or Grafana/Prometheus inspection | done | OTel metrics flow through the collector; no side `/metrics` app. |
+| B-10 | Audit/write trace ID capture for workflow event path | `chorus/workflows/activities.py`; persistence/outbox metadata path | focused tests; trace/audit inspection | done | `outbox_events.metadata` carries `current_otel_ids()` for workflow event writes. |
+
+### Workstream C — Agent Runtime and Model Boundary
+
+| ID | Required item | Evidence artefact | Gate | Status | Notes |
+|---|---|---|---|---|---|
+| C-01 | Resolve active tenant policy | `chorus/agent_runtime/runtime.py`; `tests/agent_runtime/test_runtime.py` | focused runtime tests | done | Verified with live Postgres runtime tests. |
+| C-02 | Resolve approved agent identity, version, lifecycle, owner, capability tags, prompt reference, and prompt hash from registry | `chorus/agent_runtime/runtime.py`; seed data | focused runtime tests; `just test-persistence` | done | |
+| C-03 | Resolve approved model route, parameters, fallback policy, and budget cap from policy tables | `chorus/agent_runtime/runtime.py`; seed data | focused runtime tests | done | |
+| C-04 | Create invocation IDs and preserve correlation/workflow IDs | `chorus/agent_runtime/runtime.py` | focused runtime tests | done | |
+| C-05 | Invoke Phase 1A provider/model boundary for happy path | `chorus/agent_runtime/runtime.py` | focused runtime tests | done | Local structured boundary; commercial SDK adapters deferred. |
+| C-06 | Validate Lighthouse agent output contract | `contracts/agents/lighthouse_agent_io.schema.json`; generated models; runtime tests | `just contracts-check`; focused runtime tests | done | |
+| C-07 | Persist generated-contract decision-trail records to Postgres | `decision_trail_entries`; `tests/agent_runtime/test_runtime.py` | focused runtime tests; `just test-persistence` | done | Live run persisted four decision rows with OTel metadata. |
+| C-08 | Wire `lighthouse.invoke_agent_runtime` activity to runtime without changing workflow interface | `chorus/workflows/activities.py`; activity integration test | focused runtime/activity tests | done | Verified through Mailpit-triggered workflow run. |
+| C-09 | Update docs/runbook/evidence map for implemented runtime boundary | `docs/architecture.md`; `docs/runbook.md`; `docs/evidence-map.md`; `services/agent-runtime/README.md` | doc review; relevant gates | done | |
+
+### Workstream D — Tool Gateway and Local Connectors
+
+| ID | Required item | Evidence artefact | Gate | Status | Notes |
+|---|---|---|---|---|---|
+| D-01 | Gateway request validation against generated tool contracts | `contracts/tools/`; gateway service code | focused gateway tests; `just contracts-check` | open | |
+| D-02 | Grant lookup and mode enforcement by `(agent_id, tenant_id, tool, mode)` | gateway service code; `tool_grants` | focused gateway tests | open | |
+| D-03 | Redaction, idempotency, approval hook, and explicit verdicts | gateway service code; audit rows | focused gateway tests | open | |
+| D-04 | Local connector service backed by real local/sandbox software | `services/connectors-local/`; connector tests | connector/gateway tests | open | No mocks for architecture evidence. |
+| D-05 | Tool/action audit persistence and OTel metadata capture | `tool_action_audit`; gateway audit writer | focused gateway tests; trace/audit inspection | open | |
+| D-06 | Outbound email proposal/send path captured in Mailpit | connector/gateway code; Mailpit evidence | E2E/eval fixture | open | |
+
+### Workstream E — BFF and UI
+
+| ID | Required item | Evidence artefact | Gate | Status | Notes |
+|---|---|---|---|---|---|
+| E-01 | BFF read endpoints over workflow projections | `services/bff/`; BFF tests | BFF tests | open | |
+| E-02 | SSE progress stream backed by projections/events | `services/bff/`; UI tests | BFF/UI tests | open | SSE is not source of truth. |
+| E-03 | Workflow run list/detail and timeline | `frontend/` | `just test-frontend`; E2E | open | |
+| E-04 | Decision trail, tool verdict, runtime registry, grants, and routing inspection views | `frontend/`; BFF endpoints | `just test-frontend`; E2E | open | Read-only in Phase 1. |
+| E-05 | UI survives refresh/reconnect from read model | frontend/BFF tests | E2E | open | |
+
+### Workstream F — Observability and Ops
+
+| ID | Required item | Evidence artefact | Gate | Status | Notes |
+|---|---|---|---|---|---|
+| F-01 | Dev-loop scaffold, service template, CI, hooks, and runbook baseline | project scaffold files; CI config | `just doctor-quick`; hooks | done | |
+| F-02 | OTel collector, Tempo, Loki, Prometheus, and Grafana provisioning | `compose.yml`; `infrastructure/` | `just doctor` | partial | Backends exist; services still need onboarding. |
+| F-03 | Grafana dashboards for workflow, gateway, projection, and agent decisions | `infrastructure/grafana/dashboards/` | `just doctor`; dashboard inspection | done | Empty until producers write data. |
+| F-04 | Strict doctor probes for completed runtime contracts | `chorus/doctor.py` | `just doctor` | partial | B task-queue and schema strictness still open. |
+| F-05 | Cross-surface correlation by workflow/correlation ID | runbook; OTel/audit metadata; dashboards | E2E/eval inspection | partial | Awaiting B/C/D telemetry/audit writes. |
+| F-06 | Promote operational ADRs when implementation matches them | `adrs/0009-*`; `adrs/0010-*` | doc review | open | Keep proposed until evidence matches. |
 
 ### Workstream F status
 

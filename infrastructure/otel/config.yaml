@@ -56,8 +56,8 @@ exporters:
     tls:
       insecure: true
 
-  loki:
-    endpoint: http://loki:3100/loki/api/v1/push
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
 
   prometheus:
     endpoint: 0.0.0.0:8889
@@ -80,4 +80,4 @@ service:
     logs:
       receivers: [otlp, fluentforward]
       processors: [memory_limiter, resource, batch]
-      exporters: [loki, debug]
+      exporters: [otlphttp/loki, debug]

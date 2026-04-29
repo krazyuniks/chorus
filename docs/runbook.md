@@ -46,6 +46,7 @@ operations to keep environment handling consistent.
 | `just doctor` | Scaffold + dev-loop readiness check. |
 | `just contracts-check` | Schema/model/sample drift gate. |
 | `just db-migrate` | Apply Postgres migrations and demo seed (Workstream A). |
+| `just schemas-register` | Register event JSON Schemas with Redpanda Schema Registry. |
 | `just worker` | Run the Lighthouse Temporal worker. |
 | `just intake-once` | Poll Mailpit once and start new Lighthouse workflows. |
 | `just test` / `just test-replay` / `just test-persistence` | Python gates. |
@@ -110,7 +111,13 @@ source event and workflow sequence.
 
 ## Workstream B workflow operations
 
-Run the Lighthouse worker:
+The normal local stack runs the Lighthouse worker as the
+`chorus-intake-poller` Compose service. It uses the same
+`chorus.workflows.worker` entry point as the host recipe, but runs under the
+service-template `opentelemetry-instrument` entrypoint so Temporal spans, OTel
+metrics, and stdout logs join the Grafana stack.
+
+Run the host worker only for focused development:
 
 ```bash
 just worker
@@ -130,13 +137,57 @@ records it as a duplicate rather than starting another run.
 
 The workflow emits `WorkflowEvent` payloads through
 `lighthouse.record_workflow_event`; that activity calls
-`ProjectionStore.record_workflow_event()`. To see the BFF/UI read model advance,
-run the Workstream A relay/projection commands after workflow activity events
-have been written:
+`ProjectionStore.record_workflow_event()`. The activity stamps the active span
+with `chorus.tenant_id`, `chorus.correlation_id`, and `chorus.workflow_id`;
+the outbox row's `metadata` captures the active OTel trace/span IDs when the
+worker is running under instrumentation.
+
+Register event schemas before using Schema Registry evidence:
+
+```bash
+just schemas-register
+```
+
+To see the BFF/UI read model advance, run the Workstream A relay/projection
+commands after workflow activity events have been written:
 
 ```bash
 uv run python -m chorus.persistence.redpanda relay-once && uv run python -m chorus.persistence.redpanda project-once
 ```
+
+Worker metrics are emitted through the OpenTelemetry SDK to the collector and
+scraped from the collector's Prometheus endpoint. There is intentionally no
+worker sidecar HTTP `/metrics` endpoint or
+`infrastructure/prometheus/targets/intake-poller.yml` file in Phase 1A.
+
+## Workstream C Agent Runtime operations
+
+`lighthouse.invoke_agent_runtime` resolves runtime policy from Postgres and
+writes one `decision_trail_entries` row per invocation. The Phase 1A seed
+routes every Lighthouse role to the local `lighthouse-happy-path-v1` structured
+model boundary, so the happy path runs without commercial provider credentials.
+
+Inspect the runtime policy for a tenant:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT role, agent_id, version, lifecycle_state, prompt_reference, prompt_hash FROM agent_registry WHERE tenant_id = 'tenant_demo' ORDER BY role;"
+```
+
+Inspect the selected model routes:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT agent_role, task_kind, provider, model, budget_cap_usd FROM model_routing_policies WHERE tenant_id = 'tenant_demo' ORDER BY agent_role, task_kind;"
+```
+
+Read the decision trail for a workflow correlation ID:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT correlation_id, agent_role, agent_version, prompt_reference, provider, model, task_kind, outcome, cost_amount, duration_ms, started_at FROM decision_trail_entries WHERE correlation_id = '<correlation-id>' ORDER BY started_at;"
+```
+
+Agents still have no tool authority. Decision rows contain structured agent
+reasoning evidence and an empty `tool_call_ids` array until Workstream D records
+Tool Gateway calls behind `lighthouse.invoke_tool_gateway`.
 
 ## Operational procedures
 

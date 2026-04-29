@@ -23,6 +23,7 @@ schema), add a layered check below.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import os
 import socket
 import subprocess
@@ -124,7 +125,22 @@ WORKSTREAM_A_PATHS = [
     "tests/persistence/test_redpanda_projection.py",
 ]
 
-REQUIRED_PATHS = PHASE_0_PATHS + WORKSTREAM_F_PATHS + WORKSTREAM_A_PATHS
+WORKSTREAM_B_PATHS = [
+    "chorus/workflows/lighthouse.py",
+    "chorus/workflows/activities.py",
+    "chorus/workflows/mailpit.py",
+    "chorus/workflows/intake.py",
+    "chorus/workflows/worker.py",
+    "chorus/workflows/types.py",
+    "services/intake-poller/Dockerfile",
+    "services/intake-poller/pyproject.toml",
+    "tests/workflows/test_activities.py",
+    "tests/workflows/test_lighthouse_workflow.py",
+    "tests/workflows/test_mailpit_intake.py",
+    "tests/workflows/fixtures/lighthouse_happy_history.json",
+]
+
+REQUIRED_PATHS = PHASE_0_PATHS + WORKSTREAM_F_PATHS + WORKSTREAM_A_PATHS + WORKSTREAM_B_PATHS
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +190,7 @@ def check_paths() -> int:
         ("phase 0", PHASE_0_PATHS),
         ("workstream F", WORKSTREAM_F_PATHS),
         ("workstream A", WORKSTREAM_A_PATHS),
+        ("workstream B", WORKSTREAM_B_PATHS),
     ):
         _section(section)
         for relative in paths:
@@ -298,9 +315,37 @@ def check_temporal() -> int:
         _ok(f"temporal UI reachable on localhost:{ui_port}")
     else:
         _skip(f"temporal UI not reachable on localhost:{ui_port}")
-    # Worker registration check lands when Workstream B exposes a discovery
-    # endpoint or a deterministic worker probe.
-    return 0
+    task_queue = os.environ.get("LIGHTHOUSE_TASK_QUEUE", "lighthouse")
+    try:
+        pollers = asyncio.run(_describe_temporal_task_queue(task_queue=task_queue))
+    except Exception as exc:
+        _fail(f"temporal task queue '{task_queue}' discovery failed: {exc}")
+        return 1
+    if pollers > 0:
+        _ok(f"temporal task queue '{task_queue}' has {pollers} worker poller(s)")
+        return 0
+    _fail(f"temporal task queue '{task_queue}' has no worker pollers")
+    return 1
+
+
+async def _describe_temporal_task_queue(*, task_queue: str) -> int:
+    from temporalio.api.enums.v1 import TaskQueueType
+    from temporalio.api.taskqueue.v1 import TaskQueue
+    from temporalio.api.workflowservice.v1 import DescribeTaskQueueRequest
+    from temporalio.client import Client
+
+    target_host = f"localhost:{_env_int('TEMPORAL_PORT', 7233)}"
+    namespace = os.environ.get("TEMPORAL_NAMESPACE", "default")
+    client = await Client.connect(target_host, namespace=namespace)
+    response = await client.workflow_service.describe_task_queue(
+        DescribeTaskQueueRequest(
+            namespace=namespace,
+            task_queue=TaskQueue(name=task_queue),
+            task_queue_type=TaskQueueType.TASK_QUEUE_TYPE_WORKFLOW,
+            report_pollers=True,
+        )
+    )
+    return len(response.pollers)
 
 
 def _expected_event_subjects() -> dict[str, str | None]:
