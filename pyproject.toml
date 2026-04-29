@@ -1,0 +1,47 @@
+[project]
+name = "chorus"
+version = "0.1.0"
+description = "Reference implementation of governed multi-agent workflows for enterprise SDLC adoption."
+requires-python = ">=3.14"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Krazyuniks" },
+]
+
+# Runtime dependencies are declared per-service in `services/*/pyproject.toml`
+# during Phase 1A. The root project carries dev tooling and shared linting.
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "ruff>=0.9",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "W",    # pycodestyle warnings
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "SIM",  # simplify
+    "RUF",  # ruff-specific
+]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+pythonVersion = "3.14"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

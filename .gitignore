@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.pyright/
+.mypy_cache/
+
+# uv
+.uv-cache/
+
+# Node / frontend
+node_modules/
+dist/
+build/
+.next/
+.cache/
+.parcel-cache/
+.vite/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+credentials/
+*.pem
+*.key
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.iml
+
+# Logs and run state
+logs/
+*.log
+state/
+tmp/
+.tmp/
+
+# Docker / compose volumes
+.docker/
+postgres-data/
+redpanda-data/
+mailpit-data/
+grafana-data/
+
+# Test/coverage output
+.coverage
+htmlcov/
+coverage.xml
+junit.xml
+test-results/
+playwright-report/
+.playwright-cli/
