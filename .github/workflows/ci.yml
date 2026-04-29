@@ -67,7 +67,7 @@ jobs:
       - name: Install zsh
         run: sudo apt-get update && sudo apt-get install -y zsh
       - name: Install just
-        uses: extractions/setup-just@v2
+        uses: extractions/setup-just@v4
       - name: Run doctor (quick, no runtime probes)
         # `just doctor-quick` runs path/executable/compose-validate checks
         # only — `docker compose config --quiet` parses YAML without
