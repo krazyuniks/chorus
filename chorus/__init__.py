@@ -1,0 +1,1 @@
+"""Chorus root command scaffold."""

@@ -24,5 +24,4 @@ The Tool Gateway enforces `(agent_id, tenant_id, tool, mode)` grants, argument s
 - Model routing and tool authority are inspectable outside prompt text.
 - Runtime mutations are CLI/config driven in Phase 1; the UI is read-only for registry, grants, routing, and audit.
 - The demo can show a forbidden write being blocked or downgraded to proposal mode.
-- Fake connectors remain behind the same gateway contract intended for real integrations.
-
+- Local/sandbox connectors remain behind the same gateway contract intended for real integrations.

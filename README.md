@@ -14,13 +14,12 @@ Design-frozen 2026-04-29. Phase 0 foundation scaffolding is underway. Phase 1A (
 
 For an asynchronous reviewer (~15 minutes):
 
-1. [`docs/evidence-map.md`](docs/evidence-map.md) — engineering claims and where to inspect the supporting artefacts.
-2. [`docs/technical-architecture.md`](docs/technical-architecture.md) — implementation architecture map: components, contracts, runtime flow, repository structure, testing surface, operations.
-3. [`docs/governance-guardrails.md`](docs/governance-guardrails.md) — enterprise governance posture and control matrix.
-4. [`docs/sdlc-operating-model.md`](docs/sdlc-operating-model.md) — delivery lifecycle stages, quality gates, roles, change control, provider collaboration, team enablement.
-5. [`adrs/`](adrs/) — accepted Phase 1 architectural decisions.
-
-For decision narrative: [`docs/architecture.md`](docs/architecture.md).
+1. [`docs/overview.md`](docs/overview.md) — project brief, review path, demo shape, and decision-record pointer.
+2. [`docs/evidence-map.md`](docs/evidence-map.md) — engineering claims and where to inspect the supporting artefacts.
+3. [`docs/architecture.md`](docs/architecture.md) — principles-first architecture reference: domain language, boundaries, runtime flow, contracts, testing, operations, and deferrals.
+4. [`docs/governance-guardrails.md`](docs/governance-guardrails.md) — enterprise governance posture and control matrix.
+5. [`docs/sdlc-operating-model.md`](docs/sdlc-operating-model.md) — delivery lifecycle stages, quality gates, roles, change control, provider collaboration, team enablement.
+6. [`adrs/`](adrs/) — accepted Phase 1 architectural decision record.
 
 ## Stack
 
@@ -36,7 +35,7 @@ Temporal (Python SDK) for durable orchestration. Python + FastAPI + PydanticAI a
 
 ## Demo
 
-Phase 1A's demo trigger is real SMTP intake via Mailpit. A real email to `leads@chorus.local:1025` is captured by Mailpit; a Temporal poller activity reads new messages, deduplicates by Message-ID, and starts a Lighthouse workflow per new lead. See [ADR 0008](adrs/0008-email-intake-via-mailpit.md). A polished screencast is deferred to backlog until the application reaches a holistic working state.
+Phase 1A's demo trigger is real SMTP intake via Mailpit. A real email addressed to `leads@chorus.local` is sent to Mailpit's local SMTP port `1025`; a Temporal poller activity reads new messages, deduplicates by Message-ID, and starts a Lighthouse workflow per new lead. See [ADR 0008](adrs/0008-email-intake-via-mailpit.md). A polished screencast is deferred to backlog until the application reaches a holistic working state.
 
 ## License
 

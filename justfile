@@ -3,7 +3,7 @@
 #
 # `just --list` shows all available commands.
 
-set shell := ["bash", "-cu"]
+set shell := ["zsh", "-cu"]
 
 # Default: list available commands.
 default:
@@ -33,7 +33,7 @@ logs *service:
 
 # ----- Health -----
 
-# Verify local readiness: services up, migrations applied, schemas registered.
+# Verify Phase 0 scaffold; Phase 1A adds service health, migrations, schemas, and workflow readiness.
 doctor:
     uv run python -m chorus.doctor
 
@@ -42,15 +42,15 @@ doctor:
 # Send a fixture lead email through Mailpit and watch the workflow execute.
 # (Phase 1A — the SMTP-receive trigger and Lighthouse workflow ship together.)
 demo fixture="docs/fixtures/lead-acme.eml":
-    swaks --to leads@chorus.local --server localhost:1025 < {{fixture}}
+    uv run python -m chorus.demo.send_fixture {{fixture}}
 
 # ----- Contracts -----
 
-# Generate Pydantic models from JSON Schema contracts.
+# Generate Pydantic models from JSON Schema contracts when schemas exist.
 contracts-gen:
     uv run python -m chorus.contracts.gen
 
-# Verify schemas, generated code, and sample payloads are consistent.
+# Verify the contract scaffold. Phase 1A adds schema/model/sample drift checks.
 contracts-check:
     uv run python -m chorus.contracts.check
 
@@ -74,7 +74,7 @@ test-e2e:
 
 # ----- Eval -----
 
-# Run trace/eval fixtures over the happy path and governance fixtures.
+# Run trace/eval fixtures. Phase 1A adds happy path; Phase 1B adds governance fixtures.
 eval:
     uv run python -m chorus.eval.run
 

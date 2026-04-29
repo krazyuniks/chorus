@@ -6,7 +6,8 @@ Stack: React + Vite + TypeScript + TanStack (Router/Query/Table) + Tailwind. Rea
 
 Views:
 
-- Lead submission (dev-only fixture replay).
+- Mailpit-triggered workflow run list and detail.
+- Dev-only fixture replay.
 - Workflow timeline.
 - Decision trail.
 - Tool verdicts.

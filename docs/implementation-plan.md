@@ -19,7 +19,7 @@ Phase 1 builds one evidence-grade vertical slice for Lighthouse, including the h
 | Phase | Milestone | Exit criteria |
 |---|---|---|
 | 0. Foundation | Docs, ADRs, architecture/governance/SDLC artefacts, local dev contract, contracts, and service layout exist. | README explains run/review path; architecture, guardrails, SDLC model, and ADRs are linked. |
-| 1A. Lighthouse happy-path slice | Submit lead, run Temporal workflow, invoke governed agents, mediate at least one tool action, project state, stream progress, and show audit trail. | A reviewer can run one command, submit the fixture lead, see workflow state advance, inspect Temporal/Redpanda/Grafana/audit by correlation ID, and run the happy-path eval. |
+| 1A. Lighthouse happy-path slice | Send fixture lead email through Mailpit, run Temporal workflow, invoke governed agents, mediate at least one tool action, project state, stream progress, and show audit trail. | A reviewer can run one command, send the fixture lead to Mailpit SMTP, see workflow state advance, inspect Temporal/Redpanda/Grafana/audit by correlation ID, and run the happy-path eval. |
 | 1B. Governance and failure evidence | Add blocked write, low-confidence research, validator rejection, connector failure, retry/exhaustion, and escalation paths. | Failure fixtures produce expected workflow branches, audit verdicts, DLQ or escalation records, and passing trace/eval checks. |
 | 1C. Review packaging | Tighten README, screenshots or screencast notes, demo script, architecture links, governance/SDLC evidence, and project-facing summary. | Asynchronous reviewers can answer the evidence-map questions in under 15 minutes; guided demo fits 3 minutes without opening an editor. |
 
@@ -67,7 +67,7 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
    - Exit check: UI progress, Redpanda topic events, and read model agree by correlation ID.
 
 9. **(Phase 1A) Lighthouse UI and read-only admin**
-   - Provide the lead submission screen, workflow timeline, decision trail, tool verdicts, runtime registry, grants, and routing views.
+   - Provide the Mailpit-triggered workflow run list/detail, dev-only fixture replay, workflow timeline, decision trail, tool verdicts, runtime registry, grants, and routing views.
    - Keep the UI dense, plain, and data-first.
    - Exit check: the 3-minute demo can be performed without opening an editor.
 
@@ -76,7 +76,7 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
     - Exit check: Temporal, Redpanda, Grafana, UI, and audit views can be correlated from one workflow ID; happy-path eval passes.
 
 11. **(Phase 1A) Phase 1A documentation pass**
-    - Update README, architecture notes, technical architecture, governance guardrails, SDLC operating model, runbook, demo script, and evidence map to reflect the implemented slice.
+    - Update README, overview, architecture, governance guardrails, SDLC operating model, runbook, demo script, and evidence map to reflect the implemented slice.
     - Exit check: docs describe the current code and no deferred feature is presented as implemented.
 
 12. **(Phase 1C) Architecture artefact packaging — final pass**

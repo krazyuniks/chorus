@@ -68,7 +68,7 @@ The goal is not to claim Chorus is a complete enterprise policy framework. The g
 
 - Correlation ID links UI, Temporal, Redpanda, Grafana, audit, and eval output.
 - DLQ/escalation paths are visible, not hidden in logs.
-- `doctor` verifies local readiness before a demo or review.
+- `doctor` verifies the local scaffold in Phase 0 and local runtime readiness before Phase 1A demos or review.
 - Production deferrals are marked as such in docs and not implied to be implemented.
 
 ## Provider and Model Governance

@@ -19,7 +19,7 @@ The implementation remains a reference slice. The operating model shows how the 
 | Stage | Output | Gate |
 |---|---|---|
 | 1. Discovery | Problem framing, target workflow, risk classification, evidence goals. | Stakeholders agree the workflow is appropriate for agentic automation. |
-| 2. Architecture definition | Technical architecture, governance guardrails, ADRs, contracts, eval strategy. | Discovery questions are closed or explicitly deferred. |
+| 2. Architecture definition | Architecture reference, governance guardrails, ADRs, contracts, eval strategy. | Discovery questions are closed or explicitly deferred. |
 | 3. Contract definition | JSON Schemas, OpenAPI where needed, seed fixtures, acceptance traces. | Contract validation passes and owners are named. |
 | 4. Implementation | Workflow, agents, gateway, connectors, projections, UI, observability. | Quality gates pass against real services. |
 | 5. Evaluation and assurance | Trace/eval fixtures, replay tests, failure fixtures, cost/latency checks. | Behavioural and governance checks pass. |
@@ -32,12 +32,11 @@ The implementation remains a reference slice. The operating model shows how the 
 |---|---|
 | `README.md` | Entry point and review path. |
 | `evidence-map.md` | Engineering claims and supporting artefacts. |
-| `overview.md` | Narrative and scope boundaries. |
-| `architecture.md` | Decision narrative and Phase 1 defaults. |
-| `technical-architecture.md` | Implementation architecture map. |
+| `overview.md` | High-level project brief, review path, scope boundaries, and decision-record pointer. |
+| `architecture.md` | Sole architecture reference: principles, model, boundaries, runtime flow, contracts, testing, operations, and deferrals. |
 | `governance-guardrails.md` | Enterprise AI guardrails and control matrix. |
 | `sdlc-operating-model.md` | Delivery lifecycle, gates, roles, and change control. |
-| `adrs/` | Accepted Phase 1 architectural decisions. |
+| `adrs/` | Accepted Phase 1 architectural decision record. |
 | `implementation-plan.md` | Phases, milestones, work breakdown, and parallel workstreams. |
 | `demo-script.md` | Guided walkthrough. |
 | Contracts | JSON Schema/OpenAPI/Pydantic generated artefacts after implementation starts. |
@@ -61,7 +60,7 @@ The role split is intended to make ownership explicit: guardrails are defined ce
 
 | Gate | Required checks |
 |---|---|
-| Architecture gate | ADRs updated; technical architecture reflects implementation; deferrals listed. |
+| Architecture gate | ADRs updated; architecture document reflects implementation; deferrals listed. |
 | Contract gate | Schemas valid; generated models current; sample payloads pass; compatibility considered. |
 | Workflow gate | Temporal replay tests pass; deterministic boundary respected. |
 | Runtime governance gate | Agent versions, prompts, model route, budgets, and tool grants are inspectable. |

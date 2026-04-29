@@ -5,6 +5,15 @@ status: design-freeze
 
 # Chorus - Overview
 
+## Purpose
+
+This is the high-level project brief for Chorus. It explains what Chorus is,
+why it exists, how to review it, and where the architecture and decision record
+live.
+
+The sole architecture reference is [`architecture.md`](architecture.md). The
+durable decision record is [`../adrs/`](../adrs/).
+
 ## What Chorus is
 
 Chorus is a production-shaped reference implementation and architecture artefact set for governed multi-agent workflows.
@@ -21,7 +30,7 @@ The first running example shipped inside the repo is **Lighthouse**: an inbound-
 
 ## What the demo proves
 
-The demo is a trace-first vertical slice, not a broad platform showcase. A single-page UI at `localhost:3000` accepts a pre-loaded lead email and starts a durable workflow. From there, a reviewer can inspect:
+The demo is a trace-first vertical slice, not a broad platform showcase. A real email sent to `leads@chorus.local` through Mailpit starts a durable Lighthouse workflow. From there, a reviewer can inspect:
 
 1. **Workflow durability** - Temporal owns the long-running state machine, retries, replay, timeouts, and visible failure branches.
 2. **Governed agent execution** - the agent runtime resolves agent version, prompt, model route, tenant policy, and tool grants before each invocation.
@@ -40,14 +49,20 @@ The demo deliberately shows failure modes alongside the happy path:
 
 The 3-minute walkthrough should be possible without opening an editor. The repo must also stand up to asynchronous technical inspection.
 
-The repo also needs to stand up as an architecture package. A reviewer should be able to inspect `technical-architecture.md`, `governance-guardrails.md`, and `sdlc-operating-model.md` and see how the Lighthouse implementation maps to enterprise adoption controls.
+The repo also needs to stand up as an architecture package. A reviewer should be able to inspect `architecture.md`, `governance-guardrails.md`, and `sdlc-operating-model.md` and see how the Lighthouse implementation maps to enterprise adoption controls.
+
+## Decision record
+
+Architectural decisions are recorded as ADRs under [`../adrs/`](../adrs/). The ADRs explain why the project selected Lighthouse as the evidence slice, Temporal as the orchestration spine, Redpanda for event visibility, explicit Agent Runtime and Tool Gateway boundaries, Postgres-first storage, JSON Schema contracts, trace/eval assurance, and Mailpit SMTP intake.
+
+The architecture document should reflect accepted decisions, but the ADRs remain the source of record for why material choices were made.
 
 ## Design-freeze boundaries
 
 - Lighthouse remains the only Phase 1 workflow.
 - Phase 1 must include the happy path and the visible failure paths needed to prove governance.
 - Mutating admin features stay out of the UI; registry, routing, grants, and audit are read-only there.
-- Connector integrations are contract-faithful fakes with local side effects only.
+- Connector integrations run real software in sandbox/local mode: Mailpit for email, public APIs for research where suitable, and a Postgres-backed local CRM service.
 - Governance, guardrail, and SDLC documentation are first-class Phase 1 deliverables.
 
 ## What Chorus is not
@@ -56,7 +71,7 @@ The repo also needs to stand up as an architecture package. A reviewer should be
 - Not a generic agent framework competing with LangGraph, PydanticAI, OpenAI Agents SDK, CrewAI, or vendor platforms.
 - Not a checklist implementation of every interesting agentic-AI primitive.
 - Not a Scylla, Kubernetes, or cloud-infrastructure demo in Phase 1.
-- Not a real CRM/email/payment integration suite. Connectors are contract-faithful fakes.
+- Not a production CRM/email/payment integration suite. Connectors are sandbox/local implementations behind the same gateway boundary intended for real integrations.
 
 ## Design inputs
 

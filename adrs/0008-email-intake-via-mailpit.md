@@ -29,7 +29,7 @@ Neither matched the architectural credential the evidence is meant to demonstrat
 
 The Phase 1A demo trigger is real SMTP intake via Mailpit:
 
-1. A real email sent via SMTP to `leads@chorus.local:1025` is captured by Mailpit.
+1. A real email addressed to `leads@chorus.local` is sent to Mailpit's local SMTP port `1025` and captured by Mailpit.
 2. A Temporal poller activity reads new Mailpit messages via its HTTP API, deduplicates by Message-ID, and starts a Lighthouse workflow per new lead.
 3. UI form-submit remains as a secondary intake path for quick fixture replay during development, but the demo path leads with the SMTP-receive flow.
 
@@ -37,7 +37,7 @@ Mailpit serves dual duty: SMTP receive + HTTP API for inbound (lead intake) and 
 
 ## Primary evidence remains the documentation set
 
-The Chorus evidence claim rests on the documentation set — `architecture.md`, `technical-architecture.md`, `governance-guardrails.md`, `sdlc-operating-model.md`, the ADRs, and the public evidence map. These artefacts stand alone as evidence of architectural thinking; the working application is the demonstration that backs them, not the primary evidence asset.
+The Chorus evidence claim rests on the documentation set — `overview.md`, `architecture.md`, `governance-guardrails.md`, `sdlc-operating-model.md`, the ADRs, and the public evidence map. These artefacts stand alone as evidence of architectural thinking; the working application is the demonstration that backs them, not the primary evidence asset.
 
 ## Screencast deferred to backlog
 
@@ -47,7 +47,7 @@ A polished 3-minute screencast that captures the email-input → workflow → ou
 
 - **Workstream B (Temporal workflows + activities)** gains an SMTP-poll activity reading Mailpit's HTTP API. Dedupes by Message-ID. Starts a Lighthouse workflow per new lead. ~150 LOC.
 - **Workstream D (Tool Gateway + local connectors)** Mailpit ownership is unchanged in scope but spans both intake and outbound surfaces.
-- **Workstream F (Observability + ops)** takes ownership of the `just demo` CLI sequence (sends fixture lead via `swaks`, opens consoles for live observation).
+- **Workstream F (Observability + ops)** takes ownership of the `just demo` CLI sequence (sends a fixture lead to Mailpit SMTP and opens consoles for live observation).
 - A new lead-intake JSON Schema entry covers the parsed email payload (From, Subject, Body, Headers, Attachments-summary, Message-ID).
 - `demo-script.md` is updated during 1A doc closeout to describe the SMTP-receive demo path.
 - README leads with the documentation set as the primary review modality; live demo is the secondary path.
