@@ -8,7 +8,12 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
-from chorus.bff.app import BffSettings, create_app, store_dependency
+from chorus.bff.app import (
+    BffSettings,
+    create_app,
+    progress_snapshot_store_dependency,
+    store_dependency,
+)
 from chorus.persistence.projection import (
     AgentRegistryEntry,
     DecisionTrailEntryReadModel,
@@ -233,6 +238,7 @@ def _client() -> tuple[TestClient, FakeProjectionStore]:
         yield store
 
     app.dependency_overrides[store_dependency] = override_store
+    app.dependency_overrides[progress_snapshot_store_dependency] = override_store
     return TestClient(app), store
 
 

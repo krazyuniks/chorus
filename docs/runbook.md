@@ -261,7 +261,7 @@ in-memory fixtures (used by Playwright's e2e config); this short-circuits
 the SSE EventSource so the offline tests do not require a live BFF.
 
 When SSE looks stuck, check three things in order: the BFF container is
-healthy (`scripts/dc logs chorus-bff`), the projection worker is
+healthy (`just logs bff`), the projection worker is
 consuming Redpanda into `workflow_history_events` (run
 `uv run python -m chorus.persistence.redpanda project-once` and confirm
 the count increments), and the Vite proxy is reaching the BFF

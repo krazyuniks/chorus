@@ -328,7 +328,9 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
     @app.get("/api/progress")
     async def progress(
         request: Request,
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        snapshot_store: Annotated[
+            ProjectionStore | None, Depends(progress_snapshot_store_dependency)
+        ],
         workflow_id: Annotated[str | None, Query()] = None,
         correlation_id: Annotated[str | None, Query()] = None,
         once: Annotated[bool, Query()] = False,
@@ -345,7 +347,7 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
                 workflow_id=workflow_id,
                 correlation_id=correlation_id,
                 once=once,
-                snapshot_store=store if once else None,
+                snapshot_store=snapshot_store,
             ),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
@@ -355,6 +357,22 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
 
 
 def store_dependency(request: Request) -> Iterator[ProjectionStore]:
+    settings = request.app.state.settings
+    if not isinstance(settings, BffSettings):
+        raise RuntimeError("BFF settings are not configured")
+
+    with _projection_store(settings) as store:
+        yield store
+
+
+def progress_snapshot_store_dependency(
+    request: Request,
+    once: Annotated[bool, Query()] = False,
+) -> Iterator[ProjectionStore | None]:
+    if not once:
+        yield None
+        return
+
     settings = request.app.state.settings
     if not isinstance(settings, BffSettings):
         raise RuntimeError("BFF settings are not configured")
