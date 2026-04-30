@@ -519,6 +519,36 @@ def _lighthouse_result_for(
                 0.88,
             )
         case "response_draft":
+            if _is_validator_redraft_fixture(request):
+                attempt = int(request.input.get("redraft_attempt", 1))
+                if attempt == 1:
+                    return (
+                        "Initial draft offered a generic acknowledgement only.",
+                        "continue",
+                        {
+                            "draft_response": (
+                                "Thanks for getting in touch. We will be back in contact shortly."
+                            ),
+                            "redraft_attempt": attempt,
+                        },
+                        0.88,
+                    )
+                return (
+                    "Redrafted response now offers an operations-led pilot and discovery call.",
+                    "continue",
+                    {
+                        "draft_response": (
+                            "Thanks for getting in touch. We would like to suggest "
+                            "a lightweight operations-led pilot and a 30-minute "
+                            "discovery call to scope your inbound enquiry handling."
+                        ),
+                        "redraft_attempt": attempt,
+                        "applied_validator_reason": (
+                            request.input.get("validator_reason", {}) or {}
+                        ),
+                    },
+                    0.88,
+                )
             return (
                 "Drafted a concise response proposing a discovery call and pilot outline.",
                 "continue",
@@ -532,6 +562,37 @@ def _lighthouse_result_for(
                 0.88,
             )
         case "response_validation":
+            if _is_validator_redraft_fixture(request):
+                attempt = int(request.input.get("redraft_attempt", 1))
+                if attempt == 1:
+                    return (
+                        "Draft missed the requested operations-pilot framing; "
+                        "validator requested redraft.",
+                        "redraft",
+                        {
+                            "validation": "redraft_requested",
+                            "redraft_attempt": attempt,
+                            "reason": {
+                                "code": "tone_mismatch",
+                                "missing_elements": ["pilot_framing", "discovery_call_offer"],
+                                "guidance": (
+                                    "Reframe around an operations-led pilot and offer a "
+                                    "30-minute discovery call."
+                                ),
+                            },
+                        },
+                        0.88,
+                    )
+                return (
+                    "Redrafted response addresses the validator's pilot-framing reason.",
+                    "send",
+                    {
+                        "validation": "approved",
+                        "redraft_attempt": attempt,
+                        "redraft_completed": True,
+                    },
+                    0.88,
+                )
             return (
                 "Draft is suitable for proposal mode in the local sandbox.",
                 "send",
@@ -553,3 +614,9 @@ def _is_low_confidence_research_fixture(request: AgentInvocationRequest) -> bool
     body = str(request.input.get("lead_body", "")).lower()
     subject = str(request.input.get("lead_subject", "")).lower()
     return "low-confidence research fixture" in body or "low-confidence research" in subject
+
+
+def _is_validator_redraft_fixture(request: AgentInvocationRequest) -> bool:
+    subject = str(request.input.get("lead_subject", "")).lower()
+    body = str(request.input.get("lead_body", "")).lower()
+    return "validator-redraft fixture" in subject or "validator-redraft fixture" in body

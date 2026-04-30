@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "lighthouse-validator-redraft",
+  "name": "Lighthouse validator rejection bounded redraft loop",
+  "phase": "1B",
+  "input": {
+    "email_fixture_path": "docs/fixtures/lead-validator-redraft.eml",
+    "tenant_id": "tenant_demo"
+  },
+  "expected": {
+    "workflow_path": [
+      "intake",
+      "research_qualification",
+      "draft",
+      "validation",
+      "draft",
+      "validation",
+      "propose_send",
+      "complete"
+    ],
+    "final_outcome": "propose",
+    "allowed_tool_actions": [
+      "email.propose_response"
+    ],
+    "blocked_tool_actions": [],
+    "max_cost_usd": 1.25,
+    "max_latency_ms": 120000,
+    "required_audit_fields": [
+      "correlation_id",
+      "tenant_id",
+      "workflow_id",
+      "agent",
+      "model_route",
+      "prompt_hash",
+      "input_summary",
+      "output_summary",
+      "tool_call_ids"
+    ],
+    "required_event_types": [
+      "lead.received",
+      "workflow.started",
+      "workflow.completed"
+    ]
+  }
+}
