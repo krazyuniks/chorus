@@ -40,6 +40,7 @@ STEP_ESCALATE = "escalate"
 
 _ACTIVITY_TIMEOUT = timedelta(seconds=30)
 _ACTIVITY_RETRY = RetryPolicy(maximum_attempts=3)
+_MAX_REDRAFT_ATTEMPTS = 2
 
 
 @workflow.defn
@@ -133,69 +134,99 @@ class LighthouseWorkflow:
                 "research or qualification requested escalation",
             )
 
-        draft = await self._agent(
-            lead,
-            workflow_id,
-            "drafter",
-            "response_draft",
-            {
-                "lead_subject": lead.subject,
-                "lead_body": lead.body_text,
-                "research_summary": research.summary,
-                "qualification_summary": qualification.summary,
-            },
-        )
-        sequence = await self._step(
-            lead,
-            workflow_id,
-            sequence,
-            path,
-            STEP_DRAFT,
-            {
-                "lead_summary": lead.subject,
-                "draft_summary": draft.summary,
-                "draft_response": draft.structured_data.get("draft_response", draft.summary),
-            },
-        )
-        if _should_escalate(draft):
-            return await self._escalate(
+        redraft_attempt = 1
+        validator_reason: dict[str, Any] | None = None
+        draft: AgentInvocationResponse | None = None
+        validation: AgentInvocationResponse | None = None
+        while True:
+            draft = await self._agent(
+                lead,
+                workflow_id,
+                "drafter",
+                "response_draft",
+                _draft_input(
+                    lead=lead,
+                    research_summary=research.summary,
+                    qualification_summary=qualification.summary,
+                    redraft_attempt=redraft_attempt,
+                    validator_reason=validator_reason,
+                ),
+            )
+            sequence = await self._step(
                 lead,
                 workflow_id,
                 sequence,
                 path,
-                "drafter requested escalation",
+                STEP_DRAFT,
+                {
+                    "lead_summary": lead.subject,
+                    "draft_summary": draft.summary,
+                    "draft_response": draft.structured_data.get("draft_response", draft.summary),
+                    "redraft_attempt": redraft_attempt,
+                },
             )
+            if _should_escalate(draft):
+                return await self._escalate(
+                    lead,
+                    workflow_id,
+                    sequence,
+                    path,
+                    "drafter requested escalation",
+                )
 
-        validation = await self._agent(
-            lead,
-            workflow_id,
-            "validator",
-            "response_validation",
-            {
-                "lead_subject": lead.subject,
-                "draft_response": draft.structured_data.get("draft_response", draft.summary),
-            },
-        )
-        sequence = await self._step(
-            lead,
-            workflow_id,
-            sequence,
-            path,
-            STEP_VALIDATION,
-            {
-                "lead_summary": lead.subject,
-                "validation_summary": validation.summary,
-                "recommended_next_step": validation.recommended_next_step,
-            },
-        )
-        if _should_escalate(validation):
-            return await self._escalate(
+            validation = await self._agent(
+                lead,
+                workflow_id,
+                "validator",
+                "response_validation",
+                {
+                    "lead_subject": lead.subject,
+                    "draft_response": draft.structured_data.get("draft_response", draft.summary),
+                    "redraft_attempt": redraft_attempt,
+                },
+            )
+            should_retry_redraft = (
+                validation.recommended_next_step == "redraft"
+                and redraft_attempt < _MAX_REDRAFT_ATTEMPTS
+            )
+            sequence = await self._step(
                 lead,
                 workflow_id,
                 sequence,
                 path,
-                "validator requested escalation",
+                STEP_VALIDATION,
+                {
+                    "lead_summary": lead.subject,
+                    "validation_summary": validation.summary,
+                    "recommended_next_step": validation.recommended_next_step,
+                    "redraft_attempt": redraft_attempt,
+                    "redraft_requested": should_retry_redraft,
+                    "redraft_exhausted": (
+                        validation.recommended_next_step == "redraft" and not should_retry_redraft
+                    ),
+                },
             )
+            if validation.recommended_next_step == "redraft":
+                if not should_retry_redraft:
+                    return await self._escalate(
+                        lead,
+                        workflow_id,
+                        sequence,
+                        path,
+                        "validator requested redraft beyond bounded attempts",
+                    )
+                validator_reason = _validator_reason_payload(validation)
+                redraft_attempt += 1
+                continue
+            if _should_escalate(validation):
+                return await self._escalate(
+                    lead,
+                    workflow_id,
+                    sequence,
+                    path,
+                    "validator requested escalation",
+                )
+            break
 
         gateway_result = await self._gateway(
             lead,
@@ -396,3 +427,36 @@ class LighthouseWorkflow:
 
 def _should_escalate(response: AgentInvocationResponse) -> bool:
     return response.recommended_next_step == "escalate" or response.confidence < 0.5
+
+
+def _draft_input(
+    *,
+    lead: LighthouseWorkflowInput,
+    research_summary: str,
+    qualification_summary: str,
+    redraft_attempt: int,
+    validator_reason: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "lead_subject": lead.subject,
+        "lead_body": lead.body_text,
+        "research_summary": research_summary,
+        "qualification_summary": qualification_summary,
+        "redraft_attempt": redraft_attempt,
+    }
+    if validator_reason is not None:
+        payload["validator_reason"] = validator_reason
+    return payload
+
+
+def _validator_reason_payload(validation: AgentInvocationResponse) -> dict[str, Any]:
+    structured_reason = validation.structured_data.get("reason")
+    payload: dict[str, Any] = {
+        "summary": validation.summary,
+        "rationale": validation.rationale,
+    }
+    if isinstance(structured_reason, dict):
+        payload["structured"] = structured_reason
+    elif structured_reason is not None:
+        payload["structured"] = {"value": structured_reason}
+    return payload

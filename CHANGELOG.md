@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ### Added
 
+- **Phase 1B G-02 — validator rejection redraft loop.** Bounded redraft loop in `chorus/workflows/lighthouse.py`: when the validator returns `recommended_next_step="redraft"`, the workflow re-invokes the drafter with the validator's structured `reason` payload threaded through as `validator_reason` and re-runs validation. The loop is capped at two attempts; exhaustion escalates with `"validator requested redraft beyond bounded attempts"`. Local model boundary in `chorus/agent_runtime/runtime.py` gains a fixture-mode hook that emits `redraft` on the first validation pass and `send` on the second for the validator-redraft fixture lead. Evidence: `tests/workflows/fixtures/lighthouse_validator_redraft_history.json` (replay), `chorus/eval/fixtures/lighthouse_validator_redraft.json` (eval), `docs/fixtures/lead-validator-redraft.eml`, and `scripts/generate_validator_redraft_history.py` for fixture regeneration.
 - Phase 0 architecture and governance documentation: `docs/overview.md`, `docs/architecture.md`, `docs/governance-guardrails.md`, `docs/evidence-map.md`, and `docs/implementation-plan.md`.
 - ADRs 0001 through 0008 covering the accepted Phase 1 architectural decisions.
 - Contracts skeleton under `contracts/` with the initial Phase 0 schema set, representative samples, and the JSON Schema to Pydantic generation gate exposed as `just contracts-check`.

@@ -1,0 +1,17 @@
+From: Alex Morgan <alex.morgan@example.test>
+To: leads@chorus.local
+Subject: validator-redraft fixture: pilot enquiry for inbound triage
+Message-ID: <lead-validator-redraft-001@example.test>
+Date: Wed, 29 Apr 2026 10:00:00 +0000
+Content-Type: text/plain; charset=utf-8
+
+Hello,
+
+This validator-redraft fixture intentionally seeds a thin first draft so the
+validator can request an operations-led pilot framing on the second pass.
+
+We need help qualifying inbound enquiries and proposing a lightweight pilot
+to our account team.
+
+Regards,
+Alex
