@@ -1,0 +1,10 @@
+From: Alex Morgan <alex.morgan@example.test>
+To: leads@chorus.local
+Subject: connector-failure fixture: Mailpit outage during proposal
+Message-ID: <lead-connector-failure-001@example.test>
+Date: Wed, 29 Apr 2026 10:00:00 +0000
+Content-Type: text/plain; charset=utf-8
+
+This connector-failure fixture keeps the agent path ordinary but forces the
+local Mailpit connector to fail during proposal capture. We still need the
+workflow to record evidence of the failed tool action and escalate cleanly.

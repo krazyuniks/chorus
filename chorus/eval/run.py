@@ -54,6 +54,7 @@ class OfflineEvidence:
     tool_call: ToolCall
     verdict: GatewayVerdict
     audit_event: AuditEvent
+    compensation_audit_event: AuditEvent | None
     latency_ms: int
 
 
@@ -189,6 +190,16 @@ def _build_offline_evidence(fixture: EvalFixture) -> OfflineEvidence:
         tool_call=tool_call,
         verdict=verdict,
     )
+    compensation_audit_event = (
+        _compensation_audit_event(
+            fixture=fixture,
+            workflow_id=workflow_id,
+            correlation_id=correlation_id,
+            tool_call=tool_call,
+        )
+        if _is_connector_failure_fixture(fixture)
+        else None
+    )
 
     # Re-validate every contract model after composing the evidence graph.
     for event in events:
@@ -198,6 +209,8 @@ def _build_offline_evidence(fixture: EvalFixture) -> OfflineEvidence:
     ToolCall.model_validate(tool_call.model_dump(mode="json"))
     GatewayVerdict.model_validate(verdict.model_dump(mode="json"))
     AuditEvent.model_validate(audit_event.model_dump(mode="json"))
+    if compensation_audit_event is not None:
+        AuditEvent.model_validate(compensation_audit_event.model_dump(mode="json"))
 
     return OfflineEvidence(
         workflow_id=workflow_id,
@@ -207,6 +220,7 @@ def _build_offline_evidence(fixture: EvalFixture) -> OfflineEvidence:
         tool_call=tool_call,
         verdict=verdict,
         audit_event=audit_event,
+        compensation_audit_event=compensation_audit_event,
         latency_ms=15_000,
     )
 
@@ -326,6 +340,21 @@ def _completed_step_payload(fixture: EvalFixture, step: str, step_count: int) ->
             "redraft_attempt": 2,
             "recommended_next_step": "send",
         }
+    if _is_connector_failure_fixture(fixture) and step == "propose_send":
+        return {
+            "step_outcome": "connector_failure",
+            "gateway_verdict": "connector_failure",
+            "enforced_mode": "propose",
+            "tool_name": "email.propose_response",
+            "connector_failure": True,
+            "compensation_required": True,
+        }
+    if _is_connector_failure_fixture(fixture) and step == "escalate":
+        return {
+            "step_outcome": "compensated_escalation",
+            "reason": "tool gateway connector failure compensated and escalated",
+            "compensation_recorded": True,
+        }
     return {"step_outcome": "completed"}
 
 
@@ -373,6 +402,10 @@ def _is_low_confidence_fixture(fixture: EvalFixture) -> bool:
 
 def _is_validator_redraft_fixture(fixture: EvalFixture) -> bool:
     return fixture.fixture_id == "lighthouse-validator-redraft"
+
+
+def _is_connector_failure_fixture(fixture: EvalFixture) -> bool:
+    return fixture.fixture_id == "lighthouse-connector-failure"
 
 
 def _decision_record(
@@ -467,6 +500,7 @@ def _gateway_verdict(
     correlation_id: str,
 ) -> GatewayVerdict:
     blocked = bool(fixture.expected.blocked_tool_actions)
+    connector_failure = _is_connector_failure_fixture(fixture)
     return GatewayVerdict.model_validate(
         {
             "schema_version": "1.0.0",
@@ -477,7 +511,9 @@ def _gateway_verdict(
             "verdict": "block" if blocked else "propose",
             "enforced_mode": tool_call.mode.value,
             "reason": (
-                "Explicit Tool Gateway grant denies the requested agent, tool, and mode."
+                "Connector transient failure after authorised call; Temporal retries exhausted."
+                if connector_failure
+                else "Explicit Tool Gateway grant denies the requested agent, tool, and mode."
                 if blocked
                 else "Proposal-mode grant accepted; connector captured sandbox proposal."
             ),
@@ -533,6 +569,42 @@ def _audit_event(
     )
 
 
+def _compensation_audit_event(
+    *,
+    fixture: EvalFixture,
+    workflow_id: str,
+    correlation_id: str,
+    tool_call: ToolCall,
+) -> AuditEvent:
+    return AuditEvent.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "audit_event_id": str(uuid4()),
+            "occurred_at": "2026-04-29T10:02:05+00:00",
+            "tenant_id": fixture.input.tenant_id,
+            "correlation_id": correlation_id,
+            "workflow_id": workflow_id,
+            "actor": {"type": "system", "id": "lighthouse.workflow"},
+            "category": "connector",
+            "action": "connector.failure.compensated",
+            "verdict": "recorded",
+            "details": {
+                "failed_tool_action": {
+                    "invocation_id": str(tool_call.invocation_id),
+                    "agent_id": tool_call.agent_id,
+                    "tool_name": tool_call.tool_name.value,
+                    "mode": tool_call.mode.value,
+                    "idempotency_key": tool_call.idempotency_key,
+                },
+                "compensation": {
+                    "status": "escalated",
+                    "reason": "tool gateway connector failure compensated and escalated",
+                },
+            },
+        }
+    )
+
+
 def _assert_offline_evidence(
     fixture: EvalFixture,
     evidence: OfflineEvidence,
@@ -557,11 +629,22 @@ def _assert_offline_evidence(
             evidence.correlation_id,
             [event.correlation_id for event in evidence.events],
             [record.correlation_id for record in evidence.decisions],
-            [evidence.audit_event.correlation_id],
+            [
+                audit.correlation_id
+                for audit in [evidence.audit_event, evidence.compensation_audit_event]
+                if audit is not None
+            ],
         ),
     ]
     if _is_low_confidence_fixture(fixture):
         checks.append(_check_deeper_research_branch(evidence.decisions))
+    if _is_connector_failure_fixture(fixture):
+        compensation_audits = (
+            [evidence.compensation_audit_event]
+            if evidence.compensation_audit_event is not None
+            else []
+        )
+        checks.append(_check_connector_failure_compensation(compensation_audits))
     if any(check.status == "fail" for check in checks):
         details = "; ".join(check.detail for check in checks if check.status == "fail")
         raise EvalError(details)
@@ -621,6 +704,8 @@ def _run_live_checks(
     ]
     if _is_low_confidence_fixture(fixture):
         checks.append(_check_deeper_research_branch(evidence.decisions))
+    if _is_connector_failure_fixture(fixture):
+        checks.append(_check_connector_failure_compensation(evidence.tool_audits))
     return checks
 
 
@@ -921,6 +1006,32 @@ def _check_deeper_research_branch(decisions: list[AgentInvocationRecord]) -> Eva
         "deeper research branch",
         "fail",
         "missing deeper-research request or enriched second research attempt",
+    )
+
+
+def _check_connector_failure_compensation(audits: list[AuditEvent]) -> EvalCheck:
+    for audit in audits:
+        if audit.action != "connector.failure.compensated":
+            continue
+        compensation_obj = audit.details.get("compensation")
+        failed_tool_action_obj = audit.details.get("failed_tool_action")
+        if not isinstance(compensation_obj, dict) or not isinstance(failed_tool_action_obj, dict):
+            continue
+        compensation = cast(dict[str, Any], compensation_obj)
+        failed_tool_action = cast(dict[str, Any], failed_tool_action_obj)
+        if (
+            compensation.get("status") == "escalated"
+            and failed_tool_action.get("tool_name") == "email.propose_response"
+        ):
+            return EvalCheck(
+                "connector compensation",
+                "pass",
+                "failed email proposal action was compensated and escalated",
+            )
+    return EvalCheck(
+        "connector compensation",
+        "fail",
+        "missing connector.failure.compensated audit evidence",
     )
 
 

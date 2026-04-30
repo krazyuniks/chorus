@@ -17,6 +17,7 @@ from chorus.connectors.local import (
     CompanyResearchConnector,
     ConnectorError,
     ConnectorResult,
+    ConnectorTransientError,
     CrmCreateLeadArguments,
     CrmLookupCompanyArguments,
     LocalCrmConnector,
@@ -126,6 +127,9 @@ class ToolGatewayStore:
     def set_tenant_context(self, tenant_id: str) -> None:
         self._conn.execute("SELECT set_config('app.tenant_id', %s, false)", (tenant_id,))
 
+    def commit(self) -> None:
+        self._conn.commit()
+
     def fetch_grant(
         self,
         *,
@@ -229,7 +233,7 @@ class ToolGatewayStore:
         verdict: GatewayVerdict,
         audit_event: AuditEvent,
         arguments_redacted: dict[str, Any],
-        response: ToolGatewayResponse,
+        response: ToolGatewayResponse | None = None,
     ) -> None:
         details = audit_event.details
         self.set_tenant_context(request.tenant_id)
@@ -325,6 +329,39 @@ class ToolGateway:
                     arguments=decision.rewritten_arguments or request.arguments,
                 )
                 connector_output = connector_result.output
+            except ConnectorTransientError as exc:
+                decision = GatewayDecision(
+                    verdict="block",
+                    enforced_mode=decision.enforced_mode,
+                    reason=f"Connector transient failure after authorised call: {exc}",
+                    grant=decision.grant,
+                    rewritten_arguments=decision.rewritten_arguments,
+                    connector_allowed=False,
+                )
+                verdict = _gateway_verdict(
+                    tool_call=tool_call,
+                    tenant_id=request.tenant_id,
+                    correlation_id=request.correlation_id,
+                    decision=decision,
+                    connector_invocation_id=None,
+                    decided_at=_now(),
+                )
+                audit_event = _connector_failure_audit_event(
+                    request=request,
+                    tool_call=tool_call,
+                    verdict=verdict,
+                    occurred_at=verdict.decided_at,
+                    error=str(exc),
+                )
+                self._store.record_audit(
+                    request=request,
+                    tool_call=tool_call,
+                    verdict=verdict,
+                    audit_event=audit_event,
+                    arguments_redacted=_redact(request.arguments, decision.grant),
+                )
+                self._store.commit()
+                raise
             except (ConnectorError, ValidationError) as exc:
                 decision = GatewayDecision(
                     verdict="block",
@@ -532,6 +569,39 @@ def _audit_event(
                 "tool_call": tool_call.model_dump(mode="json"),
                 "gateway_verdict": verdict.model_dump(mode="json"),
                 "gateway_response": response.__dict__,
+            },
+        }
+    )
+
+
+def _connector_failure_audit_event(
+    *,
+    request: ToolGatewayRequest,
+    tool_call: ToolCall,
+    verdict: GatewayVerdict,
+    occurred_at: datetime,
+    error: str,
+) -> AuditEvent:
+    return AuditEvent.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "audit_event_id": str(verdict.audit_event_id),
+            "occurred_at": occurred_at.isoformat(),
+            "tenant_id": request.tenant_id,
+            "correlation_id": request.correlation_id,
+            "workflow_id": request.workflow_id,
+            "actor": {"type": "agent", "id": request.agent_id},
+            "category": "connector",
+            "action": "connector.transient_failure",
+            "verdict": verdict.verdict.value,
+            "details": {
+                "tool_call": tool_call.model_dump(mode="json"),
+                "gateway_verdict": verdict.model_dump(mode="json"),
+                "connector_failure": {
+                    "classification": "transient",
+                    "message": error,
+                    "retryable_by": "temporal_activity_retry_policy",
+                },
             },
         }
     )

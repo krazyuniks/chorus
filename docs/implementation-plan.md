@@ -194,9 +194,8 @@ test. Concretely:
   until Wave A merges so the UI is stable. Status: happy-path narrative
   done without screenshots; screenshot/screencast artefacts remain deferred.
 - **C-04 (Phase 1C).** Governance-evidence narrative — block, retry,
-  validator-rejection, deeper-research stories. G-01/G-02/G-03 evidence is
-  available; retry and connector-failure narrative remains blocked on
-  G-04/G-05.
+  validator-rejection, deeper-research stories. G-01/G-02/G-03/G-04 evidence is
+  available; retry-exhaustion narrative remains blocked on G-05.
 - **C-05 (Phase 1C).** Project-facing summary in README and overview.
   Unblocked now. Status: done in the `phase-1c/review-packaging` pass.
 
@@ -217,7 +216,7 @@ session merges into `main` after `just doctor`, `just test`,
 | G-01 | Low-confidence research → deeper-research loop with bounded escalation | `chorus/workflows/lighthouse.py`; `chorus/agent_runtime/runtime.py`; `tests/workflows/fixtures/lighthouse_low_confidence_history.json`; `chorus/eval/fixtures/lighthouse_low_confidence.json` | `just test-replay`; `just eval` | done | Workflow records the low-confidence branch, retries once with enriched research input, escalates after retry exhaustion, and eval asserts two researcher decisions plus the enriched second attempt. |
 | G-02 | Validator rejection → redraft loop with structured reason | `chorus/workflows/lighthouse.py`; `chorus/agent_runtime/runtime.py`; `tests/workflows/fixtures/lighthouse_validator_redraft_history.json`; `chorus/eval/fixtures/lighthouse_validator_redraft.json`; `tests/workflows/test_lighthouse_workflow.py`; `docs/fixtures/lead-validator-redraft.eml`; `scripts/generate_validator_redraft_history.py` | `just test-replay`; `just eval` | done | Bounded redraft loop (max 2 attempts) with `validator_reason` payload threaded back into the drafter input. |
 | G-03 | Forbidden write fixture (gateway block / write→propose downgrade) | `infrastructure/postgres/seeds/001_demo_tenants.sql`; `chorus/tool_gateway/gateway.py`; `tests/workflows/fixtures/lighthouse_forbidden_write_history.json`; `chorus/eval/fixtures/lighthouse_forbidden_write.json` | `just eval`; `just test-replay`; `just test-persistence`; `just contracts-check` | done | `tenant_demo_alt` seeds an explicit denied `email.send_response/write` grant; gateway blocks that exact denied write before downgrade and persists redacted audit evidence. `just test-persistence` skipped because local Postgres was unavailable to the test fixture. |
-| G-04 | Connector failure → compensation/escalation | `chorus/connectors/local.py`; `chorus/workflows/activities.py` (compensation); `chorus/workflows/lighthouse.py`; eval/replay fixtures | `just test-replay`; `just eval` | open | Add a transient-failure injection toggle on the connector for fixture replay. |
+| G-04 | Connector failure → compensation/escalation | `chorus/connectors/local.py`; `chorus/tool_gateway/gateway.py`; `chorus/workflows/activities.py` (compensation); `chorus/workflows/lighthouse.py`; eval/replay fixtures | `just test-replay`; `just eval` | done | Fixture-scoped Mailpit connector marker raises a transient connector error, the gateway activity retries, the compensation activity records the failed `email.propose_response` action, and the workflow escalates. |
 | G-05 | Retry exhaustion → DLQ/escalation evidence | `chorus/workflows/lighthouse.py`; `chorus/workflows/activities.py`; `chorus/persistence/outbox.py` (DLQ marker); eval/replay fixtures | `just test-replay`; `just eval`; `just test-persistence` | open | Structural — last in sequence to avoid forcing every other fixture to rebase. |
 | G-06 | Trace/eval fixtures assert all five governance paths | `chorus/eval/fixtures/`; `tests/workflows/fixtures/` | `just eval`; `just test-replay` | open | Lands incrementally with G-01..G-05. |
 

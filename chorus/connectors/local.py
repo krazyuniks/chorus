@@ -22,6 +22,10 @@ class ConnectorError(RuntimeError):
     """Raised when a local connector cannot complete an authorised action."""
 
 
+class ConnectorTransientError(ConnectorError):
+    """Raised when a local connector has a retryable fixture-scoped failure."""
+
+
 class CompanyResearchArguments(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -72,6 +76,11 @@ class MailpitEmailConnector:
         mode: str,
     ) -> ConnectorResult:
         connector_invocation_id = uuid4()
+        if _is_connector_failure_fixture(arguments):
+            raise ConnectorTransientError(
+                "fixture-scoped transient Mailpit SMTP failure for connector-failure lead"
+            )
+
         message = EmailMessage()
         message["From"] = self._sender
         message["To"] = arguments.to
@@ -229,6 +238,11 @@ class CompanyResearchConnector:
                 "matches": matches,
             },
         )
+
+
+def _is_connector_failure_fixture(arguments: EmailMessageArgs) -> bool:
+    marker = "connector-failure fixture"
+    return marker in arguments.subject.lower() or marker in arguments.body_text.lower()
 
 
 def _crm_row_to_output(row: Any) -> dict[str, Any] | None:

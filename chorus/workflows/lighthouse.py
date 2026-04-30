@@ -7,12 +7,15 @@ from typing import Any
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
+from temporalio.exceptions import ActivityError
 
 from chorus.workflows.types import (
     AgentInvocationRequest,
     AgentInvocationResponse,
     LighthouseWorkflowInput,
     LighthouseWorkflowResult,
+    ToolFailureCompensationCommand,
+    ToolFailureCompensationResult,
     ToolGatewayRequest,
     ToolGatewayResponse,
     WorkflowEventCommand,
@@ -21,6 +24,7 @@ from chorus.workflows.types import (
 ACTIVITY_RECORD_WORKFLOW_EVENT = "lighthouse.record_workflow_event"
 ACTIVITY_INVOKE_AGENT_RUNTIME = "lighthouse.invoke_agent_runtime"
 ACTIVITY_INVOKE_TOOL_GATEWAY = "lighthouse.invoke_tool_gateway"
+ACTIVITY_RECORD_TOOL_FAILURE_COMPENSATION = "lighthouse.record_tool_failure_compensation"
 
 EVENT_LEAD_RECEIVED = "lead.received"
 EVENT_WORKFLOW_STARTED = "workflow.started"
@@ -284,20 +288,63 @@ class LighthouseWorkflow:
                 )
             break
 
-        gateway_result = await self._gateway(
-            lead,
-            workflow_id,
-            validation.invocation_id,
-            "lighthouse.drafter",
-            "email.propose_response",
-            "propose",
-            f"{workflow_id}:email.propose_response",
-            {
-                "to": lead.sender.email,
-                "subject": f"Re: {lead.subject}",
-                "body_text": draft.structured_data.get("draft_response", draft.summary),
-            },
-        )
+        tool_agent_id = "lighthouse.drafter"
+        tool_name = "email.propose_response"
+        tool_mode = "propose"
+        idempotency_key = f"{workflow_id}:email.propose_response"
+        tool_arguments = {
+            "to": lead.sender.email,
+            "subject": f"Re: {lead.subject}",
+            "body_text": draft.structured_data.get("draft_response", draft.summary),
+        }
+        try:
+            gateway_result = await self._gateway(
+                lead,
+                workflow_id,
+                validation.invocation_id,
+                tool_agent_id,
+                tool_name,
+                tool_mode,
+                idempotency_key,
+                tool_arguments,
+            )
+        except ActivityError as exc:
+            failure_reason = _activity_failure_reason(exc)
+            sequence = await self._step(
+                lead,
+                workflow_id,
+                sequence,
+                path,
+                STEP_PROPOSE_SEND,
+                {
+                    "lead_summary": lead.subject,
+                    "gateway_verdict": "connector_failure",
+                    "enforced_mode": tool_mode,
+                    "tool_name": tool_name,
+                    "connector_failure": True,
+                    "compensation_required": True,
+                    "failure_reason": failure_reason,
+                },
+            )
+            await self._compensate_tool_failure(
+                lead=lead,
+                workflow_id=workflow_id,
+                invocation_id=validation.invocation_id,
+                agent_id=tool_agent_id,
+                tool_name=tool_name,
+                mode=tool_mode,
+                idempotency_key=idempotency_key,
+                arguments=tool_arguments,
+                failure_reason=failure_reason,
+            )
+            return await self._escalate(
+                lead,
+                workflow_id,
+                sequence,
+                path,
+                "tool gateway connector failure compensated and escalated",
+            )
+
         sequence = await self._step(
             lead,
             workflow_id,
@@ -445,6 +492,39 @@ class LighthouseWorkflow:
             result_type=ToolGatewayResponse,
         )
 
+    async def _compensate_tool_failure(
+        self,
+        *,
+        lead: LighthouseWorkflowInput,
+        workflow_id: str,
+        invocation_id: str,
+        agent_id: str,
+        tool_name: str,
+        mode: str,
+        idempotency_key: str,
+        arguments: dict[str, Any],
+        failure_reason: str,
+    ) -> ToolFailureCompensationResult:
+        return await workflow.execute_activity(
+            ACTIVITY_RECORD_TOOL_FAILURE_COMPENSATION,
+            ToolFailureCompensationCommand(
+                tenant_id=lead.tenant_id,
+                correlation_id=lead.correlation_id,
+                workflow_id=workflow_id,
+                lead_id=lead.lead_id,
+                invocation_id=invocation_id,
+                agent_id=agent_id,
+                tool_name=tool_name,
+                mode=mode,
+                idempotency_key=idempotency_key,
+                arguments=arguments,
+                failure_reason=failure_reason,
+            ),
+            start_to_close_timeout=_ACTIVITY_TIMEOUT,
+            retry_policy=_ACTIVITY_RETRY,
+            result_type=ToolFailureCompensationResult,
+        )
+
     async def _escalate(
         self,
         lead: LighthouseWorkflowInput,
@@ -536,6 +616,14 @@ def _draft_input(
     if validator_reason is not None:
         payload["validator_reason"] = validator_reason
     return payload
+
+
+def _activity_failure_reason(exc: ActivityError) -> str:
+    cause = exc.cause
+    message = str(cause) if cause is not None and str(cause) else str(exc)
+    if len(message) <= 500:
+        return message
+    return f"{message[:497]}..."
 
 
 def _validator_reason_payload(validation: AgentInvocationResponse) -> dict[str, Any]:

@@ -7,12 +7,14 @@ from uuid import uuid4
 import pytest
 from temporalio import activity
 from temporalio.client import WorkflowHistory
+from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Replayer, Worker
 
 from chorus.workflows.lighthouse import (
     ACTIVITY_INVOKE_AGENT_RUNTIME,
     ACTIVITY_INVOKE_TOOL_GATEWAY,
+    ACTIVITY_RECORD_TOOL_FAILURE_COMPENSATION,
     ACTIVITY_RECORD_WORKFLOW_EVENT,
     LighthouseWorkflow,
 )
@@ -22,6 +24,8 @@ from chorus.workflows.types import (
     LeadSender,
     LighthouseWorkflowInput,
     LighthouseWorkflowResult,
+    ToolFailureCompensationCommand,
+    ToolFailureCompensationResult,
     ToolGatewayRequest,
     ToolGatewayResponse,
     WorkflowEventCommand,
@@ -33,6 +37,7 @@ HAPPY_HISTORY = FIXTURE_DIR / "lighthouse_happy_history.json"
 LOW_CONFIDENCE_HISTORY = FIXTURE_DIR / "lighthouse_low_confidence_history.json"
 VALIDATOR_REDRAFT_HISTORY = FIXTURE_DIR / "lighthouse_validator_redraft_history.json"
 FORBIDDEN_WRITE_HISTORY = FIXTURE_DIR / "lighthouse_forbidden_write_history.json"
+CONNECTOR_FAILURE_HISTORY = FIXTURE_DIR / "lighthouse_connector_failure_history.json"
 
 
 def sample_lead() -> LighthouseWorkflowInput:
@@ -98,11 +103,34 @@ def validator_redraft_lead() -> LighthouseWorkflowInput:
     )
 
 
+def connector_failure_lead() -> LighthouseWorkflowInput:
+    base = sample_lead()
+    return LighthouseWorkflowInput(
+        schema_version=base.schema_version,
+        lead_id=base.lead_id,
+        tenant_id=base.tenant_id,
+        correlation_id="cor_workflow_connector_failure",
+        source=base.source,
+        message_id="<lead-connector-failure-001@example.test>",
+        received_at=base.received_at,
+        sender=base.sender,
+        recipients=base.recipients,
+        subject="connector-failure fixture: Mailpit outage during proposal",
+        body_text=(
+            "This connector-failure fixture keeps the agent path ordinary but "
+            "forces the local Mailpit connector to fail during proposal capture."
+        ),
+        message_headers={"Message-ID": ["<lead-connector-failure-001@example.test>"]},
+        attachments_summary=base.attachments_summary,
+    )
+
+
 def test_lighthouse_workflow_history_fixture_exists() -> None:
     assert HAPPY_HISTORY.exists()
     assert LOW_CONFIDENCE_HISTORY.exists()
     assert VALIDATOR_REDRAFT_HISTORY.exists()
     assert FORBIDDEN_WRITE_HISTORY.exists()
+    assert CONNECTOR_FAILURE_HISTORY.exists()
 
 
 @pytest.mark.asyncio
@@ -644,6 +672,111 @@ async def test_lighthouse_workflow_replay_forbidden_write_history() -> None:
     history = WorkflowHistory.from_json(
         "lighthouse-workflow-forbidden-write-fixture",
         FORBIDDEN_WRITE_HISTORY.read_text(encoding="utf-8"),
+    )
+    replayer = Replayer(workflows=[LighthouseWorkflow])
+    await replayer.replay_workflow(history)
+
+
+@pytest.mark.asyncio
+async def test_lighthouse_workflow_connector_failure_compensates_and_escalates() -> None:
+    events: list[WorkflowEventCommand] = []
+    compensation_commands: list[ToolFailureCompensationCommand] = []
+    gateway_attempts = 0
+
+    @activity.defn(name=ACTIVITY_RECORD_WORKFLOW_EVENT)
+    async def fake_record(command: WorkflowEventCommand) -> WorkflowEventResult:
+        events.append(command)
+        return WorkflowEventResult(
+            event_id=str(uuid4()),
+            sequence=command.sequence,
+            event_type=command.event_type,
+            step=command.step,
+        )
+
+    @activity.defn(name=ACTIVITY_INVOKE_AGENT_RUNTIME)
+    async def fake_agent(request: AgentInvocationRequest) -> AgentInvocationResponse:
+        structured_data: dict[str, object] = {}
+        next_step = "continue"
+        if request.task_kind == "response_draft":
+            structured_data = {"draft_response": "Draft response"}
+        if request.task_kind == "response_validation":
+            structured_data = {"validation": "approved"}
+            next_step = "send"
+        return AgentInvocationResponse(
+            invocation_id=str(uuid4()),
+            summary=f"{request.task_kind} complete",
+            confidence=0.9,
+            structured_data=structured_data,
+            recommended_next_step=next_step,
+            rationale="test boundary",
+        )
+
+    @activity.defn(name=ACTIVITY_INVOKE_TOOL_GATEWAY)
+    async def fake_gateway(request: ToolGatewayRequest) -> ToolGatewayResponse:
+        nonlocal gateway_attempts
+        gateway_attempts += 1
+        raise ApplicationError("fixture transient connector failure")
+
+    @activity.defn(name=ACTIVITY_RECORD_TOOL_FAILURE_COMPENSATION)
+    async def fake_compensation(
+        command: ToolFailureCompensationCommand,
+    ) -> ToolFailureCompensationResult:
+        compensation_commands.append(command)
+        return ToolFailureCompensationResult(
+            audit_event_id=str(uuid4()),
+            action="connector.failure.compensated",
+            verdict="recorded",
+            reason=command.failure_reason,
+        )
+
+    async with (
+        await WorkflowEnvironment.start_time_skipping() as env,
+        Worker(
+            env.client,
+            task_queue="test-lighthouse-connector-failure",
+            workflows=[LighthouseWorkflow],
+            activities=[fake_record, fake_agent, fake_gateway, fake_compensation],
+        ),
+    ):
+        result = await env.client.execute_workflow(
+            "LighthouseWorkflow",
+            connector_failure_lead(),
+            id="lighthouse-workflow-connector-failure-test",
+            task_queue="test-lighthouse-connector-failure",
+            result_type=LighthouseWorkflowResult,
+        )
+
+    assert gateway_attempts == 3
+    assert result.outcome == "escalated"
+    assert result.escalation_reason == "tool gateway connector failure compensated and escalated"
+    assert result.path == [
+        "intake",
+        "research_qualification",
+        "draft",
+        "validation",
+        "propose_send",
+        "escalate",
+    ]
+    assert len(compensation_commands) == 1
+    compensation = compensation_commands[0]
+    assert compensation.tool_name == "email.propose_response"
+    assert compensation.mode == "propose"
+    assert "fixture transient connector failure" in compensation.failure_reason
+
+    completed_propose_send = [
+        event
+        for event in events
+        if event.event_type == "workflow.step.completed" and event.step == "propose_send"
+    ]
+    assert completed_propose_send[0].payload["connector_failure"] is True
+    assert events[-1].event_type == "workflow.escalated"
+
+
+@pytest.mark.asyncio
+async def test_lighthouse_workflow_connector_failure_replay_history() -> None:
+    history = WorkflowHistory.from_json(
+        "lighthouse-workflow-connector-failure-fixture",
+        CONNECTOR_FAILURE_HISTORY.read_text(encoding="utf-8"),
     )
     replayer = Replayer(workflows=[LighthouseWorkflow])
     await replayer.replay_workflow(history)

@@ -122,6 +122,29 @@ class ToolGatewayResponse:
 
 
 @dataclass(frozen=True)
+class ToolFailureCompensationCommand:
+    tenant_id: str
+    correlation_id: str
+    workflow_id: str
+    lead_id: str
+    invocation_id: str
+    agent_id: str
+    tool_name: str
+    mode: str
+    idempotency_key: str
+    arguments: dict[str, Any]
+    failure_reason: str
+
+
+@dataclass(frozen=True)
+class ToolFailureCompensationResult:
+    audit_event_id: str
+    action: str
+    verdict: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class LighthouseWorkflowResult:
     workflow_id: str
     tenant_id: str

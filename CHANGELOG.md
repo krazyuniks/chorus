@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+### Added (Phase 1B G-04 connector failure)
+
+- **Phase 1B G-04 — connector failure compensation fixture closed.** `chorus/connectors/local.py` adds a fixture-scoped `ConnectorTransientError` path for `connector-failure fixture` Mailpit proposals. `chorus/tool_gateway/gateway.py` audits transient connector failures without persisting an idempotent gateway response, so Temporal retries the gateway activity. `chorus/workflows/lighthouse.py` catches final gateway activity failure, records the failed propose/send step, invokes `lighthouse.record_tool_failure_compensation`, and escalates with compensation evidence written by `chorus/workflows/activities.py`. Evidence: `chorus/eval/fixtures/lighthouse_connector_failure.json`, `tests/workflows/fixtures/lighthouse_connector_failure_history.json`, `docs/fixtures/lead-connector-failure.eml`, and `scripts/generate_connector_failure_history.py`.
+
 ### Added (Phase 1B G-03 forbidden write)
 
 - **Phase 1B G-03 — forbidden write fixture closed.** `infrastructure/postgres/seeds/001_demo_tenants.sql` seeds an explicit denied `email.send_response/write` grant on `tenant_demo_alt`. `chorus/tool_gateway/gateway.py` short-circuits to `verdict=block` when a denied grant matches the requested agent/tool/mode, before falling through to write→propose downgrade. `tests/tool_gateway/test_gateway.py` adds a live-Postgres assertion that the seeded denied grant blocks without invoking the connector and persists a redacted `tool_action_audit` row. `chorus/eval/fixtures/lighthouse_forbidden_write.json` and `tests/workflows/fixtures/lighthouse_forbidden_write_history.json` pin the block→escalate path through the eval harness and Temporal replay. `chorus/eval/run.py` accepts Phase 1B fixtures, derives the offline outcome from the gateway verdict, and asserts that block fixtures observe at least one blocking verdict. `just eval` now runs both happy-path and forbidden-write fixtures.

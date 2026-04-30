@@ -637,7 +637,7 @@ cloud network controls are deferred.
 | Failure | Phase 1 handling |
 |---|---|
 | Activity failure | Temporal retry policy in Phase 1A; compensation/escalation fixtures are Phase 1B. |
-| Connector failure | Gateway/connector error classification exists; retry/exhaustion fixture evidence is Phase 1B. |
+| Connector failure | Gateway/connector error classification plus Phase 1B G-04 compensation/escalation fixture; retry-exhaustion/DLQ evidence remains G-05. |
 | Provider failure | Runtime fallback/degradation policy is captured in routing policy; provider-failure fixtures are Phase 1B. |
 | Low-confidence research | Phase 1B deeper-research branch fixture. |
 | Validator rejection | Phase 1B return-to-draft fixture with structured reason. |

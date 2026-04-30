@@ -9,7 +9,7 @@ import psycopg
 import pytest
 from psycopg import sql
 
-from chorus.connectors.local import ConnectorResult
+from chorus.connectors.local import ConnectorResult, ConnectorTransientError
 from chorus.contracts.generated.events.audit_event import AuditEvent
 from chorus.contracts.generated.tools.gateway_verdict import GatewayVerdict
 from chorus.persistence import apply_migrations
@@ -82,6 +82,24 @@ class RecordingConnector:
             connector_invocation_id=uuid4(),
             output={"connector": "recording", "tool_name": tool_name, "mode": mode},
         )
+
+
+class TransientFailingConnector:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def invoke(
+        self,
+        *,
+        tool_name: str,
+        mode: str,
+        tenant_id: str,
+        correlation_id: str,
+        workflow_id: str,
+        arguments: dict[str, object],
+    ) -> ConnectorResult:
+        self.calls += 1
+        raise ConnectorTransientError("fixture transient connector failure")
 
 
 def _request(
@@ -163,6 +181,44 @@ def test_proposal_grant_invokes_connector_and_persists_redacted_audit(
     verdict = GatewayVerdict.model_validate(audit_event.details["gateway_verdict"])
     assert audit_event.actor.id == "lighthouse.drafter"
     assert verdict.verdict.value == "propose"
+
+
+def test_transient_connector_failure_is_audited_without_idempotent_response(
+    migrated_database_url: str,
+) -> None:
+    connector = TransientFailingConnector()
+    request = _request(idempotency_key=f"transient-failure-{uuid4().hex}")
+
+    with psycopg.connect(migrated_database_url) as conn:
+        gateway = ToolGateway(ToolGatewayStore(conn), connector)
+
+        with pytest.raises(ConnectorTransientError):
+            gateway.invoke(request)
+
+        row = conn.execute(
+            """
+            SELECT verdict, reason, arguments_redacted, raw_event
+            FROM tool_action_audit
+            WHERE tenant_id = %s AND idempotency_key = %s
+            """,
+            (request.tenant_id, request.idempotency_key),
+        ).fetchone()
+
+        with pytest.raises(ConnectorTransientError):
+            gateway.invoke(request)
+
+    assert connector.calls == 2
+    assert row is not None
+    assert row[0] == "block"
+    assert "transient" in row[1]
+    assert row[2]["body_text"] == "[redacted]"
+
+    audit_event = AuditEvent.model_validate(row[3])
+    verdict = GatewayVerdict.model_validate(audit_event.details["gateway_verdict"])
+    assert audit_event.category.value == "connector"
+    assert audit_event.details["connector_failure"]["classification"] == "transient"
+    assert "gateway_response" not in audit_event.details
+    assert verdict.verdict.value == "block"
 
 
 def test_idempotency_returns_persisted_response_without_second_connector_call(
