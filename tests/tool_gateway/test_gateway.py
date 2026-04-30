@@ -86,6 +86,7 @@ class RecordingConnector:
 
 def _request(
     *,
+    tenant_id: str = "tenant_demo",
     agent_id: str = "lighthouse.drafter",
     tool_name: str = "email.propose_response",
     mode: str = "propose",
@@ -93,7 +94,7 @@ def _request(
 ) -> ToolGatewayRequest:
     workflow_id = f"lighthouse-gateway-{uuid4().hex}"
     return ToolGatewayRequest(
-        tenant_id="tenant_demo",
+        tenant_id=tenant_id,
         correlation_id=f"cor_tool_gateway_{uuid4().hex}",
         workflow_id=workflow_id,
         invocation_id=str(uuid4()),
@@ -216,6 +217,44 @@ def test_missing_grant_blocks_without_connector_call(migrated_database_url: str)
     assert row is not None
     assert row[0] == "block"
     assert "No allowed Tool Gateway grant" in row[1]
+
+
+def test_seeded_denied_write_grant_blocks_before_downgrade(
+    migrated_database_url: str,
+) -> None:
+    connector = RecordingConnector()
+    request = _request(
+        tenant_id="tenant_demo_alt",
+        tool_name="email.send_response",
+        mode="write",
+    )
+
+    with psycopg.connect(migrated_database_url) as conn:
+        response = ToolGateway(ToolGatewayStore(conn), connector).invoke(request)
+
+        row = conn.execute(
+            """
+            SELECT verdict, enforced_mode, reason, arguments_redacted, raw_event
+            FROM tool_action_audit
+            WHERE tenant_id = %s AND audit_event_id = %s
+            """,
+            (request.tenant_id, response.audit_event_id),
+        ).fetchone()
+
+    assert response.verdict == "block"
+    assert response.enforced_mode == "write"
+    assert response.connector_invocation_id is None
+    assert connector.calls == []
+    assert row is not None
+    assert row[0:2] == ("block", "write")
+    assert "explicit" in row[2].lower()
+    assert row[3]["body_text"] == "[redacted]"
+
+    audit_event = AuditEvent.model_validate(row[4])
+    verdict = GatewayVerdict.model_validate(audit_event.details["gateway_verdict"])
+    assert audit_event.actor.id == "lighthouse.drafter"
+    assert verdict.verdict.value == "block"
+    assert verdict.enforced_mode.value == "write"
 
 
 def test_approval_required_grant_does_not_invoke_connector(migrated_database_url: str) -> None:

@@ -161,6 +161,41 @@ class ToolGatewayStore:
             row = cur.fetchone()
         return ToolGrant.model_validate(row) if row is not None else None
 
+    def fetch_denied_grant(
+        self,
+        *,
+        tenant_id: str,
+        agent_id: str,
+        tool_name: str,
+        mode: str,
+    ) -> ToolGrant | None:
+        self.set_tenant_context(tenant_id)
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT
+                    tenant_id,
+                    agent_id,
+                    agent_version,
+                    tool_name,
+                    mode,
+                    allowed,
+                    approval_required,
+                    redaction_policy
+                FROM tool_grants
+                WHERE tenant_id = %s
+                  AND agent_id = %s
+                  AND tool_name = %s
+                  AND mode = %s
+                  AND NOT allowed
+                ORDER BY agent_version DESC
+                LIMIT 1
+                """,
+                (tenant_id, agent_id, tool_name, mode),
+            )
+            row = cur.fetchone()
+        return ToolGrant.model_validate(row) if row is not None else None
+
     def fetch_idempotent_response(
         self,
         *,
@@ -350,6 +385,20 @@ class ToolGateway:
                 enforced_mode=request.mode,
                 reason=f"Tool argument schema validation failed: {exc}",
                 grant=None,
+            )
+
+        denied_grant = self._store.fetch_denied_grant(
+            tenant_id=request.tenant_id,
+            agent_id=request.agent_id,
+            tool_name=request.tool_name,
+            mode=request.mode,
+        )
+        if denied_grant is not None:
+            return GatewayDecision(
+                verdict="block",
+                enforced_mode=request.mode,
+                reason="Explicit Tool Gateway grant denies the requested agent, tool, and mode.",
+                grant=denied_grant,
             )
 
         exact_grant = self._store.fetch_grant(

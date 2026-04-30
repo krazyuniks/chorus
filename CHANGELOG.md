@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+### Added (Phase 1B G-03 forbidden write)
+
+- **Phase 1B G-03 — forbidden write fixture closed.** `infrastructure/postgres/seeds/001_demo_tenants.sql` seeds an explicit denied `email.send_response/write` grant on `tenant_demo_alt`. `chorus/tool_gateway/gateway.py` short-circuits to `verdict=block` when a denied grant matches the requested agent/tool/mode, before falling through to write→propose downgrade. `tests/tool_gateway/test_gateway.py` adds a live-Postgres assertion that the seeded denied grant blocks without invoking the connector and persists a redacted `tool_action_audit` row. `chorus/eval/fixtures/lighthouse_forbidden_write.json` and `tests/workflows/fixtures/lighthouse_forbidden_write_history.json` pin the block→escalate path through the eval harness and Temporal replay. `chorus/eval/run.py` accepts Phase 1B fixtures, derives the offline outcome from the gateway verdict, and asserts that block fixtures observe at least one blocking verdict. `just eval` now runs both happy-path and forbidden-write fixtures.
+
 ### Added
 
 - **Phase 1B G-02 — validator rejection redraft loop.** Bounded redraft loop in `chorus/workflows/lighthouse.py`: when the validator returns `recommended_next_step="redraft"`, the workflow re-invokes the drafter with the validator's structured `reason` payload threaded through as `validator_reason` and re-runs validation. The loop is capped at two attempts; exhaustion escalates with `"validator requested redraft beyond bounded attempts"`. Local model boundary in `chorus/agent_runtime/runtime.py` gains a fixture-mode hook that emits `redraft` on the first validation pass and `send` on the second for the validator-redraft fixture lead. Evidence: `tests/workflows/fixtures/lighthouse_validator_redraft_history.json` (replay), `chorus/eval/fixtures/lighthouse_validator_redraft.json` (eval), `docs/fixtures/lead-validator-redraft.eml`, and `scripts/generate_validator_redraft_history.py` for fixture regeneration.

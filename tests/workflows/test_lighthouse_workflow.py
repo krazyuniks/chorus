@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
@@ -31,6 +32,7 @@ FIXTURE_DIR = Path(__file__).parent / "fixtures"
 HAPPY_HISTORY = FIXTURE_DIR / "lighthouse_happy_history.json"
 LOW_CONFIDENCE_HISTORY = FIXTURE_DIR / "lighthouse_low_confidence_history.json"
 VALIDATOR_REDRAFT_HISTORY = FIXTURE_DIR / "lighthouse_validator_redraft_history.json"
+FORBIDDEN_WRITE_HISTORY = FIXTURE_DIR / "lighthouse_forbidden_write_history.json"
 
 
 def sample_lead() -> LighthouseWorkflowInput:
@@ -100,6 +102,7 @@ def test_lighthouse_workflow_history_fixture_exists() -> None:
     assert HAPPY_HISTORY.exists()
     assert LOW_CONFIDENCE_HISTORY.exists()
     assert VALIDATOR_REDRAFT_HISTORY.exists()
+    assert FORBIDDEN_WRITE_HISTORY.exists()
 
 
 @pytest.mark.asyncio
@@ -176,6 +179,86 @@ async def test_lighthouse_workflow_happy_path_transitions() -> None:
     assert [event.sequence for event in events] == list(range(1, len(events) + 1))
     assert events[0].event_type == "lead.received"
     assert events[-1].event_type == "workflow.completed"
+
+
+@pytest.mark.asyncio
+async def test_lighthouse_workflow_escalates_on_gateway_block() -> None:
+    events: list[WorkflowEventCommand] = []
+
+    @activity.defn(name=ACTIVITY_RECORD_WORKFLOW_EVENT)
+    async def fake_record(command: WorkflowEventCommand) -> WorkflowEventResult:
+        events.append(command)
+        return WorkflowEventResult(
+            event_id=str(uuid4()),
+            sequence=command.sequence,
+            event_type=command.event_type,
+            step=command.step,
+        )
+
+    @activity.defn(name=ACTIVITY_INVOKE_AGENT_RUNTIME)
+    async def fake_agent(request: AgentInvocationRequest) -> AgentInvocationResponse:
+        structured_data: dict[str, object] = {}
+        next_step = "continue"
+        if request.task_kind == "response_draft":
+            structured_data = {"draft_response": "Draft response"}
+        if request.task_kind == "response_validation":
+            structured_data = {"validation": "approved"}
+            next_step = "send"
+        return AgentInvocationResponse(
+            invocation_id=str(uuid4()),
+            summary=f"{request.task_kind} complete",
+            confidence=0.9,
+            structured_data=structured_data,
+            recommended_next_step=next_step,
+            rationale="test boundary",
+        )
+
+    @activity.defn(name=ACTIVITY_INVOKE_TOOL_GATEWAY)
+    async def fake_gateway(request: ToolGatewayRequest) -> ToolGatewayResponse:
+        return ToolGatewayResponse(
+            verdict_id=str(uuid4()),
+            tool_call_id=str(uuid4()),
+            audit_event_id=str(uuid4()),
+            verdict="block",
+            enforced_mode=request.mode,
+            reason="explicit denied write grant",
+            connector_invocation_id=None,
+            output={},
+        )
+
+    async with (
+        await WorkflowEnvironment.start_time_skipping() as env,
+        Worker(
+            env.client,
+            task_queue="test-lighthouse-forbidden-write",
+            workflows=[LighthouseWorkflow],
+            activities=[fake_record, fake_agent, fake_gateway],
+        ),
+    ):
+        lead = sample_lead()
+        result = await env.client.execute_workflow(
+            "LighthouseWorkflow",
+            replace(
+                lead,
+                tenant_id="tenant_demo_alt",
+                correlation_id="cor_workflow_forbidden_write",
+            ),
+            id="lighthouse-workflow-forbidden-write-test",
+            task_queue="test-lighthouse-forbidden-write",
+            result_type=LighthouseWorkflowResult,
+        )
+
+    assert result.outcome == "escalated"
+    assert result.escalation_reason == "tool gateway returned block"
+    assert result.path == [
+        "intake",
+        "research_qualification",
+        "draft",
+        "validation",
+        "propose_send",
+        "escalate",
+    ]
+    assert events[-1].event_type == "workflow.escalated"
 
 
 @pytest.mark.asyncio
@@ -551,6 +634,16 @@ async def test_lighthouse_workflow_validator_redraft_replay_history() -> None:
     history = WorkflowHistory.from_json(
         "lighthouse-workflow-validator-redraft-fixture",
         VALIDATOR_REDRAFT_HISTORY.read_text(encoding="utf-8"),
+    )
+    replayer = Replayer(workflows=[LighthouseWorkflow])
+    await replayer.replay_workflow(history)
+
+
+@pytest.mark.asyncio
+async def test_lighthouse_workflow_replay_forbidden_write_history() -> None:
+    history = WorkflowHistory.from_json(
+        "lighthouse-workflow-forbidden-write-fixture",
+        FORBIDDEN_WRITE_HISTORY.read_text(encoding="utf-8"),
     )
     replayer = Replayer(workflows=[LighthouseWorkflow])
     await replayer.replay_workflow(history)
