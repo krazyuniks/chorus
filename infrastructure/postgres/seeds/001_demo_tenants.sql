@@ -371,6 +371,18 @@ VALUES
         true,
         '{"redact_fields": ["lead_summary"]}'::jsonb,
         '{"seed": true, "evidence": "approval hook"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000008',
+        'tenant_demo_alt',
+        'lighthouse.drafter',
+        'v1',
+        'email.send_response',
+        'write',
+        false,
+        false,
+        '{"redact_fields": ["body_text"]}'::jsonb,
+        '{"seed": true, "evidence": "G-03 forbidden write block"}'::jsonb
     )
 ON CONFLICT (tenant_id, agent_id, agent_version, tool_name, mode) DO UPDATE
 SET

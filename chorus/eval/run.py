@@ -136,13 +136,11 @@ def _load_fixture(path: Path) -> EvalFixture:
     fixture_path = path if path.is_absolute() else ROOT / path
     data = json.loads(fixture_path.read_text(encoding="utf-8"))
     fixture = EvalFixture.model_validate(data)
-    if fixture.phase.value != "1A":
-        raise EvalError(f"Only Phase 1A fixtures are executable in this harness: {path}")
     return fixture
 
 
 def _build_offline_evidence(fixture: EvalFixture) -> OfflineEvidence:
-    workflow_id = "lighthouse-eval-happy-path"
+    workflow_id = f"lighthouse-eval-{fixture.fixture_id}"
     correlation_id = f"cor_eval_{fixture.fixture_id.replace('-', '_')}"
     lead_id = uuid4()
     started_at = datetime(2026, 4, 29, 10, 0, tzinfo=UTC)
@@ -255,7 +253,13 @@ def _workflow_events(
     for step in fixture.expected.workflow_path:
         append("workflow.step.started", step, {})
         append("workflow.step.completed", step, {"step_outcome": "completed"})
-    append("workflow.completed", "complete", {"outcome": "completed"})
+    match fixture.expected.final_outcome.value:
+        case "escalate":
+            append("workflow.escalated", "escalate", {"outcome": "escalated"})
+        case "reject":
+            append("workflow.failed", None, {"outcome": "failed"})
+        case _:
+            append("workflow.completed", "complete", {"outcome": "completed"})
     return events
 
 
@@ -317,6 +321,12 @@ def _tool_call(
     correlation_id: str,
     invocation_id: UUID,
 ) -> ToolCall:
+    tool_name = (
+        fixture.expected.blocked_tool_actions[0]
+        if fixture.expected.blocked_tool_actions
+        else "email.propose_response"
+    )
+    mode = "write" if tool_name == "email.send_response" else "propose"
     return ToolCall.model_validate(
         {
             "schema_version": "1.0.0",
@@ -325,9 +335,9 @@ def _tool_call(
             "tenant_id": fixture.input.tenant_id,
             "correlation_id": correlation_id,
             "agent_id": "lighthouse.drafter",
-            "tool_name": "email.propose_response",
-            "mode": "propose",
-            "idempotency_key": f"{workflow_id}:email.propose_response",
+            "tool_name": tool_name,
+            "mode": mode,
+            "idempotency_key": f"{workflow_id}:{tool_name}:{mode}",
             "arguments": {
                 "to": "alex.morgan@example.test",
                 "subject": "Re: Need help choosing a CRM automation partner",
@@ -344,6 +354,7 @@ def _gateway_verdict(
     fixture: EvalFixture,
     correlation_id: str,
 ) -> GatewayVerdict:
+    blocked = bool(fixture.expected.blocked_tool_actions)
     return GatewayVerdict.model_validate(
         {
             "schema_version": "1.0.0",
@@ -351,13 +362,17 @@ def _gateway_verdict(
             "tool_call_id": str(tool_call.tool_call_id),
             "tenant_id": fixture.input.tenant_id,
             "correlation_id": correlation_id,
-            "verdict": "propose",
-            "enforced_mode": "propose",
-            "reason": "Proposal-mode grant accepted; connector captured sandbox proposal.",
+            "verdict": "block" if blocked else "propose",
+            "enforced_mode": tool_call.mode.value,
+            "reason": (
+                "Explicit Tool Gateway grant denies the requested agent, tool, and mode."
+                if blocked
+                else "Proposal-mode grant accepted; connector captured sandbox proposal."
+            ),
             "rewritten_arguments": None,
             "approval_required": False,
             "audit_event_id": str(uuid4()),
-            "connector_invocation_id": str(uuid4()),
+            "connector_invocation_id": None if blocked else str(uuid4()),
             "decided_at": "2026-04-29T10:02:01+00:00",
         }
     )
@@ -371,6 +386,11 @@ def _audit_event(
     tool_call: ToolCall,
     verdict: GatewayVerdict,
 ) -> AuditEvent:
+    connector_invocation_id = (
+        str(verdict.connector_invocation_id)
+        if verdict.connector_invocation_id is not None
+        else None
+    )
     return AuditEvent.model_validate(
         {
             "schema_version": "1.0.0",
@@ -393,8 +413,8 @@ def _audit_event(
                     "verdict": verdict.verdict.value,
                     "enforced_mode": verdict.enforced_mode.value,
                     "reason": verdict.reason,
-                    "connector_invocation_id": str(verdict.connector_invocation_id),
-                    "output": {"captured_by": "mailpit"},
+                    "connector_invocation_id": connector_invocation_id,
+                    "output": {} if connector_invocation_id is None else {"captured_by": "mailpit"},
                 },
             },
         }
@@ -408,7 +428,7 @@ def _assert_offline_evidence(
     expected = fixture.expected
     checks = [
         _check_workflow_path(expected.workflow_path, _completed_steps(evidence.events)),
-        _check_final_outcome(expected.final_outcome, evidence.verdict.verdict.value),
+        _check_final_outcome(expected.final_outcome, _offline_final_outcome(evidence)),
         _check_event_types(
             expected.required_event_types, [event.event_type.value for event in evidence.events]
         ),
@@ -704,6 +724,16 @@ def _live_final_outcome(evidence: LiveEvidence) -> str:
     return "reject"
 
 
+def _offline_final_outcome(evidence: OfflineEvidence) -> str:
+    if evidence.verdict.verdict.value in {"block", "approval_required"}:
+        return "escalate"
+    if evidence.verdict.verdict.value == "propose":
+        return "propose"
+    if evidence.verdict.enforced_mode.value == "write":
+        return "send"
+    return "reject"
+
+
 def _check_workflow_path(expected: list[str], actual: list[str]) -> EvalCheck:
     if actual == expected:
         return EvalCheck("workflow path", "pass", "expected step sequence observed")
@@ -779,6 +809,12 @@ def _check_tool_evidence(
         if missing_blocked:
             return EvalCheck(
                 "tool audit", "fail", f"missing blocked tool actions: {missing_blocked}"
+            )
+        if not unexpected_block_verdicts:
+            return EvalCheck(
+                "tool audit",
+                "fail",
+                "expected at least one block or approval-required gateway verdict",
             )
     elif unexpected_block_verdicts:
         return EvalCheck(
