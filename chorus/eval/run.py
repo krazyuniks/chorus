@@ -576,11 +576,12 @@ def _run_live_checks(
     correlation_id: str | None,
     require_live: bool,
 ) -> list[EvalCheck]:
-    if database_url is None and (workflow_id is None and correlation_id is None):
+    if workflow_id is None and correlation_id is None:
+        status: EvalStatus = "fail" if require_live else "skip"
         return [
             EvalCheck(
                 "live persisted evidence",
-                "skip",
+                status,
                 "set CHORUS_EVAL_CORRELATION_ID or CHORUS_EVAL_WORKFLOW_ID after a live run",
             )
         ]
