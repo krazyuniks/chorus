@@ -62,7 +62,7 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
 
 1. **(Phase 0) Developer workflow and service layout** — *delivered (Workstream F first pass)*
    - Create docs tree, ADR tree, architecture/governance artefact set, service layout, Compose skeleton, command runner, and `doctor` command contract.
-   - Phase 0A scaffold finishing pass landed alongside Workstream F's opening shipment: `.env.example` + parameterised `compose.yml` with `chown-init`; `scripts/dc` wrapper and `scripts/first-time-setup.sh` host bootstrap; prek-driven `.pre-commit-config.yaml`; `.editorconfig`/`.dockerignore`/`.gitattributes`; `services/_template/` (Dockerfile + pyproject + README); CI workflows (`ci.yml`, `eval.yml`, `replay.yml`) with dependabot, issue/PR templates; `SECURITY.md`/`CONTRIBUTING.md`/`CHANGELOG.md`; README badges + first-time-setup section; `docs/runbook.md` (the Workstream F operational artefact); `frontend/` scaffold (React 19 + Vite 8 + TS + TanStack Router/Query + Tailwind v4 + Radix) seeded with the Dense design family vendored wholesale from a sibling design system project (no external dependency, no `@radianit/*` references).
+   - Phase 0A scaffold finishing pass landed alongside Workstream F's opening shipment: `.env.example` + parameterised `compose.yml` with `chown-init`; `scripts/dc` wrapper and `scripts/first-time-setup.sh` host bootstrap; prek-driven `.pre-commit-config.yaml`; `.editorconfig`/`.dockerignore`/`.gitattributes`; `services/_template/` (Dockerfile + pyproject + README); CI workflows (`ci.yml`, `eval.yml`, `replay.yml`) with dependabot, issue/PR templates; `SECURITY.md`/`CONTRIBUTING.md`/`CHANGELOG.md`; README badges + first-time-setup section; `docs/runbook.md` (the Workstream F operational artefact); `frontend/` scaffold (React 19 + Vite 8 + TS + TanStack Router/Query + Tailwind v4 + Radix) seeded with the vendored Dense design family (no external dependency, no `@radianit/*` references).
    - Exit check: repo opens cleanly, docs are linked, local prerequisites are explicit, and a fresh clone reaches `just up` via one bootstrap command.
 
 2. **(Phase 0) Contracts first**
@@ -183,18 +183,22 @@ test. Concretely:
 
 - **C-01 (Phase 1C).** Final pass on `docs/evidence-map.md` to cross-link
   every Phase 1A row to landed evidence. Unblocked now; can start in
-  parallel with Wave A.
+  parallel with Wave A. Status: done for Phase 1A happy-path evidence links
+  in the `phase-1c/review-packaging` pass.
 - **C-02 (Phase 1C).** README narrative tighten + first-time-reviewer
-  checklist. Unblocked now.
+  checklist. Unblocked now. Status: done in the `phase-1c/review-packaging`
+  pass.
 - **C-03 (Phase 1C).** `docs/demo-script.md` walkthrough of the happy
   path with screenshots/screencast notes (Mailpit → Temporal → BFF →
   Grafana → audit by correlation ID). Unblocked now; defer screenshots
-  until Wave A merges so the UI is stable.
+  until Wave A merges so the UI is stable. Status: happy-path narrative
+  done without screenshots; screenshot/screencast artefacts remain deferred.
 - **C-04 (Phase 1C).** Governance-evidence narrative — block, retry,
-  validator-rejection, deeper-research stories. Blocked on G-01..G-05;
-  starts after Wave B.
+  validator-rejection, deeper-research stories. G-01/G-02/G-03 evidence is
+  available; retry and connector-failure narrative remains blocked on
+  G-04/G-05.
 - **C-05 (Phase 1C).** Project-facing summary in README and overview.
-  Unblocked now.
+  Unblocked now. Status: done in the `phase-1c/review-packaging` pass.
 
 C-01/C-02/C-03/C-05 are editorial-voice work and should land through one
 session to keep framing consistent. Run them sequentially in a single

@@ -12,12 +12,24 @@ Show that Chorus is a production-shaped governed agent workflow and enterprise a
 
 ## Setup Assumptions
 
-- Local stack is already running.
+- Local stack is already running: `just up`.
 - The local stack is migrated and schemas are registered: `just db-migrate` and `just schemas-register`.
+- `just doctor` is green for the services that are up.
 - The Lighthouse worker is running through Compose or with `just worker`.
 - Browser tabs are open for Lighthouse UI, Mailpit, Temporal Console, Redpanda Console, Grafana, and the eval result.
 - The demo tenant exists and the fixture lead email is ready to send through Mailpit.
 - No editor is required during the walkthrough.
+
+Useful tabs:
+
+- Lighthouse UI: `http://localhost:5173`
+- Mailpit: `http://localhost:8025`
+- Temporal UI: `http://localhost:8233`
+- Redpanda Console: `http://localhost:8080`
+- Grafana: `http://localhost:3001`
+
+If ports are overridden in `.env`, use the matching values from
+[`runbook.md`](runbook.md).
 
 ## Walkthrough
 
@@ -32,6 +44,43 @@ Show that Chorus is a production-shaped governed agent workflow and enterprise a
 | 2:15-2:35 | Eval result | Run `just eval`; optionally rerun with `CHORUS_EVAL_CORRELATION_ID=<correlation-id> just eval` for persisted evidence assertions. | The system checks behaviour, not just output text. |
 | 2:35-2:50 | Governance docs | Show the guardrail matrix and quality gates. | The controls are inspectable as runtime and release gates: contracts, replay, runtime governance, safety/eval, observability, docs. |
 | 2:50-3:00 | Architecture or ADR index | Close on deliberate deferrals. | Phase 1 is narrow by design: real connectors, Scylla, production auth, and extra workflows are deferred so the core boundaries are credible. |
+
+## Happy-Path Command Flow
+
+Run these from the repo root before or during the walkthrough:
+
+```zsh
+just up && just db-migrate && just schemas-register && just doctor
+just demo && just intake-once
+just relay-once && just project-once
+just eval
+```
+
+After projection, take the `correlation_id` from the Lighthouse workflow detail
+page, BFF response, or Postgres. Reuse that value in every inspection surface:
+
+- UI workflow detail, decision trail, tool verdicts, registry, grants, and routing.
+- Temporal UI workflow search by workflow ID.
+- Redpanda Console topic `chorus.workflow.events.v1`.
+- Grafana dashboard `$correlation` variable.
+- Postgres `decision_trail_entries` and `tool_action_audit`.
+
+For live persisted evidence assertions:
+
+```zsh
+CHORUS_EVAL_CORRELATION_ID=<correlation-id> just eval
+```
+
+## Evidence To Point At
+
+- **State owner:** Temporal workflow history and `chorus/workflows/lighthouse.py`.
+- **Authority owner:** Tool Gateway verdict and `tool_action_audit`, not agent prompt text.
+- **Runtime governance:** registry, routing, grant tables, and decision-trail rows.
+- **Projection path:** outbox row -> Redpanda event -> `workflow_read_models`/`workflow_history_events`.
+- **Release check:** `chorus/eval/fixtures/lighthouse_happy_path.json` through `just eval`.
+
+No screenshots or screencast stills are part of this pass. Capture them after
+Wave A of Phase 1B stabilises the UI state names and review surfaces.
 
 ## Phase 1B Failure Fixtures
 

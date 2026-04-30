@@ -28,17 +28,12 @@ claim to a concrete artefact, contract, service boundary, or deferred item.
 
 ## Architectural Position
 
-Chorus is an outer-loop, programme-level architecture for governed multi-agent
-workflows. It addresses runtime architecture, provider and model governance,
-tool authority, auditability, evaluation, observability, and operational
-governance controls for agent-enabled business processes.
-
-The inner-loop counterpart is Woof: the separate SDLC project for the
-developer's own AI-assisted work cycle - discovery, definition, breakdown,
-execution, and gate - with schema-governed contracts and a per-epic JSONL audit
-trail. Woof is not a runtime dependency of Chorus. The relationship is
-conceptual: Chorus governs agentic business workflows; Woof governs
-agent-assisted software delivery.
+Chorus is a programme-level architecture for governed multi-agent workflows. It
+addresses runtime architecture, provider and model governance, tool authority,
+auditability, evaluation, observability, and operational governance controls for
+agent-enabled business processes. The Phase 1A review evidence is intentionally
+self-contained in this repository so a reviewer can trace each claim to local
+code, contracts, tests, operational surfaces, or ADRs.
 
 ## Core Principles
 

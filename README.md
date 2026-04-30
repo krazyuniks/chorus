@@ -7,7 +7,7 @@
 [![replay](https://github.com/krazyuniks/chorus/actions/workflows/replay.yml/badge.svg?branch=main)](https://github.com/krazyuniks/chorus/actions/workflows/replay.yml)
 [![eval](https://github.com/krazyuniks/chorus/actions/workflows/eval.yml/badge.svg?branch=main)](https://github.com/krazyuniks/chorus/actions/workflows/eval.yml)
 
-Chorus is a reference implementation of governed multi-agent workflow orchestration for enterprise operational processes. It demonstrates how agentic AI can be integrated into a business process without losing durable orchestration, explicit authority boundaries, traceability, safety controls, and regression discipline.
+Chorus is a reference implementation of governed multi-agent workflow orchestration for enterprise operational processes. It demonstrates how agentic AI can participate in a business process without losing durable orchestration, explicit authority boundaries, traceability, safety controls, and regression discipline.
 
 The Phase 1 business slice is **Lighthouse**, an inbound-lead concierge for a fictional small business: a customer email arrives, agents intake, research, qualify, draft, validate, and either propose-and-send or escalate.
 
@@ -15,7 +15,7 @@ Chorus is the architecture artefact. Lighthouse is the proof scenario.
 
 ## Status
 
-Design-frozen 2026-04-29. Phase 1A is the current first public ship-checkpoint: Postgres persistence/projections, Mailpit intake, the Temporal Lighthouse workflow, Agent Runtime, Tool Gateway, BFF/UI inspection surfaces, OpenTelemetry/Grafana scaffolding, and the happy-path eval are implemented. Phase 1B governance/failure fixtures remain open and are not presented as shipped evidence. See [`docs/implementation-plan.md`](docs/implementation-plan.md) for phasing and the workstream ledger.
+Design-frozen 2026-04-29. Phase 1A is the current first public ship-checkpoint: Postgres persistence/projections, Mailpit intake, the Temporal Lighthouse workflow, Agent Runtime, Tool Gateway, BFF/UI inspection surfaces, OpenTelemetry/Grafana scaffolding, and the happy-path eval are implemented. Phase 1B governance/failure fixtures remain open and are not presented as shipped evidence. The useful review question is whether the Phase 1A slice proves the runtime boundaries and evidence model clearly enough to extend with those failure fixtures. See [`docs/implementation-plan.md`](docs/implementation-plan.md) for phasing and the workstream ledger.
 
 ## First-time setup
 
@@ -24,6 +24,16 @@ Design-frozen 2026-04-29. Phase 1A is the current first public ship-checkpoint: 
 ```
 
 `first-time-setup.sh` provisions the local toolchain (uv, just, hooks); `just up` brings the Compose substrate online; `just doctor` verifies scaffold readiness.
+
+## First-time reviewer checklist
+
+1. Read [`docs/overview.md`](docs/overview.md), then [`docs/evidence-map.md`](docs/evidence-map.md), before opening implementation files.
+2. Bring the stack to the review baseline: `./scripts/first-time-setup.sh && just up && just db-migrate && just schemas-register && just doctor`.
+3. Trigger one Lighthouse run: `just demo && just intake-once && just relay-once && just project-once`.
+4. Inspect the run by `correlation_id` in the Lighthouse UI/BFF, Temporal UI, Redpanda Console, Grafana, `decision_trail_entries`, and `tool_action_audit`.
+5. Run the release-style check: `just eval`. For a live run after projection, use `CHORUS_EVAL_CORRELATION_ID=<correlation-id> just eval`.
+
+The walkthrough in [`docs/demo-script.md`](docs/demo-script.md) keeps the happy-path demo to three minutes. Screenshots and screencast artefacts are intentionally deferred until the UI stabilises after the first Phase 1B fixture wave.
 
 ## Daily commands
 
@@ -55,7 +65,8 @@ For an asynchronous reviewer (~15 minutes):
 2. [`docs/evidence-map.md`](docs/evidence-map.md) — engineering claims and where to inspect the supporting artefacts.
 3. [`docs/architecture.md`](docs/architecture.md) — principles-first architecture reference: domain language, boundaries, runtime flow, contracts, testing, operations, and deferrals.
 4. [`docs/governance-guardrails.md`](docs/governance-guardrails.md) — enterprise governance posture and control matrix.
-5. [`adrs/`](adrs/) — accepted Phase 1 architectural decision record.
+5. [`docs/runbook.md`](docs/runbook.md) — concrete local commands and cross-surface correlation recipe.
+6. [`adrs/`](adrs/) — accepted Phase 1 architectural decision record.
 
 ## Stack
 
