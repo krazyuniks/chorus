@@ -17,14 +17,16 @@ from chorus.agent_runtime import AgentRuntime, AgentRuntimeStore, LocalLighthous
 from chorus.contracts.generated.events.audit_event import AuditEvent
 from chorus.contracts.generated.events.workflow_event import WorkflowEvent
 from chorus.observability import current_otel_ids, set_current_span_attributes
-from chorus.persistence import ProjectionStore
+from chorus.persistence import OutboxStore, ProjectionStore
 from chorus.persistence.migrate import database_url_from_env
 from chorus.tool_gateway.gateway import LocalToolConnector, ToolGateway, ToolGatewayStore
 from chorus.workflows.lighthouse import (
     ACTIVITY_INVOKE_AGENT_RUNTIME,
     ACTIVITY_INVOKE_TOOL_GATEWAY,
+    ACTIVITY_RECORD_RETRY_EXHAUSTION_DLQ,
     ACTIVITY_RECORD_TOOL_FAILURE_COMPENSATION,
     ACTIVITY_RECORD_WORKFLOW_EVENT,
+    EVENT_WORKFLOW_FAILED,
 )
 from chorus.workflows.mailpit import MailpitPoller, TemporalWorkflowStarter
 from chorus.workflows.types import (
@@ -32,6 +34,8 @@ from chorus.workflows.types import (
     AgentInvocationResponse,
     MailpitPollConfig,
     MailpitPollResult,
+    RetryExhaustionDlqCommand,
+    RetryExhaustionDlqResult,
     ToolFailureCompensationCommand,
     ToolFailureCompensationResult,
     ToolGatewayRequest,
@@ -147,6 +151,20 @@ def record_tool_failure_compensation_activity(
     database_url = os.environ.get("CHORUS_DATABASE_URL", database_url_from_env())
     with psycopg.connect(database_url) as conn:
         return _record_tool_failure_compensation(conn, command)
+
+
+@activity.defn(name=ACTIVITY_RECORD_RETRY_EXHAUSTION_DLQ)
+def record_retry_exhaustion_dlq_activity(
+    command: RetryExhaustionDlqCommand,
+) -> RetryExhaustionDlqResult:
+    set_current_span_attributes(
+        tenant_id=command.tenant_id,
+        correlation_id=command.correlation_id,
+        workflow_id=command.workflow_id,
+    )
+    database_url = os.environ.get("CHORUS_DATABASE_URL", database_url_from_env())
+    with psycopg.connect(database_url) as conn:
+        return record_retry_exhaustion_dlq(conn, command)
 
 
 @activity.defn(name="lighthouse.poll_mailpit")
@@ -274,6 +292,156 @@ def _record_tool_failure_compensation(
         action=action,
         verdict=audit_event.verdict.value,
         reason=command.failure_reason,
+    )
+
+
+def record_retry_exhaustion_dlq(
+    conn: psycopg.Connection[object],
+    command: RetryExhaustionDlqCommand,
+) -> RetryExhaustionDlqResult:
+    occurred_at = _now()
+    action = "workflow.retry_exhausted.dlq_recorded"
+    event = WorkflowEvent.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "event_id": str(
+                uuid5(
+                    NAMESPACE_URL,
+                    (
+                        "chorus:lighthouse:retry-exhaustion-event:"
+                        f"{command.tenant_id}:{command.workflow_id}:{command.sequence}"
+                    ),
+                )
+            ),
+            "event_type": EVENT_WORKFLOW_FAILED,
+            "occurred_at": occurred_at.isoformat(),
+            "tenant_id": command.tenant_id,
+            "correlation_id": command.correlation_id,
+            "workflow_id": command.workflow_id,
+            "lead_id": command.lead_id,
+            "sequence": command.sequence,
+            "step": command.failed_step,
+            "payload": {
+                "lead_summary": "retry exhaustion DLQ marker",
+                "outcome": "failed",
+                "failure_classification": "retry_exhausted",
+                "failed_activity": command.failed_activity,
+                "failed_step": command.failed_step,
+                "retry_attempts": command.attempts,
+                "dlq_status": "dlq",
+                "reason": command.failure_reason,
+            },
+        }
+    )
+    audit_event_id = uuid5(
+        NAMESPACE_URL,
+        (
+            "chorus:lighthouse:retry-exhaustion-dlq:"
+            f"{command.tenant_id}:{command.workflow_id}:{command.sequence}"
+        ),
+    )
+    audit_event = AuditEvent.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "audit_event_id": str(audit_event_id),
+            "occurred_at": occurred_at.isoformat(),
+            "tenant_id": command.tenant_id,
+            "correlation_id": command.correlation_id,
+            "workflow_id": command.workflow_id,
+            "actor": {"type": "system", "id": "lighthouse.workflow"},
+            "category": "workflow",
+            "action": action,
+            "verdict": "recorded",
+            "details": {
+                "retry_exhaustion": {
+                    "failed_activity": command.failed_activity,
+                    "failed_step": command.failed_step,
+                    "attempts": command.attempts,
+                    "reason": command.failure_reason,
+                },
+                "dlq": {
+                    "status": "dlq",
+                    "event_id": str(event.event_id),
+                    "event_type": event.event_type.value,
+                    "sequence": event.sequence,
+                },
+            },
+        }
+    )
+
+    conn.execute("SELECT set_config('app.tenant_id', %s, false)", (command.tenant_id,))
+    with conn.transaction():
+        ProjectionStore(conn).append_outbox_event(event)
+        outbox_id = OutboxStore(conn).mark_dlq_by_event_id(
+            event.event_id,
+            error=command.failure_reason,
+        )
+        conn.execute(
+            """
+            INSERT INTO tool_action_audit (
+                tenant_id,
+                audit_event_id,
+                correlation_id,
+                workflow_id,
+                invocation_id,
+                tool_call_id,
+                verdict_id,
+                actor_type,
+                actor_id,
+                category,
+                action,
+                tool_name,
+                requested_mode,
+                enforced_mode,
+                verdict,
+                idempotency_key,
+                arguments_redacted,
+                rewritten_arguments,
+                reason,
+                connector_invocation_id,
+                occurred_at,
+                raw_event,
+                metadata
+            )
+            VALUES (
+                %s, %s, %s, %s, NULL, NULL, NULL, %s, %s, %s, %s, NULL, NULL, NULL,
+                %s, %s, %s, NULL, %s, NULL, %s, %s, %s
+            )
+            ON CONFLICT (tenant_id, audit_event_id) DO NOTHING
+            """,
+            (
+                command.tenant_id,
+                audit_event.audit_event_id,
+                audit_event.correlation_id,
+                audit_event.workflow_id,
+                audit_event.actor.type.value,
+                audit_event.actor.id,
+                audit_event.category.value,
+                audit_event.action,
+                audit_event.verdict.value,
+                f"{command.workflow_id}:{command.sequence}:retry-exhaustion-dlq",
+                Jsonb(
+                    {
+                        "failed_activity": command.failed_activity,
+                        "failed_step": command.failed_step,
+                    }
+                ),
+                command.failure_reason,
+                audit_event.occurred_at,
+                Jsonb(audit_event.model_dump(mode="json")),
+                Jsonb(current_otel_ids()),
+            ),
+        )
+
+    return RetryExhaustionDlqResult(
+        outbox_id=str(outbox_id),
+        event_id=str(event.event_id),
+        audit_event_id=str(audit_event.audit_event_id),
+        action=action,
+        outbox_status="dlq",
+        verdict=audit_event.verdict.value,
+        reason=command.failure_reason,
+        sequence=command.sequence,
     )
 
 

@@ -55,6 +55,7 @@ class OfflineEvidence:
     verdict: GatewayVerdict
     audit_event: AuditEvent
     compensation_audit_event: AuditEvent | None
+    retry_dlq_audit_event: AuditEvent | None
     latency_ms: int
 
 
@@ -67,6 +68,7 @@ class LiveEvidence:
     history_event_types: list[str]
     history_steps: list[str]
     outbox_events: list[WorkflowEvent]
+    outbox_statuses: list[str]
     decisions: list[AgentInvocationRecord]
     tool_audits: list[AuditEvent]
     verdicts: list[GatewayVerdict]
@@ -200,6 +202,16 @@ def _build_offline_evidence(fixture: EvalFixture) -> OfflineEvidence:
         if _is_connector_failure_fixture(fixture)
         else None
     )
+    retry_dlq_audit_event = (
+        _retry_dlq_audit_event(
+            fixture=fixture,
+            workflow_id=workflow_id,
+            correlation_id=correlation_id,
+            sequence=len(events),
+        )
+        if _is_retry_exhaustion_fixture(fixture)
+        else None
+    )
 
     # Re-validate every contract model after composing the evidence graph.
     for event in events:
@@ -211,6 +223,8 @@ def _build_offline_evidence(fixture: EvalFixture) -> OfflineEvidence:
     AuditEvent.model_validate(audit_event.model_dump(mode="json"))
     if compensation_audit_event is not None:
         AuditEvent.model_validate(compensation_audit_event.model_dump(mode="json"))
+    if retry_dlq_audit_event is not None:
+        AuditEvent.model_validate(retry_dlq_audit_event.model_dump(mode="json"))
 
     return OfflineEvidence(
         workflow_id=workflow_id,
@@ -221,6 +235,7 @@ def _build_offline_evidence(fixture: EvalFixture) -> OfflineEvidence:
         verdict=verdict,
         audit_event=audit_event,
         compensation_audit_event=compensation_audit_event,
+        retry_dlq_audit_event=retry_dlq_audit_event,
         latency_ms=15_000,
     )
 
@@ -280,6 +295,16 @@ def _workflow_events(
             step,
             _completed_step_payload(fixture, step, step_counts[step]),
         )
+    if _is_retry_exhaustion_fixture(fixture):
+        append(
+            "workflow.failed",
+            "research_qualification",
+            {
+                "outcome": "failed",
+                "failure_classification": "retry_exhausted",
+                "dlq_status": "dlq",
+            },
+        )
     match fixture.expected.final_outcome.value:
         case "escalate":
             append("workflow.escalated", "escalate", {"outcome": "escalated"})
@@ -308,6 +333,8 @@ def _fixture_roles(fixture: EvalFixture) -> tuple[tuple[str, str, str], ...]:
             ("drafter", "lighthouse.drafter", "response_draft"),
             ("validator", "lighthouse.validator", "response_validation"),
         )
+    if _is_retry_exhaustion_fixture(fixture):
+        return (("researcher", "lighthouse.researcher", "company_research"),)
     return HAPPY_PATH_ROLES
 
 
@@ -355,6 +382,19 @@ def _completed_step_payload(fixture: EvalFixture, step: str, step_count: int) ->
             "reason": "tool gateway connector failure compensated and escalated",
             "compensation_recorded": True,
         }
+    if _is_retry_exhaustion_fixture(fixture) and step == "research_qualification":
+        return {
+            "step_outcome": "retry_exhausted",
+            "failed_activity": "lighthouse.invoke_agent_runtime",
+            "retry_attempts": 3,
+            "dlq_required": True,
+        }
+    if _is_retry_exhaustion_fixture(fixture) and step == "escalate":
+        return {
+            "step_outcome": "dlq_escalation",
+            "reason": "activity retry policy exhausted; DLQ evidence recorded",
+            "dlq_recorded": True,
+        }
     return {"step_outcome": "completed"}
 
 
@@ -387,6 +427,8 @@ def _decision_output_summary(
         return "response_validation requested redraft"
     if _is_validator_redraft_fixture(fixture) and role == "validator" and index == 6:
         return "response_validation approved redrafted response"
+    if _is_retry_exhaustion_fixture(fixture) and role == "researcher":
+        return "company_research failed after Temporal activity retries exhausted"
     return f"{task_kind} completed for happy path"
 
 
@@ -406,6 +448,10 @@ def _is_validator_redraft_fixture(fixture: EvalFixture) -> bool:
 
 def _is_connector_failure_fixture(fixture: EvalFixture) -> bool:
     return fixture.fixture_id == "lighthouse-connector-failure"
+
+
+def _is_retry_exhaustion_fixture(fixture: EvalFixture) -> bool:
+    return fixture.fixture_id == "lighthouse-retry-exhaustion"
 
 
 def _decision_record(
@@ -445,7 +491,7 @@ def _decision_record(
             "input_summary": _decision_input_summary(fixture, role, task_kind, index),
             "output_summary": _decision_output_summary(fixture, role, task_kind, index),
             "justification": _decision_justification(fixture),
-            "outcome": "succeeded",
+            "outcome": "failed" if _is_retry_exhaustion_fixture(fixture) else "succeeded",
             "tool_call_ids": [],
             "cost": {"amount": 0.0, "currency": "USD"},
             "duration_ms": 25,
@@ -605,6 +651,42 @@ def _compensation_audit_event(
     )
 
 
+def _retry_dlq_audit_event(
+    *,
+    fixture: EvalFixture,
+    workflow_id: str,
+    correlation_id: str,
+    sequence: int,
+) -> AuditEvent:
+    return AuditEvent.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "audit_event_id": str(uuid4()),
+            "occurred_at": "2026-04-29T10:02:05+00:00",
+            "tenant_id": fixture.input.tenant_id,
+            "correlation_id": correlation_id,
+            "workflow_id": workflow_id,
+            "actor": {"type": "system", "id": "lighthouse.workflow"},
+            "category": "workflow",
+            "action": "workflow.retry_exhausted.dlq_recorded",
+            "verdict": "recorded",
+            "details": {
+                "retry_exhaustion": {
+                    "failed_activity": "lighthouse.invoke_agent_runtime",
+                    "failed_step": "research_qualification",
+                    "attempts": 3,
+                    "reason": "fixture persistent agent runtime failure",
+                },
+                "dlq": {
+                    "status": "dlq",
+                    "event_type": "workflow.failed",
+                    "sequence": sequence,
+                },
+            },
+        }
+    )
+
+
 def _assert_offline_evidence(
     fixture: EvalFixture,
     evidence: OfflineEvidence,
@@ -616,12 +698,16 @@ def _assert_offline_evidence(
         _check_event_types(
             expected.required_event_types, [event.event_type.value for event in evidence.events]
         ),
-        _check_decision_trail(expected.required_audit_fields, evidence.decisions),
+        _check_decision_trail(fixture, expected.required_audit_fields, evidence.decisions),
         _check_tool_evidence(
             allowed_tool_actions=expected.allowed_tool_actions,
             blocked_tool_actions=expected.blocked_tool_actions,
-            tool_names=[evidence.tool_call.tool_name],
-            verdicts=[evidence.verdict.verdict.value],
+            tool_names=[]
+            if _is_retry_exhaustion_fixture(fixture)
+            else [evidence.tool_call.tool_name],
+            verdicts=[]
+            if _is_retry_exhaustion_fixture(fixture)
+            else [evidence.verdict.verdict.value],
         ),
         _check_budget(expected.max_cost_usd, [record.cost.amount for record in evidence.decisions]),
         _check_latency(expected.max_latency_ms, evidence.latency_ms),
@@ -631,7 +717,11 @@ def _assert_offline_evidence(
             [record.correlation_id for record in evidence.decisions],
             [
                 audit.correlation_id
-                for audit in [evidence.audit_event, evidence.compensation_audit_event]
+                for audit in [
+                    evidence.audit_event,
+                    evidence.compensation_audit_event,
+                    evidence.retry_dlq_audit_event,
+                ]
                 if audit is not None
             ],
         ),
@@ -645,6 +735,11 @@ def _assert_offline_evidence(
             else []
         )
         checks.append(_check_connector_failure_compensation(compensation_audits))
+    if _is_retry_exhaustion_fixture(fixture):
+        retry_audits = (
+            [evidence.retry_dlq_audit_event] if evidence.retry_dlq_audit_event is not None else []
+        )
+        checks.append(_check_retry_exhaustion_dlq(retry_audits, ["dlq"]))
     if any(check.status == "fail" for check in checks):
         details = "; ".join(check.detail for check in checks if check.status == "fail")
         raise EvalError(details)
@@ -686,12 +781,16 @@ def _run_live_checks(
         _check_workflow_path(fixture.expected.workflow_path, evidence.history_steps),
         _check_final_outcome(fixture.expected.final_outcome, _live_final_outcome(evidence)),
         _check_event_types(fixture.expected.required_event_types, evidence.history_event_types),
-        _check_decision_trail(fixture.expected.required_audit_fields, evidence.decisions),
+        _check_decision_trail(fixture, fixture.expected.required_audit_fields, evidence.decisions),
         _check_tool_evidence(
             allowed_tool_actions=fixture.expected.allowed_tool_actions,
             blocked_tool_actions=fixture.expected.blocked_tool_actions,
-            tool_names=evidence.tool_names,
-            verdicts=[verdict.verdict.value for verdict in evidence.verdicts],
+            tool_names=[] if _is_retry_exhaustion_fixture(fixture) else evidence.tool_names,
+            verdicts=(
+                []
+                if _is_retry_exhaustion_fixture(fixture)
+                else [verdict.verdict.value for verdict in evidence.verdicts]
+            ),
         ),
         _check_budget(fixture.expected.max_cost_usd, [evidence.total_cost_usd]),
         _check_latency(fixture.expected.max_latency_ms, evidence.latency_ms),
@@ -706,6 +805,8 @@ def _run_live_checks(
         checks.append(_check_deeper_research_branch(evidence.decisions))
     if _is_connector_failure_fixture(fixture):
         checks.append(_check_connector_failure_compensation(evidence.tool_audits))
+    if _is_retry_exhaustion_fixture(fixture):
+        checks.append(_check_retry_exhaustion_dlq(evidence.tool_audits, evidence.outbox_statuses))
     return checks
 
 
@@ -726,7 +827,9 @@ def _load_live_evidence(
     workflow_id = cast(str, workflow["workflow_id"])
     correlation_id = cast(str, workflow["correlation_id"])
     history = _fetch_history(conn, fixture.input.tenant_id, workflow_id)
-    outbox_events = _fetch_outbox_events(conn, fixture.input.tenant_id, workflow_id)
+    outbox_events, outbox_statuses = _fetch_outbox_events(
+        conn, fixture.input.tenant_id, workflow_id
+    )
     decisions = _fetch_decisions(conn, fixture.input.tenant_id, workflow_id)
     audits, verdicts, tool_names = _fetch_tool_audits(conn, fixture.input.tenant_id, workflow_id)
 
@@ -748,14 +851,19 @@ def _load_live_evidence(
     )
     total_cost_usd = sum((Decimal(str(record.cost.amount)) for record in decisions), Decimal("0"))
 
+    history_event_types = [cast(str, row["event_type"]) for row in history]
+    if _is_retry_exhaustion_fixture(fixture):
+        history_event_types.extend(event.event_type.value for event in outbox_events)
+
     return LiveEvidence(
         workflow_id=workflow_id,
         correlation_id=correlation_id,
         workflow_status=cast(str, workflow["status"]),
         workflow_current_step=cast(str | None, workflow["current_step"]),
-        history_event_types=[cast(str, row["event_type"]) for row in history],
+        history_event_types=history_event_types,
         history_steps=_completed_steps_from_history(history),
         outbox_events=outbox_events,
+        outbox_statuses=outbox_statuses,
         decisions=decisions,
         tool_audits=audits,
         verdicts=verdicts,
@@ -826,7 +934,7 @@ def _fetch_outbox_events(
     conn: Connection[Any],
     tenant_id: str,
     workflow_id: str,
-) -> list[WorkflowEvent]:
+) -> tuple[list[WorkflowEvent], list[str]]:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
@@ -841,7 +949,8 @@ def _fetch_outbox_events(
                 lead_id,
                 sequence,
                 step,
-                payload
+                payload,
+                status
             FROM outbox_events
             WHERE tenant_id = %s AND workflow_id = %s
             ORDER BY sequence ASC
@@ -849,7 +958,11 @@ def _fetch_outbox_events(
             (tenant_id, workflow_id),
         )
         rows = cur.fetchall()
-    return [WorkflowEvent.model_validate(row) for row in rows]
+    events = [
+        WorkflowEvent.model_validate({key: value for key, value in row.items() if key != "status"})
+        for row in rows
+    ]
+    return events, [cast(str, row["status"]) for row in rows]
 
 
 def _fetch_decisions(
@@ -927,6 +1040,8 @@ def _live_final_outcome(evidence: LiveEvidence) -> str:
 
 
 def _offline_final_outcome(evidence: OfflineEvidence) -> str:
+    if evidence.retry_dlq_audit_event is not None:
+        return "escalate"
     if evidence.verdict.verdict.value in {"block", "approval_required"}:
         return "escalate"
     if evidence.verdict.verdict.value == "propose":
@@ -956,10 +1071,15 @@ def _check_event_types(expected: list[str], actual: list[str]) -> EvalCheck:
 
 
 def _check_decision_trail(
+    fixture: EvalFixture,
     required_fields: list[str],
     decisions: list[AgentInvocationRecord],
 ) -> EvalCheck:
-    expected_roles = {role for role, _, _ in HAPPY_PATH_ROLES}
+    expected_roles = (
+        {"researcher"}
+        if _is_retry_exhaustion_fixture(fixture)
+        else {role for role, _, _ in HAPPY_PATH_ROLES}
+    )
     observed_roles = {record.agent.role.value for record in decisions}
     missing_roles = sorted(expected_roles - observed_roles)
     if missing_roles:
@@ -1032,6 +1152,38 @@ def _check_connector_failure_compensation(audits: list[AuditEvent]) -> EvalCheck
         "connector compensation",
         "fail",
         "missing connector.failure.compensated audit evidence",
+    )
+
+
+def _check_retry_exhaustion_dlq(
+    audits: list[AuditEvent],
+    outbox_statuses: list[str],
+) -> EvalCheck:
+    has_dlq_row = "dlq" in outbox_statuses
+    for audit in audits:
+        if audit.action != "workflow.retry_exhausted.dlq_recorded":
+            continue
+        retry_obj = audit.details.get("retry_exhaustion")
+        dlq_obj = audit.details.get("dlq")
+        if not isinstance(retry_obj, dict) or not isinstance(dlq_obj, dict):
+            continue
+        retry = cast(dict[str, Any], retry_obj)
+        dlq = cast(dict[str, Any], dlq_obj)
+        if (
+            retry.get("failed_activity") == "lighthouse.invoke_agent_runtime"
+            and retry.get("attempts") == 3
+            and dlq.get("status") == "dlq"
+            and has_dlq_row
+        ):
+            return EvalCheck(
+                "retry exhaustion dlq",
+                "pass",
+                "retry exhaustion audit and terminal DLQ outbox marker observed",
+            )
+    return EvalCheck(
+        "retry exhaustion dlq",
+        "fail",
+        "missing workflow.retry_exhausted.dlq_recorded audit or dlq outbox status",
     )
 
 

@@ -1,0 +1,10 @@
+Message-ID: <lead-retry-exhaustion-001@example.test>
+Date: Wed, 29 Apr 2026 10:00:00 +0000
+From: Alex Morgan <alex.morgan@example.test>
+To: leads@chorus.local
+Subject: retry-exhaustion fixture: persistent researcher failure
+Content-Type: text/plain; charset=UTF-8
+
+This retry-exhaustion fixture forces a persistent agent-runtime failure during
+research so the workflow records a DLQ marker, writes retry-exhaustion audit
+evidence, and escalates.

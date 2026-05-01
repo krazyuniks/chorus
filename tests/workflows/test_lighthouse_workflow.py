@@ -14,6 +14,7 @@ from temporalio.worker import Replayer, Worker
 from chorus.workflows.lighthouse import (
     ACTIVITY_INVOKE_AGENT_RUNTIME,
     ACTIVITY_INVOKE_TOOL_GATEWAY,
+    ACTIVITY_RECORD_RETRY_EXHAUSTION_DLQ,
     ACTIVITY_RECORD_TOOL_FAILURE_COMPENSATION,
     ACTIVITY_RECORD_WORKFLOW_EVENT,
     LighthouseWorkflow,
@@ -24,6 +25,8 @@ from chorus.workflows.types import (
     LeadSender,
     LighthouseWorkflowInput,
     LighthouseWorkflowResult,
+    RetryExhaustionDlqCommand,
+    RetryExhaustionDlqResult,
     ToolFailureCompensationCommand,
     ToolFailureCompensationResult,
     ToolGatewayRequest,
@@ -38,6 +41,7 @@ LOW_CONFIDENCE_HISTORY = FIXTURE_DIR / "lighthouse_low_confidence_history.json"
 VALIDATOR_REDRAFT_HISTORY = FIXTURE_DIR / "lighthouse_validator_redraft_history.json"
 FORBIDDEN_WRITE_HISTORY = FIXTURE_DIR / "lighthouse_forbidden_write_history.json"
 CONNECTOR_FAILURE_HISTORY = FIXTURE_DIR / "lighthouse_connector_failure_history.json"
+RETRY_EXHAUSTION_HISTORY = FIXTURE_DIR / "lighthouse_retry_exhaustion_history.json"
 
 
 def sample_lead() -> LighthouseWorkflowInput:
@@ -125,12 +129,35 @@ def connector_failure_lead() -> LighthouseWorkflowInput:
     )
 
 
+def retry_exhaustion_lead() -> LighthouseWorkflowInput:
+    base = sample_lead()
+    return LighthouseWorkflowInput(
+        schema_version=base.schema_version,
+        lead_id=base.lead_id,
+        tenant_id=base.tenant_id,
+        correlation_id="cor_workflow_retry_exhaustion",
+        source=base.source,
+        message_id="<lead-retry-exhaustion-001@example.test>",
+        received_at=base.received_at,
+        sender=base.sender,
+        recipients=base.recipients,
+        subject="retry-exhaustion fixture: persistent researcher failure",
+        body_text=(
+            "This retry-exhaustion fixture forces a persistent agent-runtime "
+            "failure so the workflow records DLQ evidence and escalates."
+        ),
+        message_headers={"Message-ID": ["<lead-retry-exhaustion-001@example.test>"]},
+        attachments_summary=base.attachments_summary,
+    )
+
+
 def test_lighthouse_workflow_history_fixture_exists() -> None:
     assert HAPPY_HISTORY.exists()
     assert LOW_CONFIDENCE_HISTORY.exists()
     assert VALIDATOR_REDRAFT_HISTORY.exists()
     assert FORBIDDEN_WRITE_HISTORY.exists()
     assert CONNECTOR_FAILURE_HISTORY.exists()
+    assert RETRY_EXHAUSTION_HISTORY.exists()
 
 
 @pytest.mark.asyncio
@@ -777,6 +804,94 @@ async def test_lighthouse_workflow_connector_failure_replay_history() -> None:
     history = WorkflowHistory.from_json(
         "lighthouse-workflow-connector-failure-fixture",
         CONNECTOR_FAILURE_HISTORY.read_text(encoding="utf-8"),
+    )
+    replayer = Replayer(workflows=[LighthouseWorkflow])
+    await replayer.replay_workflow(history)
+
+
+@pytest.mark.asyncio
+async def test_lighthouse_workflow_retry_exhaustion_records_dlq_and_escalates() -> None:
+    events: list[WorkflowEventCommand] = []
+    dlq_commands: list[RetryExhaustionDlqCommand] = []
+    agent_attempts = 0
+
+    @activity.defn(name=ACTIVITY_RECORD_WORKFLOW_EVENT)
+    async def fake_record(command: WorkflowEventCommand) -> WorkflowEventResult:
+        events.append(command)
+        return WorkflowEventResult(
+            event_id=str(uuid4()),
+            sequence=command.sequence,
+            event_type=command.event_type,
+            step=command.step,
+        )
+
+    @activity.defn(name=ACTIVITY_INVOKE_AGENT_RUNTIME)
+    async def fake_agent(request: AgentInvocationRequest) -> AgentInvocationResponse:
+        nonlocal agent_attempts
+        agent_attempts += 1
+        raise ApplicationError("fixture persistent agent runtime failure")
+
+    @activity.defn(name=ACTIVITY_INVOKE_TOOL_GATEWAY)
+    async def fake_gateway(request: ToolGatewayRequest) -> ToolGatewayResponse:
+        raise AssertionError(f"gateway should not be invoked after retry exhaustion: {request}")
+
+    @activity.defn(name=ACTIVITY_RECORD_RETRY_EXHAUSTION_DLQ)
+    async def fake_dlq(command: RetryExhaustionDlqCommand) -> RetryExhaustionDlqResult:
+        dlq_commands.append(command)
+        return RetryExhaustionDlqResult(
+            outbox_id=str(uuid4()),
+            event_id=str(uuid4()),
+            audit_event_id=str(uuid4()),
+            action="workflow.retry_exhausted.dlq_recorded",
+            outbox_status="dlq",
+            verdict="recorded",
+            reason=command.failure_reason,
+            sequence=command.sequence,
+        )
+
+    async with (
+        await WorkflowEnvironment.start_time_skipping() as env,
+        Worker(
+            env.client,
+            task_queue="test-lighthouse-retry-exhaustion",
+            workflows=[LighthouseWorkflow],
+            activities=[fake_record, fake_agent, fake_gateway, fake_dlq],
+        ),
+    ):
+        result = await env.client.execute_workflow(
+            "LighthouseWorkflow",
+            retry_exhaustion_lead(),
+            id="lighthouse-workflow-retry-exhaustion-test",
+            task_queue="test-lighthouse-retry-exhaustion",
+            result_type=LighthouseWorkflowResult,
+        )
+
+    assert agent_attempts == 3
+    assert result.outcome == "escalated"
+    assert result.escalation_reason == "activity retry policy exhausted; DLQ evidence recorded"
+    assert result.path == ["intake", "research_qualification", "escalate"]
+    assert len(dlq_commands) == 1
+    dlq_command = dlq_commands[0]
+    assert dlq_command.failed_activity == ACTIVITY_INVOKE_AGENT_RUNTIME
+    assert dlq_command.failed_step == "research_qualification"
+    assert dlq_command.attempts == 3
+    assert "fixture persistent agent runtime failure" in dlq_command.failure_reason
+
+    completed_research = [
+        event
+        for event in events
+        if event.event_type == "workflow.step.completed" and event.step == "research_qualification"
+    ]
+    assert completed_research[0].payload["step_outcome"] == "retry_exhausted"
+    assert completed_research[0].payload["dlq_required"] is True
+    assert events[-1].event_type == "workflow.escalated"
+
+
+@pytest.mark.asyncio
+async def test_lighthouse_workflow_retry_exhaustion_replay_history() -> None:
+    history = WorkflowHistory.from_json(
+        "lighthouse-workflow-retry-exhaustion-fixture",
+        RETRY_EXHAUSTION_HISTORY.read_text(encoding="utf-8"),
     )
     replayer = Replayer(workflows=[LighthouseWorkflow])
     await replayer.replay_workflow(history)

@@ -27,6 +27,10 @@ def test_eval_connector_failure_fixture_passes_offline() -> None:
     assert run.main(["--fixture", "chorus/eval/fixtures/lighthouse_connector_failure.json"]) == 0
 
 
+def test_eval_retry_exhaustion_fixture_passes_offline() -> None:
+    assert run.main(["--fixture", "chorus/eval/fixtures/lighthouse_retry_exhaustion.json"]) == 0
+
+
 def test_eval_reports_contract_failure_for_wrong_expected_path(tmp_path: Path) -> None:
     fixture = ROOT / "chorus/eval/fixtures/lighthouse_happy_path.json"
     broken = tmp_path / "broken.json"

@@ -145,6 +145,31 @@ class ToolFailureCompensationResult:
 
 
 @dataclass(frozen=True)
+class RetryExhaustionDlqCommand:
+    tenant_id: str
+    correlation_id: str
+    workflow_id: str
+    lead_id: str
+    sequence: int
+    failed_step: str
+    failed_activity: str
+    failure_reason: str
+    attempts: int
+
+
+@dataclass(frozen=True)
+class RetryExhaustionDlqResult:
+    outbox_id: str
+    event_id: str
+    audit_event_id: str
+    action: str
+    outbox_status: str
+    verdict: str
+    reason: str
+    sequence: int
+
+
+@dataclass(frozen=True)
 class LighthouseWorkflowResult:
     workflow_id: str
     tenant_id: str

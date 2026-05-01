@@ -128,6 +128,7 @@ failure/governance branches:
   -> low-confidence research -> deeper research
   -> validator rejection -> draft
   -> connector failure -> retry/compensate/escalate
+  -> retry exhaustion -> DLQ evidence -> escalate
   -> forbidden write -> block or proposal downgrade
 ```
 
@@ -518,6 +519,8 @@ For `workflow_event` rows, Phase 1A implements the local evidence path:
   `chorus.workflow.events.v1` and marks rows `sent`;
 - publish failures mark rows `failed`, retain `last_error`, and schedule
   retry through `next_attempt_at`;
+- activity retry exhaustion can mark retained evidence rows terminal `dlq`,
+  outside the relay retry claim path;
 - abandoned `publishing` leases are returned to the retry path;
 - the projection worker consumes Redpanda events and applies
   `ProjectionStore.apply_workflow_event()` idempotently into
@@ -637,7 +640,8 @@ cloud network controls are deferred.
 | Failure | Phase 1 handling |
 |---|---|
 | Activity failure | Temporal retry policy in Phase 1A; compensation/escalation fixtures are Phase 1B. |
-| Connector failure | Gateway/connector error classification plus Phase 1B G-04 compensation/escalation fixture; retry-exhaustion/DLQ evidence remains G-05. |
+| Connector failure | Gateway/connector error classification plus Phase 1B G-04 compensation/escalation fixture. |
+| Retry exhaustion | Phase 1B G-05 records a terminal `dlq` outbox marker plus `workflow.retry_exhausted.dlq_recorded` audit evidence before escalation. |
 | Provider failure | Runtime fallback/degradation policy is captured in routing policy; provider-failure fixtures are Phase 1B. |
 | Low-confidence research | Phase 1B deeper-research branch fixture. |
 | Validator rejection | Phase 1B return-to-draft fixture with structured reason. |

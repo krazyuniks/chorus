@@ -33,7 +33,7 @@ The goal is not to claim Chorus is a complete enterprise policy framework. The g
 | Data crosses tenant boundary | Tenant IDs, RLS, tenant-scoped policies | Phase 1A Postgres migration, two demo tenants, and real-Postgres fail-closed RLS tests. |
 | Tool arguments are malformed or unsafe | JSON Schema validation at gateway | Invalid argument fixtures fail before connector execution. |
 | Audit record is incomplete | Decision trail schema and required fields | Contract tests and eval assertions over persisted records. |
-| External provider or connector fails | Temporal retries, connector error classification, DLQ/escalation design | Connector-failure compensation evidence is implemented in Phase 1B G-04; retry-exhaustion evidence remains Phase 1B G-05 scope. |
+| External provider or connector fails | Temporal retries, connector error classification, DLQ/escalation design | Connector-failure compensation evidence is implemented in Phase 1B G-04; retry-exhaustion DLQ/escalation evidence is implemented in Phase 1B G-05. |
 | Cost grows without visibility | Runtime budget caps and per-invocation cost capture | Eval budget checks and Grafana cost view. |
 | Teams bypass approved patterns | Architecture docs, ADRs, contract gates, quality gates | Repo structure makes approved boundaries explicit. |
 
@@ -54,7 +54,7 @@ The goal is not to claim Chorus is a complete enterprise policy framework. The g
 - Contract changes require schema diffs, generated-code refresh, samples, and drift checks.
 - Workflow changes require replay tests.
 - Agent, prompt, model, and tool-policy changes require trace/eval fixtures or documented exception.
-- Phase 1A ships the happy-path eval. Phase 1B has added blocked write, validator rejection, connector failure, and low-confidence research fixtures; retry/exhaustion remains open.
+- Phase 1A ships the happy-path eval. Phase 1B adds blocked write, validator rejection, connector failure, low-confidence research, and retry-exhaustion DLQ fixtures.
 
 ### Runtime Guardrails
 

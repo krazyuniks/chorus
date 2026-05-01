@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "lighthouse-retry-exhaustion",
+  "name": "Lighthouse retry exhaustion DLQ and escalation",
+  "phase": "1B",
+  "input": {
+    "email_fixture_path": "docs/fixtures/lead-retry-exhaustion.eml",
+    "tenant_id": "tenant_demo"
+  },
+  "expected": {
+    "workflow_path": [
+      "intake",
+      "research_qualification",
+      "escalate"
+    ],
+    "final_outcome": "escalate",
+    "allowed_tool_actions": [],
+    "blocked_tool_actions": [],
+    "max_cost_usd": 1.25,
+    "max_latency_ms": 120000,
+    "required_audit_fields": [
+      "correlation_id",
+      "tenant_id",
+      "workflow_id",
+      "agent",
+      "model_route",
+      "prompt_hash",
+      "input_summary",
+      "output_summary",
+      "tool_call_ids"
+    ],
+    "required_event_types": [
+      "lead.received",
+      "workflow.started",
+      "workflow.failed",
+      "workflow.escalated"
+    ]
+  }
+}

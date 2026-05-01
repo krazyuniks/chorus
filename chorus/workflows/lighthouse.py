@@ -14,6 +14,8 @@ from chorus.workflows.types import (
     AgentInvocationResponse,
     LighthouseWorkflowInput,
     LighthouseWorkflowResult,
+    RetryExhaustionDlqCommand,
+    RetryExhaustionDlqResult,
     ToolFailureCompensationCommand,
     ToolFailureCompensationResult,
     ToolGatewayRequest,
@@ -25,6 +27,7 @@ ACTIVITY_RECORD_WORKFLOW_EVENT = "lighthouse.record_workflow_event"
 ACTIVITY_INVOKE_AGENT_RUNTIME = "lighthouse.invoke_agent_runtime"
 ACTIVITY_INVOKE_TOOL_GATEWAY = "lighthouse.invoke_tool_gateway"
 ACTIVITY_RECORD_TOOL_FAILURE_COMPENSATION = "lighthouse.record_tool_failure_compensation"
+ACTIVITY_RECORD_RETRY_EXHAUSTION_DLQ = "lighthouse.record_retry_exhaustion_dlq"
 
 EVENT_LEAD_RECEIVED = "lead.received"
 EVENT_WORKFLOW_STARTED = "workflow.started"
@@ -47,6 +50,14 @@ _ACTIVITY_RETRY = RetryPolicy(maximum_attempts=3)
 _MAX_RESEARCH_ATTEMPTS = 2
 _CONFIDENCE_THRESHOLD = 0.5
 _MAX_REDRAFT_ATTEMPTS = 2
+
+
+class _ActivityRetryExhaustedError(Exception):
+    def __init__(self, *, failed_step: str, failed_activity: str, source: ActivityError) -> None:
+        self.failed_step = failed_step
+        self.failed_activity = failed_activity
+        self.source = source
+        super().__init__(_activity_failure_reason(source))
 
 
 @workflow.defn
@@ -100,17 +111,30 @@ class LighthouseWorkflow:
         research_attempt = 1
         previous_research: AgentInvocationResponse | None = None
         while research_attempt <= _MAX_RESEARCH_ATTEMPTS:
-            research = await self._agent(
-                lead,
-                workflow_id,
-                "researcher",
-                "company_research",
-                _research_input(
-                    lead=lead,
-                    attempt=research_attempt,
-                    previous_research=previous_research,
-                ),
-            )
+            try:
+                research = await self._agent(
+                    lead,
+                    workflow_id,
+                    "researcher",
+                    "company_research",
+                    _research_input(
+                        lead=lead,
+                        attempt=research_attempt,
+                        previous_research=previous_research,
+                    ),
+                )
+            except ActivityError as exc:
+                return await self._retry_exhaustion_escalate(
+                    lead,
+                    workflow_id,
+                    sequence,
+                    path,
+                    _ActivityRetryExhaustedError(
+                        failed_step=STEP_RESEARCH_QUALIFICATION,
+                        failed_activity=ACTIVITY_INVOKE_AGENT_RUNTIME,
+                        source=exc,
+                    ),
+                )
             if not _needs_deeper_research(research):
                 break
 
@@ -159,17 +183,30 @@ class LighthouseWorkflow:
                 "researcher requested escalation",
             )
 
-        qualification = await self._agent(
-            lead,
-            workflow_id,
-            "qualifier",
-            "lead_qualification",
-            {
-                "lead_subject": lead.subject,
-                "research_summary": research.summary,
-                "research_data": research.structured_data,
-            },
-        )
+        try:
+            qualification = await self._agent(
+                lead,
+                workflow_id,
+                "qualifier",
+                "lead_qualification",
+                {
+                    "lead_subject": lead.subject,
+                    "research_summary": research.summary,
+                    "research_data": research.structured_data,
+                },
+            )
+        except ActivityError as exc:
+            return await self._retry_exhaustion_escalate(
+                lead,
+                workflow_id,
+                sequence,
+                path,
+                _ActivityRetryExhaustedError(
+                    failed_step=STEP_RESEARCH_QUALIFICATION,
+                    failed_activity=ACTIVITY_INVOKE_AGENT_RUNTIME,
+                    source=exc,
+                ),
+            )
         sequence = await self._step(
             lead,
             workflow_id,
@@ -199,19 +236,32 @@ class LighthouseWorkflow:
         draft: AgentInvocationResponse | None = None
         validation: AgentInvocationResponse | None = None
         while True:
-            draft = await self._agent(
-                lead,
-                workflow_id,
-                "drafter",
-                "response_draft",
-                _draft_input(
-                    lead=lead,
-                    research_summary=research.summary,
-                    qualification_summary=qualification.summary,
-                    redraft_attempt=redraft_attempt,
-                    validator_reason=validator_reason,
-                ),
-            )
+            try:
+                draft = await self._agent(
+                    lead,
+                    workflow_id,
+                    "drafter",
+                    "response_draft",
+                    _draft_input(
+                        lead=lead,
+                        research_summary=research.summary,
+                        qualification_summary=qualification.summary,
+                        redraft_attempt=redraft_attempt,
+                        validator_reason=validator_reason,
+                    ),
+                )
+            except ActivityError as exc:
+                return await self._retry_exhaustion_escalate(
+                    lead,
+                    workflow_id,
+                    sequence,
+                    path,
+                    _ActivityRetryExhaustedError(
+                        failed_step=STEP_DRAFT,
+                        failed_activity=ACTIVITY_INVOKE_AGENT_RUNTIME,
+                        source=exc,
+                    ),
+                )
             sequence = await self._step(
                 lead,
                 workflow_id,
@@ -234,17 +284,32 @@ class LighthouseWorkflow:
                     "drafter requested escalation",
                 )
 
-            validation = await self._agent(
-                lead,
-                workflow_id,
-                "validator",
-                "response_validation",
-                {
-                    "lead_subject": lead.subject,
-                    "draft_response": draft.structured_data.get("draft_response", draft.summary),
-                    "redraft_attempt": redraft_attempt,
-                },
-            )
+            try:
+                validation = await self._agent(
+                    lead,
+                    workflow_id,
+                    "validator",
+                    "response_validation",
+                    {
+                        "lead_subject": lead.subject,
+                        "draft_response": draft.structured_data.get(
+                            "draft_response", draft.summary
+                        ),
+                        "redraft_attempt": redraft_attempt,
+                    },
+                )
+            except ActivityError as exc:
+                return await self._retry_exhaustion_escalate(
+                    lead,
+                    workflow_id,
+                    sequence,
+                    path,
+                    _ActivityRetryExhaustedError(
+                        failed_step=STEP_VALIDATION,
+                        failed_activity=ACTIVITY_INVOKE_AGENT_RUNTIME,
+                        source=exc,
+                    ),
+                )
             should_retry_redraft = (
                 validation.recommended_next_step == "redraft"
                 and redraft_attempt < _MAX_REDRAFT_ATTEMPTS
@@ -523,6 +588,70 @@ class LighthouseWorkflow:
             start_to_close_timeout=_ACTIVITY_TIMEOUT,
             retry_policy=_ACTIVITY_RETRY,
             result_type=ToolFailureCompensationResult,
+        )
+
+    async def _record_retry_exhaustion_dlq(
+        self,
+        *,
+        lead: LighthouseWorkflowInput,
+        workflow_id: str,
+        sequence: int,
+        failure: _ActivityRetryExhaustedError,
+    ) -> RetryExhaustionDlqResult:
+        return await workflow.execute_activity(
+            ACTIVITY_RECORD_RETRY_EXHAUSTION_DLQ,
+            RetryExhaustionDlqCommand(
+                tenant_id=lead.tenant_id,
+                correlation_id=lead.correlation_id,
+                workflow_id=workflow_id,
+                lead_id=lead.lead_id,
+                sequence=sequence,
+                failed_step=failure.failed_step,
+                failed_activity=failure.failed_activity,
+                failure_reason=_activity_failure_reason(failure.source),
+                attempts=_ACTIVITY_RETRY.maximum_attempts or 1,
+            ),
+            start_to_close_timeout=_ACTIVITY_TIMEOUT,
+            retry_policy=_ACTIVITY_RETRY,
+            result_type=RetryExhaustionDlqResult,
+        )
+
+    async def _retry_exhaustion_escalate(
+        self,
+        lead: LighthouseWorkflowInput,
+        workflow_id: str,
+        sequence: int,
+        path: list[str],
+        failure: _ActivityRetryExhaustedError,
+    ) -> LighthouseWorkflowResult:
+        failure_reason = _activity_failure_reason(failure.source)
+        sequence = await self._step(
+            lead,
+            workflow_id,
+            sequence,
+            path,
+            failure.failed_step,
+            {
+                "lead_summary": lead.subject,
+                "step_outcome": "retry_exhausted",
+                "failed_activity": failure.failed_activity,
+                "retry_attempts": _ACTIVITY_RETRY.maximum_attempts or 1,
+                "failure_reason": failure_reason,
+                "dlq_required": True,
+            },
+        )
+        dlq_result = await self._record_retry_exhaustion_dlq(
+            lead=lead,
+            workflow_id=workflow_id,
+            sequence=sequence,
+            failure=failure,
+        )
+        return await self._escalate(
+            lead,
+            workflow_id,
+            dlq_result.sequence + 1,
+            path,
+            "activity retry policy exhausted; DLQ evidence recorded",
         )
 
     async def _escalate(

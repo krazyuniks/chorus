@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+### Added (Phase 1B G-05 retry exhaustion)
+
+- **Phase 1B G-05 — retry exhaustion DLQ fixture closed.** `infrastructure/postgres/migrations/004_outbox_dlq_status.sql` adds a terminal `dlq` outbox status, and `chorus/persistence/outbox.py` exposes `mark_dlq` / `mark_dlq_by_event_id` while keeping DLQ rows out of the relay claim path. `chorus/workflows/lighthouse.py` catches exhausted Agent Runtime activity failures, records the failed workflow step, calls `lighthouse.record_retry_exhaustion_dlq`, and escalates. `chorus/workflows/activities.py` writes the DLQ-marked `workflow.failed` outbox row plus `workflow.retry_exhausted.dlq_recorded` audit evidence. Evidence: `chorus/eval/fixtures/lighthouse_retry_exhaustion.json`, `tests/workflows/fixtures/lighthouse_retry_exhaustion_history.json`, `docs/fixtures/lead-retry-exhaustion.eml`, and `scripts/generate_retry_exhaustion_history.py`. G-06 aggregate eval/replay coverage is now closed for all five Phase 1B governance paths.
+
 ### Added (Phase 1B G-04 connector failure)
 
 - **Phase 1B G-04 — connector failure compensation fixture closed.** `chorus/connectors/local.py` adds a fixture-scoped `ConnectorTransientError` path for `connector-failure fixture` Mailpit proposals. `chorus/tool_gateway/gateway.py` audits transient connector failures without persisting an idempotent gateway response, so Temporal retries the gateway activity. `chorus/workflows/lighthouse.py` catches final gateway activity failure, records the failed propose/send step, invokes `lighthouse.record_tool_failure_compensation`, and escalates with compensation evidence written by `chorus/workflows/activities.py`. Evidence: `chorus/eval/fixtures/lighthouse_connector_failure.json`, `tests/workflows/fixtures/lighthouse_connector_failure_history.json`, `docs/fixtures/lead-connector-failure.eml`, and `scripts/generate_connector_failure_history.py`.

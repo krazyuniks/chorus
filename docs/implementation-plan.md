@@ -20,7 +20,7 @@ Phase 1 builds one evidence-grade vertical slice for Lighthouse, including the h
 |---|---|---|---|
 | 0. Foundation | Docs, ADRs, architecture/governance artefacts, local dev contract, contracts, and service layout exist. | done | README explains run/review path; architecture, guardrails, evidence map, and ADRs are linked. |
 | 1A. Lighthouse happy-path slice | Send fixture lead email through Mailpit, run Temporal workflow, invoke governed agents, mediate at least one tool action, project state, stream progress, and show audit trail. | done | A reviewer can run one command, send the fixture lead to Mailpit SMTP, see workflow state advance through the BFF/UI, inspect Temporal/Redpanda/Grafana/audit by correlation ID, and run the happy-path eval. |
-| 1B. Governance and failure evidence | Add blocked write, low-confidence research, validator rejection, connector failure, retry/exhaustion, and escalation paths. | open | Failure fixtures produce expected workflow branches, audit verdicts, DLQ or escalation records, and passing trace/eval checks. |
+| 1B. Governance and failure evidence | Add blocked write, low-confidence research, validator rejection, connector failure, retry/exhaustion, and escalation paths. | done | Failure fixtures produce expected workflow branches, audit verdicts, DLQ or escalation records, and passing trace/eval checks. |
 | 1C. Review packaging | Tighten README, screenshots or screencast notes, demo script, architecture links, governance evidence, and project-facing summary. | open | Asynchronous reviewers can answer the evidence-map questions in under 15 minutes; guided demo fits 3 minutes without opening an editor. |
 
 ## Definition of Delivered
@@ -139,7 +139,7 @@ schema changes — they extend behaviour and seeded policy/audit.
 | G-02 Validator rejection → redraft loop | Validator returns `recommended_next_step="redraft"` with a structured reason and the workflow re-enters the drafter with the reason payload. Bounded loop that escalates on exhaustion. | Agent contract `recommended_next_step="redraft"` (already present). |
 | G-03 Forbidden write → gateway block | A second seeded tenant or agent has a `block`-mode tool grant for `email.send_response`. Workflow asks for `write`, gateway downgrades to `propose` (already implemented) or blocks; audit row carries the verdict and reason. | Tool grant seed addition; gateway `block` verdict already implemented. |
 | G-04 Connector failure → compensation/escalation | Mailpit (or local CRM) connector raises a transient error class, workflow retries within Temporal policy, then enters a compensation activity that records the failed action and escalates. | Connector exception class + activity wrapper; existing retry policy. |
-| G-05 Retry exhaustion → DLQ/escalation evidence | Persistent activity failure exhausts the workflow retry policy; workflow catches the exception, marks an outbox row as `failed`, writes a DLQ-shaped audit row, and escalates. | Temporal activity exhaustion; new persistence DLQ marker. |
+| G-05 Retry exhaustion → DLQ/escalation evidence | Persistent activity failure exhausts the workflow retry policy; workflow catches the exception, marks an outbox row terminal `dlq`, writes a DLQ-shaped audit row, and escalates. | Temporal activity exhaustion; persistence DLQ marker. |
 | G-06 Eval and replay coverage | Per-fixture eval assertion file under `chorus/eval/fixtures/` and per-fixture replay history under `tests/workflows/fixtures/`. | Lands incrementally with each of G-01..G-05. |
 
 ### Phase 1B Parallelisation Map
@@ -155,7 +155,7 @@ secondary collision points.
 | G-02 | validation (lines 169–198) + drafter re-entry | `chorus/agent_runtime/runtime.py` (validator reason payload) | G-01 only on shared loop-counter helper |
 | G-03 | gateway-verdict branch (lines 200–233; reads existing `block` path) | `infrastructure/postgres/seeds/` (new grant), `chorus/tool_gateway/gateway.py` (assertion only) | G-04 on `chorus/tool_gateway/gateway.py` |
 | G-04 | gateway-verdict branch + new compensation activity | `chorus/tool_gateway/gateway.py` (connector error class), `chorus/workflows/activities.py` (compensation activity) | G-03 on gateway error path; G-05 on `activities.py` |
-| G-05 | module-level retry policy + try/except wrapping every activity | `chorus/workflows/activities.py` (DLQ marker), `chorus/persistence/outbox.py` (DLQ shape) | Everything — structural |
+| G-05 | agent-runtime retry exhaustion catch + activity-owned DLQ marker | `chorus/workflows/activities.py` (DLQ marker), `chorus/persistence/outbox.py` (DLQ shape) | Everything — structural |
 | G-06 | none (additive files) | `chorus/eval/fixtures/<name>.json`, `tests/workflows/fixtures/<name>_history.json` | Per-fixture, no cross-collision |
 
 Recommended sequencing once the in-flight 1B fixture lands cleanly:
@@ -167,9 +167,10 @@ Recommended sequencing once the in-flight 1B fixture lands cleanly:
 2. **Wave B (after Wave A merges).** Run **G-04** alone or with G-06 prep
    work. G-04 touches the gateway-verdict branch and `activities.py`; let
    the wave-A fixtures settle so the gateway branch has one author.
-3. **Wave C (serial, last).** Run **G-05**. It rewraps every activity call
-   site and changes the retry policy module-globally, so it only needs to
-   land once and merging it earlier forces every other fixture to rebase.
+3. **Wave C (serial, last).** Run **G-05**. It adds the retry-exhaustion
+   evidence path across workflow, activities, and outbox persistence, so it
+   only needs to land once and merging it earlier forces every other fixture
+   to rebase.
 4. **Continuous (G-06).** Each fixture session lands its own eval/replay
    artefacts in step 3 of its branch — they are file-disjoint by design.
 
@@ -194,8 +195,9 @@ test. Concretely:
   until Wave A merges so the UI is stable. Status: happy-path narrative
   done without screenshots; screenshot/screencast artefacts remain deferred.
 - **C-04 (Phase 1C).** Governance-evidence narrative — block, retry,
-  validator-rejection, deeper-research stories. G-01/G-02/G-03/G-04 evidence is
-  available; retry-exhaustion narrative remains blocked on G-05.
+  validator-rejection, deeper-research stories. G-01 through G-05 evidence is
+  available; C-04 remains an open Phase 1C packaging task, not a Phase 1B
+  implementation blocker.
 - **C-05 (Phase 1C).** Project-facing summary in README and overview.
   Unblocked now. Status: done in the `phase-1c/review-packaging` pass.
 
@@ -217,8 +219,8 @@ session merges into `main` after `just doctor`, `just test`,
 | G-02 | Validator rejection → redraft loop with structured reason | `chorus/workflows/lighthouse.py`; `chorus/agent_runtime/runtime.py`; `tests/workflows/fixtures/lighthouse_validator_redraft_history.json`; `chorus/eval/fixtures/lighthouse_validator_redraft.json`; `tests/workflows/test_lighthouse_workflow.py`; `docs/fixtures/lead-validator-redraft.eml`; `scripts/generate_validator_redraft_history.py` | `just test-replay`; `just eval` | done | Bounded redraft loop (max 2 attempts) with `validator_reason` payload threaded back into the drafter input. |
 | G-03 | Forbidden write fixture (gateway block / write→propose downgrade) | `infrastructure/postgres/seeds/001_demo_tenants.sql`; `chorus/tool_gateway/gateway.py`; `tests/workflows/fixtures/lighthouse_forbidden_write_history.json`; `chorus/eval/fixtures/lighthouse_forbidden_write.json` | `just eval`; `just test-replay`; `just test-persistence`; `just contracts-check` | done | `tenant_demo_alt` seeds an explicit denied `email.send_response/write` grant; gateway blocks that exact denied write before downgrade and persists redacted audit evidence. `just test-persistence` skipped because local Postgres was unavailable to the test fixture. |
 | G-04 | Connector failure → compensation/escalation | `chorus/connectors/local.py`; `chorus/tool_gateway/gateway.py`; `chorus/workflows/activities.py` (compensation); `chorus/workflows/lighthouse.py`; eval/replay fixtures | `just test-replay`; `just eval` | done | Fixture-scoped Mailpit connector marker raises a transient connector error, the gateway activity retries, the compensation activity records the failed `email.propose_response` action, and the workflow escalates. |
-| G-05 | Retry exhaustion → DLQ/escalation evidence | `chorus/workflows/lighthouse.py`; `chorus/workflows/activities.py`; `chorus/persistence/outbox.py` (DLQ marker); eval/replay fixtures | `just test-replay`; `just eval`; `just test-persistence` | open | Structural — last in sequence to avoid forcing every other fixture to rebase. |
-| G-06 | Trace/eval fixtures assert all five governance paths | `chorus/eval/fixtures/`; `tests/workflows/fixtures/` | `just eval`; `just test-replay` | open | Lands incrementally with G-01..G-05. |
+| G-05 | Retry exhaustion → DLQ/escalation evidence | `chorus/workflows/lighthouse.py`; `chorus/workflows/activities.py`; `chorus/persistence/outbox.py` (DLQ marker); `infrastructure/postgres/migrations/004_outbox_dlq_status.sql`; `chorus/eval/fixtures/lighthouse_retry_exhaustion.json`; `tests/workflows/fixtures/lighthouse_retry_exhaustion_history.json` | `just test-replay`; `just eval`; `just test-persistence` | done | Agent-runtime retry exhaustion records a terminal outbox `dlq` row plus `workflow.retry_exhausted.dlq_recorded` audit evidence, then escalates. |
+| G-06 | Trace/eval fixtures assert all five governance paths | `chorus/eval/fixtures/`; `tests/workflows/fixtures/` | `just eval`; `just test-replay` | done | Eval and replay coverage now exists for low-confidence research, validator redraft, forbidden write, connector failure compensation, and retry-exhaustion DLQ escalation. |
 
 ## Parallel Workstreams
 

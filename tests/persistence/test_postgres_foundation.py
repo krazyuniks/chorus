@@ -12,6 +12,8 @@ from psycopg import sql
 
 from chorus.contracts.generated.events.workflow_event import WorkflowEvent
 from chorus.persistence import OutboxStore, ProjectionStore, apply_migrations
+from chorus.workflows.activities import record_retry_exhaustion_dlq
+from chorus.workflows.types import RetryExhaustionDlqCommand
 
 ADMIN_DATABASE_URL = os.environ.get(
     "CHORUS_TEST_ADMIN_DATABASE_URL",
@@ -218,7 +220,6 @@ def test_projection_store_records_read_model_history_and_outbox(
     )
 
     with psycopg.connect(migrated_database_url) as conn:
-        conn.execute("UPDATE outbox_events SET status = 'sent', sent_at = now()")
         store = ProjectionStore(conn)
         store.record_workflow_event(event)
         store.record_workflow_event(event)
@@ -263,7 +264,6 @@ def test_projection_replay_is_idempotent_and_sequence_ordered(
     )
 
     with psycopg.connect(migrated_database_url) as conn:
-        conn.execute("UPDATE outbox_events SET status = 'sent', sent_at = now()")
         store = ProjectionStore(conn)
         store.apply_workflow_event(completed)
         store.apply_workflow_event(started)
@@ -294,6 +294,7 @@ def test_outbox_claim_sent_failed_and_retry_transitions(
     )
 
     with psycopg.connect(migrated_database_url) as conn:
+        conn.execute("UPDATE outbox_events SET status = 'sent', sent_at = now()")
         store = ProjectionStore(conn)
         store.record_workflow_event(event)
         outbox = OutboxStore(conn)
@@ -344,6 +345,7 @@ def test_outbox_stale_publishing_rows_return_to_retry_path(
     )
 
     with psycopg.connect(migrated_database_url) as conn:
+        conn.execute("UPDATE outbox_events SET status = 'sent', sent_at = now()")
         store = ProjectionStore(conn)
         store.record_workflow_event(event)
         outbox = OutboxStore(conn)
@@ -363,6 +365,95 @@ def test_outbox_stale_publishing_rows_return_to_retry_path(
     assert released == 1
     assert retry_claim[0].event.event_id == event.event_id
     assert retry_claim[0].attempts == 2
+
+
+def test_outbox_dlq_rows_are_terminal_and_not_reclaimed(
+    migrated_database_url: str,
+) -> None:
+    event = _workflow_event(
+        tenant_id="tenant_demo",
+        workflow_id="lighthouse-dlq-outbox",
+        sequence=1,
+        event_type="workflow.failed",
+        step="escalate",
+    )
+
+    with psycopg.connect(migrated_database_url) as conn:
+        conn.execute("UPDATE outbox_events SET status = 'sent', sent_at = now()")
+        store = ProjectionStore(conn)
+        store.record_workflow_event(event)
+        outbox = OutboxStore(conn)
+
+        outbox_id = outbox.mark_dlq_by_event_id(
+            event.event_id,
+            error="retry policy exhausted",
+        )
+        outbox.mark_dlq(outbox_id, error="retry policy exhausted")
+
+        assert outbox.claim_pending(limit=10) == []
+        released = outbox.release_stale_publishing(older_than=timedelta(seconds=0))
+        row = conn.execute(
+            """
+            SELECT status, last_error, next_attempt_at = 'infinity'::timestamptz
+            FROM outbox_events
+            WHERE event_id = %s
+            """,
+            (event.event_id,),
+        ).fetchone()
+
+    assert released == 0
+    assert row == ("dlq", "retry policy exhausted", True)
+
+
+def test_retry_exhaustion_activity_writes_dlq_outbox_and_audit(
+    migrated_database_url: str,
+) -> None:
+    lead_id = uuid4()
+
+    with psycopg.connect(migrated_database_url) as conn:
+        conn.execute("UPDATE outbox_events SET status = 'sent', sent_at = now()")
+        result = record_retry_exhaustion_dlq(
+            conn,
+            RetryExhaustionDlqCommand(
+                tenant_id="tenant_demo",
+                correlation_id="cor_retry_exhaustion_dlq",
+                workflow_id="lighthouse-retry-exhaustion-dlq",
+                lead_id=str(lead_id),
+                sequence=5,
+                failed_step="research_qualification",
+                failed_activity="lighthouse.invoke_agent_runtime",
+                failure_reason="fixture persistent agent runtime failure",
+                attempts=3,
+            ),
+        )
+        outbox = OutboxStore(conn)
+        assert outbox.claim_pending(limit=10) == []
+        row = conn.execute(
+            """
+            SELECT
+                outbox.status,
+                outbox.event_type,
+                outbox.payload ->> 'failure_classification',
+                audit.action,
+                audit.raw_event -> 'details' -> 'dlq' ->> 'status'
+            FROM outbox_events AS outbox
+            JOIN tool_action_audit AS audit
+              ON audit.tenant_id = outbox.tenant_id
+             AND audit.workflow_id = outbox.workflow_id
+            WHERE outbox.event_id = %s
+            """,
+            (result.event_id,),
+        ).fetchone()
+
+    assert result.outbox_status == "dlq"
+    assert result.action == "workflow.retry_exhausted.dlq_recorded"
+    assert row == (
+        "dlq",
+        "workflow.failed",
+        "retry_exhausted",
+        "workflow.retry_exhausted.dlq_recorded",
+        "dlq",
+    )
 
 
 def test_runtime_policy_snapshot_is_tenant_scoped(migrated_database_url: str) -> None:

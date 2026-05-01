@@ -155,6 +155,61 @@ class OutboxStore:
             (error, retry_seconds, outbox_id),
         )
 
+    def mark_dlq(
+        self,
+        outbox_id: UUID,
+        *,
+        error: str,
+    ) -> None:
+        """Mark an outbox row terminal DLQ evidence.
+
+        DLQ rows are deliberately excluded from `claim_pending()` and
+        `release_stale_publishing()`, so they remain inspectable instead of
+        cycling through relay retries.
+        """
+
+        self._conn.execute(
+            """
+            UPDATE outbox_events
+            SET
+                status = 'dlq',
+                last_error = left(%s, 2000),
+                next_attempt_at = 'infinity'::timestamptz,
+                updated_at = now()
+            WHERE outbox_id = %s
+              AND status IN ('pending', 'publishing', 'failed', 'dlq')
+            """,
+            (error, outbox_id),
+        )
+
+    def mark_dlq_by_event_id(
+        self,
+        event_id: UUID,
+        *,
+        error: str,
+    ) -> UUID:
+        """Mark an event row DLQ and return its outbox ID."""
+
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                UPDATE outbox_events
+                SET
+                    status = 'dlq',
+                    last_error = left(%s, 2000),
+                    next_attempt_at = 'infinity'::timestamptz,
+                    updated_at = now()
+                WHERE event_id = %s
+                  AND status IN ('pending', 'publishing', 'failed', 'dlq')
+                RETURNING outbox_id
+                """,
+                (error, event_id),
+            )
+            row = cur.fetchone()
+        if row is None:
+            raise ValueError(f"No outbox row found for event_id={event_id}")
+        return cast(UUID, row["outbox_id"])
+
     def release_stale_publishing(
         self,
         *,

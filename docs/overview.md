@@ -40,7 +40,7 @@ The Phase 1A demo is a trace-first vertical slice, not a broad platform showcase
 6. **Operational visibility** - Grafana shows traces, workflow timings, gateway verdicts, projection lag, and agent decisions by correlation ID.
 7. **Evaluation discipline** - the Phase 1A happy-path fixture checks the expected path, final outcome, workflow events, decision-trail completeness, tool verdict evidence, budget, latency, and correlation IDs.
 
-Phase 1B deliberately adds the governance and failure fixtures: low-confidence research, validator rejection, connector failure, retry exhaustion, escalation, and forbidden-write downgrade/block checks. Those paths are architecture commitments, not Phase 1A shipped evidence.
+Phase 1B adds the governance and failure fixtures: low-confidence research, validator rejection, connector failure, retry exhaustion with DLQ evidence, escalation, and forbidden-write downgrade/block checks. Those paths are implemented as evidence fixtures on top of the Phase 1A happy path.
 
 The 3-minute walkthrough should be possible without opening an editor. The repo must also stand up to asynchronous technical inspection: [`evidence-map.md`](evidence-map.md) links each claim to the supporting code, contracts, tests, docs, dashboards, or ADRs.
 

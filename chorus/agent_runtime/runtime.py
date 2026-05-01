@@ -480,6 +480,10 @@ def _lighthouse_result_for(
 ) -> tuple[str, str, dict[str, Any], float]:
     match request.task_kind:
         case "company_research":
+            if _is_retry_exhaustion_fixture(request):
+                raise AgentRuntimeError(
+                    "retry-exhaustion fixture forced persistent agent-runtime failure"
+                )
             if _is_low_confidence_research_fixture(request):
                 attempt = int(request.input.get("research_attempt", 1))
                 if attempt == 1:
@@ -620,3 +624,11 @@ def _is_validator_redraft_fixture(request: AgentInvocationRequest) -> bool:
     subject = str(request.input.get("lead_subject", "")).lower()
     body = str(request.input.get("lead_body", "")).lower()
     return "validator-redraft fixture" in subject or "validator-redraft fixture" in body
+
+
+def _is_retry_exhaustion_fixture(request: AgentInvocationRequest) -> bool:
+    if request.task_kind != "company_research":
+        return False
+    subject = str(request.input.get("lead_subject", "")).lower()
+    body = str(request.input.get("lead_body", "")).lower()
+    return "retry-exhaustion fixture" in subject or "retry-exhaustion fixture" in body
