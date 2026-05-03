@@ -15,7 +15,9 @@ Chorus is the architecture artefact. Lighthouse is the proof scenario.
 
 ## Status
 
-Design-frozen 2026-04-29. Phase 1A, Phase 1B, and Phase 1C are implemented: Postgres persistence/projections, Mailpit intake, the Temporal Lighthouse workflow, Agent Runtime, Tool Gateway, BFF/UI inspection surfaces, OpenTelemetry/Grafana scaffolding, the happy-path eval, governance/failure fixtures, and the asynchronous review package are shipped evidence. The useful review question is whether the Lighthouse slice proves the runtime boundaries, authority model, audit evidence, and failure handling clearly enough to guide later production hardening. See [`docs/implementation-plan.md`](docs/implementation-plan.md) for phasing and the workstream ledger.
+Design-frozen for Phase 1 on 2026-04-29. Phase 1A, Phase 1B, and Phase 1C are implemented: Postgres persistence/projections, Mailpit intake, the Temporal Lighthouse workflow, Agent Runtime, Tool Gateway, BFF/UI inspection surfaces, OpenTelemetry/Grafana scaffolding, the happy-path eval, governance/failure fixtures, and the asynchronous review package are shipped evidence.
+
+Phase 2 planning opened on 2026-05-03. Phase 2 is not implemented yet; it is planned as governed-platform expansion, starting with provider/model governance before mutating runtime control, connector expansion, a second workflow, or production-readiness work. See [`docs/phase-2-plan.md`](docs/phase-2-plan.md), [ADR 0011](adrs/0011-phase-2-governed-platform-expansion.md), and [`docs/implementation-plan.md`](docs/implementation-plan.md) for the current scope.
 
 ## First-time setup
 
@@ -65,9 +67,10 @@ For an asynchronous reviewer (~15 minutes):
 2. [`docs/evidence-map.md`](docs/evidence-map.md) — engineering claims and where to inspect the supporting artefacts.
 3. [`docs/governance-evidence.md`](docs/governance-evidence.md) — packaged Phase 1B failure and authority evidence.
 4. [`docs/architecture.md`](docs/architecture.md) — principles-first architecture reference: domain language, boundaries, runtime flow, contracts, testing, operations, and deferrals.
-5. [`docs/governance-guardrails.md`](docs/governance-guardrails.md) — enterprise governance posture and control matrix.
-6. [`docs/runbook.md`](docs/runbook.md) — concrete local commands and cross-surface correlation recipe.
-7. [`adrs/`](adrs/) — accepted Phase 1 architectural decision record.
+5. [`docs/phase-2-plan.md`](docs/phase-2-plan.md) — planned governed-platform expansion after the Phase 1 evidence baseline.
+6. [`docs/governance-guardrails.md`](docs/governance-guardrails.md) — enterprise governance posture and control matrix.
+7. [`docs/runbook.md`](docs/runbook.md) — concrete local commands and cross-surface correlation recipe.
+8. [`adrs/`](adrs/) — accepted architectural decision record.
 
 ## Stack
 

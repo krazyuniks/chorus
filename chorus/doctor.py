@@ -1,4 +1,4 @@
-"""Phase 1 readiness checks for the Chorus local runtime contract.
+"""Readiness checks for the Chorus local runtime and planning contract.
 
 Doctor is the single command a reviewer or contributor runs to verify the
 project layout and the local stack are ready for the Lighthouse slice.
@@ -51,11 +51,13 @@ PHASE_0_PATHS = [
     "docs/overview.md",
     "docs/architecture.md",
     "docs/evidence-map.md",
+    "docs/phase-2-plan.md",
     "docs/fixtures/lead-acme.eml",
     "docs/governance-guardrails.md",
     "docs/implementation-plan.md",
     "docs/runbook.md",
     "adrs/README.md",
+    "adrs/0011-phase-2-governed-platform-expansion.md",
     "contracts/events",
     "contracts/agents",
     "contracts/tools",
@@ -574,7 +576,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     failures = 0
-    print("Chorus doctor - Phase 1 runtime and evidence readiness")
+    print("Chorus doctor - runtime, evidence, and planning readiness")
 
     failures += check_paths()
     failures += check_executables()

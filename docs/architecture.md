@@ -83,6 +83,25 @@ agent workflows across teams, providers, and business processes.
 | Phase 1A - Happy path | Mailpit SMTP intake, Temporal Lighthouse workflow, Agent Runtime, Tool Gateway, Postgres projections, Redpanda events, UI progress, audit trail, observability, and happy-path eval. | A reviewer can send a fixture email, follow one workflow by correlation ID, and run the happy-path eval. |
 | Phase 1B - Governance/failure evidence | Blocked write, low-confidence research, validator rejection, connector failure, retry exhaustion, and escalation fixtures. | Failure fixtures produce expected branches, audit verdicts, DLQ or escalation records, and passing eval checks. |
 | Phase 1C - Review packaging | Final README, screenshots or notes, demo script, evidence map, architecture links, and governance evidence. | An asynchronous reviewer can inspect the evidence path without hidden context. |
+| Phase 2 - Governed platform expansion | Planned provider/model governance, governed runtime change control, connector expansion, second workflow proof, and production-readiness architecture pack. | Not implemented. See [`phase-2-plan.md`](phase-2-plan.md) and [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md). |
+
+## Phase 2 Planning Boundary
+
+Phase 2 opens selected Phase 1 deferrals without changing the core posture:
+evidence before breadth, Temporal-owned workflow state, runtime policy outside
+prompts, Tool Gateway authority, contract-first payloads, and eval as a release
+control.
+
+The first recommended Phase 2 implementation focus is provider and model
+governance. That means improving the model/provider boundary, route-version
+evidence, fallback/degradation fixtures, budget telemetry, and read-only
+inspection before adding mutating admin, a second workflow, or production
+deployment work.
+
+Phase 2 does not make Chorus a generic agent framework or SaaS product by
+default. Each reopened deferral needs an explicit milestone in
+[`phase-2-plan.md`](phase-2-plan.md), matching docs, and evidence gates before
+it is treated as delivered.
 
 ## Domain Language
 
@@ -239,6 +258,7 @@ chorus/
 │   ├── evidence-map.md
 │   ├── governance-guardrails.md
 │   ├── implementation-plan.md
+│   ├── phase-2-plan.md
 │   ├── demo-script.md
 │   └── runbooks/
 ├── adrs/

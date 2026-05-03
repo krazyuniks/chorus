@@ -10,7 +10,7 @@ date: 2026-05-01
 
 This document maps Chorus's engineering claims to the artefacts that support them.
 
-The map is structured for architecture review: each capability links to the artefacts and code locations that demonstrate it. Phase 1A rows point to implemented happy-path evidence. Phase 1B rows point to shipped governance/failure fixtures. Phase 1C rows package those links for asynchronous review.
+The map is structured for architecture review: each capability links to the artefacts and code locations that demonstrate it. Phase 1A rows point to implemented happy-path evidence. Phase 1B rows point to shipped governance/failure fixtures. Phase 1C rows package those links for asynchronous review. Phase 2 rows are planning evidence until implementation starts.
 
 ## Position
 
@@ -27,6 +27,7 @@ Use the matrix from top to bottom when reviewing the architecture narrative. Use
 | Governed agent workflow orchestration | [`architecture.md`](architecture.md) — principles, runtime topology, workflow architecture, component boundaries. [`../chorus/workflows/lighthouse.py`](../chorus/workflows/lighthouse.py) — deterministic Lighthouse Temporal state machine. [`../tests/workflows/test_lighthouse_workflow.py`](../tests/workflows/test_lighthouse_workflow.py) — transition and replay coverage. [`governance-guardrails.md`](governance-guardrails.md) — control matrix and guardrail layers. | Phase 1A Workstream B complete for happy-path workflow and replay. |
 | Overarching architecture for multi-agent workflows and LLM integrations | [`architecture.md`](architecture.md) — principles, domain language, components, runtime flow, contracts, testing, operations, and deferrals. [`../adrs/`](../adrs/) — accepted decision record. | Docs complete (Phase 0). |
 | Stakeholder-readable project brief | [`../README.md`](../README.md) — first-time reviewer checklist and command path. [`overview.md`](overview.md) — narrative scope, Phase 1A/1B boundary, review order, demo shape, and decision-record pointer. [`demo-script.md`](demo-script.md) — three-minute happy-path walkthrough. [`governance-evidence.md`](governance-evidence.md) — Phase 1B governance/failure evidence package. | Phase 1C C-02/C-03/C-04/C-05 packaging complete. |
+| Phase 2 governed-platform roadmap | [`phase-2-plan.md`](phase-2-plan.md) — Phase 2 objectives, non-goals, milestones, Phase 2A ledger, and continuation prompt cadence. [`../adrs/0011-phase-2-governed-platform-expansion.md`](../adrs/0011-phase-2-governed-platform-expansion.md) — decision to start with provider/model governance before mutating admin, connector expansion, a second workflow, or production-readiness work. | Planning complete; implementation not started. |
 | Provider/model governance | [`governance-guardrails.md`](governance-guardrails.md) — Phase 1 Provider Catalogue, Provider and Model Governance, routing and budget policy. [`architecture.md`](architecture.md) — Agent Runtime Architecture and Model Routing. [`../chorus/agent_runtime/runtime.py`](../chorus/agent_runtime/runtime.py) — tenant/agent/prompt/model-route resolution, local model boundary, generated-contract validation, and decision-trail persistence. [`../tests/agent_runtime/test_runtime.py`](../tests/agent_runtime/test_runtime.py) — policy resolution, contract validation, persistence, and activity integration coverage. | Phase 1A Workstream C implemented for the local happy path; commercial provider SDK adapters deferred behind the boundary. |
 | LLM guardrails for transparency, security, prompt governance, auditability, and responsible-AI alignment | [`governance-guardrails.md`](governance-guardrails.md) — Governance Principles, Control Matrix, Guardrail Layers, Prompt Governance, Safety and Evaluation Governance, Responsible-AI Alignment. | Docs complete (Phase 0). |
 | Cross-team component interaction model | [`architecture.md`](architecture.md) — component boundaries, runtime topology, contract ownership, repository structure, testing, and operations surface. [`../adrs/`](../adrs/). | Docs complete (Phase 0). |
@@ -55,7 +56,8 @@ For reverse navigation, the artefacts that this map cites:
 - [`implementation-plan.md`](implementation-plan.md) — phased delivery, parallel workstreams, deferred items.
 - [`demo-script.md`](demo-script.md) — guided walkthrough script for the SMTP-receive trigger and Temporal workflow evidence.
 - [`governance-evidence.md`](governance-evidence.md) — packaged review guide for the Phase 1B failure and authority fixtures.
-- [`../adrs/`](../adrs/) — ten accepted decisions covering evidence-first scope, Temporal orchestration, Redpanda event visibility, Agent Runtime + Tool Gateway, Postgres-first storage, JSON Schema contracts, trace/eval harness, email intake via Mailpit, the local-only operating model, and the observability pipeline shape.
+- [`phase-2-plan.md`](phase-2-plan.md) — Phase 2 roadmap and Phase 2A provider/model governance ledger.
+- [`../adrs/`](../adrs/) — accepted decisions covering evidence-first scope, Temporal orchestration, Redpanda event visibility, Agent Runtime + Tool Gateway, Postgres-first storage, JSON Schema contracts, trace/eval harness, email intake via Mailpit, the local-only operating model, observability pipeline shape, and Phase 2 governed-platform expansion.
 
 ## Updates
 

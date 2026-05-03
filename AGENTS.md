@@ -1,6 +1,6 @@
 # Chorus - Agent Guide
 
-> For the full system design, read [docs/architecture.md](./docs/architecture.md). For delivery phasing and workstream boundaries, read [docs/implementation-plan.md](./docs/implementation-plan.md).
+> For the full system design, read [docs/architecture.md](./docs/architecture.md). For delivery phasing and workstream boundaries, read [docs/implementation-plan.md](./docs/implementation-plan.md). For the Phase 2 planning horizon, read [docs/phase-2-plan.md](./docs/phase-2-plan.md).
 
 ## Authority Order
 
@@ -9,10 +9,11 @@ When a task concerns architecture, runtime behaviour, contracts, governance, or 
 1. [docs/architecture.md](./docs/architecture.md)
 2. [adrs/](./adrs/)
 3. [docs/governance-guardrails.md](./docs/governance-guardrails.md)
-4. [docs/implementation-plan.md](./docs/implementation-plan.md)
-5. [docs/evidence-map.md](./docs/evidence-map.md)
-6. [README.md](./README.md)
-7. This file
+4. [docs/phase-2-plan.md](./docs/phase-2-plan.md)
+5. [docs/implementation-plan.md](./docs/implementation-plan.md)
+6. [docs/evidence-map.md](./docs/evidence-map.md)
+7. [README.md](./README.md)
+8. This file
 
 Architecture and docs move with code. If behaviour, boundaries, contracts, commands, or evidence surfaces change, update the matching docs in the same work.
 
@@ -22,7 +23,9 @@ Chorus is a reference implementation of governed multi-agent workflow orchestrat
 
 Phase 1 implements one evidence-grade vertical slice: an inbound lead email enters through Mailpit, starts a durable Temporal Lighthouse workflow, invokes governed agents, mediates tool actions through a Tool Gateway, persists audit/projection state in Postgres, emits schema-governed events through Redpanda, and exposes progress/evidence through the BFF/UI and eval harness.
 
-The repo is design-frozen for Phase 1. Phase 0, Phase 1A, Phase 1B, and Phase 1C are implemented: the happy-path Lighthouse slice, governance/failure fixtures, and asynchronous review package are shipped evidence. Do not broaden scope into a generic agent framework, SaaS product, cloud deployment, production auth, or a second workflow unless the project docs are explicitly changed.
+The repo is design-frozen for Phase 1. Phase 0, Phase 1A, Phase 1B, and Phase 1C are implemented: the happy-path Lighthouse slice, governance/failure fixtures, and asynchronous review package are shipped evidence.
+
+Phase 2 is now open for planned governed-platform expansion per [ADR 0011](./adrs/0011-phase-2-governed-platform-expansion.md) and [docs/phase-2-plan.md](./docs/phase-2-plan.md). The first recommended implementation focus is provider/model governance. Do not broaden scope into a generic agent framework, SaaS product, production customer-data path, production cloud deployment, or unrestricted second workflow unless the project docs and ADRs explicitly change.
 
 ## How To Run Commands
 

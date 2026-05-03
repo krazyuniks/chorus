@@ -46,6 +46,20 @@ The 3-minute walkthrough should be possible without opening an editor. The repo 
 
 The repo is also an architecture package. A reviewer should be able to inspect `architecture.md`, `governance-guardrails.md`, the ADRs, and the evidence map and see how the Lighthouse implementation maps to enterprise adoption controls.
 
+## Phase 2 Direction
+
+Phase 2 is planned, not implemented. It opens a governed-platform expansion
+after the Phase 1 evidence baseline. The first recommended implementation
+track is provider/model governance: commercial-provider adapter boundaries,
+route-version evidence, fallback/degradation fixtures, budget telemetry, and
+read-only inspection while preserving the local structured boundary as the
+default runnable path.
+
+Later Phase 2 milestones cover governed runtime change control, connector
+expansion, a second workflow proof, and production-readiness architecture. See
+[`phase-2-plan.md`](phase-2-plan.md) and
+[ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md).
+
 ## How to review Phase 1
 
 Start with the README first-time reviewer checklist for commands. For the evidence narrative, use this order:
@@ -54,8 +68,9 @@ Start with the README first-time reviewer checklist for commands. For the eviden
 2. `evidence-map.md` for the claim-to-artefact map.
 3. `demo-script.md` for the three-minute Mailpit -> Temporal -> BFF/UI -> Grafana -> audit -> eval walkthrough.
 4. `governance-evidence.md` for the Phase 1B failure and authority fixture package.
-5. `runbook.md` for exact local operations and cross-surface correlation queries.
-6. `architecture.md`, `governance-guardrails.md`, and the ADRs for the design rationale.
+5. `phase-2-plan.md` for the planned post-Phase-1 roadmap.
+6. `runbook.md` for exact local operations and cross-surface correlation queries.
+7. `architecture.md`, `governance-guardrails.md`, and the ADRs for the design rationale.
 
 ## Decision record
 
@@ -71,6 +86,7 @@ The architecture document should reflect accepted decisions, but the ADRs remain
 - Connector integrations run real software in sandbox/local mode: Mailpit for email, public APIs for research where suitable, and a Postgres-backed local CRM service.
 - Governance, guardrail, architecture, and evidence documentation are first-class Phase 1 deliverables.
 - Screenshot or screencast packaging remains optional in Phase 1C; the current review path is command-, evidence-map-, and governance-evidence-led.
+- Phase 2 may reopen selected deferrals only through `phase-2-plan.md` milestones and matching ADR/doc updates.
 
 ## What Chorus is not
 
