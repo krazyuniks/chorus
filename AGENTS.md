@@ -22,7 +22,7 @@ Chorus is a reference implementation of governed multi-agent workflow orchestrat
 
 Phase 1 implements one evidence-grade vertical slice: an inbound lead email enters through Mailpit, starts a durable Temporal Lighthouse workflow, invokes governed agents, mediates tool actions through a Tool Gateway, persists audit/projection state in Postgres, emits schema-governed events through Redpanda, and exposes progress/evidence through the BFF/UI and eval harness.
 
-The repo is currently design-frozen for Phase 1 and in Phase 0/1A scaffold work. Do not broaden scope into a generic agent framework, SaaS product, cloud deployment, production auth, or a second workflow unless the project docs are explicitly changed.
+The repo is design-frozen for Phase 1. Phase 0, Phase 1A, Phase 1B, and Phase 1C are implemented: the happy-path Lighthouse slice, governance/failure fixtures, and asynchronous review package are shipped evidence. Do not broaden scope into a generic agent framework, SaaS product, cloud deployment, production auth, or a second workflow unless the project docs are explicitly changed.
 
 ## How To Run Commands
 
@@ -54,7 +54,7 @@ Do not run `just down-volumes` unless explicitly requested; it destroys local da
 
 ## CI
 
-`.github/workflows/ci.yml` runs lint, contracts-check, doctor, Python tests, and frontend lint/test on every push and PR. `replay.yml` and `eval.yml` run their respective gates with `continue-on-error: true` until the fixtures land in Phase 1A. Treat a red CI as the same severity as a red local `just doctor`; both signal a workstream contract slipping.
+`.github/workflows/ci.yml` runs lint, contracts-check, doctor, Python tests, and frontend lint/test on every push and PR. `replay.yml` and `eval.yml` run their respective gates for the deterministic replay and governance/eval evidence package. Treat a red CI as the same severity as a red local `just doctor`; both signal a workstream contract slipping.
 
 ## Service Template
 
@@ -132,7 +132,7 @@ Use the smallest gate that proves the change, then run broader gates before hand
 | `just eval` | Trace/eval fixtures. |
 | `just lint` | Python and frontend linting. |
 
-When code changes, update the matching docs and run the relevant gates. If a documented command is scaffold-only or not yet implemented for Phase 1A, say that plainly in the handoff.
+When code changes, update the matching docs and run the relevant gates. If a documented command is unavailable because the live stack is not running, or because a named post-Phase-1 deferral is still out of scope, say that plainly in the handoff.
 
 ## Local Runtime
 

@@ -112,6 +112,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    explicit_fixtures = args.fixture is not None
+    live_selector_supplied = args.workflow_id is not None or args.correlation_id is not None
     fixture_paths = args.fixture or sorted(FIXTURE_DIR.glob("*.json"))
     failed = False
 
@@ -125,15 +127,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         except Exception as exc:
             checks.append(EvalCheck("offline fixture", "fail", str(exc)))
 
-        checks.extend(
-            _run_live_checks(
-                fixture=fixture,
-                database_url=args.database_url,
-                workflow_id=args.workflow_id,
-                correlation_id=args.correlation_id,
-                require_live=args.require_live,
+        if should_run_live_checks(
+            fixture=fixture,
+            explicit_fixtures=explicit_fixtures,
+            live_selector_supplied=live_selector_supplied,
+        ):
+            checks.extend(
+                _run_live_checks(
+                    fixture=fixture,
+                    database_url=args.database_url,
+                    workflow_id=args.workflow_id,
+                    correlation_id=args.correlation_id,
+                    require_live=args.require_live,
+                )
             )
-        )
+        else:
+            checks.append(
+                EvalCheck(
+                    "live persisted evidence",
+                    "skip",
+                    "live selector is checked against the default happy-path fixture; "
+                    "pass --fixture for a specific governance/failure live run",
+                )
+            )
 
         if index > 0:
             print()
@@ -141,6 +157,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         failed = failed or any(check.status == "fail" for check in checks)
 
     return 1 if failed else 0
+
+
+def should_run_live_checks(
+    *,
+    fixture: EvalFixture,
+    explicit_fixtures: bool,
+    live_selector_supplied: bool,
+) -> bool:
+    if explicit_fixtures or not live_selector_supplied:
+        return True
+    return fixture.fixture_id == "lighthouse-happy-path-acme"
 
 
 def _load_fixture(path: Path) -> EvalFixture:

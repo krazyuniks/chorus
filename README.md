@@ -15,7 +15,7 @@ Chorus is the architecture artefact. Lighthouse is the proof scenario.
 
 ## Status
 
-Design-frozen 2026-04-29. Phase 1A is the current first public ship-checkpoint: Postgres persistence/projections, Mailpit intake, the Temporal Lighthouse workflow, Agent Runtime, Tool Gateway, BFF/UI inspection surfaces, OpenTelemetry/Grafana scaffolding, and the happy-path eval are implemented. Phase 1B governance/failure fixtures remain open and are not presented as shipped evidence. The useful review question is whether the Phase 1A slice proves the runtime boundaries and evidence model clearly enough to extend with those failure fixtures. See [`docs/implementation-plan.md`](docs/implementation-plan.md) for phasing and the workstream ledger.
+Design-frozen 2026-04-29. Phase 1A, Phase 1B, and Phase 1C are implemented: Postgres persistence/projections, Mailpit intake, the Temporal Lighthouse workflow, Agent Runtime, Tool Gateway, BFF/UI inspection surfaces, OpenTelemetry/Grafana scaffolding, the happy-path eval, governance/failure fixtures, and the asynchronous review package are shipped evidence. The useful review question is whether the Lighthouse slice proves the runtime boundaries, authority model, audit evidence, and failure handling clearly enough to guide later production hardening. See [`docs/implementation-plan.md`](docs/implementation-plan.md) for phasing and the workstream ledger.
 
 ## First-time setup
 
@@ -33,7 +33,7 @@ Design-frozen 2026-04-29. Phase 1A is the current first public ship-checkpoint: 
 4. Inspect the run by `correlation_id` in the Lighthouse UI/BFF, Temporal UI, Redpanda Console, Grafana, `decision_trail_entries`, and `tool_action_audit`.
 5. Run the release-style check: `just eval`. For a live run after projection, use `CHORUS_EVAL_CORRELATION_ID=<correlation-id> just eval`.
 
-The walkthrough in [`docs/demo-script.md`](docs/demo-script.md) keeps the happy-path demo to three minutes. Screenshots and screencast artefacts are intentionally deferred until the UI stabilises after the first Phase 1B fixture wave.
+The walkthrough in [`docs/demo-script.md`](docs/demo-script.md) keeps the happy-path demo to three minutes. [`docs/governance-evidence.md`](docs/governance-evidence.md) packages the Phase 1B failure and authority fixtures for follow-up inspection.
 
 ## Daily commands
 
@@ -47,12 +47,12 @@ just doctor            # scaffold and runtime readiness checks
 just contracts-check   # JSON Schema, generated model, and sample drift gate
 just test              # Python tests
 just lint              # Python and frontend linters
-just demo              # send the fixture lead through Mailpit (Phase 1A)
+just demo              # send the fixture lead through Mailpit
 just worker            # run the Lighthouse Temporal worker
 just intake-once       # poll Mailpit once and start workflows for new leads
 just relay-once        # publish pending workflow events to Redpanda
 just project-once      # project Redpanda workflow events into Postgres read models
-just eval              # run the Phase 1A happy-path eval fixture
+just eval              # run the happy-path and Phase 1B governance eval fixtures
 ```
 
 `just --list` is the discovery command. See [`AGENTS.md`](AGENTS.md) for the full gate hierarchy and which gate proves which kind of change.
@@ -63,10 +63,11 @@ For an asynchronous reviewer (~15 minutes):
 
 1. [`docs/overview.md`](docs/overview.md) — project brief, review path, demo shape, and decision-record pointer.
 2. [`docs/evidence-map.md`](docs/evidence-map.md) — engineering claims and where to inspect the supporting artefacts.
-3. [`docs/architecture.md`](docs/architecture.md) — principles-first architecture reference: domain language, boundaries, runtime flow, contracts, testing, operations, and deferrals.
-4. [`docs/governance-guardrails.md`](docs/governance-guardrails.md) — enterprise governance posture and control matrix.
-5. [`docs/runbook.md`](docs/runbook.md) — concrete local commands and cross-surface correlation recipe.
-6. [`adrs/`](adrs/) — accepted Phase 1 architectural decision record.
+3. [`docs/governance-evidence.md`](docs/governance-evidence.md) — packaged Phase 1B failure and authority evidence.
+4. [`docs/architecture.md`](docs/architecture.md) — principles-first architecture reference: domain language, boundaries, runtime flow, contracts, testing, operations, and deferrals.
+5. [`docs/governance-guardrails.md`](docs/governance-guardrails.md) — enterprise governance posture and control matrix.
+6. [`docs/runbook.md`](docs/runbook.md) — concrete local commands and cross-surface correlation recipe.
+7. [`adrs/`](adrs/) — accepted Phase 1 architectural decision record.
 
 ## Stack
 
@@ -82,9 +83,9 @@ Temporal (Python SDK) for durable orchestration. Python + FastAPI + PydanticAI a
 
 ## Demo
 
-Phase 1A's demo trigger is real SMTP intake via Mailpit. A real email addressed to `leads@chorus.local` is sent to Mailpit's local SMTP port `1025`; the Mailpit poll activity reads messages through the HTTP API, deduplicates by Message-ID using a stable Message-ID-derived Temporal workflow ID, and starts a Lighthouse workflow per new lead. Run `just up`, `just db-migrate`, `just schemas-register`, then use `just demo`, `just intake-once`, `just relay-once`, and `just project-once` to trigger and project the run. Inspect the BFF/UI, Temporal, Redpanda, Grafana, decision trail, and tool audit by `correlation_id`, then run `just eval`. See [ADR 0008](adrs/0008-email-intake-via-mailpit.md) and [`docs/demo-script.md`](docs/demo-script.md).
+The demo trigger is real SMTP intake via Mailpit. A real email addressed to `leads@chorus.local` is sent to Mailpit's local SMTP port `1025`; the Mailpit poll activity reads messages through the HTTP API, deduplicates by Message-ID using a stable Message-ID-derived Temporal workflow ID, and starts a Lighthouse workflow per new lead. Run `just up`, `just db-migrate`, `just schemas-register`, then use `just demo`, `just intake-once`, `just relay-once`, and `just project-once` to trigger and project the run. Inspect the BFF/UI, Temporal, Redpanda, Grafana, decision trail, and tool audit by `correlation_id`, then run `just eval`. See [ADR 0008](adrs/0008-email-intake-via-mailpit.md), [`docs/demo-script.md`](docs/demo-script.md), and [`docs/governance-evidence.md`](docs/governance-evidence.md).
 
-`just eval` always runs the deterministic Phase 1A happy-path fixture. To assert a live run's persisted Postgres evidence as well, pass the workflow join key after the relay/projection path has processed events:
+`just eval` runs the deterministic happy-path fixture and all Phase 1B governance/failure fixtures. To assert a live demo run's persisted Postgres evidence as well, pass the workflow join key after the relay/projection path has processed events; the live assertion is applied to the default happy-path fixture while the governance fixtures remain deterministic unless selected explicitly:
 
 ```zsh
 CHORUS_EVAL_CORRELATION_ID=<correlation-id> just eval

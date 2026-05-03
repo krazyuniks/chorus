@@ -71,16 +71,21 @@ For live persisted evidence assertions:
 CHORUS_EVAL_CORRELATION_ID=<correlation-id> just eval
 ```
 
+This default live assertion is for the happy-path demo run. Use
+`uv run python -m chorus.eval.run --fixture chorus/eval/fixtures/<fixture>.json`
+when asserting a live governance/failure fixture.
+
 ## Evidence To Point At
 
 - **State owner:** Temporal workflow history and `chorus/workflows/lighthouse.py`.
 - **Authority owner:** Tool Gateway verdict and `tool_action_audit`, not agent prompt text.
 - **Runtime governance:** registry, routing, grant tables, and decision-trail rows.
 - **Projection path:** outbox row -> Redpanda event -> `workflow_read_models`/`workflow_history_events`.
-- **Release check:** `chorus/eval/fixtures/lighthouse_happy_path.json` through `just eval`.
+- **Release check:** `chorus/eval/fixtures/*.json` through `just eval`.
 
-No screenshots or screencast stills are part of this pass. Capture them after
-Wave A of Phase 1B stabilises the UI state names and review surfaces.
+Screenshot or screencast stills are optional packaging artefacts. The canonical
+review path is this script plus [`evidence-map.md`](evidence-map.md) and
+[`governance-evidence.md`](governance-evidence.md).
 
 ## Phase 1B Failure Fixtures
 
@@ -88,15 +93,17 @@ Wave A of Phase 1B stabilises the UI state names and review surfaces.
 - Validator rejects a draft and loops back with structured reason.
 - Local connector failure triggers retry then compensation or escalation.
 - Forbidden write is blocked or downgraded to proposal mode.
+- Retry exhaustion records terminal DLQ evidence and escalates.
 
-These are Phase 1B fixtures, not Phase 1A demo claims. In Phase 1A, focused
-Tool Gateway tests already cover block, approval-required, and downgrade
-verdicts; the live 3-minute path shows the happy-path proposal verdict.
+These fixtures are shipped Phase 1B evidence. The live 3-minute path still
+leads with the happy-path proposal verdict because it is the shortest way to
+show the full runtime topology; [`governance-evidence.md`](governance-evidence.md)
+packages the follow-up failure-fixture inspection.
 
 ## Fallback for Screencast Recording
 
 If a live local service is slow, use `just eval` to show the deterministic
-Phase 1A fixture and say plainly that the live evidence inspection requires
+fixture set and say plainly that the live evidence inspection requires
 Postgres, Mailpit, Temporal worker, Redpanda relay/projection, and the BFF/UI
 stack to be running. The evidence point is repeatability: workflow events,
 decision records, gateway audit, budgets, latency, and correlation IDs must

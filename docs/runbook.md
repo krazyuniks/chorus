@@ -54,8 +54,8 @@ operations to keep environment handling consistent.
 | `just test-frontend` / `just test-e2e` | Frontend gates. |
 | `just lint` / `just fmt` | Linters and formatters across Python and frontend. |
 | `just hooks` | Run every prek hook against the whole tree. |
-| `just demo` | Send the fixture lead via Mailpit (Phase 1A). |
-| `just eval` | Run the Phase 1A happy-path eval fixture; inspect live Postgres evidence when a workflow/correlation ID is supplied. |
+| `just demo` | Send the fixture lead via Mailpit. |
+| `just eval` | Run the happy-path and Phase 1B governance/failure eval fixtures; inspect live Postgres evidence when a workflow/correlation ID is supplied. |
 
 ## Local endpoints
 
@@ -137,6 +137,10 @@ starts one Lighthouse workflow using a stable `lighthouse-<sha256>` workflow ID.
 If a workflow with that Message-ID-derived ID already exists, the poll result
 records it as a duplicate rather than starting another run.
 
+When repeatedly rehearsing against a persistent Mailpit volume, use a fixture
+with a fresh `Message-ID` or reset local Mailpit state before expecting a new
+workflow from the same fixture.
+
 The workflow emits `WorkflowEvent` payloads through
 `lighthouse.record_workflow_event`; that activity calls
 `ProjectionStore.record_workflow_event()`. The activity stamps the active span
@@ -183,12 +187,15 @@ Capture the workflow's `correlation_id` from the BFF/UI or SQL, then inspect:
 - Grafana dashboards by pasting the same `correlation_id` into `$correlation`.
 - Postgres `decision_trail_entries` and `tool_action_audit` by correlation ID.
 
-To make `just eval` assert the persisted live evidence as well as the
-deterministic fixture, rerun it with the join key:
+To make `just eval` assert persisted live happy-path evidence as well as the
+deterministic fixture set, rerun it with the join key:
 
 ```bash
 CHORUS_EVAL_CORRELATION_ID=<correlation-id> just eval
 ```
+
+For a live governance/failure run, target the matching fixture explicitly with
+`uv run python -m chorus.eval.run --fixture chorus/eval/fixtures/<fixture>.json`.
 
 Set `CHORUS_EVAL_REQUIRE_LIVE=1` when the live substrate is expected to be
 available and missing persisted evidence should fail the gate. Full live

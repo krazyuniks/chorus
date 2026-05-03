@@ -21,7 +21,7 @@ Phase 1 builds one evidence-grade vertical slice for Lighthouse, including the h
 | 0. Foundation | Docs, ADRs, architecture/governance artefacts, local dev contract, contracts, and service layout exist. | done | README explains run/review path; architecture, guardrails, evidence map, and ADRs are linked. |
 | 1A. Lighthouse happy-path slice | Send fixture lead email through Mailpit, run Temporal workflow, invoke governed agents, mediate at least one tool action, project state, stream progress, and show audit trail. | done | A reviewer can run one command, send the fixture lead to Mailpit SMTP, see workflow state advance through the BFF/UI, inspect Temporal/Redpanda/Grafana/audit by correlation ID, and run the happy-path eval. |
 | 1B. Governance and failure evidence | Add blocked write, low-confidence research, validator rejection, connector failure, retry/exhaustion, and escalation paths. | done | Failure fixtures produce expected workflow branches, audit verdicts, DLQ or escalation records, and passing trace/eval checks. |
-| 1C. Review packaging | Tighten README, screenshots or screencast notes, demo script, architecture links, governance evidence, and project-facing summary. | open | Asynchronous reviewers can answer the evidence-map questions in under 15 minutes; guided demo fits 3 minutes without opening an editor. |
+| 1C. Review packaging | Tighten README, screenshots or screencast notes, demo script, architecture links, governance evidence, and project-facing summary. | done | Asynchronous reviewers can answer the evidence-map questions in under 15 minutes; guided demo fits 3 minutes without opening an editor. |
 
 ## Definition of Delivered
 
@@ -112,12 +112,12 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
 
 10. **(Phase 1A) Observability and assurance** — *delivered (Workstream F plus eval closeout)*
     - Add OpenTelemetry traces/logs/metrics, Grafana dashboard, and happy-path eval fixtures.
-    - Current state: Workstream F provides the local observability substrate and cross-surface correlation recipe. `just eval` runs the Phase 1A Lighthouse happy-path fixture, validates contract-shaped workflow/agent/tool evidence, and optionally inspects persisted Postgres evidence for a supplied workflow/correlation ID.
+    - Current state: Workstream F provides the local observability substrate and cross-surface correlation recipe. `just eval` runs the Lighthouse happy-path and Phase 1B governance/failure fixtures, validates contract-shaped workflow/agent/tool evidence, and optionally inspects persisted Postgres evidence for a supplied workflow/correlation ID.
     - Exit check: Temporal, Redpanda, Grafana, UI, and audit views can be correlated from one workflow ID; happy-path eval passes.
 
 11. **(Phase 1A) Phase 1A documentation pass** — *delivered (Phase 1A closeout)*
     - Update README, overview, architecture, governance guardrails, runbook, demo script, and evidence map to reflect the implemented slice.
-    - Current state: documentation names the implemented Phase 1A happy path, marks Phase 1B governance/failure fixtures as open, and makes the 3-minute Mailpit → Temporal → Redpanda/projection → BFF/UI/Grafana/audit → eval review path explicit.
+    - Current state: documentation names the implemented Phase 1A happy path and makes the 3-minute Mailpit → Temporal → Redpanda/projection → BFF/UI/Grafana/audit → eval review path explicit. Later Phase 1C packaging updates the same docs to include completed Phase 1B governance/failure evidence.
     - Exit check: docs describe the current code and no deferred feature is presented as implemented.
 
 12. **(Phase 1C) Architecture artefact packaging — final pass**
@@ -144,6 +144,10 @@ schema changes — they extend behaviour and seeded policy/audit.
 
 ### Phase 1B Parallelisation Map
 
+This section is retained as delivery history. Phase 1B is complete; the
+current reviewer-facing package is [`governance-evidence.md`](governance-evidence.md)
+plus the completion ledger below.
+
 The merge-conflict pinch is `chorus/workflows/lighthouse.py`. Each fixture
 edits one branch zone in that file; concurrent sessions are safe when their
 zones do not overlap. The agent runtime and tool gateway modules are the
@@ -158,7 +162,7 @@ secondary collision points.
 | G-05 | agent-runtime retry exhaustion catch + activity-owned DLQ marker | `chorus/workflows/activities.py` (DLQ marker), `chorus/persistence/outbox.py` (DLQ shape) | Everything — structural |
 | G-06 | none (additive files) | `chorus/eval/fixtures/<name>.json`, `tests/workflows/fixtures/<name>_history.json` | Per-fixture, no cross-collision |
 
-Recommended sequencing once the in-flight 1B fixture lands cleanly:
+Historical sequencing used while the fixtures were landing:
 
 1. **Wave A (parallel, 2–3 sessions).** Pick fixtures whose zones do not
    overlap with the in-flight one. If G-01 is in-flight, run **G-02** and
@@ -174,42 +178,25 @@ Recommended sequencing once the in-flight 1B fixture lands cleanly:
 4. **Continuous (G-06).** Each fixture session lands its own eval/replay
    artefacts in step 3 of its branch — they are file-disjoint by design.
 
-### Phase 1B → 1C overlap
+### Phase 1C Packaging Ledger
 
-Phase 1C work is unblocked once the demo path is *stable*, not once every
-1B fixture has landed. The Phase 1A happy path is already demo-stable, so
-Phase 1C streams that depend only on the happy path can start the moment
-the first 1B fixture validates without breaking the happy-path replay
-test. Concretely:
+Phase 1C packages the implemented Phase 1A and Phase 1B evidence for
+asynchronous review:
 
 - **C-01 (Phase 1C).** Final pass on `docs/evidence-map.md` to cross-link
-  every Phase 1A row to landed evidence. Unblocked now; can start in
-  parallel with Wave A. Status: done for Phase 1A happy-path evidence links
-  in the `phase-1c/review-packaging` pass.
+  every row to landed evidence. Status: done.
 - **C-02 (Phase 1C).** README narrative tighten + first-time-reviewer
-  checklist. Unblocked now. Status: done in the `phase-1c/review-packaging`
-  pass.
+  checklist. Status: done.
 - **C-03 (Phase 1C).** `docs/demo-script.md` walkthrough of the happy
   path with screenshots/screencast notes (Mailpit → Temporal → BFF →
-  Grafana → audit by correlation ID). Unblocked now; defer screenshots
-  until Wave A merges so the UI is stable. Status: happy-path narrative
-  done without screenshots; screenshot/screencast artefacts remain deferred.
+  Grafana → audit by correlation ID). Status: done with script-based capture
+  notes; screenshot/screencast stills are optional packaging artefacts.
 - **C-04 (Phase 1C).** Governance-evidence narrative — block, retry,
-  validator-rejection, deeper-research stories. G-01 through G-05 evidence is
-  available; C-04 remains an open Phase 1C packaging task, not a Phase 1B
-  implementation blocker.
+  validator-rejection, deeper-research stories. Status: done in
+  [`docs/governance-evidence.md`](governance-evidence.md), which packages
+  G-01 through G-05 by review question, trigger, durable evidence, and gate.
 - **C-05 (Phase 1C).** Project-facing summary in README and overview.
-  Unblocked now. Status: done in the `phase-1c/review-packaging` pass.
-
-C-01/C-02/C-03/C-05 are editorial-voice work and should land through one
-session to keep framing consistent. Run them sequentially in a single
-1C session running alongside the parallel 1B sessions.
-
-Worktree convention for parallel 1B sessions:
-`~/Work/chorus-worktrees/phase-1b-<fixture>/` with branch
-`phase-1b/<fixture>` (e.g. `phase-1b/g-02-validator-redraft`). Each
-session merges into `main` after `just doctor`, `just test`,
-`just test-replay`, and the new eval fixture pass.
+  Status: done.
 
 ### Phase 1B Completion Ledger
 
@@ -323,7 +310,7 @@ could not run is recorded in the handoff.
 |---|---|---|---|---|---|
 | Z-01 | Happy-path eval fixture asserts path, outcome, events, decision trail, tool verdict/audit, cost, latency, and correlation ID | `chorus/eval/run.py`; `chorus/eval/fixtures/lighthouse_happy_path.json`; `tests/eval/test_run.py` | `just eval`; focused eval tests | done | Default run is deterministic and contract-shaped; `CHORUS_EVAL_CORRELATION_ID` or `CHORUS_EVAL_WORKFLOW_ID` adds persisted Postgres evidence checks. |
 | Z-02 | Live eval requirements documented without requiring unavailable substrate | `docs/runbook.md`; `README.md`; `docs/architecture.md` | doc review; `just eval` | done | Full live evidence requires a Mailpit-triggered workflow, Postgres evidence, relay/projection, decision trail, and tool audit rows. |
-| Z-03 | Phase 1A docs match implemented slice and do not present Phase 1B fixtures as shipped | `README.md`; `docs/overview.md`; `docs/architecture.md`; `docs/governance-guardrails.md`; `docs/evidence-map.md`; `docs/runbook.md`; `docs/demo-script.md` | doc review | done | 3-minute review path is explicit. |
+| Z-03 | Phase 1A closeout docs match the implemented happy-path slice | `README.md`; `docs/overview.md`; `docs/architecture.md`; `docs/governance-guardrails.md`; `docs/evidence-map.md`; `docs/runbook.md`; `docs/demo-script.md` | doc review | done | Superseded by the Phase 1C packaging pass for shipped Phase 1B governance/failure evidence. |
 
 ### Workstream F status
 

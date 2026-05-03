@@ -30,7 +30,7 @@ The first running example shipped inside the repo is **Lighthouse**: an inbound-
 
 ## What the demo proves
 
-The Phase 1A demo is a trace-first vertical slice, not a broad platform showcase. A real email sent to `leads@chorus.local` through Mailpit starts a durable Lighthouse workflow. From there, a reviewer can inspect:
+The demo is a trace-first vertical slice, not a broad platform showcase. A real email sent to `leads@chorus.local` through Mailpit starts a durable Lighthouse workflow. From there, a reviewer can inspect:
 
 1. **Workflow durability** - Temporal owns the long-running state machine, retries, replay, timeouts, and visible failure branches.
 2. **Governed agent execution** - the agent runtime resolves agent version, prompt, model route, tenant policy, and tool grants before each invocation.
@@ -38,23 +38,24 @@ The Phase 1A demo is a trace-first vertical slice, not a broad platform showcase
 4. **Decision provenance** - every agent step records input summary, prompt hash, model, tool calls, output, justification, cost, duration, and correlation ID.
 5. **Event visibility** - Redpanda carries schema-governed domain events and live progress updates; Redpanda Console shows the stream.
 6. **Operational visibility** - Grafana shows traces, workflow timings, gateway verdicts, projection lag, and agent decisions by correlation ID.
-7. **Evaluation discipline** - the Phase 1A happy-path fixture checks the expected path, final outcome, workflow events, decision-trail completeness, tool verdict evidence, budget, latency, and correlation IDs.
+7. **Evaluation discipline** - the happy-path fixture checks the expected path, final outcome, workflow events, decision-trail completeness, tool verdict evidence, budget, latency, and correlation IDs.
 
-Phase 1B adds the governance and failure fixtures: low-confidence research, validator rejection, connector failure, retry exhaustion with DLQ evidence, escalation, and forbidden-write downgrade/block checks. Those paths are implemented as evidence fixtures on top of the Phase 1A happy path.
+Phase 1B added the governance and failure fixtures: low-confidence research, validator rejection, connector failure, retry exhaustion with DLQ evidence, escalation, and forbidden-write downgrade/block checks. Those paths are implemented as evidence fixtures on top of the Phase 1A happy path.
 
 The 3-minute walkthrough should be possible without opening an editor. The repo must also stand up to asynchronous technical inspection: [`evidence-map.md`](evidence-map.md) links each claim to the supporting code, contracts, tests, docs, dashboards, or ADRs.
 
 The repo is also an architecture package. A reviewer should be able to inspect `architecture.md`, `governance-guardrails.md`, the ADRs, and the evidence map and see how the Lighthouse implementation maps to enterprise adoption controls.
 
-## How to review Phase 1A
+## How to review Phase 1
 
 Start with the README first-time reviewer checklist for commands. For the evidence narrative, use this order:
 
 1. `overview.md` for the scope and the Phase 1A/1B boundary.
 2. `evidence-map.md` for the claim-to-artefact map.
 3. `demo-script.md` for the three-minute Mailpit -> Temporal -> BFF/UI -> Grafana -> audit -> eval walkthrough.
-4. `runbook.md` for exact local operations and cross-surface correlation queries.
-5. `architecture.md`, `governance-guardrails.md`, and the ADRs for the design rationale.
+4. `governance-evidence.md` for the Phase 1B failure and authority fixture package.
+5. `runbook.md` for exact local operations and cross-surface correlation queries.
+6. `architecture.md`, `governance-guardrails.md`, and the ADRs for the design rationale.
 
 ## Decision record
 
@@ -69,7 +70,7 @@ The architecture document should reflect accepted decisions, but the ADRs remain
 - Mutating admin features stay out of the UI; registry, routing, grants, and audit are read-only there.
 - Connector integrations run real software in sandbox/local mode: Mailpit for email, public APIs for research where suitable, and a Postgres-backed local CRM service.
 - Governance, guardrail, architecture, and evidence documentation are first-class Phase 1 deliverables.
-- Screenshots and screencast packaging are deferred until the UI stabilises after the first Phase 1B fixture wave; the current review path is command- and evidence-map-led.
+- Screenshot or screencast packaging remains optional in Phase 1C; the current review path is command-, evidence-map-, and governance-evidence-led.
 
 ## What Chorus is not
 

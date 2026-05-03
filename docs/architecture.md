@@ -585,19 +585,24 @@ Fixture expectations include:
 - retry, DLQ, compensation, or escalation behaviour for failure cases.
 
 Phase 1A includes the happy-path eval. Phase 1B extends coverage to governance
-and failure fixtures.
+and failure fixtures: low-confidence research, validator redraft, forbidden
+write, connector failure compensation, and retry-exhaustion DLQ escalation.
 
-The Phase 1A harness is implemented by `just eval`. It always runs the
-contract-shaped Lighthouse happy-path fixture under `chorus/eval/fixtures/`
-and asserts the expected workflow path, proposal outcome, required workflow
-events, Agent Runtime decision-trail completeness, Tool Gateway verdict/audit
-evidence, budget, latency, and correlation ID propagation. When a reviewer
-passes `CHORUS_EVAL_CORRELATION_ID` or `CHORUS_EVAL_WORKFLOW_ID`, the same
-harness also inspects persisted Postgres evidence from `workflow_read_models`,
-`workflow_history_events`, `outbox_events`, `decision_trail_entries`, and
-`tool_action_audit`. Redpanda, Temporal, Mailpit, and Grafana remain live
-review surfaces for the 3-minute path; the deterministic eval portion keeps CI
-and offline review from depending on an already-running local stack.
+The harness is implemented by `just eval`. It runs the contract-shaped
+Lighthouse happy-path fixture and the Phase 1B governance/failure fixtures
+under `chorus/eval/fixtures/`, then asserts the expected workflow path,
+proposal or escalation outcome, required workflow events, Agent Runtime
+decision-trail completeness, Tool Gateway verdict/audit evidence, budget,
+latency, DLQ/compensation evidence where applicable, and correlation ID
+propagation. When a reviewer passes `CHORUS_EVAL_CORRELATION_ID` or
+`CHORUS_EVAL_WORKFLOW_ID` on the default `just eval` path, the harness also
+inspects persisted Postgres evidence for the live happy-path workflow from
+`workflow_read_models`, `workflow_history_events`, `outbox_events`,
+`decision_trail_entries`, and `tool_action_audit`. Live governance/failure
+checks can be targeted with `uv run python -m chorus.eval.run --fixture ...`.
+Redpanda, Temporal, Mailpit, and Grafana remain live review surfaces for the
+3-minute path; the deterministic eval portion keeps CI and offline review from
+depending on an already-running local stack.
 
 ## Governance Runtime Controls
 
@@ -639,14 +644,14 @@ cloud network controls are deferred.
 
 | Failure | Phase 1 handling |
 |---|---|
-| Activity failure | Temporal retry policy in Phase 1A; compensation/escalation fixtures are Phase 1B. |
+| Activity failure | Temporal retry policy plus Phase 1B compensation/escalation fixtures. |
 | Connector failure | Gateway/connector error classification plus Phase 1B G-04 compensation/escalation fixture. |
 | Retry exhaustion | Phase 1B G-05 records a terminal `dlq` outbox marker plus `workflow.retry_exhausted.dlq_recorded` audit evidence before escalation. |
-| Provider failure | Runtime fallback/degradation policy is captured in routing policy; provider-failure fixtures are Phase 1B. |
+| Provider failure | Runtime fallback/degradation policy is captured in routing policy; commercial provider-failure fixtures are deferred until provider adapters are active. |
 | Low-confidence research | Phase 1B deeper-research branch fixture. |
 | Validator rejection | Phase 1B return-to-draft fixture with structured reason. |
-| Forbidden write | Gateway block, approval-required, and write-to-propose behaviour are covered in gateway tests; end-to-end workflow fixture is Phase 1B. |
-| Projection failure | Redpanda consumer retry path; DLQ/escalation projection evidence is Phase 1B. |
+| Forbidden write | Gateway block, approval-required, write-to-propose behaviour, and the Phase 1B forbidden-write workflow fixture. |
+| Projection failure | Redpanda consumer retry path; projection-specific DLQ/escalation evidence is deferred until projection-worker failure drills are in scope. |
 | Duplicate intake email | Message-ID dedupe before workflow start. |
 
 Failure branches are part of the evidence. They must appear in workflow history,
@@ -662,7 +667,7 @@ audit records, eval assertions, and reviewer-facing surfaces.
 | Integration tests | Exercise real Postgres, Redpanda, Temporal, Mailpit, and service boundaries. | No mocks for infrastructure behaviour. |
 | E2E tests | Exercise Lighthouse flow through UI/BFF/runtime surfaces. | Playwright happy path and failure views. |
 | Tenant tests | Prove tenant isolation fails closed. | RLS and policy tests with two seeded tenants. |
-| Trace/eval tests | Assert business path, governance invariants, cost, latency, and audit completeness. | `just eval` happy-path fixture in Phase 1A; Phase 1B failure fixtures remain open. |
+| Trace/eval tests | Assert business path, governance invariants, cost, latency, and audit completeness. | `just eval` runs the happy-path fixture plus Phase 1B governance/failure fixtures. |
 
 The no-mocks rule applies to infrastructure and connector behaviour that the
 architecture is trying to prove. Lightweight pure-function tests remain useful
@@ -682,7 +687,7 @@ Local operation is part of the evidence surface.
 | `just doctor` | Phase 0 scaffold checks. Phase 1A extends this to service health, migrations, schema registration, seeded tenants, and sample workflow readiness. |
 | `just test-persistence` | Run Postgres persistence, outbox, Redpanda relay/projection, RLS, and fail-closed tenant-isolation tests. |
 | `just demo` | Send the fixture lead through Mailpit SMTP and observe workflow execution. |
-| `just eval` | Run the Phase 1A happy-path fixture; optionally inspect a live run when `CHORUS_EVAL_CORRELATION_ID` or `CHORUS_EVAL_WORKFLOW_ID` is set. |
+| `just eval` | Run the happy-path and Phase 1B governance/failure fixtures; optionally inspect a live run when `CHORUS_EVAL_CORRELATION_ID` or `CHORUS_EVAL_WORKFLOW_ID` is set. |
 | Temporal Console | Inspect workflow execution. |
 | Redpanda Console | Inspect events and schemas. |
 | Mailpit UI/API | Inspect inbound and outbound email. |
@@ -705,7 +710,7 @@ Out of scope for Phase 1:
 - full mutating admin UI;
 - production writes to closed third-party platforms;
 - complete provider-management platform;
-- polished screencast before the working slice is stable.
+- production-grade screencast package.
 
 These deferrals are design constraints, not omissions. Phase 1 is meant to prove
 the core governance and runtime boundaries clearly enough that later production

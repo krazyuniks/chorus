@@ -1,9 +1,9 @@
 /**
- * In-memory fixture data used by the Phase 1 placeholder routes.
+ * In-memory fixture data used by optional Phase 1 UI fixture mode.
  *
  * These are deterministic, typed shapes that exercise the table/timeline
- * layouts without requiring the BFF to be running. Replace with real query
- * functions (apiGet) once the matching read endpoints land.
+ * layouts without requiring the BFF to be running. Runtime review uses the
+ * BFF-backed query functions unless VITE_USE_FIXTURES is explicitly set.
  */
 import type {
   DecisionTrailEntry,

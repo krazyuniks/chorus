@@ -140,10 +140,9 @@ test-e2e:
 
 # ----- Eval -----
 
-# Run trace/eval fixtures. Phase 1A adds happy path; Phase 1B adds governance fixtures.
+# Run trace/eval fixtures: happy path plus Phase 1B governance/failure fixtures.
 eval:
     uv run python -m chorus.eval.run
-    uv run python -m chorus.eval.run --fixture chorus/eval/fixtures/lighthouse_forbidden_write.json
 
 # ----- Lint / format -----
 

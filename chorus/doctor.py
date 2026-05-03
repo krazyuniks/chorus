@@ -1,4 +1,4 @@
-"""Phase 0 + Phase 1A readiness checks for the Chorus local runtime contract.
+"""Phase 1 readiness checks for the Chorus local runtime contract.
 
 Doctor is the single command a reviewer or contributor runs to verify the
 project layout and the local stack are ready for the Lighthouse slice.
@@ -574,7 +574,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     failures = 0
-    print("Chorus doctor - Phase 0 scaffold + Phase 1A readiness")
+    print("Chorus doctor - Phase 1 runtime and evidence readiness")
 
     failures += check_paths()
     failures += check_executables()
@@ -600,8 +600,8 @@ def main(argv: list[str] | None = None) -> int:
         print("\nQuick checks passed. Run 'just doctor' (without --quick) to probe the live stack.")
     else:
         print(
-            "\nAll checks passed. Skipped probes mark workstreams whose runtime "
-            "contracts have not yet landed; rerun once 'just up' has those services."
+            "\nAll checks passed. Skipped probes mark runtime surfaces that are not "
+            "currently reachable; rerun after 'just up' when live evidence is required."
         )
     return 0
 
