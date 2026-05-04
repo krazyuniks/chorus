@@ -386,6 +386,12 @@ production provider credentials. Commercial provider SDK adapters remain behind
 the same boundary and are deferred until provider credentials and eval
 promotion policy are introduced.
 
+Phase 2A adds Postgres-backed provider catalogue and immutable route-version
+tables as governance evidence. They mirror the existing Phase 1 local routes
+and disabled commercial-provider placeholder, but the Agent Runtime still reads
+`model_routing_policies` for the Lighthouse happy path until the later adapter
+and runtime-routing ledger items are implemented.
+
 Provider/model changes require eval impact review because they can alter
 workflow behaviour without code changes.
 
@@ -455,7 +461,7 @@ JSON Schema is canonical for cross-boundary contracts:
 | Tool calls/verdicts | `contracts/tools/` -> generated Pydantic | Gateway validation and audit. |
 | Audit records | `contracts/events/` and Postgres schema | Review, eval, and traceability. |
 | Eval fixtures | `contracts/eval/` | Regression checks for path, outcome, governance, cost, and latency. |
-| Provider catalogue and route versions | `contracts/governance/` -> generated Pydantic | Phase 2 provider/model governance, route-version evidence, fallback policy, and promotion metadata. |
+| Provider catalogue and route versions | `contracts/governance/` -> generated Pydantic; `provider_catalogues`, `provider_catalogue_providers`, `provider_catalogue_models`, `model_route_versions` | Phase 2 provider/model governance, route-version evidence, fallback policy, and promotion metadata. |
 
 Generated Pydantic models are committed under `chorus/contracts/generated/`.
 `just contracts-gen` regenerates them and `just contracts-check` validates

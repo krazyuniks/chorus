@@ -113,7 +113,7 @@ approval belongs in 2B.
 | ID | Required item | Evidence artefact | Gate | Status | Notes |
 |---|---|---|---|---|---|
 | 2A-01 | Provider catalogue and route-version contract | `contracts/governance/`; generated models; samples; `tests/test_contracts.py` | `just contracts-check` | complete | Provider catalogue and immutable route-version schemas represent the local default path and disabled commercial-provider placeholders without enabling provider adapters or mutating admin. Evidence: `just contracts-check`, `just test`, `just test-replay`, `just lint` on 2026-05-03. |
-| 2A-02 | Postgres route-version and provider catalogue migration | `infrastructure/postgres/migrations/`; seeds | `just test-persistence` | open | Preserve current Phase 1 route seeds. |
+| 2A-02 | Postgres route-version and provider catalogue migration | `infrastructure/postgres/migrations/`; seeds; `chorus/persistence/projection.py`; `tests/persistence/test_postgres_foundation.py` | `just test-persistence` | complete | Postgres now stores the Phase 2A provider catalogue, disabled commercial-provider placeholder, and immutable route-version rows mirrored from the current Phase 1 local route seeds without changing Lighthouse runtime lookup. Evidence: `just test-persistence`, `just contracts-check`, `just test`, `just lint` on 2026-05-04. |
 | 2A-03 | Model adapter interface behind Agent Runtime | `chorus/agent_runtime/` | `just test` | open | Workflow activity contract should remain stable. |
 | 2A-04 | Disabled-by-default commercial provider adapter | `chorus/agent_runtime/` | focused tests; `just eval` | open | Must run without credentials by falling back or reporting disabled state. |
 | 2A-05 | Provider failure and fallback fixture | eval/replay fixture where workflow behaviour changes | `just test-replay`; `just eval` | open | Fixture should prove provider failure is visible, not swallowed. |
@@ -131,8 +131,16 @@ approval belongs in 2B.
   without implying an active adapter.
 - 2026-05-03: Gates passed for `2A-01`: `just contracts-gen`,
   `just contracts-check`, `just test`, `just test-replay`, and `just lint`.
-- Next ledger item: `2A-02` Postgres route-version and provider catalogue
-  migration.
+- 2026-05-04: `2A-02` added Postgres provider-governance tables:
+  `provider_catalogues`, `provider_catalogue_providers`,
+  `provider_catalogue_models`, and tenant-scoped immutable
+  `model_route_versions`. The seed mirrors existing `model_routing_policies`
+  rows for `local/lighthouse-happy-path-v1` into route version `1`, preserves
+  the Phase 1 runtime lookup table unchanged, and keeps the commercial provider
+  placeholder disabled with no adapter path.
+- 2026-05-04: Gates passed for `2A-02`: `just test-persistence`,
+  `just contracts-check`, `just test`, and `just lint`.
+- Next ledger item: `2A-03` Model adapter interface behind Agent Runtime.
 
 ## Handoff Cadence
 

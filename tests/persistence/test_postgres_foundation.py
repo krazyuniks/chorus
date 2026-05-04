@@ -112,7 +112,8 @@ def test_migration_applies_schema_and_demo_seed_data(migrated_database_url: str)
                 'decision_trail_entries',
                 'tool_action_audit',
                 'workflow_history_events',
-                'outbox_events'
+                'outbox_events',
+                'model_route_versions'
               )
             ORDER BY relname
             """
@@ -120,8 +121,12 @@ def test_migration_applies_schema_and_demo_seed_data(migrated_database_url: str)
 
     assert tenants == [("tenant_demo",), ("tenant_demo_alt",)]
     assert ("outbox_events",) in tables
+    assert ("provider_catalogues",) in tables
+    assert ("provider_catalogue_providers",) in tables
+    assert ("provider_catalogue_models",) in tables
+    assert ("model_route_versions",) in tables
     assert ("workflow_read_models",) in tables
-    assert len(rls_enabled) == 9
+    assert len(rls_enabled) == 10
 
 
 def test_migrations_and_seeds_are_idempotent(migrated_database_url: str) -> None:
@@ -134,10 +139,103 @@ def test_migrations_and_seeds_are_idempotent(migrated_database_url: str) -> None
             "SELECT count(*) FROM agent_registry WHERE metadata ->> 'seed' = 'true'"
         ).fetchone()
 
-    assert first == ["001_demo_tenants.sql"]
-    assert second == ["001_demo_tenants.sql"]
+    assert first == ["001_demo_tenants.sql", "002_provider_governance.sql"]
+    assert second == ["001_demo_tenants.sql", "002_provider_governance.sql"]
     assert tenant_count == (2,)
     assert seed_agents == (8,)
+
+
+def test_provider_governance_seed_preserves_phase_1_routes(
+    migrated_database_url: str,
+) -> None:
+    with psycopg.connect(migrated_database_url) as conn:
+        providers = conn.execute(
+            """
+            SELECT provider_id, lifecycle_state, credential_required
+            FROM provider_catalogue_providers
+            ORDER BY provider_id
+            """
+        ).fetchall()
+        models = conn.execute(
+            """
+            SELECT provider_id, model_id, lifecycle_state
+            FROM provider_catalogue_models
+            ORDER BY provider_id, model_id
+            """
+        ).fetchall()
+        route_alignment = conn.execute(
+            """
+            SELECT
+                policy.tenant_id,
+                policy.agent_role,
+                policy.task_kind,
+                policy.provider,
+                policy.model,
+                version.route_version,
+                version.provider_catalogue_id,
+                version.max_latency_ms
+            FROM model_routing_policies AS policy
+            JOIN model_route_versions AS version
+              ON version.route_id = policy.policy_id
+             AND version.tenant_id = policy.tenant_id
+             AND version.agent_role = policy.agent_role
+             AND version.task_kind = policy.task_kind
+             AND version.tenant_tier = policy.tenant_tier
+            ORDER BY policy.tenant_id, policy.agent_role, policy.task_kind
+            """
+        ).fetchall()
+        runtime_route_models = conn.execute(
+            """
+            SELECT DISTINCT provider, model
+            FROM model_routing_policies
+            ORDER BY provider, model
+            """
+        ).fetchall()
+        commercial_route_count = conn.execute(
+            """
+            SELECT count(*)
+            FROM model_route_versions
+            WHERE provider_id = 'commercial.example'
+            """
+        ).fetchone()
+
+    assert providers == [
+        ("commercial.example", "disabled", True),
+        ("local", "approved", False),
+    ]
+    assert models == [
+        ("commercial.example", "commercial-reasoner-v1", "disabled"),
+        ("local", "lighthouse-happy-path-v1", "approved"),
+    ]
+    assert len(route_alignment) == 8
+    assert {row[3:5] for row in route_alignment} == {("local", "lighthouse-happy-path-v1")}
+    assert {row[5] for row in route_alignment} == {1}
+    assert {row[6] for row in route_alignment} == {"provider-catalogue.phase2a.seed"}
+    assert {row[7] for row in route_alignment} == {5000}
+    assert runtime_route_models == [("local", "lighthouse-happy-path-v1")]
+    assert commercial_route_count == (0,)
+
+
+def test_model_route_versions_are_immutable(migrated_database_url: str) -> None:
+    with psycopg.connect(migrated_database_url, autocommit=True) as conn:
+        with pytest.raises(psycopg.errors.RaiseException):
+            conn.execute(
+                """
+                UPDATE model_route_versions
+                SET max_latency_ms = 6000
+                WHERE route_id = '11000000-0000-4000-8000-000000000004'
+                  AND route_version = 1
+                """
+            )
+
+        with pytest.raises(psycopg.errors.RaiseException):
+            conn.execute(
+                """
+                DELETE FROM model_route_versions
+                WHERE route_id = '11000000-0000-4000-8000-000000000004'
+                  AND route_version = 1
+                """
+            )
 
 
 def test_rls_fails_closed_without_tenant_context(migrated_database_url: str) -> None:
@@ -473,3 +571,30 @@ def test_runtime_policy_snapshot_is_tenant_scoped(migrated_database_url: str) ->
         "email.propose_response",
     }
     assert {agent.tenant_id for agent in alt_snapshot.agents} == {"tenant_demo_alt"}
+
+
+def test_provider_governance_snapshot_keeps_route_versions_tenant_scoped(
+    migrated_database_url: str,
+) -> None:
+    with psycopg.connect(migrated_database_url, autocommit=True) as conn:
+        _set_app_role(conn, "tenant_demo")
+        store = ProjectionStore(conn)
+        demo_snapshot = store.provider_governance_snapshot("tenant_demo")
+
+        store.set_tenant_context("tenant_demo_alt")
+        alt_snapshot = store.provider_governance_snapshot("tenant_demo_alt")
+
+    assert {provider.provider_id for provider in demo_snapshot.providers} == {
+        "local",
+        "commercial.example",
+    }
+    assert {model.model_id for model in demo_snapshot.provider_models} == {
+        "lighthouse-happy-path-v1",
+        "commercial-reasoner-v1",
+    }
+    assert {route.tenant_id for route in demo_snapshot.route_versions} == {"tenant_demo"}
+    assert {route.tenant_id for route in alt_snapshot.route_versions} == {"tenant_demo_alt"}
+    assert {route.model_id for route in demo_snapshot.route_versions} == {
+        "lighthouse-happy-path-v1"
+    }
+    assert {route.provider_id for route in demo_snapshot.route_versions} == {"local"}
