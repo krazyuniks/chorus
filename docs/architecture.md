@@ -83,7 +83,7 @@ agent workflows across teams, providers, and business processes.
 | Phase 1A - Happy path | Mailpit SMTP intake, Temporal Lighthouse workflow, Agent Runtime, Tool Gateway, Postgres projections, Redpanda events, UI progress, audit trail, observability, and happy-path eval. | A reviewer can send a fixture email, follow one workflow by correlation ID, and run the happy-path eval. |
 | Phase 1B - Governance/failure evidence | Blocked write, low-confidence research, validator rejection, connector failure, retry exhaustion, and escalation fixtures. | Failure fixtures produce expected branches, audit verdicts, DLQ or escalation records, and passing eval checks. |
 | Phase 1C - Review packaging | Final README, screenshots or notes, demo script, evidence map, architecture links, and governance evidence. | An asynchronous reviewer can inspect the evidence path without hidden context. |
-| Phase 2 - Governed platform expansion | Planned provider/model governance, governed runtime change control, connector expansion, second workflow proof, and production-readiness architecture pack. | Not implemented. See [`phase-2-plan.md`](phase-2-plan.md) and [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md). |
+| Phase 2 - Governed platform expansion | Planned provider/model governance, governed runtime change control, connector expansion, second workflow proof, and production-readiness architecture pack. | Provider-governance contract work has begun with `contracts/governance/`. See [`phase-2-plan.md`](phase-2-plan.md) and [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md). |
 
 ## Phase 2 Planning Boundary
 
@@ -455,6 +455,7 @@ JSON Schema is canonical for cross-boundary contracts:
 | Tool calls/verdicts | `contracts/tools/` -> generated Pydantic | Gateway validation and audit. |
 | Audit records | `contracts/events/` and Postgres schema | Review, eval, and traceability. |
 | Eval fixtures | `contracts/eval/` | Regression checks for path, outcome, governance, cost, and latency. |
+| Provider catalogue and route versions | `contracts/governance/` -> generated Pydantic | Phase 2 provider/model governance, route-version evidence, fallback policy, and promotion metadata. |
 
 Generated Pydantic models are committed under `chorus/contracts/generated/`.
 `just contracts-gen` regenerates them and `just contracts-check` validates

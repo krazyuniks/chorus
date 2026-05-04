@@ -21,8 +21,9 @@ evaluation, replay, or authority controls.
 
 ## Planning Posture
 
-Phase 2 is planned, not implemented. Phase 1 remains the stable demo baseline
-until each Phase 2 milestone has its own evidence, tests, and documentation.
+Phase 2 is planned and 2A has started with contract-only provider governance
+work. Phase 1 remains the stable demo baseline until each Phase 2 milestone has
+its own evidence, tests, and documentation.
 
 The repository is now the authoritative planning surface. Historical vault
 records under `/home/ryan/Work/vault/records/work/projects/chorus/` informed
@@ -73,7 +74,7 @@ deferred:
 
 | Phase | Milestone | Status | Exit evidence |
 |---|---|---|---|
-| 2A. Provider and model governance | Add commercial-provider adapter boundaries, model-route promotion rules, failover/degradation policy, budget telemetry, and provider-failure fixtures while retaining the local structured boundary as the default runnable path. | planned | A reviewer can inspect why a provider/model was selected, prove fallback behaviour under a provider failure fixture, and run eval coverage before and after a route change. |
+| 2A. Provider and model governance | Add commercial-provider adapter boundaries, model-route promotion rules, failover/degradation policy, budget telemetry, and provider-failure fixtures while retaining the local structured boundary as the default runnable path. | in progress | A reviewer can inspect why a provider/model was selected, prove fallback behaviour under a provider failure fixture, and run eval coverage before and after a route change. |
 | 2B. Governed runtime change control | Add audited proposal/approval/rollback flows for prompt references, model routes, budget caps, and tool grants. Keep direct database mutation out of the normal operator path. | planned | A reviewer can propose, approve, apply, inspect, and roll back a policy change with decision trail, audit events, and eval evidence. |
 | 2C. Connector expansion and approval hardening | Add one new sandbox or protocol-backed connector behind the Tool Gateway, plus stronger approval, idempotency, retry, and compensation evidence for risky writes. | planned | The connector is usable only through the gateway; approval-required and denied paths are visible in audit, workflow history, and eval fixtures. |
 | 2D. Second workflow proof | Add one adjacent business workflow that reuses Agent Runtime, Tool Gateway, contracts, projections, eval, and observability without introducing a workflow DSL. | planned | The second workflow has its own contracts, replay fixtures, eval fixtures, UI inspection path, and cross-surface correlation, while Lighthouse remains intact. |
@@ -111,7 +112,7 @@ approval belongs in 2B.
 
 | ID | Required item | Evidence artefact | Gate | Status | Notes |
 |---|---|---|---|---|---|
-| 2A-01 | Provider catalogue and route-version contract | `contracts/`; generated models; samples | `just contracts-check` | open | Keep provider metadata declarative and audit-friendly. |
+| 2A-01 | Provider catalogue and route-version contract | `contracts/governance/`; generated models; samples; `tests/test_contracts.py` | `just contracts-check` | complete | Provider catalogue and immutable route-version schemas represent the local default path and disabled commercial-provider placeholders without enabling provider adapters or mutating admin. Evidence: `just contracts-check`, `just test`, `just test-replay`, `just lint` on 2026-05-03. |
 | 2A-02 | Postgres route-version and provider catalogue migration | `infrastructure/postgres/migrations/`; seeds | `just test-persistence` | open | Preserve current Phase 1 route seeds. |
 | 2A-03 | Model adapter interface behind Agent Runtime | `chorus/agent_runtime/` | `just test` | open | Workflow activity contract should remain stable. |
 | 2A-04 | Disabled-by-default commercial provider adapter | `chorus/agent_runtime/` | focused tests; `just eval` | open | Must run without credentials by falling back or reporting disabled state. |
@@ -119,6 +120,19 @@ approval belongs in 2B.
 | 2A-06 | Decision-trail and audit evidence for route selection | persistence schema/runtime writes/UI projection | `just test`; `just test-frontend` | open | Capture route version, provider/model, fallback reason, cost, latency. |
 | 2A-07 | Read-only BFF/UI provider governance views | `chorus/bff/`; `frontend/` | `just test-frontend`; `just test-e2e` | open | Inspection only; no mutating admin yet. |
 | 2A-08 | Docs/runbook/evidence alignment | `README.md`; `docs/*`; ADRs | doc review; relevant gates | open | Do not present disabled commercial routes as implemented production use. |
+
+## Phase 2A Evidence Notes
+
+- 2026-05-03: `2A-01` added `contracts/governance/provider_catalogue.schema.json`
+  and `contracts/governance/model_route_version.schema.json`, representative
+  samples, generated Pydantic models, and contract tests. The sample catalogue
+  keeps `local/lighthouse-happy-path-v1` as the approved runnable path and uses
+  a disabled commercial placeholder to prove credential and lifecycle metadata
+  without implying an active adapter.
+- 2026-05-03: Gates passed for `2A-01`: `just contracts-gen`,
+  `just contracts-check`, `just test`, `just test-replay`, and `just lint`.
+- Next ledger item: `2A-02` Postgres route-version and provider catalogue
+  migration.
 
 ## Handoff Cadence
 

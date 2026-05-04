@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_ROOT = ROOT / "contracts"
 GENERATED_ROOT = ROOT / "chorus" / "contracts" / "generated"
-CATEGORIES = ("events", "agents", "tools", "eval")
+CATEGORIES = ("events", "agents", "tools", "eval", "governance")
 
 PACKAGE_INIT = '"""Generated Pydantic models for Chorus contract schemas."""\n'
 CATEGORY_INIT = '"""Generated Pydantic models for this contract category."""\n'

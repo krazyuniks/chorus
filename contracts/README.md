@@ -8,6 +8,7 @@ Subdirectories:
 - `agents/` — Lighthouse agent request/result envelope.
 - `tools/` — tool-call request and gateway-verdict contracts.
 - `eval/` — eval fixture expectation schema for workflow path, outcome, governance, cost, latency, and contract assertions.
+- `governance/` — provider catalogue and immutable model-route version contracts for Phase 2 provider governance.
 
 Lead intake is part of `events/` (the parsed email payload — see [ADR 0008](../adrs/0008-email-intake-via-mailpit.md) and [ADR 0006](../adrs/0006-json-schema-contracts.md)).
 

@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0.0",
+  "catalogue_id": "provider-catalogue.phase2a.seed",
+  "effective_from": "2026-05-03T00:00:00Z",
+  "providers": [
+    {
+      "provider_id": "local",
+      "display_name": "Local structured boundary",
+      "provider_kind": "local",
+      "lifecycle_state": "approved",
+      "credential_policy": {
+        "credential_required": false,
+        "secret_ref_names": [],
+        "missing_credentials_behaviour": "allow"
+      },
+      "data_boundary": {
+        "mode": "local_only",
+        "allowed_regions": [],
+        "stores_customer_content": false
+      },
+      "supported_models": [
+        {
+          "model_id": "lighthouse-happy-path-v1",
+          "display_name": "Lighthouse local structured model",
+          "lifecycle_state": "approved",
+          "supported_task_kinds": [
+            "company_research",
+            "lead_qualification",
+            "response_draft",
+            "response_validation"
+          ],
+          "supports_structured_output": true,
+          "context_window_tokens": 8192,
+          "cost_policy": {
+            "currency": "USD",
+            "input_usd_per_1m_tokens": 0,
+            "output_usd_per_1m_tokens": 0
+          }
+        }
+      ],
+      "operational_limits": {
+        "default_timeout_ms": 1000,
+        "max_retries": 0,
+        "rate_limit_policy": "local-process-boundary"
+      },
+      "audit": {
+        "owner": "agent-runtime",
+        "declared_in": "contracts/governance/provider_catalogue.schema.json",
+        "change_ref": "2A-01",
+        "notes": "Default runnable path for Lighthouse Phase 1 evidence."
+      }
+    },
+    {
+      "provider_id": "commercial.example",
+      "display_name": "Commercial provider placeholder",
+      "provider_kind": "commercial",
+      "lifecycle_state": "disabled",
+      "credential_policy": {
+        "credential_required": true,
+        "secret_ref_names": [
+          "CHORUS_COMMERCIAL_LLM_API_KEY"
+        ],
+        "missing_credentials_behaviour": "disable_provider"
+      },
+      "data_boundary": {
+        "mode": "external_api",
+        "allowed_regions": [
+          "vendor-managed"
+        ],
+        "stores_customer_content": true
+      },
+      "supported_models": [
+        {
+          "model_id": "commercial-reasoner-v1",
+          "display_name": "Commercial reasoning model placeholder",
+          "lifecycle_state": "disabled",
+          "supported_task_kinds": [
+            "lead_qualification",
+            "response_draft",
+            "response_validation"
+          ],
+          "supports_structured_output": true,
+          "context_window_tokens": 128000,
+          "cost_policy": {
+            "currency": "USD",
+            "input_usd_per_1m_tokens": 3,
+            "output_usd_per_1m_tokens": 15
+          }
+        }
+      ],
+      "operational_limits": {
+        "default_timeout_ms": 30000,
+        "max_retries": 2,
+        "rate_limit_policy": "provider-documented-quota"
+      },
+      "audit": {
+        "owner": "agent-runtime",
+        "declared_in": "contracts/governance/provider_catalogue.schema.json",
+        "change_ref": "2A-01",
+        "notes": "Contract placeholder only; no Phase 2A adapter is enabled by this sample."
+      }
+    }
+  ]
+}

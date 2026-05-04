@@ -17,6 +17,7 @@ def test_phase_0_scaffold_paths_exist() -> None:
         "compose.yml",
         "justfile",
         "contracts/events",
+        "contracts/governance",
         "services/intake-poller",
         "services/connectors-local",
     ]:

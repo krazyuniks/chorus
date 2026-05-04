@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0.0",
+  "route_id": "11000000-0000-4000-8000-000000000004",
+  "route_version": 1,
+  "lifecycle_state": "approved",
+  "route_key": {
+    "tenant_id": "tenant_demo",
+    "agent_role": "drafter",
+    "task_kind": "response_draft",
+    "tenant_tier": "demo"
+  },
+  "selected_model": {
+    "provider_catalogue_id": "provider-catalogue.phase2a.seed",
+    "provider_id": "local",
+    "model_id": "lighthouse-happy-path-v1",
+    "parameters": {
+      "temperature": 0.3
+    }
+  },
+  "budget": {
+    "budget_cap_usd": 0.01,
+    "max_latency_ms": 5000
+  },
+  "fallback_policy": {
+    "mode": "escalate",
+    "fallback_reasons": [
+      "provider_error",
+      "timeout",
+      "budget_exceeded"
+    ]
+  },
+  "promotion": {
+    "eval_required": true,
+    "eval_fixture_refs": [
+      "chorus/eval/fixtures/lighthouse_happy_path.json"
+    ],
+    "change_ref": "2A-01",
+    "approved_by": "architecture-docs"
+  }
+}

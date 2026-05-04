@@ -15,7 +15,7 @@ from chorus.contracts.gen import generate_all, schema_files
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_ROOT = ROOT / "contracts"
-REQUIRED_DIRS = ["events", "agents", "tools", "eval"]
+REQUIRED_DIRS = ["events", "agents", "tools", "eval", "governance"]
 
 
 def _contract_name(schema: Path) -> str:

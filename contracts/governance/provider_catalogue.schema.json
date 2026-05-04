@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/governance/provider_catalogue.schema.json",
+  "title": "ProviderCatalogue",
+  "description": "Declarative provider and model catalogue used by the Agent Runtime routing policy.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "catalogue_id",
+    "effective_from",
+    "providers"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "catalogue_id": {
+      "type": "string",
+      "pattern": "^provider-catalogue\\.[A-Za-z0-9_.-]+$"
+    },
+    "effective_from": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "providers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider_id",
+          "display_name",
+          "provider_kind",
+          "lifecycle_state",
+          "credential_policy",
+          "data_boundary",
+          "supported_models",
+          "operational_limits",
+          "audit"
+        ],
+        "properties": {
+          "provider_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.-]*$"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "provider_kind": {
+            "type": "string",
+            "enum": [
+              "local",
+              "commercial",
+              "sandbox"
+            ]
+          },
+          "lifecycle_state": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "approved",
+              "deprecated",
+              "disabled"
+            ]
+          },
+          "credential_policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "credential_required",
+              "secret_ref_names",
+              "missing_credentials_behaviour"
+            ],
+            "properties": {
+              "credential_required": {
+                "type": "boolean"
+              },
+              "secret_ref_names": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]*$"
+                }
+              },
+              "missing_credentials_behaviour": {
+                "type": "string",
+                "enum": [
+                  "allow",
+                  "disable_provider",
+                  "fallback_only"
+                ]
+              }
+            }
+          },
+          "data_boundary": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode",
+              "stores_customer_content"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "local_only",
+                  "sandbox",
+                  "external_api"
+                ]
+              },
+              "allowed_regions": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "stores_customer_content": {
+                "type": "boolean"
+              }
+            }
+          },
+          "supported_models": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "model_id",
+                "display_name",
+                "lifecycle_state",
+                "supported_task_kinds",
+                "supports_structured_output",
+                "cost_policy"
+              ],
+              "properties": {
+                "model_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "display_name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "lifecycle_state": {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "approved",
+                    "deprecated",
+                    "disabled"
+                  ]
+                },
+                "supported_task_kinds": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "supports_structured_output": {
+                  "type": "boolean"
+                },
+                "context_window_tokens": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "cost_policy": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "currency",
+                    "input_usd_per_1m_tokens",
+                    "output_usd_per_1m_tokens"
+                  ],
+                  "properties": {
+                    "currency": {
+                      "type": "string",
+                      "const": "USD"
+                    },
+                    "input_usd_per_1m_tokens": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "output_usd_per_1m_tokens": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "operational_limits": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "default_timeout_ms",
+              "max_retries",
+              "rate_limit_policy"
+            ],
+            "properties": {
+              "default_timeout_ms": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "max_retries": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "rate_limit_policy": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "audit": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "owner",
+              "declared_in",
+              "change_ref"
+            ],
+            "properties": {
+              "owner": {
+                "type": "string",
+                "minLength": 1
+              },
+              "declared_in": {
+                "type": "string",
+                "minLength": 1
+              },
+              "change_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "notes": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

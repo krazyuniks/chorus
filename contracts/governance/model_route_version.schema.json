@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/governance/model_route_version.schema.json",
+  "title": "ModelRouteVersion",
+  "description": "Immutable model-route version selected by runtime policy for an agent role and task kind.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "route_id",
+    "route_version",
+    "lifecycle_state",
+    "route_key",
+    "selected_model",
+    "budget",
+    "fallback_policy",
+    "promotion"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "route_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "route_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "lifecycle_state": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "approved",
+        "deprecated",
+        "disabled",
+        "rolled_back"
+      ]
+    },
+    "route_key": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_id",
+        "agent_role",
+        "task_kind",
+        "tenant_tier"
+      ],
+      "properties": {
+        "tenant_id": {
+          "type": "string",
+          "pattern": "^tenant_[a-z0-9_]+$"
+        },
+        "agent_role": {
+          "type": "string",
+          "enum": [
+            "intake",
+            "researcher",
+            "qualifier",
+            "drafter",
+            "validator"
+          ]
+        },
+        "task_kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tenant_tier": {
+          "type": "string",
+          "enum": [
+            "demo",
+            "standard",
+            "regulated"
+          ]
+        }
+      }
+    },
+    "selected_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_catalogue_id",
+        "provider_id",
+        "model_id",
+        "parameters"
+      ],
+      "properties": {
+        "provider_catalogue_id": {
+          "type": "string",
+          "pattern": "^provider-catalogue\\.[A-Za-z0-9_.-]+$"
+        },
+        "provider_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parameters": {
+          "type": "object"
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "budget_cap_usd",
+        "max_latency_ms"
+      ],
+      "properties": {
+        "budget_cap_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_latency_ms": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "fallback_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "fallback_reasons"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "none",
+            "escalate",
+            "fallback_route"
+          ]
+        },
+        "fallback_route_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "fallback_route_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "fallback_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "provider_disabled",
+              "credentials_missing",
+              "provider_error",
+              "timeout",
+              "rate_limited",
+              "budget_exceeded"
+            ]
+          }
+        }
+      }
+    },
+    "promotion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eval_required",
+        "eval_fixture_refs",
+        "change_ref"
+      ],
+      "properties": {
+        "eval_required": {
+          "type": "boolean"
+        },
+        "eval_fixture_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "change_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approved_by": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
