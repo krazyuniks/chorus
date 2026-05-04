@@ -114,7 +114,7 @@ approval belongs in 2B.
 |---|---|---|---|---|---|
 | 2A-01 | Provider catalogue and route-version contract | `contracts/governance/`; generated models; samples; `tests/test_contracts.py` | `just contracts-check` | complete | Provider catalogue and immutable route-version schemas represent the local default path and disabled commercial-provider placeholders without enabling provider adapters or mutating admin. Evidence: `just contracts-check`, `just test`, `just test-replay`, `just lint` on 2026-05-03. |
 | 2A-02 | Postgres route-version and provider catalogue migration | `infrastructure/postgres/migrations/`; seeds; `chorus/persistence/projection.py`; `tests/persistence/test_postgres_foundation.py` | `just test-persistence` | complete | Postgres now stores the Phase 2A provider catalogue, disabled commercial-provider placeholder, and immutable route-version rows mirrored from the current Phase 1 local route seeds without changing Lighthouse runtime lookup. Evidence: `just test-persistence`, `just contracts-check`, `just test`, `just lint` on 2026-05-04. |
-| 2A-03 | Model adapter interface behind Agent Runtime | `chorus/agent_runtime/` | `just test` | open | Workflow activity contract should remain stable. |
+| 2A-03 | Model adapter interface behind Agent Runtime | `chorus/agent_runtime/`; `tests/agent_runtime/test_runtime.py`; `docs/architecture.md` | `just test` | complete | Agent Runtime now resolves policy, selects a provider-specific model adapter from a registry, and keeps `lighthouse.invoke_agent_runtime` request/response unchanged. Only the local Lighthouse adapter is registered; commercial adapters and fallback execution remain deferred. Evidence: `uv run pytest tests/agent_runtime/test_runtime.py`, `just test`, `just lint` on 2026-05-04. |
 | 2A-04 | Disabled-by-default commercial provider adapter | `chorus/agent_runtime/` | focused tests; `just eval` | open | Must run without credentials by falling back or reporting disabled state. |
 | 2A-05 | Provider failure and fallback fixture | eval/replay fixture where workflow behaviour changes | `just test-replay`; `just eval` | open | Fixture should prove provider failure is visible, not swallowed. |
 | 2A-06 | Decision-trail and audit evidence for route selection | persistence schema/runtime writes/UI projection | `just test`; `just test-frontend` | open | Capture route version, provider/model, fallback reason, cost, latency. |
@@ -140,7 +140,15 @@ approval belongs in 2B.
   placeholder disabled with no adapter path.
 - 2026-05-04: Gates passed for `2A-02`: `just test-persistence`,
   `just contracts-check`, `just test`, and `just lint`.
-- Next ledger item: `2A-03` Model adapter interface behind Agent Runtime.
+- 2026-05-04: `2A-03` introduced a typed Agent Runtime model-adapter
+  interface, provider-keyed adapter registry, default local adapter registry,
+  and runtime-store protocol for focused unit coverage. The stable Temporal
+  activity boundary still accepts `AgentInvocationRequest` and returns
+  `AgentInvocationResponse`; commercial provider adapters, disabled-provider
+  handling, and fallback execution are not implemented by this item.
+- 2026-05-04: Gates passed for `2A-03`: `uv run pytest
+  tests/agent_runtime/test_runtime.py`, `just test`, and `just lint`.
+- Next ledger item: `2A-04` Disabled-by-default commercial provider adapter.
 
 ## Handoff Cadence
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
+from decimal import Decimal
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
@@ -10,7 +11,18 @@ import psycopg
 import pytest
 from psycopg import sql
 
-from chorus.agent_runtime import AgentRuntime, AgentRuntimeStore, LocalLighthouseModelBoundary
+from chorus.agent_runtime import (
+    AgentRuntime,
+    AgentRuntimeError,
+    AgentRuntimeStore,
+    ModelAdapterRegistry,
+    ModelAdapterResult,
+    ResolvedAgent,
+    ResolvedModelRoute,
+    RuntimeResolution,
+    TenantPolicy,
+    default_model_adapter_registry,
+)
 from chorus.contracts.generated.agents.lighthouse_agent_io import LighthouseAgentIO
 from chorus.contracts.generated.events.agent_invocation_record import AgentInvocationRecord
 from chorus.persistence import apply_migrations
@@ -72,6 +84,47 @@ def _request(
     )
 
 
+def _resolution(
+    *,
+    provider: str = "local",
+    model: str = "lighthouse-happy-path-v1",
+) -> RuntimeResolution:
+    return RuntimeResolution(
+        tenant=TenantPolicy(tenant_id="tenant_demo", tenant_tier="demo", status="active"),
+        agent=ResolvedAgent(
+            agent_id="lighthouse.drafter",
+            role="drafter",
+            version="v1",
+            lifecycle_state="approved",
+            owner="agent-runtime",
+            prompt_reference="prompts/lighthouse/drafter/v1.md",
+            prompt_hash="sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            capability_tags=["lighthouse", "drafting"],
+        ),
+        model_route=ResolvedModelRoute(
+            provider=provider,
+            model=model,
+            task_kind="response_draft",
+            parameters={"temperature": 0.3},
+            budget_cap_usd=Decimal("0.01"),
+            fallback_policy={"on_provider_error": "escalate"},
+        ),
+    )
+
+
+class RecordingRuntimeStore:
+    def __init__(self, resolution: RuntimeResolution) -> None:
+        self._resolution = resolution
+        self.records: list[AgentInvocationRecord] = []
+
+    def resolve(self, request: AgentInvocationRequest) -> RuntimeResolution:
+        _ = request
+        return self._resolution
+
+    def record_decision(self, record: AgentInvocationRecord) -> None:
+        self.records.append(record)
+
+
 def test_policy_resolution_uses_registry_prompt_and_model_route(
     migrated_database_url: str,
 ) -> None:
@@ -91,6 +144,57 @@ def test_policy_resolution_uses_registry_prompt_and_model_route(
     assert resolution.model_route.task_kind == "response_draft"
 
 
+def test_default_model_adapter_registry_registers_only_local_provider() -> None:
+    class DuplicateLocalAdapter:
+        provider_id = "local"
+
+        def invoke(
+            self,
+            request: AgentInvocationRequest,
+            resolution: object,
+            invocation_id: object,
+        ) -> ModelAdapterResult:
+            _ = request, resolution, invocation_id
+            raise AssertionError("duplicate adapter should not be invoked")
+
+    registry = default_model_adapter_registry()
+
+    assert registry.provider_ids == ("local",)
+    with pytest.raises(AgentRuntimeError, match="Duplicate model adapter"):
+        ModelAdapterRegistry([DuplicateLocalAdapter(), DuplicateLocalAdapter()])
+
+
+def test_runtime_invokes_selected_local_adapter_without_changing_activity_contract() -> None:
+    request = _request()
+    store = RecordingRuntimeStore(_resolution())
+
+    response = AgentRuntime(store, default_model_adapter_registry()).invoke(request)
+
+    assert response.recommended_next_step == "continue"
+    assert response.structured_data["model_boundary"] == {
+        "provider": "local",
+        "model": "lighthouse-happy-path-v1",
+    }
+    assert len(store.records) == 1
+    assert store.records[0].model_route.provider == "local"
+    assert store.records[0].model_route.model == "lighthouse-happy-path-v1"
+
+
+def test_runtime_records_failure_when_selected_provider_has_no_adapter() -> None:
+    request = _request()
+    store = RecordingRuntimeStore(
+        _resolution(provider="commercial.example", model="commercial-reasoner-v1")
+    )
+
+    with pytest.raises(AgentRuntimeError, match="No model adapter registered"):
+        AgentRuntime(store, default_model_adapter_registry()).invoke(request)
+
+    assert len(store.records) == 1
+    assert store.records[0].outcome.value == "failed"
+    assert store.records[0].model_route.provider == "commercial.example"
+    assert "No model adapter registered" in store.records[0].output_summary
+
+
 def test_runtime_validates_contracts_and_persists_decision_trail(
     migrated_database_url: str,
 ) -> None:
@@ -99,7 +203,7 @@ def test_runtime_validates_contracts_and_persists_decision_trail(
     with psycopg.connect(migrated_database_url) as conn:
         response = AgentRuntime(
             AgentRuntimeStore(conn),
-            LocalLighthouseModelBoundary(),
+            default_model_adapter_registry(),
         ).invoke(request)
 
         row = conn.execute(
@@ -195,7 +299,7 @@ def test_runtime_low_confidence_fixture_requests_deeper_research_then_recovers(
     )
 
     with psycopg.connect(migrated_database_url) as conn:
-        runtime = AgentRuntime(AgentRuntimeStore(conn), LocalLighthouseModelBoundary())
+        runtime = AgentRuntime(AgentRuntimeStore(conn), default_model_adapter_registry())
         first_response = runtime.invoke(first_request)
         second_response = runtime.invoke(second_request)
 
@@ -204,6 +308,43 @@ def test_runtime_low_confidence_fixture_requests_deeper_research_then_recovers(
     assert second_response.recommended_next_step == "continue"
     assert second_response.confidence == 0.86
     assert second_response.structured_data["deeper_research_completed"] is True
+
+
+def test_runtime_records_failure_when_route_has_no_registered_adapter(
+    migrated_database_url: str,
+) -> None:
+    request = _request()
+
+    with psycopg.connect(migrated_database_url) as conn:
+        conn.execute(
+            """
+            UPDATE model_routing_policies
+            SET provider = 'commercial.example',
+                model = 'commercial-reasoner-v1'
+            WHERE tenant_id = %s
+              AND agent_role = %s
+              AND task_kind = %s
+            """,
+            (request.tenant_id, request.agent_role, request.task_kind),
+        )
+        runtime = AgentRuntime(AgentRuntimeStore(conn), default_model_adapter_registry())
+
+        with pytest.raises(AgentRuntimeError, match="No model adapter registered"):
+            runtime.invoke(request)
+
+        row = conn.execute(
+            """
+            SELECT provider, model, outcome, output_summary
+            FROM decision_trail_entries
+            WHERE tenant_id = %s
+              AND correlation_id = %s
+            """,
+            (request.tenant_id, request.correlation_id),
+        ).fetchone()
+
+    assert row is not None
+    assert row[:3] == ("commercial.example", "commercial-reasoner-v1", "failed")
+    assert "No model adapter registered" in row[3]
 
 
 def test_activity_integration_invokes_runtime_boundary(

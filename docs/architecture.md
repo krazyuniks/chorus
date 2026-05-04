@@ -358,10 +358,10 @@ Workstream B defines the Temporal activity boundary as
 `AgentInvocationRequest` and returns an `AgentInvocationResponse` aligned with
 `contracts/agents/lighthouse_agent_io.schema.json`. Workstream C implements
 the internals behind that activity name: it resolves tenant, agent, prompt,
-and model-route policy from Postgres, invokes the Phase 1A local structured
-model boundary, validates the agent output contract, and persists a
-generated-contract `AgentInvocationRecord` into `decision_trail_entries`.
-The workflow interface did not change.
+and model-route policy from Postgres, selects a provider-specific model adapter
+from the Agent Runtime registry, validates the agent output contract, and
+persists a generated-contract `AgentInvocationRecord` into
+`decision_trail_entries`. The workflow interface did not change.
 
 ## Model Routing
 
@@ -383,7 +383,7 @@ Default Phase 1 posture:
 The Phase 1A happy path routes to the local `lighthouse-happy-path-v1`
 structured model boundary so the architecture evidence can run without
 production provider credentials. Commercial provider SDK adapters remain behind
-the same boundary and are deferred until provider credentials and eval
+the same registry boundary and are deferred until provider credentials and eval
 promotion policy are introduced.
 
 Phase 2A adds Postgres-backed provider catalogue and immutable route-version
@@ -391,6 +391,12 @@ tables as governance evidence. They mirror the existing Phase 1 local routes
 and disabled commercial-provider placeholder, but the Agent Runtime still reads
 `model_routing_policies` for the Lighthouse happy path until the later adapter
 and runtime-routing ledger items are implemented.
+
+The Phase 2A runtime adapter registry currently registers only the local
+Lighthouse adapter. If routing policy selects an unregistered provider, the
+runtime records a failed decision-trail entry and raises an Agent Runtime error;
+fallback execution and disabled commercial adapters are later Phase 2A ledger
+items.
 
 Provider/model changes require eval impact review because they can alter
 workflow behaviour without code changes.

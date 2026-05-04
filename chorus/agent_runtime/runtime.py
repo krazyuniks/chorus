@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -66,7 +67,7 @@ class RuntimeResolution(BaseModel):
 
 
 @dataclass(frozen=True)
-class ModelBoundaryResult:
+class ModelAdapterResult:
     summary: str
     confidence: float
     structured_data: dict[str, Any]
@@ -76,13 +77,64 @@ class ModelBoundaryResult:
     cost_amount_usd: Decimal
 
 
-class ModelBoundary(Protocol):
+class ModelAdapter(Protocol):
+    """Provider-specific model invocation boundary selected by runtime policy."""
+
+    provider_id: str
+
     def invoke(
         self,
         request: AgentInvocationRequest,
         resolution: RuntimeResolution,
         invocation_id: UUID,
-    ) -> ModelBoundaryResult: ...
+    ) -> ModelAdapterResult: ...
+
+
+class ModelAdapterRegistry:
+    """Provider adapter registry used after model-route policy resolution."""
+
+    def __init__(self, adapters: Sequence[ModelAdapter]) -> None:
+        self._adapters: dict[str, ModelAdapter] = {}
+        for adapter in adapters:
+            if adapter.provider_id in self._adapters:
+                raise AgentRuntimeError(
+                    f"Duplicate model adapter registered for provider {adapter.provider_id!r}"
+                )
+            self._adapters[adapter.provider_id] = adapter
+
+    @property
+    def provider_ids(self) -> tuple[str, ...]:
+        return tuple(sorted(self._adapters))
+
+    def invoke(
+        self,
+        request: AgentInvocationRequest,
+        resolution: RuntimeResolution,
+        invocation_id: UUID,
+    ) -> ModelAdapterResult:
+        provider = resolution.model_route.provider
+        adapter = self._adapters.get(provider)
+        if adapter is None:
+            raise AgentRuntimeError(
+                f"No model adapter registered for provider {provider!r}; "
+                "provider execution must be added behind Agent Runtime policy"
+            )
+        return adapter.invoke(request, resolution, invocation_id)
+
+
+def default_model_adapter_registry() -> ModelAdapterRegistry:
+    """Return the Phase 2A runnable adapter registry.
+
+    Commercial provider adapters are deliberately not registered in 2A-03.
+    """
+
+    return ModelAdapterRegistry([LocalLighthouseModelAdapter()])
+
+
+class RuntimePolicyStore(Protocol):
+    def resolve(self, request: AgentInvocationRequest) -> RuntimeResolution: ...
+
+    def record_decision(self, record: AgentInvocationRecord) -> None: ...
 
 
 class AgentRuntimeStore:
@@ -269,24 +321,31 @@ class AgentRuntimeStore:
         return ResolvedModelRoute.model_validate(row)
 
 
-class LocalLighthouseModelBoundary:
+class LocalLighthouseModelAdapter:
     """Local structured provider boundary for the Phase 1A happy path."""
+
+    provider_id = "local"
 
     def invoke(
         self,
         request: AgentInvocationRequest,
         resolution: RuntimeResolution,
         invocation_id: UUID,
-    ) -> ModelBoundaryResult:
+    ) -> ModelAdapterResult:
         _ = invocation_id
-        provider = resolution.model_route.provider
-        if provider != "local":
+        if resolution.model_route.provider != self.provider_id:
             raise AgentRuntimeError(
-                f"Provider {provider!r} is not available in the local Phase 1A runtime"
+                f"Provider {resolution.model_route.provider!r} cannot be handled by "
+                f"{self.__class__.__name__}"
+            )
+        if resolution.model_route.model != "lighthouse-happy-path-v1":
+            raise AgentRuntimeError(
+                f"Model {resolution.model_route.model!r} is not available in the local "
+                "Lighthouse adapter"
             )
 
         summary, next_step, structured_data, confidence = _lighthouse_result_for(request)
-        return ModelBoundaryResult(
+        return ModelAdapterResult(
             summary=summary,
             confidence=confidence,
             structured_data={
@@ -306,10 +365,15 @@ class LocalLighthouseModelBoundary:
         )
 
 
+ModelBoundaryResult = ModelAdapterResult
+ModelBoundary = ModelAdapter
+LocalLighthouseModelBoundary = LocalLighthouseModelAdapter
+
+
 class AgentRuntime:
-    def __init__(self, store: AgentRuntimeStore, model_boundary: ModelBoundary) -> None:
+    def __init__(self, store: RuntimePolicyStore, model_adapters: ModelAdapterRegistry) -> None:
         self._store = store
-        self._model_boundary = model_boundary
+        self._model_adapters = model_adapters
 
     def invoke(self, request: AgentInvocationRequest) -> AgentInvocationResponse:
         invocation_id = uuid4()
@@ -318,7 +382,7 @@ class AgentRuntime:
         resolution = self._store.resolve(request)
 
         try:
-            result = self._model_boundary.invoke(request, resolution, invocation_id)
+            result = self._model_adapters.invoke(request, resolution, invocation_id)
             outcome = "succeeded"
         except Exception as exc:
             completed_at = datetime.now(UTC)
@@ -436,7 +500,7 @@ def _lighthouse_contract(
     *,
     request: AgentInvocationRequest,
     invocation_id: UUID,
-    result: ModelBoundaryResult,
+    result: ModelAdapterResult,
 ) -> LighthouseAgentIO:
     return LighthouseAgentIO.model_validate(
         {
