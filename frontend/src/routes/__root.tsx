@@ -18,6 +18,8 @@ const NAV: { to: string; label: string }[] = [
   { to: "/registry", label: "Registry" },
   { to: "/grants", label: "Grants" },
   { to: "/routing", label: "Routing" },
+  { to: "/providers", label: "Providers" },
+  { to: "/graph-executions", label: "Graph Executions" },
   { to: "/eval", label: "Eval" },
 ];
 
@@ -49,7 +51,7 @@ function RootComponent() {
         }
         actions={
           <span className="text-[10px] uppercase tracking-wide text-text-subtle">
-            phase 1 · sandbox
+            phase 2a · sandbox
           </span>
         }
       >

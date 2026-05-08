@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Iterator
 from decimal import Decimal
@@ -12,11 +13,17 @@ import pytest
 from psycopg import sql
 
 from chorus.agent_runtime import (
+    LANGGRAPH_EXECUTION_ENGINE,
+    LIGHTHOUSE_AGENT_GRAPH_VERSION,
     AgentRuntime,
     AgentRuntimeError,
     AgentRuntimeStore,
+    CommercialProviderDisabledError,
+    LangGraphAgentExecutionEngine,
+    LocalLighthouseModelAdapter,
     ModelAdapterRegistry,
     ModelAdapterResult,
+    ProviderInvocationError,
     ResolvedAgent,
     ResolvedModelRoute,
     RuntimeResolution,
@@ -88,6 +95,7 @@ def _resolution(
     *,
     provider: str = "local",
     model: str = "lighthouse-happy-path-v1",
+    fallback_policy: dict[str, Any] | None = None,
 ) -> RuntimeResolution:
     return RuntimeResolution(
         tenant=TenantPolicy(tenant_id="tenant_demo", tenant_tier="demo", status="active"),
@@ -107,7 +115,7 @@ def _resolution(
             task_kind="response_draft",
             parameters={"temperature": 0.3},
             budget_cap_usd=Decimal("0.01"),
-            fallback_policy={"on_provider_error": "escalate"},
+            fallback_policy=fallback_policy or {"on_provider_error": "escalate"},
         ),
     )
 
@@ -116,13 +124,144 @@ class RecordingRuntimeStore:
     def __init__(self, resolution: RuntimeResolution) -> None:
         self._resolution = resolution
         self.records: list[AgentInvocationRecord] = []
+        self.metadata: list[dict[str, Any]] = []
 
     def resolve(self, request: AgentInvocationRequest) -> RuntimeResolution:
         _ = request
         return self._resolution
 
-    def record_decision(self, record: AgentInvocationRecord) -> None:
+    def record_decision(
+        self,
+        record: AgentInvocationRecord,
+        *,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
         self.records.append(record)
+        self.metadata.append(metadata or {})
+
+
+class FailingCommercialAdapter:
+    provider_id = "commercial.example"
+
+    def invoke(
+        self,
+        request: AgentInvocationRequest,
+        resolution: RuntimeResolution,
+        invocation_id: object,
+    ) -> ModelAdapterResult:
+        _ = request, invocation_id
+        raise ProviderInvocationError(
+            provider=resolution.model_route.provider,
+            model=resolution.model_route.model,
+            reason="provider_error",
+            retryable=True,
+            message="fixture commercial provider outage",
+        )
+
+
+def _fallback_route_policy() -> dict[str, Any]:
+    return {
+        "on_provider_error": "fallback_route",
+        "fallback_reasons": ["provider_error"],
+        "fallback_route": {
+            "provider": "local",
+            "model": "lighthouse-happy-path-v1",
+            "route_version": 1,
+            "provider_catalogue_id": "provider-catalogue.phase2a.seed",
+            "parameters": {"temperature": 0.3},
+        },
+    }
+
+
+def _assert_route_selection_metadata(
+    metadata: dict[str, Any],
+    *,
+    provider: str,
+    model: str,
+    fallback_reason: str | None,
+    route_version: int | None = None,
+    selection_source: str = "model_routing_policies",
+    task_kind: str = "response_draft",
+    budget_cap_usd: str = "0.01",
+) -> None:
+    assert metadata["model_route.provider"] == provider
+    assert metadata["model_route.model"] == model
+    assert metadata["model_route.task_kind"] == task_kind
+    assert Decimal(metadata["model_route.budget_cap_usd"]) == Decimal(budget_cap_usd)
+    assert metadata["model_route.fallback_reason"] == fallback_reason
+    assert metadata["model_route.route_version"] == route_version
+    assert metadata["model_route.selection_source"] == selection_source
+    assert Decimal(metadata["model_route.cost_amount_usd"]) >= Decimal("0")
+    assert isinstance(metadata["model_route.latency_ms"], int)
+    assert metadata["model_route.latency_ms"] >= 0
+
+
+def _assert_metadata_subset(metadata: dict[str, Any], expected: dict[str, Any]) -> None:
+    for key, value in expected.items():
+        assert metadata[key] == value
+
+
+def test_langgraph_execution_engine_invokes_adapter_through_expected_graph_path() -> None:
+    class RecordingAdapter:
+        provider_id = "local"
+
+        def __init__(self) -> None:
+            self.calls: list[tuple[AgentInvocationRequest, RuntimeResolution, object]] = []
+
+        def invoke(
+            self,
+            request: AgentInvocationRequest,
+            resolution: RuntimeResolution,
+            invocation_id: object,
+        ) -> ModelAdapterResult:
+            self.calls.append((request, resolution, invocation_id))
+            return ModelAdapterResult(
+                summary="Adapter result passed through LangGraph.",
+                confidence=0.91,
+                structured_data={"adapter": "recording"},
+                recommended_next_step="continue",
+                rationale="Focused graph execution test.",
+                citations=[],
+                cost_amount_usd=Decimal("0.000001"),
+            )
+
+    request = _request()
+    resolution = _resolution()
+    invocation_id = uuid4()
+    adapter = RecordingAdapter()
+
+    execution = LangGraphAgentExecutionEngine(ModelAdapterRegistry([adapter])).invoke(
+        request,
+        resolution,
+        invocation_id,
+    )
+
+    assert len(adapter.calls) == 1
+    assert adapter.calls[0] == (request, resolution, invocation_id)
+    assert execution.graph_path == (
+        "prepare_context",
+        "invoke_model_adapter",
+        "normalise_result",
+        "validate_contract",
+        "final_response",
+    )
+    assert execution.response.invocation_id == str(invocation_id)
+    assert execution.response.structured_data["adapter"] == "recording"
+    assert execution.response.structured_data["agent_execution"] == {
+        "engine": LANGGRAPH_EXECUTION_ENGINE,
+        "graph_version": LIGHTHOUSE_AGENT_GRAPH_VERSION,
+        "graph_steps": list(execution.graph_path),
+    }
+    assert execution.contract.result.structured_data == execution.response.structured_data
+    assert execution.decision_metadata == {
+        "agent_execution.engine": LANGGRAPH_EXECUTION_ENGINE,
+        "agent_execution.graph_version": LIGHTHOUSE_AGENT_GRAPH_VERSION,
+        "agent_execution.graph_path": list(execution.graph_path),
+        "agent_execution.graph_path_summary": (
+            "prepare_context -> invoke_model_adapter -> normalise_result -> "
+            "validate_contract -> final_response"
+        ),
+    }
 
 
 def test_policy_resolution_uses_registry_prompt_and_model_route(
@@ -142,9 +281,15 @@ def test_policy_resolution_uses_registry_prompt_and_model_route(
     assert resolution.model_route.provider == "local"
     assert resolution.model_route.model == "lighthouse-happy-path-v1"
     assert resolution.model_route.task_kind == "response_draft"
+    assert resolution.model_route.route_id is not None
+    assert resolution.model_route.route_version == 1
+    assert resolution.model_route.provider_catalogue_id == "provider-catalogue.phase2a.seed"
+    assert resolution.model_route.selection_source == (
+        "model_routing_policies+model_route_versions"
+    )
 
 
-def test_default_model_adapter_registry_registers_only_local_provider() -> None:
+def test_default_model_adapter_registry_registers_local_and_disabled_commercial_boundary() -> None:
     class DuplicateLocalAdapter:
         provider_id = "local"
 
@@ -159,9 +304,146 @@ def test_default_model_adapter_registry_registers_only_local_provider() -> None:
 
     registry = default_model_adapter_registry()
 
-    assert registry.provider_ids == ("local",)
+    assert registry.provider_ids == ("commercial.example", "local")
     with pytest.raises(AgentRuntimeError, match="Duplicate model adapter"):
         ModelAdapterRegistry([DuplicateLocalAdapter(), DuplicateLocalAdapter()])
+
+
+def test_langgraph_path_reports_disabled_commercial_provider_without_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = _request()
+    store = RecordingRuntimeStore(
+        _resolution(provider="commercial.example", model="commercial-reasoner-v1")
+    )
+    monkeypatch.delenv("CHORUS_COMMERCIAL_LLM_API_KEY", raising=False)
+
+    with pytest.raises(CommercialProviderDisabledError, match="missing_credentials"):
+        AgentRuntime(store, default_model_adapter_registry()).invoke(request)
+
+    assert len(store.records) == 1
+    assert store.records[0].outcome.value == "failed"
+    assert store.records[0].model_route.provider == "commercial.example"
+    assert store.records[0].model_route.model == "commercial-reasoner-v1"
+    assert "missing_credentials" in store.records[0].output_summary
+    _assert_metadata_subset(
+        store.metadata[0],
+        {
+            "agent_execution.engine": LANGGRAPH_EXECUTION_ENGINE,
+            "agent_execution.graph_version": LIGHTHOUSE_AGENT_GRAPH_VERSION,
+            "agent_execution.graph_path": [
+                "prepare_context",
+                "invoke_model_adapter",
+            ],
+            "agent_execution.graph_path_summary": "prepare_context -> invoke_model_adapter",
+            "provider_boundary.provider": "commercial.example",
+            "provider_boundary.model": "commercial-reasoner-v1",
+            "provider_boundary.state": "disabled",
+            "provider_boundary.reason": "missing_credentials",
+            "provider_boundary.credential_required": True,
+            "provider_boundary.secret_ref_names": ["CHORUS_COMMERCIAL_LLM_API_KEY"],
+            "provider_boundary.missing_credentials_behaviour": "disable_provider",
+        },
+    )
+    _assert_route_selection_metadata(
+        store.metadata[0],
+        provider="commercial.example",
+        model="commercial-reasoner-v1",
+        fallback_reason="credentials_missing",
+    )
+
+
+def test_runtime_records_provider_failure_then_invokes_policy_fallback() -> None:
+    request = _request()
+    store = RecordingRuntimeStore(
+        _resolution(
+            provider="commercial.example",
+            model="commercial-reasoner-v1",
+            fallback_policy=_fallback_route_policy(),
+        )
+    )
+
+    response = AgentRuntime(
+        store,
+        ModelAdapterRegistry([FailingCommercialAdapter(), LocalLighthouseModelAdapter()]),
+    ).invoke(request)
+
+    assert response.recommended_next_step == "continue"
+    assert response.structured_data["model_boundary"] == {
+        "provider": "local",
+        "model": "lighthouse-happy-path-v1",
+    }
+    assert [record.outcome.value for record in store.records] == ["failed", "succeeded"]
+    assert [
+        (record.model_route.provider, record.model_route.model) for record in store.records
+    ] == [
+        ("commercial.example", "commercial-reasoner-v1"),
+        ("local", "lighthouse-happy-path-v1"),
+    ]
+    assert "fixture commercial provider outage" in store.records[0].output_summary
+    assert store.records[0].invocation_id != store.records[1].invocation_id
+    _assert_metadata_subset(
+        store.metadata[0],
+        {
+            "agent_execution.engine": LANGGRAPH_EXECUTION_ENGINE,
+            "agent_execution.graph_version": LIGHTHOUSE_AGENT_GRAPH_VERSION,
+            "agent_execution.graph_path": [
+                "prepare_context",
+                "invoke_model_adapter",
+            ],
+            "agent_execution.graph_path_summary": "prepare_context -> invoke_model_adapter",
+            "provider_failure.provider": "commercial.example",
+            "provider_failure.model": "commercial-reasoner-v1",
+            "provider_failure.reason": "provider_error",
+            "provider_failure.retryable": True,
+            "provider_fallback.action": "fallback_route",
+            "provider_fallback.applied": False,
+            "provider_fallback.reason": "provider_error",
+            "provider_fallback.primary_provider": "commercial.example",
+            "provider_fallback.primary_model": "commercial-reasoner-v1",
+            "provider_fallback.fallback_provider": "local",
+            "provider_fallback.fallback_model": "lighthouse-happy-path-v1",
+        },
+    )
+    _assert_route_selection_metadata(
+        store.metadata[0],
+        provider="commercial.example",
+        model="commercial-reasoner-v1",
+        fallback_reason="provider_error",
+    )
+    _assert_metadata_subset(
+        store.metadata[1],
+        {
+            "agent_execution.engine": LANGGRAPH_EXECUTION_ENGINE,
+            "agent_execution.graph_version": LIGHTHOUSE_AGENT_GRAPH_VERSION,
+            "agent_execution.graph_path": [
+                "prepare_context",
+                "invoke_model_adapter",
+                "normalise_result",
+                "validate_contract",
+                "final_response",
+            ],
+            "agent_execution.graph_path_summary": (
+                "prepare_context -> invoke_model_adapter -> normalise_result -> "
+                "validate_contract -> final_response"
+            ),
+            "provider_fallback.action": "fallback_route",
+            "provider_fallback.applied": True,
+            "provider_fallback.reason": "provider_error",
+            "provider_fallback.primary_provider": "commercial.example",
+            "provider_fallback.primary_model": "commercial-reasoner-v1",
+            "provider_fallback.fallback_provider": "local",
+            "provider_fallback.fallback_model": "lighthouse-happy-path-v1",
+        },
+    )
+    _assert_route_selection_metadata(
+        store.metadata[1],
+        provider="local",
+        model="lighthouse-happy-path-v1",
+        fallback_reason="provider_error",
+        route_version=1,
+        selection_source="fallback_policy",
+    )
 
 
 def test_runtime_invokes_selected_local_adapter_without_changing_activity_contract() -> None:
@@ -175,15 +457,50 @@ def test_runtime_invokes_selected_local_adapter_without_changing_activity_contra
         "provider": "local",
         "model": "lighthouse-happy-path-v1",
     }
+    assert response.structured_data["agent_execution"] == {
+        "engine": LANGGRAPH_EXECUTION_ENGINE,
+        "graph_version": LIGHTHOUSE_AGENT_GRAPH_VERSION,
+        "graph_steps": [
+            "prepare_context",
+            "invoke_model_adapter",
+            "normalise_result",
+            "validate_contract",
+            "final_response",
+        ],
+    }
     assert len(store.records) == 1
     assert store.records[0].model_route.provider == "local"
     assert store.records[0].model_route.model == "lighthouse-happy-path-v1"
+    _assert_metadata_subset(
+        store.metadata[0],
+        {
+            "agent_execution.engine": LANGGRAPH_EXECUTION_ENGINE,
+            "agent_execution.graph_version": LIGHTHOUSE_AGENT_GRAPH_VERSION,
+            "agent_execution.graph_path": [
+                "prepare_context",
+                "invoke_model_adapter",
+                "normalise_result",
+                "validate_contract",
+                "final_response",
+            ],
+            "agent_execution.graph_path_summary": (
+                "prepare_context -> invoke_model_adapter -> normalise_result -> "
+                "validate_contract -> final_response"
+            ),
+        },
+    )
+    _assert_route_selection_metadata(
+        store.metadata[0],
+        provider="local",
+        model="lighthouse-happy-path-v1",
+        fallback_reason=None,
+    )
 
 
 def test_runtime_records_failure_when_selected_provider_has_no_adapter() -> None:
     request = _request()
     store = RecordingRuntimeStore(
-        _resolution(provider="commercial.example", model="commercial-reasoner-v1")
+        _resolution(provider="unregistered.provider", model="unregistered-model-v1")
     )
 
     with pytest.raises(AgentRuntimeError, match="No model adapter registered"):
@@ -191,8 +508,26 @@ def test_runtime_records_failure_when_selected_provider_has_no_adapter() -> None
 
     assert len(store.records) == 1
     assert store.records[0].outcome.value == "failed"
-    assert store.records[0].model_route.provider == "commercial.example"
+    assert store.records[0].model_route.provider == "unregistered.provider"
     assert "No model adapter registered" in store.records[0].output_summary
+    _assert_metadata_subset(
+        store.metadata[0],
+        {
+            "agent_execution.engine": LANGGRAPH_EXECUTION_ENGINE,
+            "agent_execution.graph_version": LIGHTHOUSE_AGENT_GRAPH_VERSION,
+            "agent_execution.graph_path": [
+                "prepare_context",
+                "invoke_model_adapter",
+            ],
+            "agent_execution.graph_path_summary": "prepare_context -> invoke_model_adapter",
+        },
+    )
+    _assert_route_selection_metadata(
+        store.metadata[0],
+        provider="unregistered.provider",
+        model="unregistered-model-v1",
+        fallback_reason=None,
+    )
 
 
 def test_runtime_validates_contracts_and_persists_decision_trail(
@@ -218,7 +553,8 @@ def test_runtime_validates_contracts_and_persists_decision_trail(
                 task_kind,
                 outcome,
                 tool_call_ids,
-                raw_record
+                raw_record,
+                metadata
             FROM decision_trail_entries
             WHERE tenant_id = %s AND invocation_id = %s
             """,
@@ -243,6 +579,34 @@ def test_runtime_validates_contracts_and_persists_decision_trail(
     raw_record = AgentInvocationRecord.model_validate(row[9])
     assert str(raw_record.invocation_id) == response.invocation_id
     assert raw_record.tool_call_ids == []
+    _assert_metadata_subset(
+        row[10],
+        {
+            "agent_execution.engine": LANGGRAPH_EXECUTION_ENGINE,
+            "agent_execution.graph_version": LIGHTHOUSE_AGENT_GRAPH_VERSION,
+            "agent_execution.graph_path": [
+                "prepare_context",
+                "invoke_model_adapter",
+                "normalise_result",
+                "validate_contract",
+                "final_response",
+            ],
+            "agent_execution.graph_path_summary": (
+                "prepare_context -> invoke_model_adapter -> normalise_result -> "
+                "validate_contract -> final_response"
+            ),
+        },
+    )
+    _assert_route_selection_metadata(
+        row[10],
+        provider="local",
+        model="lighthouse-happy-path-v1",
+        fallback_reason=None,
+        route_version=1,
+        selection_source="model_routing_policies+model_route_versions",
+    )
+    assert row[10]["model_route.route_id"] is not None
+    assert row[10]["model_route.provider_catalogue_id"] == "provider-catalogue.phase2a.seed"
 
     LighthouseAgentIO.model_validate(
         {
@@ -310,10 +674,12 @@ def test_runtime_low_confidence_fixture_requests_deeper_research_then_recovers(
     assert second_response.structured_data["deeper_research_completed"] is True
 
 
-def test_runtime_records_failure_when_route_has_no_registered_adapter(
+def test_runtime_records_disabled_commercial_provider_from_routing_policy(
     migrated_database_url: str,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     request = _request()
+    monkeypatch.delenv("CHORUS_COMMERCIAL_LLM_API_KEY", raising=False)
 
     with psycopg.connect(migrated_database_url) as conn:
         conn.execute(
@@ -329,12 +695,12 @@ def test_runtime_records_failure_when_route_has_no_registered_adapter(
         )
         runtime = AgentRuntime(AgentRuntimeStore(conn), default_model_adapter_registry())
 
-        with pytest.raises(AgentRuntimeError, match="No model adapter registered"):
+        with pytest.raises(CommercialProviderDisabledError, match="missing_credentials"):
             runtime.invoke(request)
 
         row = conn.execute(
             """
-            SELECT provider, model, outcome, output_summary
+            SELECT provider, model, outcome, output_summary, metadata
             FROM decision_trail_entries
             WHERE tenant_id = %s
               AND correlation_id = %s
@@ -344,7 +710,101 @@ def test_runtime_records_failure_when_route_has_no_registered_adapter(
 
     assert row is not None
     assert row[:3] == ("commercial.example", "commercial-reasoner-v1", "failed")
-    assert "No model adapter registered" in row[3]
+    assert "missing_credentials" in row[3]
+    _assert_metadata_subset(
+        row[4],
+        {
+            "agent_execution.engine": LANGGRAPH_EXECUTION_ENGINE,
+            "agent_execution.graph_version": LIGHTHOUSE_AGENT_GRAPH_VERSION,
+            "agent_execution.graph_path": [
+                "prepare_context",
+                "invoke_model_adapter",
+            ],
+            "agent_execution.graph_path_summary": "prepare_context -> invoke_model_adapter",
+            "provider_boundary.provider": "commercial.example",
+            "provider_boundary.model": "commercial-reasoner-v1",
+            "provider_boundary.state": "disabled",
+            "provider_boundary.reason": "missing_credentials",
+            "provider_boundary.credential_required": True,
+            "provider_boundary.secret_ref_names": ["CHORUS_COMMERCIAL_LLM_API_KEY"],
+            "provider_boundary.missing_credentials_behaviour": "disable_provider",
+        },
+    )
+    _assert_route_selection_metadata(
+        row[4],
+        provider="commercial.example",
+        model="commercial-reasoner-v1",
+        fallback_reason="credentials_missing",
+    )
+
+
+def test_runtime_persists_provider_failure_and_local_fallback(
+    migrated_database_url: str,
+) -> None:
+    request = _request()
+
+    with psycopg.connect(migrated_database_url) as conn:
+        conn.execute(
+            """
+            UPDATE model_routing_policies
+            SET provider = 'commercial.example',
+                model = 'commercial-reasoner-v1',
+                fallback_policy = %s::jsonb
+            WHERE tenant_id = %s
+              AND agent_role = %s
+              AND task_kind = %s
+            """,
+            (
+                json.dumps(_fallback_route_policy()),
+                request.tenant_id,
+                request.agent_role,
+                request.task_kind,
+            ),
+        )
+        runtime = AgentRuntime(
+            AgentRuntimeStore(conn),
+            ModelAdapterRegistry([FailingCommercialAdapter(), LocalLighthouseModelAdapter()]),
+        )
+
+        response = runtime.invoke(request)
+
+        rows = conn.execute(
+            """
+            SELECT provider, model, outcome, output_summary, metadata
+            FROM decision_trail_entries
+            WHERE tenant_id = %s
+              AND correlation_id = %s
+            ORDER BY started_at ASC
+            """,
+            (request.tenant_id, request.correlation_id),
+        ).fetchall()
+
+    assert response.recommended_next_step == "continue"
+    assert len(rows) == 2
+    assert rows[0][:3] == ("commercial.example", "commercial-reasoner-v1", "failed")
+    assert rows[1][:3] == ("local", "lighthouse-happy-path-v1", "succeeded")
+    assert "fixture commercial provider outage" in rows[0][3]
+    assert rows[0][4]["provider_failure.reason"] == "provider_error"
+    assert rows[0][4]["provider_fallback.applied"] is False
+    assert rows[0][4]["model_route.provider"] == "commercial.example"
+    assert rows[0][4]["model_route.model"] == "commercial-reasoner-v1"
+    assert rows[0][4]["model_route.fallback_reason"] == "provider_error"
+    assert rows[0][4]["model_route.latency_ms"] >= 0
+    assert rows[1][4]["provider_fallback.applied"] is True
+    assert rows[1][4]["provider_fallback.primary_provider"] == "commercial.example"
+    assert rows[1][4]["model_route.provider"] == "local"
+    assert rows[1][4]["model_route.model"] == "lighthouse-happy-path-v1"
+    assert rows[1][4]["model_route.route_version"] == 1
+    assert rows[1][4]["model_route.fallback_reason"] == "provider_error"
+    assert rows[1][4]["model_route.cost_amount_usd"] == "0.000000"
+    assert rows[1][4]["model_route.latency_ms"] >= 0
+    assert rows[1][4]["agent_execution.graph_path"] == [
+        "prepare_context",
+        "invoke_model_adapter",
+        "normalise_result",
+        "validate_contract",
+        "final_response",
+    ]
 
 
 def test_activity_integration_invokes_runtime_boundary(
@@ -359,7 +819,7 @@ def test_activity_integration_invokes_runtime_boundary(
     with psycopg.connect(migrated_database_url) as conn:
         persisted = conn.execute(
             """
-            SELECT agent_id, task_kind, outcome
+            SELECT agent_id, task_kind, outcome, metadata
             FROM decision_trail_entries
             WHERE tenant_id = %s AND invocation_id = %s
             """,
@@ -368,4 +828,33 @@ def test_activity_integration_invokes_runtime_boundary(
 
     assert response.recommended_next_step == "send"
     assert response.structured_data["validation"] == "approved"
-    assert persisted == ("lighthouse.validator", "response_validation", "succeeded")
+    assert persisted is not None
+    assert persisted[:3] == ("lighthouse.validator", "response_validation", "succeeded")
+    _assert_metadata_subset(
+        persisted[3],
+        {
+            "agent_execution.engine": LANGGRAPH_EXECUTION_ENGINE,
+            "agent_execution.graph_version": LIGHTHOUSE_AGENT_GRAPH_VERSION,
+            "agent_execution.graph_path": [
+                "prepare_context",
+                "invoke_model_adapter",
+                "normalise_result",
+                "validate_contract",
+                "final_response",
+            ],
+            "agent_execution.graph_path_summary": (
+                "prepare_context -> invoke_model_adapter -> normalise_result -> "
+                "validate_contract -> final_response"
+            ),
+        },
+    )
+    _assert_route_selection_metadata(
+        persisted[3],
+        provider="local",
+        model="lighthouse-happy-path-v1",
+        fallback_reason=None,
+        route_version=1,
+        selection_source="model_routing_policies+model_route_versions",
+        task_kind="response_validation",
+        budget_cap_usd="0.01",
+    )

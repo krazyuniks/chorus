@@ -17,7 +17,7 @@ Chorus is the architecture artefact. Lighthouse is the proof scenario.
 
 Design-frozen for Phase 1 on 2026-04-29. Phase 1A, Phase 1B, and Phase 1C are implemented: Postgres persistence/projections, Mailpit intake, the Temporal Lighthouse workflow, Agent Runtime, Tool Gateway, BFF/UI inspection surfaces, OpenTelemetry/Grafana scaffolding, the happy-path eval, governance/failure fixtures, and the asynchronous review package are shipped evidence.
 
-Phase 2 planning opened on 2026-05-03. Phase 2 is not implemented yet; it is planned as governed-platform expansion, starting with provider/model governance before mutating runtime control, connector expansion, a second workflow, or production-readiness work. See [`docs/phase-2-plan.md`](docs/phase-2-plan.md), [ADR 0011](adrs/0011-phase-2-governed-platform-expansion.md), and [`docs/implementation-plan.md`](docs/implementation-plan.md) for the current scope.
+Phase 2 planning opened on 2026-05-03 and pivoted on 2026-05-07 to make LangGraph the first-class agent execution runtime inside the existing Agent Runtime boundary. The completed provider/model-governance groundwork remains in place; LangGraph execution, decision-trail graph metadata, the disabled commercial provider adapter boundary, provider-failure fallback fixture evidence, route-selection audit metadata, read-only BFF/UI provider and graph-execution views, and the matching docs/runbook/evidence alignment are now implemented. Production commercial provider calls, credential entry, mutating admin controls, and LangGraph durability remain out of scope. See [`docs/phase-2-plan.md`](docs/phase-2-plan.md), [ADR 0011](adrs/0011-phase-2-governed-platform-expansion.md), [ADR 0012](adrs/0012-langgraph-agent-execution-runtime.md), and [`docs/implementation-plan.md`](docs/implementation-plan.md) for the current scope.
 
 ## First-time setup
 
@@ -54,7 +54,7 @@ just worker            # run the Lighthouse Temporal worker
 just intake-once       # poll Mailpit once and start workflows for new leads
 just relay-once        # publish pending workflow events to Redpanda
 just project-once      # project Redpanda workflow events into Postgres read models
-just eval              # run the happy-path and Phase 1B governance eval fixtures
+just eval              # run the happy-path, Phase 1B governance, and Phase 2A provider-fallback eval fixtures
 ```
 
 `just --list` is the discovery command. See [`AGENTS.md`](AGENTS.md) for the full gate hierarchy and which gate proves which kind of change.
@@ -74,11 +74,12 @@ For an asynchronous reviewer (~15 minutes):
 
 ## Stack
 
-Temporal (Python SDK) for durable orchestration. Python + FastAPI + PydanticAI agent runtime. Postgres for audit, policy materialisation, outbox, and projections. Redpanda Community Edition for schema-governed event distribution. React + Vite + TypeScript + TanStack frontend with FastAPI + SSE BFF. JSON Schema → generated Pydantic for contracts. Mailpit (SMTP capture and intake), Companies House API (research), and a Postgres-backed local CRM service as the connector substrate — real software, sandbox boundary, no mocks. OpenTelemetry + Grafana for observability. pytest, Vitest, Playwright, Temporal replay, and trace/eval fixtures for assurance.
+Temporal Python SDK for durable business workflow orchestration. Custom Python Agent Runtime with LangGraph for per-invocation agent execution inside that boundary. Postgres for audit, policy materialisation, outbox, provider catalogue, and projections. Redpanda Community Edition for schema-governed event distribution. React + Vite + TypeScript + TanStack frontend with FastAPI + SSE BFF. JSON Schema → generated Pydantic for contracts. Mailpit (SMTP capture and intake), Companies House API (research), and a Postgres-backed local CRM service as the connector substrate — real software, sandbox boundary, no mocks. OpenTelemetry + Grafana for observability. pytest, Vitest, Playwright, Temporal replay, and trace/eval fixtures for assurance.
 
 ## Principles
 
 - **Governed agent adoption, not autonomous agent novelty.** Evidence value is in the controls.
+- **Agent framework inside the boundary.** LangGraph belongs inside Agent Runtime; Temporal remains the durable workflow owner and Tool Gateway remains the action authority.
 - **No mocks, no hand-rolled fakes.** Connectors run real software in sandbox or local mode.
 - **Evidence-first scope.** One vertical slice with convincing boundaries beats a broad framework skeleton.
 - **Documentation in lock-step with code.** The artefact set evolves with the implementation.

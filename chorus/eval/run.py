@@ -362,6 +362,14 @@ def _fixture_roles(fixture: EvalFixture) -> tuple[tuple[str, str, str], ...]:
         )
     if _is_retry_exhaustion_fixture(fixture):
         return (("researcher", "lighthouse.researcher", "company_research"),)
+    if _is_provider_fallback_fixture(fixture):
+        return (
+            ("researcher", "lighthouse.researcher", "company_research"),
+            ("qualifier", "lighthouse.qualifier", "lead_qualification"),
+            ("drafter", "lighthouse.drafter", "response_draft"),
+            ("drafter", "lighthouse.drafter", "response_draft"),
+            ("validator", "lighthouse.validator", "response_validation"),
+        )
     return HAPPY_PATH_ROLES
 
 
@@ -456,10 +464,16 @@ def _decision_output_summary(
         return "response_validation approved redrafted response"
     if _is_retry_exhaustion_fixture(fixture) and role == "researcher":
         return "company_research failed after Temporal activity retries exhausted"
+    if _is_provider_fallback_fixture(fixture) and role == "drafter" and index == 3:
+        return "response_draft failed on commercial provider; governed fallback route requested"
+    if _is_provider_fallback_fixture(fixture) and role == "drafter" and index == 4:
+        return "response_draft completed on local fallback route after provider failure"
     return f"{task_kind} completed for happy path"
 
 
 def _decision_justification(fixture: EvalFixture) -> str:
+    if fixture.phase.value == "2A":
+        return "Deterministic Phase 2A provider fallback fixture evidence."
     if fixture.phase.value == "1B":
         return "Deterministic Phase 1B governance fixture evidence."
     return "Deterministic Phase 1A fixture evidence."
@@ -479,6 +493,10 @@ def _is_connector_failure_fixture(fixture: EvalFixture) -> bool:
 
 def _is_retry_exhaustion_fixture(fixture: EvalFixture) -> bool:
     return fixture.fixture_id == "lighthouse-retry-exhaustion"
+
+
+def _is_provider_fallback_fixture(fixture: EvalFixture) -> bool:
+    return fixture.fixture_id == "lighthouse-provider-fallback"
 
 
 def _decision_record(
@@ -509,8 +527,8 @@ def _decision_record(
                 "prompt_hash": prompt_hash,
             },
             "model_route": {
-                "provider": "local",
-                "model": "lighthouse-happy-path-v1",
+                "provider": _decision_provider(fixture, role, index),
+                "model": _decision_model(fixture, role, index),
                 "task_kind": task_kind,
                 "budget_cap_usd": 0.01,
                 "parameters": {"temperature": 0},
@@ -518,7 +536,12 @@ def _decision_record(
             "input_summary": _decision_input_summary(fixture, role, task_kind, index),
             "output_summary": _decision_output_summary(fixture, role, task_kind, index),
             "justification": _decision_justification(fixture),
-            "outcome": "failed" if _is_retry_exhaustion_fixture(fixture) else "succeeded",
+            "outcome": (
+                "failed"
+                if _is_retry_exhaustion_fixture(fixture)
+                or (_is_provider_fallback_fixture(fixture) and role == "drafter" and index == 3)
+                else "succeeded"
+            ),
             "tool_call_ids": [],
             "cost": {"amount": 0.0, "currency": "USD"},
             "duration_ms": 25,
@@ -530,6 +553,18 @@ def _decision_record(
             ],
         }
     )
+
+
+def _decision_provider(fixture: EvalFixture, role: str, index: int) -> str:
+    if _is_provider_fallback_fixture(fixture) and role == "drafter" and index == 3:
+        return "commercial.example"
+    return "local"
+
+
+def _decision_model(fixture: EvalFixture, role: str, index: int) -> str:
+    if _is_provider_fallback_fixture(fixture) and role == "drafter" and index == 3:
+        return "commercial-reasoner-v1"
+    return "lighthouse-happy-path-v1"
 
 
 def _tool_call(
@@ -767,6 +802,8 @@ def _assert_offline_evidence(
             [evidence.retry_dlq_audit_event] if evidence.retry_dlq_audit_event is not None else []
         )
         checks.append(_check_retry_exhaustion_dlq(retry_audits, ["dlq"]))
+    if _is_provider_fallback_fixture(fixture):
+        checks.append(_check_provider_fallback_decisions(evidence.decisions))
     if any(check.status == "fail" for check in checks):
         details = "; ".join(check.detail for check in checks if check.status == "fail")
         raise EvalError(details)
@@ -834,6 +871,8 @@ def _run_live_checks(
         checks.append(_check_connector_failure_compensation(evidence.tool_audits))
     if _is_retry_exhaustion_fixture(fixture):
         checks.append(_check_retry_exhaustion_dlq(evidence.tool_audits, evidence.outbox_statuses))
+    if _is_provider_fallback_fixture(fixture):
+        checks.append(_check_provider_fallback_decisions(evidence.decisions))
     return checks
 
 
@@ -1211,6 +1250,43 @@ def _check_retry_exhaustion_dlq(
         "retry exhaustion dlq",
         "fail",
         "missing workflow.retry_exhausted.dlq_recorded audit or dlq outbox status",
+    )
+
+
+def _check_provider_fallback_decisions(decisions: list[AgentInvocationRecord]) -> EvalCheck:
+    primary_index: int | None = None
+    fallback_index: int | None = None
+    for index, record in enumerate(decisions):
+        if (
+            record.agent.role.value == "drafter"
+            and record.model_route.provider == "commercial.example"
+            and record.model_route.model == "commercial-reasoner-v1"
+            and record.outcome.value == "failed"
+            and record.cost.currency == "USD"
+            and record.duration_ms >= 0
+        ):
+            primary_index = index
+        if (
+            record.agent.role.value == "drafter"
+            and record.model_route.provider == "local"
+            and record.model_route.model == "lighthouse-happy-path-v1"
+            and record.outcome.value == "succeeded"
+            and "fallback" in record.output_summary.lower()
+            and record.cost.currency == "USD"
+            and record.duration_ms >= 0
+        ):
+            fallback_index = index
+
+    if primary_index is not None and fallback_index is not None and primary_index < fallback_index:
+        return EvalCheck(
+            "provider fallback route selection",
+            "pass",
+            "failed commercial provider route, local fallback route, cost, and latency observed",
+        )
+    return EvalCheck(
+        "provider fallback route selection",
+        "fail",
+        "missing failed commercial provider route followed by local fallback route evidence",
     )
 
 

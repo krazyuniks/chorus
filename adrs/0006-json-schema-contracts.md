@@ -14,7 +14,7 @@ Agent, event, and tool contracts must be explicit enough for CI, reviewers, and 
 
 Use JSON Schema as the canonical source for events and agent/tool contracts. Generate committed Pydantic models with `datamodel-code-generator`. Register event schemas in Redpanda Schema Registry. Validate sample payloads and generated-code drift in CI.
 
-Use PydanticAI dynamic schema support only where static generation is awkward and the exception is documented.
+Use runtime/framework dynamic schema support only where static generation is awkward and the exception is documented. ADR 0012 narrows the current Phase 2A framework direction to LangGraph inside Agent Runtime rather than PydanticAI.
 
 ## Consequences
 

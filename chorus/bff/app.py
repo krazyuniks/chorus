@@ -9,7 +9,7 @@ import os
 from collections.abc import AsyncIterator, Generator, Iterator
 from contextlib import contextmanager
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 import psycopg
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
@@ -20,7 +20,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from chorus.observability import set_current_span_attributes
 from chorus.persistence import (
     DecisionTrailEntryReadModel,
+    ModelRouteVersion,
     ProjectionStore,
+    ProviderCatalogueModel,
+    ProviderCatalogueProvider,
     ToolActionAuditReadModel,
     WorkflowHistoryEventReadModel,
     WorkflowRunReadModel,
@@ -106,6 +109,12 @@ class DecisionTrailEntryView(BaseModel):
     prompt_ref: str
     prompt_hash: str
     model_route: str
+    route_id: str | None
+    route_version: int | None
+    provider: str
+    model: str
+    fallback_reason: str | None
+    fallback_applied: bool | None
     task_kind: str
     outcome: str
     reasoning_summary: str | None
@@ -114,6 +123,27 @@ class DecisionTrailEntryView(BaseModel):
     occurred_at: str
     correlation_id: str
     contract_refs: list[str]
+
+
+class GraphExecutionEntryView(BaseModel):
+    id: str
+    workflow_id: str
+    invocation_id: str
+    agent_id: str
+    agent_role: str
+    execution_engine: str | None
+    graph_version: str | None
+    graph_path: list[str]
+    graph_path_summary: str | None
+    provider: str
+    model: str
+    route_id: str | None
+    route_version: int | None
+    outcome: str
+    fallback_applied: bool | None
+    latency_ms: int | None
+    occurred_at: str
+    correlation_id: str
 
 
 class ToolVerdictEntryView(BaseModel):
@@ -164,6 +194,52 @@ class RoutingEntryView(BaseModel):
     budget_usd: float
     fallback_policy: dict[str, Any]
     lifecycle_state: str
+
+
+class ProviderEntryView(BaseModel):
+    catalogue_id: str
+    provider_id: str
+    display_name: str
+    provider_kind: str
+    lifecycle_state: str
+    credential_required: bool
+    secret_ref_names: list[str]
+    missing_credentials_behaviour: str
+    data_boundary: dict[str, Any]
+    operational_limits: dict[str, Any]
+    audit: dict[str, Any]
+
+
+class ProviderModelEntryView(BaseModel):
+    catalogue_id: str
+    provider_id: str
+    model_id: str
+    display_name: str
+    lifecycle_state: str
+    supported_task_kinds: list[str]
+    supports_structured_output: bool
+    context_window_tokens: int | None
+    cost_policy: dict[str, Any]
+
+
+class RouteVersionEntryView(BaseModel):
+    route_id: str
+    route_version: int
+    lifecycle_state: str
+    agent_role: str
+    task_kind: str
+    tenant_tier: str
+    provider_catalogue_id: str
+    provider_id: str
+    model_id: str
+    parameters: dict[str, Any]
+    budget_usd: float
+    max_latency_ms: int
+    fallback_policy: dict[str, Any]
+    eval_required: bool
+    eval_fixture_refs: list[str]
+    promotion: dict[str, Any]
+    created_at: str
 
 
 class ProgressEvent(BaseModel):
@@ -257,6 +333,25 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
         entries = store.list_decision_trail(resolved.tenant_id, limit=limit)
         return [_decision_view(row) for row in entries]
 
+    @app.get("/api/graph-executions", response_model=list[GraphExecutionEntryView])
+    def list_graph_executions(
+        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        limit: Annotated[int, Query(ge=1, le=1_000)] = 500,
+    ) -> list[GraphExecutionEntryView]:
+        entries = store.list_decision_trail(resolved.tenant_id, limit=limit)
+        return [_graph_execution_view(row) for row in entries]
+
+    @app.get(
+        "/api/workflows/{workflow_id}/graph-executions",
+        response_model=list[GraphExecutionEntryView],
+    )
+    def list_workflow_graph_executions(
+        workflow_id: str,
+        store: Annotated[ProjectionStore, Depends(store_dependency)],
+    ) -> list[GraphExecutionEntryView]:
+        entries = store.list_decision_trail(resolved.tenant_id, workflow_id=workflow_id)
+        return [_graph_execution_view(row) for row in entries]
+
     @app.get("/api/tool-verdicts", response_model=list[ToolVerdictEntryView])
     def list_tool_verdicts(
         store: Annotated[ProjectionStore, Depends(store_dependency)],
@@ -324,6 +419,27 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
             )
             for row in snapshot.model_routes
         ]
+
+    @app.get("/api/runtime/providers", response_model=list[ProviderEntryView])
+    def list_providers(
+        store: Annotated[ProjectionStore, Depends(store_dependency)],
+    ) -> list[ProviderEntryView]:
+        snapshot = store.provider_governance_snapshot(resolved.tenant_id)
+        return [_provider_view(row) for row in snapshot.providers]
+
+    @app.get("/api/runtime/provider-models", response_model=list[ProviderModelEntryView])
+    def list_provider_models(
+        store: Annotated[ProjectionStore, Depends(store_dependency)],
+    ) -> list[ProviderModelEntryView]:
+        snapshot = store.provider_governance_snapshot(resolved.tenant_id)
+        return [_provider_model_view(row) for row in snapshot.provider_models]
+
+    @app.get("/api/runtime/route-versions", response_model=list[RouteVersionEntryView])
+    def list_route_versions(
+        store: Annotated[ProjectionStore, Depends(store_dependency)],
+    ) -> list[RouteVersionEntryView]:
+        snapshot = store.provider_governance_snapshot(resolved.tenant_id)
+        return [_route_version_view(row) for row in snapshot.route_versions]
 
     @app.get("/api/progress")
     async def progress(
@@ -479,6 +595,29 @@ def _progress_view(row: WorkflowHistoryEventReadModel) -> ProgressEvent:
     )
 
 
+def _metadata_str(metadata: dict[str, Any], key: str) -> str | None:
+    value = metadata.get(key)
+    return value if isinstance(value, str) and value else None
+
+
+def _metadata_int(metadata: dict[str, Any], key: str) -> int | None:
+    value = metadata.get(key)
+    return value if isinstance(value, int) else None
+
+
+def _metadata_bool(metadata: dict[str, Any], key: str) -> bool | None:
+    value = metadata.get(key)
+    return value if isinstance(value, bool) else None
+
+
+def _metadata_list_str(metadata: dict[str, Any], key: str) -> list[str]:
+    value = metadata.get(key)
+    if not isinstance(value, list):
+        return []
+    items = cast(list[object], value)
+    return [item for item in items if isinstance(item, str)]
+
+
 def _decision_view(row: DecisionTrailEntryReadModel) -> DecisionTrailEntryView:
     return DecisionTrailEntryView(
         id=str(row.invocation_id),
@@ -489,6 +628,12 @@ def _decision_view(row: DecisionTrailEntryReadModel) -> DecisionTrailEntryView:
         prompt_ref=row.prompt_reference,
         prompt_hash=row.prompt_hash,
         model_route=f"{row.provider}/{row.model}",
+        route_id=_metadata_str(row.metadata, "model_route.route_id"),
+        route_version=_metadata_int(row.metadata, "model_route.route_version"),
+        provider=row.provider,
+        model=row.model,
+        fallback_reason=_metadata_str(row.metadata, "model_route.fallback_reason"),
+        fallback_applied=_metadata_bool(row.metadata, "provider_fallback.applied"),
         task_kind=row.task_kind,
         outcome=row.outcome,
         reasoning_summary=row.justification or row.output_summary or None,
@@ -497,6 +642,29 @@ def _decision_view(row: DecisionTrailEntryReadModel) -> DecisionTrailEntryView:
         occurred_at=row.completed_at.isoformat(),
         correlation_id=row.correlation_id,
         contract_refs=row.contract_refs,
+    )
+
+
+def _graph_execution_view(row: DecisionTrailEntryReadModel) -> GraphExecutionEntryView:
+    return GraphExecutionEntryView(
+        id=str(row.invocation_id),
+        workflow_id=row.workflow_id,
+        invocation_id=str(row.invocation_id),
+        agent_id=row.agent_id,
+        agent_role=row.agent_role,
+        execution_engine=_metadata_str(row.metadata, "agent_execution.engine"),
+        graph_version=_metadata_str(row.metadata, "agent_execution.graph_version"),
+        graph_path=_metadata_list_str(row.metadata, "agent_execution.graph_path"),
+        graph_path_summary=_metadata_str(row.metadata, "agent_execution.graph_path_summary"),
+        provider=row.provider,
+        model=row.model,
+        route_id=_metadata_str(row.metadata, "model_route.route_id"),
+        route_version=_metadata_int(row.metadata, "model_route.route_version"),
+        outcome=row.outcome,
+        fallback_applied=_metadata_bool(row.metadata, "provider_fallback.applied"),
+        latency_ms=row.duration_ms,
+        occurred_at=row.completed_at.isoformat(),
+        correlation_id=row.correlation_id,
     )
 
 
@@ -518,6 +686,58 @@ def _tool_verdict_view(row: ToolActionAuditReadModel) -> ToolVerdictEntryView:
 
 def _redacted_fields(arguments: dict[str, Any]) -> list[str]:
     return sorted(key for key, value in arguments.items() if value == "[redacted]")
+
+
+def _provider_view(row: ProviderCatalogueProvider) -> ProviderEntryView:
+    return ProviderEntryView(
+        catalogue_id=row.catalogue_id,
+        provider_id=row.provider_id,
+        display_name=row.display_name,
+        provider_kind=row.provider_kind,
+        lifecycle_state=row.lifecycle_state,
+        credential_required=row.credential_required,
+        secret_ref_names=row.secret_ref_names,
+        missing_credentials_behaviour=row.missing_credentials_behaviour,
+        data_boundary=row.data_boundary,
+        operational_limits=row.operational_limits,
+        audit=row.audit,
+    )
+
+
+def _provider_model_view(row: ProviderCatalogueModel) -> ProviderModelEntryView:
+    return ProviderModelEntryView(
+        catalogue_id=row.catalogue_id,
+        provider_id=row.provider_id,
+        model_id=row.model_id,
+        display_name=row.display_name,
+        lifecycle_state=row.lifecycle_state,
+        supported_task_kinds=row.supported_task_kinds,
+        supports_structured_output=row.supports_structured_output,
+        context_window_tokens=row.context_window_tokens,
+        cost_policy=row.cost_policy,
+    )
+
+
+def _route_version_view(row: ModelRouteVersion) -> RouteVersionEntryView:
+    return RouteVersionEntryView(
+        route_id=str(row.route_id),
+        route_version=row.route_version,
+        lifecycle_state=row.lifecycle_state,
+        agent_role=row.agent_role,
+        task_kind=row.task_kind,
+        tenant_tier=row.tenant_tier,
+        provider_catalogue_id=row.provider_catalogue_id,
+        provider_id=row.provider_id,
+        model_id=row.model_id,
+        parameters=row.parameters,
+        budget_usd=_decimal_to_float(row.budget_cap_usd),
+        max_latency_ms=row.max_latency_ms,
+        fallback_policy=row.fallback_policy,
+        eval_required=row.eval_required,
+        eval_fixture_refs=row.eval_fixture_refs,
+        promotion=row.promotion,
+        created_at=row.created_at.isoformat(),
+    )
 
 
 def _decimal_to_float(value: Decimal) -> float:

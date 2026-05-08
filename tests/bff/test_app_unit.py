@@ -17,7 +17,12 @@ from chorus.bff.app import (
 from chorus.persistence.projection import (
     AgentRegistryEntry,
     DecisionTrailEntryReadModel,
+    ModelRouteVersion,
     ModelRoutingPolicy,
+    ProviderCatalogueEntry,
+    ProviderCatalogueModel,
+    ProviderCatalogueProvider,
+    ProviderGovernanceSnapshot,
     RuntimePolicySnapshot,
     ToolActionAuditReadModel,
     ToolGrant,
@@ -133,6 +138,82 @@ class FakeProjectionStore:
             ],
         )
 
+    def provider_governance_snapshot(self, tenant_id: str) -> ProviderGovernanceSnapshot:
+        return ProviderGovernanceSnapshot(
+            tenant_id=tenant_id,
+            catalogues=[
+                ProviderCatalogueEntry(
+                    catalogue_id="provider-catalogue.phase2a.seed",
+                    schema_version="1.0.0",
+                    effective_from=self.now,
+                    created_at=self.now,
+                )
+            ],
+            providers=[
+                ProviderCatalogueProvider(
+                    catalogue_id="provider-catalogue.phase2a.seed",
+                    provider_id="local",
+                    display_name="Local structured boundary",
+                    provider_kind="local",
+                    lifecycle_state="approved",
+                    credential_required=False,
+                    secret_ref_names=[],
+                    missing_credentials_behaviour="allow",
+                    data_boundary={"mode": "local_only"},
+                    operational_limits={"default_timeout_ms": 1000},
+                    audit={"owner": "agent-runtime"},
+                ),
+                ProviderCatalogueProvider(
+                    catalogue_id="provider-catalogue.phase2a.seed",
+                    provider_id="commercial.example",
+                    display_name="Commercial provider placeholder",
+                    provider_kind="commercial",
+                    lifecycle_state="disabled",
+                    credential_required=True,
+                    secret_ref_names=["CHORUS_COMMERCIAL_LLM_API_KEY"],
+                    missing_credentials_behaviour="disable_provider",
+                    data_boundary={"mode": "external_api"},
+                    operational_limits={"default_timeout_ms": 30000},
+                    audit={"owner": "agent-runtime"},
+                ),
+            ],
+            provider_models=[
+                ProviderCatalogueModel(
+                    catalogue_id="provider-catalogue.phase2a.seed",
+                    provider_id="local",
+                    model_id="lighthouse-happy-path-v1",
+                    display_name="Lighthouse local structured model",
+                    lifecycle_state="approved",
+                    supported_task_kinds=["response_draft"],
+                    supports_structured_output=True,
+                    context_window_tokens=8192,
+                    cost_policy={"currency": "USD"},
+                )
+            ],
+            route_versions=[
+                ModelRouteVersion(
+                    route_id=uuid4(),
+                    route_version=1,
+                    lifecycle_state="approved",
+                    tenant_id=tenant_id,
+                    agent_role="drafter",
+                    task_kind="response_draft",
+                    tenant_tier="demo",
+                    provider_catalogue_id="provider-catalogue.phase2a.seed",
+                    provider_id="local",
+                    model_id="lighthouse-happy-path-v1",
+                    parameters={"temperature": 0.3},
+                    budget_cap_usd=Decimal("0.0100"),
+                    max_latency_ms=5000,
+                    fallback_policy={"on_provider_error": "escalate"},
+                    eval_required=True,
+                    eval_fixture_refs=["chorus/eval/fixtures/lighthouse_happy_path.json"],
+                    promotion={"change_ref": "2A-02"},
+                    created_at=self.now,
+                )
+            ],
+        )
+
     def _workflow(self) -> WorkflowRunReadModel:
         return WorkflowRunReadModel(
             tenant_id="tenant_demo",
@@ -193,6 +274,25 @@ class FakeProjectionStore:
             completed_at=self.now,
             contract_refs=["contracts/agents/lighthouse_agent_io.schema.json"],
             raw_record={"metadata": {"unit": True}},
+            metadata={
+                "agent_execution.engine": "langgraph",
+                "agent_execution.graph_version": "lighthouse-agent-runtime-graph-v1",
+                "agent_execution.graph_path": [
+                    "prepare_context",
+                    "invoke_model_adapter",
+                    "normalise_result",
+                    "validate_contract",
+                    "final_response",
+                ],
+                "agent_execution.graph_path_summary": (
+                    "prepare_context -> invoke_model_adapter -> normalise_result -> "
+                    "validate_contract -> final_response"
+                ),
+                "model_route.route_id": str(uuid4()),
+                "model_route.route_version": 1,
+                "model_route.fallback_reason": None,
+                "provider_fallback.applied": False,
+            },
             created_at=self.now,
         )
 
@@ -264,10 +364,37 @@ def test_audit_and_runtime_policy_endpoints_are_read_only_views() -> None:
     routing = client.get("/api/runtime/routing").json()
 
     assert decisions[0]["model_route"] == "local/lighthouse-happy-path-v1"
+    assert decisions[0]["route_version"] == 1
+    assert decisions[0]["provider"] == "local"
+    assert decisions[0]["fallback_reason"] is None
+    assert decisions[0]["fallback_applied"] is False
     assert verdicts[0]["redactions"] == ["body_text"]
     assert registry[0]["lifecycle_state"] == "approved"
     assert grants[0]["tool_name"] == "email.propose_response"
     assert routing[0]["budget_usd"] == 0.01
+
+
+def test_provider_and_graph_execution_endpoints_are_read_only_views() -> None:
+    client, store = _client()
+
+    providers = client.get("/api/runtime/providers").json()
+    provider_models = client.get("/api/runtime/provider-models").json()
+    route_versions = client.get("/api/runtime/route-versions").json()
+    graph = client.get(f"/api/workflows/{store.workflow_id}/graph-executions").json()
+
+    assert {row["provider_id"] for row in providers} == {"commercial.example", "local"}
+    assert providers[0]["catalogue_id"] == "provider-catalogue.phase2a.seed"
+    assert provider_models[0]["model_id"] == "lighthouse-happy-path-v1"
+    assert route_versions[0]["route_version"] == 1
+    assert route_versions[0]["provider_catalogue_id"] == "provider-catalogue.phase2a.seed"
+    assert graph[0]["execution_engine"] == "langgraph"
+    assert graph[0]["graph_path"] == [
+        "prepare_context",
+        "invoke_model_adapter",
+        "normalise_result",
+        "validate_contract",
+        "final_response",
+    ]
 
 
 def test_progress_sse_is_projection_backed() -> None:

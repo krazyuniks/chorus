@@ -56,6 +56,18 @@ function DecisionTrailRoute() {
     { key: "prompt_ref", header: "Prompt", mono: true, cell: (r) => r.prompt_ref },
     { key: "model_route", header: "Route", mono: true, cell: (r) => r.model_route },
     {
+      key: "route_version",
+      header: "Route Ver",
+      mono: true,
+      cell: (r) => (r.route_version != null ? `v${r.route_version}` : "—"),
+    },
+    {
+      key: "fallback_reason",
+      header: "Fallback",
+      mono: true,
+      cell: (r) => r.fallback_reason ?? "—",
+    },
+    {
       key: "outcome",
       header: "Outcome",
       cell: (r) => <StatusPill value={r.outcome} />,

@@ -43,6 +43,7 @@ The goal is not to claim Chorus is a complete enterprise policy framework. The g
 
 - Temporal is the durable orchestration spine.
 - Agent Runtime owns agent identity, lifecycle, prompts, model routing, policy, and invocation records.
+- LangGraph is the Phase 2A agent execution framework inside Agent Runtime, not a replacement for Temporal or the Tool Gateway.
 - Tool Gateway owns action authority.
 - JSON Schema owns cross-boundary contracts.
 - Postgres owns Phase 1 audit, policy materialisation, outbox, and projections.
@@ -88,10 +89,9 @@ The model boundary should support the conversations expected in enterprise adopt
 
 | Provider | Models | Intended use | Notes |
 |---|---|---|---|
-| Local structured boundary | `lighthouse-happy-path-v1` | Phase 1A deterministic local happy-path evidence. | Active implementation for Workstream C; no external credentials or connector authority. |
-| Anthropic | Claude (latest stable Opus/Sonnet) | Primary agent reasoning, drafting, qualification. | Primary route via API key. |
-| OpenAI | GPT-4-class | Validator-route diversity; second opinion on draft validation. | Diversity satisfies governance invariant. |
-| AWS Bedrock | Deferred | Future enterprise hosting boundary. | Phase 2+; signals enterprise-aware routing. |
+| Local structured boundary | `lighthouse-happy-path-v1` | Phase 1A/2A runnable local evidence path. | Approved and active; no external credentials or connector authority. |
+| Commercial provider placeholder | `commercial.example/commercial-reasoner-v1` | Phase 2A disabled-provider, route-version, and fallback evidence. | Disabled by default; records provider-disabled or provider-failure metadata; performs no production provider calls. |
+| Future commercial providers | Deferred | Route diversity, degradation policy, and production provider governance. | Future Phase 2 work; requires credentials, eval promotion policy, and explicit docs before use. |
 
 Routing policy resolves provider per (agent role, workflow stage, tenant tier). Budgets cap cost per invocation and per workflow run.
 
@@ -100,6 +100,15 @@ structured boundary and Postgres routing policy. Commercial provider adapters
 remain behind the same model boundary and are not required for the first
 local evidence slice. Phase 1 does not need a complete provider-management
 platform.
+
+Phase 2A adds an agent-execution concern before real commercial adapters:
+LangGraph structures the per-invocation agent graph while still using runtime
+policy for provider/model selection and the Tool Gateway for external actions.
+Route-selection metadata, graph execution metadata, and fallback evidence are
+visible in the decision trail and read-only UI/BFF views. LangGraph checkpoint
+persistence, durable execution, long-term memory, hosted observability,
+credential entry, and production commercial provider calls are not governance
+sources in Chorus.
 
 ## Prompt Governance
 

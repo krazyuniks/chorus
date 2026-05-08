@@ -14,7 +14,7 @@ Phase 1 builds one evidence-grade vertical slice for Lighthouse, including the h
 
 **1A is the first public ship-checkpoint.** Phases 1B (governance/failure fixtures) and 1C (review packaging) are committed continuations that extend the 1A baseline; they are not gating the first usable architecture review.
 
-Phase 2 planning is open through [`phase-2-plan.md`](phase-2-plan.md) and [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md). Phase 2 is not implemented yet. Its first recommended workstream is provider/model governance; later workstreams cover governed runtime change control, connector expansion, a second workflow proof, and production-readiness architecture.
+Phase 2 planning is open through [`phase-2-plan.md`](phase-2-plan.md), [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md), and [ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md). Phase 2A has delivered provider/model-governance groundwork, LangGraph execution inside Agent Runtime, provider-failure fallback evidence, route-selection metadata, read-only BFF/UI provider and graph inspection, and docs/runbook/evidence alignment. Later workstreams cover governed runtime change control, connector expansion, a second workflow proof, and production-readiness architecture.
 
 ## Phases and Milestones
 
@@ -24,7 +24,7 @@ Phase 2 planning is open through [`phase-2-plan.md`](phase-2-plan.md) and [ADR 0
 | 1A. Lighthouse happy-path slice | Send fixture lead email through Mailpit, run Temporal workflow, invoke governed agents, mediate at least one tool action, project state, stream progress, and show audit trail. | done | A reviewer can run one command, send the fixture lead to Mailpit SMTP, see workflow state advance through the BFF/UI, inspect Temporal/Redpanda/Grafana/audit by correlation ID, and run the happy-path eval. |
 | 1B. Governance and failure evidence | Add blocked write, low-confidence research, validator rejection, connector failure, retry/exhaustion, and escalation paths. | done | Failure fixtures produce expected workflow branches, audit verdicts, DLQ or escalation records, and passing trace/eval checks. |
 | 1C. Review packaging | Tighten README, screenshots or screencast notes, demo script, architecture links, governance evidence, and project-facing summary. | done | Asynchronous reviewers can answer the evidence-map questions in under 15 minutes; guided demo fits 3 minutes without opening an editor. |
-| 2. Governed platform expansion | Planned provider/model governance, governed runtime change control, connector expansion, second workflow proof, and production-readiness architecture. | planned | Phase 2 milestones are documented, each with evidence gates, and the first continuation workstream is scoped to provider/model governance. |
+| 2. Governed platform expansion | Planned LangGraph agent execution, provider/model governance, governed runtime change control, connector expansion, second workflow proof, and production-readiness architecture. | in progress | Phase 2 milestones are documented, each with evidence gates; Phase 2A documentation now distinguishes implemented LangGraph/provider evidence from deferred production provider calls and LangGraph durability. |
 
 ## Definition of Delivered
 
@@ -94,7 +94,7 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
 6. **(Phase 1A) Agent Runtime** — *delivered (Workstream C)*
    - Resolve agent version, prompt reference, lifecycle state, model route, budget caps, tenant policy, and invocation ID before each agent call.
    - Capture decision-trail records with correlation IDs.
-   - Current state: `chorus.agent_runtime` resolves active tenant policy, approved agent versions, prompt references/hashes, approved model routes, and budget caps from Workstream A's Postgres tables. `lighthouse.invoke_agent_runtime` uses that runtime behind Workstream B's stable activity boundary, returns generated-contract Lighthouse agent output, and persists `AgentInvocationRecord`-shaped decision-trail rows with active OTel IDs in `metadata`. The happy path uses the local `lighthouse-happy-path-v1` structured model boundary; commercial provider SDK adapters remain deferred behind the same boundary.
+   - Current state: `chorus.agent_runtime` resolves active tenant policy, approved agent versions, prompt references/hashes, approved model routes, and budget caps from Workstream A's Postgres tables. `lighthouse.invoke_agent_runtime` uses that runtime behind Workstream B's stable activity boundary, returns generated-contract Lighthouse agent output, and persists `AgentInvocationRecord`-shaped decision-trail rows with active OTel IDs in `metadata`. The happy path uses the local `lighthouse-happy-path-v1` structured model boundary. Phase 2A adds LangGraph execution evidence, route-selection metadata, a disabled-by-default `commercial.example` adapter boundary that records provider-disabled metadata but performs no production provider calls, provider-failure fallback fixture evidence, and read-only BFF/UI provider and graph-execution inspection.
    - Exit check: reviewer can inspect which agent/model/prompt ran and why.
 
 7. **(Phase 1A) Tool Gateway and local connector service**
@@ -129,9 +129,11 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
 
 13. **(Phase 2) Governed platform expansion — planned**
     - Follow [`phase-2-plan.md`](phase-2-plan.md) for the milestone order:
-      provider/model governance, governed runtime change control, connector
-      expansion, second workflow proof, and production-readiness architecture.
-    - Start with Phase 2A provider/model governance.
+      LangGraph agent execution plus provider/model governance, governed
+      runtime change control, connector expansion, second workflow proof, and
+      production-readiness architecture.
+   - Continue Phase 2A with provider timeout, rate-limit, and budget
+     degradation fixture coverage after `2A-10`.
     - Exit check for the planning pass: the Phase 2 roadmap, ADR, scope
       boundaries, and first handoff prompt are documented before implementation
       starts.
@@ -353,3 +355,9 @@ Each workstream description is structured to be a self-contained agent-session p
 - Production auth/SSO.
 - Scylla implementation.
 - Production cloud deployment and backup/disaster-recovery automation.
+- Production commercial provider calls and credential-entry UI until a later
+  Phase 2 item explicitly opens them.
+- Mutating provider, prompt, route, or grant admin controls before Phase 2B
+  change-control work.
+- LangGraph checkpoint persistence, durable execution, hosted deployment,
+  long-term graph memory, and LangSmith as a required dependency.

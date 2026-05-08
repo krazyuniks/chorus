@@ -26,18 +26,24 @@ evidence baseline.
 
 Phase 2 is a governed platform expansion, not a generic framework expansion.
 
+ADR 0012 amends the opening Phase 2A sequence: LangGraph agent execution inside
+Agent Runtime now lands before commercial provider adapters resume. The broader
+milestone ordering remains valid.
+
 The recommended sequence is:
 
-1. provider and model governance;
+1. agent execution and provider/model governance;
 2. governed runtime change control;
 3. connector expansion and approval hardening;
 4. a second workflow proof;
 5. a production-readiness architecture pack.
 
-The first implementation workstream is provider and model governance. It should
-add real provider adapter boundaries, route-version evidence, fallback and
-degradation fixtures, budget telemetry, and UI/BFF inspection while keeping the
-local structured boundary as the default runnable path.
+The first implementation workstream is agent execution and provider/model
+governance. It should add LangGraph as the per-invocation agent execution
+runtime inside Agent Runtime, then continue real provider adapter boundaries,
+route-version evidence, fallback and degradation fixtures, budget telemetry,
+and UI/BFF inspection while keeping the local structured boundary as the
+default runnable path.
 
 Phase 2 may revisit Phase 1 deferrals only through documented milestones in
 `docs/phase-2-plan.md`. Production SaaS packaging, production customer data,
@@ -47,9 +53,9 @@ remain out of scope until an ADR explicitly changes that boundary.
 ## Consequences
 
 - Phase 1 remains the stable demo and regression baseline.
-- Provider/model selection becomes the first Phase 2 implementation focus
-  because it directly strengthens the governance story without adding business
-  workflow breadth too early.
+- LangGraph-backed agent execution and provider/model selection become the
+  first Phase 2 implementation focus because they directly strengthen the
+  agentic-platform story without adding business workflow breadth too early.
 - Runtime mutation is treated as governed change control, not simple admin CRUD.
 - A second workflow is delayed until Agent Runtime, Tool Gateway, eval, and
   observability have clearer reuse evidence.

@@ -83,7 +83,7 @@ agent workflows across teams, providers, and business processes.
 | Phase 1A - Happy path | Mailpit SMTP intake, Temporal Lighthouse workflow, Agent Runtime, Tool Gateway, Postgres projections, Redpanda events, UI progress, audit trail, observability, and happy-path eval. | A reviewer can send a fixture email, follow one workflow by correlation ID, and run the happy-path eval. |
 | Phase 1B - Governance/failure evidence | Blocked write, low-confidence research, validator rejection, connector failure, retry exhaustion, and escalation fixtures. | Failure fixtures produce expected branches, audit verdicts, DLQ or escalation records, and passing eval checks. |
 | Phase 1C - Review packaging | Final README, screenshots or notes, demo script, evidence map, architecture links, and governance evidence. | An asynchronous reviewer can inspect the evidence path without hidden context. |
-| Phase 2 - Governed platform expansion | Planned provider/model governance, governed runtime change control, connector expansion, second workflow proof, and production-readiness architecture pack. | Provider-governance contract work has begun with `contracts/governance/`. See [`phase-2-plan.md`](phase-2-plan.md) and [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md). |
+| Phase 2 - Governed platform expansion | Planned LangGraph agent execution, provider/model governance, governed runtime change control, connector expansion, second workflow proof, and production-readiness architecture pack. | Provider-governance groundwork has begun with `contracts/governance/`, LangGraph now runs inside Agent Runtime with graph execution evidence in decision-trail metadata, the commercial provider placeholder has an explicit disabled-by-default adapter boundary, the provider-failure fixture proves fallback to the local route without production provider calls, route-selection audit metadata is captured for reviewer inspection, read-only BFF/UI views expose provider catalogue, route-version, and graph-execution evidence, and docs/runbook/evidence surfaces are aligned. See [`phase-2-plan.md`](phase-2-plan.md), [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md), and [ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md). |
 
 ## Phase 2 Planning Boundary
 
@@ -92,21 +92,23 @@ evidence before breadth, Temporal-owned workflow state, runtime policy outside
 prompts, Tool Gateway authority, contract-first payloads, and eval as a release
 control.
 
-The first recommended Phase 2 implementation focus is provider and model
-governance. That means improving the model/provider boundary, route-version
-evidence, fallback/degradation fixtures, budget telemetry, and read-only
-inspection before adding mutating admin, a second workflow, or production
-deployment work.
+The current Phase 2A implementation focus is agent execution and provider
+governance. Provider catalogue contracts, route-version metadata, and a
+provider-keyed model adapter registry have landed. ADR 0012 pivots the next
+step to LangGraph as the first-class agent execution engine inside Agent
+Runtime before commercial provider adapters resume.
 
-Phase 2 does not make Chorus a generic agent framework or SaaS product by
-default. Each reopened deferral needs an explicit milestone in
+Phase 2 does not make Chorus a top-level agent framework or SaaS product by
+default. LangGraph is scoped to per-invocation agent execution; Temporal still
+owns durable workflow state and the Tool Gateway still owns action authority.
+Each reopened deferral needs an explicit milestone in
 [`phase-2-plan.md`](phase-2-plan.md), matching docs, and evidence gates before
 it is treated as delivered.
 
 ## Domain Language
 
 Chorus's core domain is governed agent workflow execution. The important nouns
-are runtime and governance concepts, not a generic agent framework vocabulary.
+are runtime and governance concepts, not a top-level agent framework vocabulary.
 
 | Concept | Meaning |
 |---|---|
@@ -174,7 +176,7 @@ rather than a hand-fed form.
 | Concern | Technology | Rationale |
 |---|---|---|
 | Durable orchestration | Temporal with Python SDK | Long-running workflow state, replay, retries, timers, signals, waits, and branch visibility. |
-| Agent runtime | Python, FastAPI, PydanticAI | Typed agent contracts, policy resolution, structured model output, and inspectable invocation capture. |
+| Agent runtime | Python, FastAPI boundary, LangGraph inside Agent Runtime | Governed invocation identity, typed agent contracts, policy resolution, graph-backed agent execution, structured model output, and inspectable invocation capture. |
 | Tool mediation | Python/FastAPI service boundary | Central enforcement for grants, argument schemas, modes, approval, redaction, idempotency, and audit. |
 | Messaging | Redpanda Community Edition | Kafka-compatible event stream, visible console, and Schema Registry for event subjects. |
 | Storage | Postgres | Phase 1 registry, grants, routing policy, outbox, projections, decision trail, episodic history, and tenant isolation. |
@@ -350,18 +352,45 @@ each invocation, the runtime resolves:
 The runtime captures a decision-trail entry for every invocation. The record is
 created early enough that failed invocations remain inspectable.
 
+ADR 0012 promotes LangGraph to the first-class agent execution engine inside
+this boundary. LangGraph is not the durable business workflow owner. The
+implemented graph runs inside the existing `lighthouse.invoke_agent_runtime`
+Temporal activity, uses `graph.invoke()` without LangGraph checkpoint
+persistence, and returns the same `AgentInvocationResponse` contract.
+
+The intended ownership split is:
+
+- Agent Runtime resolves tenant, agent, prompt, route, budget, invocation ID,
+  output contract, and decision-trail capture.
+- LangGraph owns the per-invocation execution graph: context preparation,
+  model-adapter invocation, result normalisation, contract validation, and
+  final response shaping.
+- Model adapters remain the provider/model call boundary selected by runtime
+  policy.
+- Tool Gateway remains the only path to external action.
+
 Phase 1 runtime mutation is CLI/config driven. The UI shows runtime state
 read-only.
 
 Workstream B defines the Temporal activity boundary as
 `lighthouse.invoke_agent_runtime`. It accepts a contract-shaped
 `AgentInvocationRequest` and returns an `AgentInvocationResponse` aligned with
-`contracts/agents/lighthouse_agent_io.schema.json`. Workstream C implements
-the internals behind that activity name: it resolves tenant, agent, prompt,
-and model-route policy from Postgres, selects a provider-specific model adapter
-from the Agent Runtime registry, validates the agent output contract, and
-persists a generated-contract `AgentInvocationRecord` into
-`decision_trail_entries`. The workflow interface did not change.
+`contracts/agents/lighthouse_agent_io.schema.json`. Workstream C implemented
+the first internals behind that activity name: it resolves tenant, agent,
+prompt, and model-route policy from Postgres, selects a provider-specific model
+adapter from the Agent Runtime registry, validates the agent output contract,
+and persists a generated-contract `AgentInvocationRecord` into
+`decision_trail_entries`. Phase 2A item `2A-04` now executes that adapter call
+through the LangGraph path `prepare_context -> invoke_model_adapter ->
+normalise_result -> validate_contract -> final_response`. The workflow
+interface did not change.
+
+Phase 2A item `2A-05` adds graph execution evidence to the Postgres
+`decision_trail_entries.metadata` column: execution engine, graph version,
+graph path, and a graph path summary. This metadata is stored next to the OTel
+trace/span join IDs. The generated `AgentInvocationRecord` remains the
+canonical decision-trail contract; LangGraph does not become an audit store or
+durable state owner.
 
 ## Model Routing
 
@@ -382,21 +411,57 @@ Default Phase 1 posture:
 
 The Phase 1A happy path routes to the local `lighthouse-happy-path-v1`
 structured model boundary so the architecture evidence can run without
-production provider credentials. Commercial provider SDK adapters remain behind
-the same registry boundary and are deferred until provider credentials and eval
+production provider credentials. The commercial provider placeholder now has a
+disabled-by-default adapter boundary behind the same registry, but production
+provider calls remain out of scope until provider credentials and eval
 promotion policy are introduced.
 
 Phase 2A adds Postgres-backed provider catalogue and immutable route-version
 tables as governance evidence. They mirror the existing Phase 1 local routes
-and disabled commercial-provider placeholder, but the Agent Runtime still reads
-`model_routing_policies` for the Lighthouse happy path until the later adapter
-and runtime-routing ledger items are implemented.
+and disabled commercial-provider placeholder. The Agent Runtime still selects
+the runnable route from `model_routing_policies`, but it joins the matching
+approved `model_route_versions` row when available so decision-trail metadata
+can show route ID, route version, provider catalogue, and selection source
+without making immutable route versions the mutating policy interface.
 
-The Phase 2A runtime adapter registry currently registers only the local
-Lighthouse adapter. If routing policy selects an unregistered provider, the
-runtime records a failed decision-trail entry and raises an Agent Runtime error;
-fallback execution and disabled commercial adapters are later Phase 2A ledger
-items.
+The Phase 2A runtime adapter registry registers the local Lighthouse adapter
+and a `commercial.example` placeholder adapter. The commercial adapter is a
+disabled-by-default boundary: it performs no production provider calls, requires
+no credentials for local runs, and records provider-disabled evidence in
+`decision_trail_entries.metadata` when routing policy selects it. If routing
+policy selects any other unregistered provider, the runtime records a failed
+decision-trail entry and raises an Agent Runtime error. ADR 0012 places
+LangGraph inside that same policy boundary: the compiled graph invokes the
+selected adapter from the `invoke_model_adapter` node, while the local
+Lighthouse adapter remains the only runnable model path.
+
+Provider fallback is policy-gated. When a selected adapter raises a provider
+invocation failure and `fallback_policy.on_provider_error` is `fallback_route`,
+the runtime records the failed primary provider decision, then invokes the
+configured fallback route through the same LangGraph graph with a new
+invocation ID. The shipped fixture uses a failing `commercial.example` boundary
+and a local `lighthouse-happy-path-v1` fallback so provider failure is visible
+in the decision trail instead of being swallowed.
+
+Route-selection evidence is captured in `decision_trail_entries.metadata` next
+to the graph execution metadata and OTel IDs. Each invocation records the
+selected provider/model, task kind, budget, route ID/version where available,
+provider catalogue, selection source, fallback reason, observed cost, and
+observed latency. The generated `AgentInvocationRecord` still carries the
+canonical provider/model, cost, and duration fields; metadata adds reviewer
+lineage for Phase 2A route selection without changing the Temporal activity
+request/response contracts.
+
+Phase 2A read-only BFF/UI views expose that evidence without adding a mutating
+admin surface: provider catalogue rows, provider model declarations, immutable
+route versions, graph execution paths, route versions, fallback state, and
+per-workflow graph execution records are projected from Postgres.
+
+This is an inspection surface, not a provider-management product. The shipped
+commercial provider is `commercial.example`, a disabled placeholder used for
+failure and fallback evidence. There is no credential-entry UI, production
+commercial provider call path, route-promotion workflow, LangGraph checkpoint
+persistence, or LangGraph durable execution in Phase 2A.
 
 Provider/model changes require eval impact review because they can alter
 workflow behaviour without code changes.
@@ -480,8 +545,8 @@ Contract rules:
 - Breaking changes use versioned subjects/topics and migration notes.
 - CI fails when schemas, samples, generated models, or compatibility
   assumptions drift.
-- PydanticAI dynamic schema support is allowed only when static generation is
-  awkward and the exception is documented.
+- Runtime/framework dynamic schema support is allowed only when static
+  generation is awkward and the exception is documented.
 
 ## Storage Architecture
 
@@ -577,6 +642,8 @@ Expected views:
 - runtime registry;
 - grants;
 - model routing policy;
+- provider catalogue, provider models, and route versions;
+- graph execution evidence, both globally and per workflow;
 - eval status;
 - links to Temporal, Redpanda, Grafana, and Mailpit surfaces by correlation ID.
 
@@ -595,7 +662,7 @@ Chorus separates auditability from operational telemetry.
 | Temporal Console | Workflow state, retries, waits, branches, and replay evidence. |
 | Redpanda Console | Event flow, schemas, DLQ topics, and projection feed visibility. |
 | Grafana/OpenTelemetry | Traces, logs, metrics, latency, errors, and cost signals. |
-| UI audit views | Reviewer-friendly projection of workflow, agent, and tool evidence. |
+| UI audit views | Reviewer-friendly projection of workflow, agent, tool, provider, route-version, and graph-execution evidence. |
 | Eval output | Behavioural acceptance and governance invariant results. |
 
 Every material operation must carry a correlation ID.
@@ -651,8 +718,8 @@ Chorus turns governance into runtime-enforced boundaries:
 | Auditability | Required decision-trail and tool-audit fields with contract checks. |
 | Regression | Trace/eval fixtures gate behavioural changes. |
 
-The UI can inspect runtime governance state in Phase 1. Mutation remains
-CLI/config driven.
+The UI can inspect runtime governance state, provider-governance state, and
+graph-execution evidence. Mutation remains CLI/config driven.
 
 ## Security and Data Boundaries
 
@@ -680,7 +747,7 @@ cloud network controls are deferred.
 | Activity failure | Temporal retry policy plus Phase 1B compensation/escalation fixtures. |
 | Connector failure | Gateway/connector error classification plus Phase 1B G-04 compensation/escalation fixture. |
 | Retry exhaustion | Phase 1B G-05 records a terminal `dlq` outbox marker plus `workflow.retry_exhausted.dlq_recorded` audit evidence before escalation. |
-| Provider failure | Runtime fallback/degradation policy is captured in routing policy; commercial provider-failure fixtures are deferred until provider adapters are active. |
+| Provider failure | Runtime records the failed primary provider attempt and, when `fallback_policy` selects a fallback route, records a separate successful local fallback decision. The Phase 2A provider-fallback eval fixture covers this without enabling production provider calls. |
 | Low-confidence research | Phase 1B deeper-research branch fixture. |
 | Validator rejection | Phase 1B return-to-draft fixture with structured reason. |
 | Forbidden write | Gateway block, approval-required, write-to-propose behaviour, and the Phase 1B forbidden-write workflow fixture. |
@@ -734,7 +801,7 @@ The local stack is Compose-based. Production deployment is out of Phase 1 scope.
 Out of scope for Phase 1:
 
 - second business workflow;
-- generic agent framework;
+- top-level agent framework replacing Temporal;
 - runtime-editable workflow DSL;
 - production auth, SSO, RBAC, and identity integration;
 - production cloud deployment;

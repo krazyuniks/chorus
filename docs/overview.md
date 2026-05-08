@@ -48,17 +48,25 @@ The repo is also an architecture package. A reviewer should be able to inspect `
 
 ## Phase 2 Direction
 
-Phase 2 is planned, not implemented. It opens a governed-platform expansion
-after the Phase 1 evidence baseline. The first recommended implementation
-track is provider/model governance: commercial-provider adapter boundaries,
-route-version evidence, fallback/degradation fixtures, budget telemetry, and
-read-only inspection while preserving the local structured boundary as the
-default runnable path.
+Phase 2 is planned and partially started. It opens a governed-platform
+expansion after the Phase 1 evidence baseline. Initial provider/model
+governance groundwork has landed: contracts, Postgres route/catalogue
+metadata, a provider-keyed model adapter registry, route-selection evidence,
+and read-only provider/graph inspection surfaces.
+
+The current Phase 2A pivot makes LangGraph the first-class agent execution
+runtime inside the existing Agent Runtime boundary before continuing real
+commercial provider adapters. Temporal remains the durable business workflow
+owner; the Tool Gateway remains the action authority; LangGraph owns only
+per-invocation agent execution. The shipped commercial provider boundary is a
+disabled placeholder used for evidence; production provider calls, credential
+entry, mutating admin controls, and LangGraph durability are not implemented.
 
 Later Phase 2 milestones cover governed runtime change control, connector
 expansion, a second workflow proof, and production-readiness architecture. See
-[`phase-2-plan.md`](phase-2-plan.md) and
-[ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md).
+[`phase-2-plan.md`](phase-2-plan.md),
+[ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md), and
+[ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md).
 
 ## How to review Phase 1
 
@@ -74,7 +82,7 @@ Start with the README first-time reviewer checklist for commands. For the eviden
 
 ## Decision record
 
-Architectural decisions are recorded as ADRs under [`../adrs/`](../adrs/). The ADRs explain why the project selected Lighthouse as the evidence slice, Temporal as the orchestration spine, Redpanda for event visibility, explicit Agent Runtime and Tool Gateway boundaries, Postgres-first storage, JSON Schema contracts, trace/eval assurance, and Mailpit SMTP intake.
+Architectural decisions are recorded as ADRs under [`../adrs/`](../adrs/). The ADRs explain why the project selected Lighthouse as the evidence slice, Temporal as the orchestration spine, Redpanda for event visibility, explicit Agent Runtime and Tool Gateway boundaries, Postgres-first storage, JSON Schema contracts, trace/eval assurance, Mailpit SMTP intake, Phase 2 governed-platform expansion, and LangGraph inside Agent Runtime.
 
 The architecture document should reflect accepted decisions, but the ADRs remain the source of record for why material choices were made.
 
@@ -91,7 +99,7 @@ The architecture document should reflect accepted decisions, but the ADRs remain
 ## What Chorus is not
 
 - Not a SaaS product or hosted service.
-- Not a generic agent framework competing with LangGraph, PydanticAI, OpenAI Agents SDK, CrewAI, or vendor platforms.
+- Not a top-level agent framework replacing Temporal's durable workflow boundary. Phase 2A deliberately adds LangGraph inside Agent Runtime instead.
 - Not a checklist implementation of every interesting agentic-AI primitive.
 - Not a Scylla, Kubernetes, or cloud-infrastructure demo in Phase 1.
 - Not a production CRM/email/payment integration suite. Connectors are sandbox/local implementations behind the same gateway boundary intended for real integrations.

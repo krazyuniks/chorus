@@ -1,8 +1,12 @@
 import { apiGet } from "./client";
 import {
   decisionTrail,
+  graphExecutions,
   grants,
+  providerModels,
+  providers,
   registry,
+  routeVersions,
   routing,
   toolVerdicts,
   workflowEvents,
@@ -10,8 +14,12 @@ import {
 } from "./fixtures";
 import type {
   DecisionTrailEntry,
+  GraphExecutionEntry,
   GrantEntry,
+  ProviderEntry,
+  ProviderModelEntry,
   RegistryEntry,
+  RouteVersionEntry,
   RoutingEntry,
   ToolVerdictEntry,
   WorkflowEvent,
@@ -59,6 +67,22 @@ export async function listWorkflowDecisionTrail(
   );
 }
 
+export async function listGraphExecutions(): Promise<GraphExecutionEntry[]> {
+  if (USE_FIXTURES) return graphExecutions;
+  return apiGet<GraphExecutionEntry[]>("/graph-executions");
+}
+
+export async function listWorkflowGraphExecutions(
+  workflowId: string,
+): Promise<GraphExecutionEntry[]> {
+  if (USE_FIXTURES) {
+    return graphExecutions.filter((entry) => entry.workflow_id === workflowId);
+  }
+  return apiGet<GraphExecutionEntry[]>(
+    `/workflows/${encodeURIComponent(workflowId)}/graph-executions`,
+  );
+}
+
 export async function listToolVerdicts(): Promise<ToolVerdictEntry[]> {
   if (USE_FIXTURES) return toolVerdicts;
   return apiGet<ToolVerdictEntry[]>("/tool-verdicts");
@@ -88,4 +112,19 @@ export async function listGrants(): Promise<GrantEntry[]> {
 export async function listRouting(): Promise<RoutingEntry[]> {
   if (USE_FIXTURES) return routing;
   return apiGet<RoutingEntry[]>("/runtime/routing");
+}
+
+export async function listProviders(): Promise<ProviderEntry[]> {
+  if (USE_FIXTURES) return providers;
+  return apiGet<ProviderEntry[]>("/runtime/providers");
+}
+
+export async function listProviderModels(): Promise<ProviderModelEntry[]> {
+  if (USE_FIXTURES) return providerModels;
+  return apiGet<ProviderModelEntry[]>("/runtime/provider-models");
+}
+
+export async function listRouteVersions(): Promise<RouteVersionEntry[]> {
+  if (USE_FIXTURES) return routeVersions;
+  return apiGet<RouteVersionEntry[]>("/runtime/route-versions");
 }

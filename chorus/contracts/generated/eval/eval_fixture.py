@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class Phase(StrEnum):
     FIELD_1_A = "1A"
     FIELD_1_B = "1B"
+    FIELD_2_A = "2A"
 
 
 class Input(BaseModel):

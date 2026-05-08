@@ -30,7 +30,8 @@
       "type": "string",
       "enum": [
         "1A",
-        "1B"
+        "1B",
+        "2A"
       ]
     },
     "input": {

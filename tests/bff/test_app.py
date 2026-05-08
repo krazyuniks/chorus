@@ -116,11 +116,12 @@ def seeded_bff(migrated_database_url: str) -> TestClient:
                 started_at,
                 completed_at,
                 contract_refs,
-                raw_record
+                raw_record,
+                metadata
             )
             VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
             """,
             (
@@ -150,6 +151,27 @@ def seeded_bff(migrated_database_url: str) -> TestClient:
                 datetime(2026, 4, 29, 12, 0, 2, tzinfo=UTC),
                 ["contracts/agents/lighthouse_agent_io.schema.json"],
                 Jsonb({"metadata": {"test": True}}),
+                Jsonb(
+                    {
+                        "agent_execution.engine": "langgraph",
+                        "agent_execution.graph_version": "lighthouse-agent-runtime-graph-v1",
+                        "agent_execution.graph_path": [
+                            "prepare_context",
+                            "invoke_model_adapter",
+                            "normalise_result",
+                            "validate_contract",
+                            "final_response",
+                        ],
+                        "agent_execution.graph_path_summary": (
+                            "prepare_context -> invoke_model_adapter -> normalise_result -> "
+                            "validate_contract -> final_response"
+                        ),
+                        "model_route.route_id": str(invocation_id),
+                        "model_route.route_version": 1,
+                        "model_route.fallback_reason": None,
+                        "provider_fallback.applied": False,
+                    }
+                ),
             ),
         )
         conn.execute(
@@ -246,13 +268,28 @@ def test_bff_serves_timeline_decisions_tool_verdicts_and_runtime_policy(
     registry = seeded_bff.get("/api/runtime/registry").json()
     grants = seeded_bff.get("/api/runtime/grants").json()
     routing = seeded_bff.get("/api/runtime/routing").json()
+    providers = seeded_bff.get("/api/runtime/providers").json()
+    provider_models = seeded_bff.get("/api/runtime/provider-models").json()
+    route_versions = seeded_bff.get("/api/runtime/route-versions").json()
+    graph = seeded_bff.get(f"/api/workflows/{workflow_id}/graph-executions").json()
 
     assert events[0]["event_type"] == "lead.received"
     assert decisions[0]["prompt_ref"] == "prompts/lighthouse/drafter/v1.md"
+    assert decisions[0]["provider"] == "local"
+    assert decisions[0]["route_version"] == 1
+    assert decisions[0]["fallback_applied"] is False
     assert verdicts[0]["redactions"] == ["body_text"]
     assert {row["agent_id"] for row in registry} >= {"lighthouse.drafter"}
     assert {row["tool_name"] for row in grants} >= {"email.propose_response"}
     assert {row["model"] for row in routing} == {"lighthouse-happy-path-v1"}
+    assert {row["provider_id"] for row in providers} == {"commercial.example", "local"}
+    assert {row["model_id"] for row in provider_models} == {
+        "commercial-reasoner-v1",
+        "lighthouse-happy-path-v1",
+    }
+    assert {row["route_version"] for row in route_versions} == {1}
+    assert graph[0]["execution_engine"] == "langgraph"
+    assert graph[0]["graph_path_summary"].endswith("final_response")
 
 
 def test_bff_progress_sse_streams_projection_events_once(seeded_bff: TestClient) -> None:

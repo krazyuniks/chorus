@@ -88,6 +88,7 @@ class DecisionTrailEntryReadModel(BaseModel):
     completed_at: datetime
     contract_refs: list[str]
     raw_record: dict[str, Any]
+    metadata: dict[str, Any]
     created_at: datetime
 
 
@@ -675,6 +676,7 @@ class ProjectionStore:
                     completed_at,
                     contract_refs,
                     raw_record,
+                    metadata,
                     created_at
                 FROM decision_trail_entries
                 WHERE tenant_id = %s AND workflow_id = %s
@@ -715,6 +717,7 @@ class ProjectionStore:
                 completed_at,
                 contract_refs,
                 raw_record,
+                metadata,
                 created_at
             FROM decision_trail_entries
             WHERE tenant_id = %s

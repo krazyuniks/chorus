@@ -55,7 +55,7 @@ operations to keep environment handling consistent.
 | `just lint` / `just fmt` | Linters and formatters across Python and frontend. |
 | `just hooks` | Run every prek hook against the whole tree. |
 | `just demo` | Send the fixture lead via Mailpit. |
-| `just eval` | Run the happy-path and Phase 1B governance/failure eval fixtures; inspect live Postgres evidence when a workflow/correlation ID is supplied. |
+| `just eval` | Run the happy-path, Phase 1B governance/failure, and Phase 2A provider-fallback eval fixtures; inspect live Postgres evidence when a workflow/correlation ID is supplied. |
 
 ## Local endpoints
 
@@ -211,6 +211,13 @@ writes one `decision_trail_entries` row per invocation. The Phase 1A seed
 routes every Lighthouse role to the local `lighthouse-happy-path-v1` structured
 model boundary, so the happy path runs without commercial provider credentials.
 
+Phase 2A now runs that invocation through a compiled LangGraph graph inside
+Agent Runtime. Temporal still owns the durable Lighthouse workflow, and the
+Tool Gateway still owns connector authority. The graph is invoked with
+`graph.invoke()` only; there is no LangGraph checkpoint persistence, durable
+execution, long-term memory, hosted deployment, LangSmith dependency, or
+mutating route UI in the local evidence path.
+
 Inspect the runtime policy for a tenant:
 
 ```bash
@@ -227,6 +234,47 @@ Read the decision trail for a workflow correlation ID:
 
 ```bash
 ./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT correlation_id, agent_role, agent_version, prompt_reference, provider, model, task_kind, outcome, cost_amount, duration_ms, started_at FROM decision_trail_entries WHERE correlation_id = '<correlation-id>' ORDER BY started_at;"
+```
+
+Inspect graph execution and route-selection metadata for the same run:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT correlation_id, agent_role, outcome, metadata #>> '{agent_execution,engine}' AS engine, metadata #>> '{agent_execution,graph_version}' AS graph_version, metadata #> '{agent_execution,graph_path}' AS graph_path, metadata #>> '{model_route,route_version}' AS route_version, metadata #>> '{model_route,selection_source}' AS selection_source, metadata #>> '{provider_fallback,reason}' AS fallback_reason, started_at FROM decision_trail_entries WHERE correlation_id = '<correlation-id>' ORDER BY started_at;"
+```
+
+Inspect the Phase 2A provider catalogue and provider models:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT provider_id, display_name, provider_kind, lifecycle_state, credential_required, secret_ref_names, missing_credentials_behaviour FROM provider_catalogue_providers ORDER BY catalogue_id, provider_id;"
+```
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT provider_id, model_id, lifecycle_state, supported_task_kinds, supports_structured_output FROM provider_catalogue_models ORDER BY catalogue_id, provider_id, model_id;"
+```
+
+Inspect immutable route versions for the demo tenant:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT agent_role, task_kind, route_version, lifecycle_state, provider_catalogue_id, provider_id, model_id, budget_cap_usd, max_latency_ms, fallback_policy, eval_fixture_refs FROM model_route_versions WHERE tenant_id = 'tenant_demo' ORDER BY agent_role, task_kind, route_version;"
+```
+
+The seeded provider catalogue includes `commercial.example` only as a disabled
+placeholder. It exists to prove catalogue shape, disabled-provider evidence,
+and fallback handling. Setting `CHORUS_COMMERCIAL_LLM_API_KEY` does not enable
+a production commercial provider call path in the current implementation; a
+real provider adapter and route-promotion policy belong to later Phase 2 work.
+
+To inspect disabled-provider or provider-fallback evidence, run the deterministic
+fixture rather than editing seeded routes by hand:
+
+```bash
+uv run python -m chorus.eval.run --fixture chorus/eval/fixtures/lighthouse_provider_fallback.json
+```
+
+For persisted rows, the relevant decision-trail metadata fields are:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT correlation_id, agent_role, provider, model, outcome, metadata #>> '{provider_boundary,state}' AS boundary_state, metadata #>> '{provider_boundary,reason}' AS boundary_reason, metadata #>> '{provider_failure,reason}' AS provider_failure, metadata #>> '{provider_fallback,applied}' AS fallback_applied, metadata #>> '{provider_fallback,reason}' AS fallback_reason, started_at FROM decision_trail_entries WHERE correlation_id = '<correlation-id>' ORDER BY started_at;"
 ```
 
 Agents still have no tool authority. Decision rows contain structured agent
@@ -280,6 +328,12 @@ The BFF runs as the `chorus-bff` Compose service under the
   across the tenant for the index views.
 - `GET /api/runtime/registry`, `/api/runtime/grants`, `/api/runtime/routing`
   — read-only governance state.
+- `GET /api/runtime/providers`, `/api/runtime/provider-models`,
+  `/api/runtime/route-versions` — read-only Phase 2A provider catalogue,
+  provider model, and immutable route-version state.
+- `GET /api/graph-executions` and
+  `/api/workflows/{workflow_id}/graph-executions` — read-only LangGraph
+  execution evidence projected from decision-trail metadata.
 - `GET /api/progress` — Server-Sent Events stream of workflow-history rows.
   Optional `workflow_id` / `correlation_id` query parameters scope the
   stream; `?once=true` makes the stream terminate after one batch (used
@@ -330,7 +384,7 @@ Never `down -v` or wipe Postgres to "fix" a stuck workflow. The audit trail is p
 Every Tool Gateway call writes a row to `tool_action_audit` regardless of verdict. To investigate a denied or downgraded call:
 
 ```bash
-just psql 2>/dev/null || ./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}"
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}"
 ```
 
 Inside psql:
@@ -416,6 +470,29 @@ Run `just hooks` to reproduce the failure outside the commit boundary.
 Builtins are auto-fix where possible; lint and contracts gates require
 addressing the reported issue. Never bypass with `--no-verify` (project
 policy).
+
+### Provider or graph evidence looks wrong
+
+The first split is whether the route, provider boundary, or graph metadata is
+wrong.
+
+1. Check the read-only UI `Providers` route or `/api/runtime/providers`. The
+   local provider should be `approved`; `commercial.example` should be
+   `disabled` with `credential_required=true`.
+2. Check `/api/runtime/route-versions` or the `model_route_versions` SQL above.
+   Route versions are immutable evidence rows; the runnable Phase 2A policy is
+   still selected from `model_routing_policies`.
+3. Check `/api/graph-executions` or the graph metadata SQL above. Successful
+   local invocations should show `langgraph` execution metadata and the graph
+   path ending at `final_response`.
+4. If the commercial placeholder appears in a normal happy-path run, inspect
+   `model_routing_policies` before changing code. The placeholder is not a
+   production adapter; it is only valid for disabled-provider or fallback
+   fixture evidence.
+
+Do not add real provider credentials, mutate route versions in place, or enable
+production provider calls to make the local demo pass. The correct repair is to
+restore the local route policy or add a fixture-backed Phase 2 evidence path.
 
 ## Observability surfaces
 
@@ -538,10 +615,15 @@ Phase 1A happy-path fixture as a normal gate; `replay.yml` runs workflow replay
 coverage. Treat a red CI as the same severity as a red local `just doctor`;
 both signal a project-level contract slipping.
 
-## Deferrals (Phase 1)
+## Deferrals
 
 - Production deployment, secret management, on-call rotation, incident response.
-- Real third-party connectors and credentials.
+- Real third-party connectors and production provider calls.
+- Credential-entry UI or committed provider keys.
+- Mutating provider, prompt, route, or grant admin controls before Phase 2B
+  change-control work.
+- LangGraph checkpoint persistence, durable execution, hosted deployment,
+  long-term graph memory, or LangSmith as a required dependency.
 - Cloud-hosted observability backends.
 
-These are documented in [implementation-plan.md §Deferred After Phase 1](./implementation-plan.md).
+These are documented in [implementation-plan.md §Deferred After Phase 1](./implementation-plan.md#deferred-after-phase-1).

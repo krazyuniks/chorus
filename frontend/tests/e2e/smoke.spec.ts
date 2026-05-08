@@ -13,6 +13,12 @@ test("top nav links to inspection routes", async ({ page }) => {
 
   await page.getByRole("link", { name: "Tool Verdicts" }).click();
   await expect(page.getByRole("heading", { name: "Tool verdicts" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Providers" }).click();
+  await expect(page.getByRole("heading", { name: "Providers" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Graph Executions" }).click();
+  await expect(page.getByRole("heading", { name: "Graph executions" })).toBeVisible();
 });
 
 test("workflow detail rehydrates from the read model after a refresh", async ({
