@@ -14,7 +14,7 @@ Phase 1 builds one evidence-grade vertical slice for Lighthouse, including the h
 
 **1A is the first public ship-checkpoint.** Phases 1B (governance/failure fixtures) and 1C (review packaging) are committed continuations that extend the 1A baseline; they are not gating the first usable architecture review.
 
-Phase 2 planning is open through [`phase-2-plan.md`](phase-2-plan.md), [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md), and [ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md). Phase 2A has delivered provider/model-governance groundwork, LangGraph execution inside Agent Runtime, provider-failure fallback evidence, route-selection metadata, read-only BFF/UI provider and graph inspection, and docs/runbook/evidence alignment. Later workstreams cover governed runtime change control, connector expansion, a second workflow proof, and production-readiness architecture.
+Phase 2 planning is open through [`phase-2-plan.md`](phase-2-plan.md), [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md), [ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md), and [ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md). Phase 2A has delivered provider/model-governance groundwork, LangGraph execution inside Agent Runtime, provider failure/timeout/rate-limit/budget fallback evidence, route-selection metadata, read-only BFF/UI provider and graph inspection, and docs/runbook/evidence alignment. Later workstreams cover governed identity, observability and runtime change control, connector expansion, a second workflow proof, and production-readiness architecture.
 
 ## Phases and Milestones
 
@@ -24,7 +24,7 @@ Phase 2 planning is open through [`phase-2-plan.md`](phase-2-plan.md), [ADR 0011
 | 1A. Lighthouse happy-path slice | Send fixture lead email through Mailpit, run Temporal workflow, invoke governed agents, mediate at least one tool action, project state, stream progress, and show audit trail. | done | A reviewer can run one command, send the fixture lead to Mailpit SMTP, see workflow state advance through the BFF/UI, inspect Temporal/Redpanda/Grafana/audit by correlation ID, and run the happy-path eval. |
 | 1B. Governance and failure evidence | Add blocked write, low-confidence research, validator rejection, connector failure, retry/exhaustion, and escalation paths. | done | Failure fixtures produce expected workflow branches, audit verdicts, DLQ or escalation records, and passing trace/eval checks. |
 | 1C. Review packaging | Tighten README, screenshots or screencast notes, demo script, architecture links, governance evidence, and project-facing summary. | done | Asynchronous reviewers can answer the evidence-map questions in under 15 minutes; guided demo fits 3 minutes without opening an editor. |
-| 2. Governed platform expansion | Planned LangGraph agent execution, provider/model governance, governed runtime change control, connector expansion, second workflow proof, and production-readiness architecture. | in progress | Phase 2 milestones are documented, each with evidence gates; Phase 2A documentation now distinguishes implemented LangGraph/provider evidence from deferred production provider calls and LangGraph durability. |
+| 2. Governed platform expansion | Planned LangGraph agent execution, provider/model governance, governed identity and runtime change control, observability/user-journey boundaries, connector expansion, second workflow proof, and production-readiness architecture. | in progress | Phase 2 milestones are documented, each with evidence gates; Phase 2A documentation now distinguishes implemented LangGraph/provider evidence from deferred production provider calls and LangGraph durability, and Phase 2B now owns the identity/authority and observability boundary design before mutating runtime controls. |
 
 ## Definition of Delivered
 
@@ -127,16 +127,22 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
     - Update `docs/evidence-map.md` (drafted in Phase 0) to cross-link every row to its now-implemented evidence: code paths, eval fixtures, audit views, dashboards, ADRs.
     - Exit check: an architecture reviewer can see both the working system and the programme-level adoption model in one navigation pass.
 
-13. **(Phase 2) Governed platform expansion — planned**
+13. **(Phase 2) Governed platform expansion — in progress**
     - Follow [`phase-2-plan.md`](phase-2-plan.md) for the milestone order:
       LangGraph agent execution plus provider/model governance, governed
-      runtime change control, connector expansion, second workflow proof, and
+      identity/authority and runtime change control, observability/user-journey
+      boundaries, connector expansion, second workflow proof, and
       production-readiness architecture.
-   - Continue Phase 2A with provider timeout, rate-limit, and budget
-     degradation fixture coverage after `2A-10`.
+    - Phase 2A is complete through provider timeout, rate-limit, and budget
+      degradation fixture coverage.
+    - Phase 2B opened with an ADR and docs pass for human, workload, agent,
+      invocation, approval, and policy actor identity; local authority context;
+      future AWS IAM role mapping; infrastructure telemetry; application/user
+      journey evidence; optional LLM observability sidecars; and canonical audit
+      boundaries.
     - Exit check for the planning pass: the Phase 2 roadmap, ADR, scope
-      boundaries, and first handoff prompt are documented before implementation
-      starts.
+      boundaries, backlog ledger, and handoff cadence are documented before
+      implementation starts.
 
 ## Phase 1B Governance Failure Work Breakdown
 

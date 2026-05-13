@@ -18,3 +18,4 @@ architecture is described in [`../docs/architecture.md`](../docs/architecture.md
 | [0010](0010-observability-pipeline.md) | Observability pipeline shape - OTel + Tempo/Loki/Prometheus + audit join. |
 | [0011](0011-phase-2-governed-platform-expansion.md) | Phase 2 governed platform expansion. |
 | [0012](0012-langgraph-agent-execution-runtime.md) | LangGraph as first-class agent execution runtime inside Agent Runtime. |
+| [0013](0013-identity-authority-observability-boundaries.md) | Identity, authority, observability, journey evidence, and audit boundaries. |

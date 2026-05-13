@@ -26,6 +26,7 @@
     "fallback_reasons": [
       "provider_error",
       "timeout",
+      "rate_limited",
       "budget_exceeded"
     ]
   },

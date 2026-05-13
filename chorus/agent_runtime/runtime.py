@@ -70,6 +70,39 @@ class ProviderInvocationError(AgentRuntimeError):
         }
 
 
+class ProviderBudgetExceededError(AgentRuntimeError):
+    """Raised when a selected provider result exceeds the resolved route budget."""
+
+    fallback_reason = "budget_exceeded"
+
+    def __init__(
+        self,
+        *,
+        provider: str,
+        model: str,
+        budget_cap_usd: Decimal,
+        observed_cost_usd: Decimal,
+    ) -> None:
+        self.provider = provider
+        self.model = model
+        self.budget_cap_usd = budget_cap_usd
+        self.observed_cost_usd = observed_cost_usd
+        super().__init__(
+            f"Provider {provider!r} model {model!r} exceeded budget cap "
+            f"{budget_cap_usd} USD with observed cost {observed_cost_usd} USD"
+        )
+
+    @property
+    def decision_metadata(self) -> dict[str, Any]:
+        return {
+            "provider_budget.provider": self.provider,
+            "provider_budget.model": self.model,
+            "provider_budget.reason": self.fallback_reason,
+            "provider_budget.budget_cap_usd": str(self.budget_cap_usd),
+            "provider_budget.observed_cost_usd": str(self.observed_cost_usd),
+        }
+
+
 class CommercialProviderDisabledError(AgentRuntimeError):
     """Raised when a commercial provider route resolves to a disabled boundary."""
 
@@ -744,9 +777,17 @@ class AgentRuntime:
         started_at = datetime.now(UTC)
         started_monotonic = perf_counter()
         resolution = self._store.resolve(request)
+        failure_input_summary = _summarise_mapping(request.input)
+        failure_cost_amount_usd = Decimal("0.000000")
 
         try:
             execution = self._execution_engine.invoke(request, resolution, invocation_id)
+            failure_input_summary = execution.input_summary
+            failure_cost_amount_usd = execution.result.cost_amount_usd
+            _raise_if_budget_exceeded(
+                execution=execution,
+                resolution=resolution,
+            )
             outcome = "succeeded"
         except Exception as exc:
             completed_at = datetime.now(UTC)
@@ -757,11 +798,11 @@ class AgentRuntime:
                     request=request,
                     resolution=resolution,
                     invocation_id=invocation_id,
-                    input_summary=_summarise_mapping(request.input),
+                    input_summary=failure_input_summary,
                     output_summary=f"Agent runtime failed: {exc}",
                     justification=str(exc),
                     outcome="failed",
-                    cost_amount_usd=Decimal("0.000000"),
+                    cost_amount_usd=failure_cost_amount_usd,
                     duration_ms=duration_ms,
                     started_at=started_at,
                     completed_at=completed_at,
@@ -777,7 +818,7 @@ class AgentRuntime:
                     fallback_reason=(
                         fallback.reason if fallback is not None else _provider_fallback_reason(exc)
                     ),
-                    cost_amount_usd=Decimal("0.000000"),
+                    cost_amount_usd=failure_cost_amount_usd,
                     duration_ms=duration_ms,
                 )
                 | (_provider_fallback_metadata(fallback, applied=False) if fallback else {}),
@@ -826,12 +867,20 @@ class AgentRuntime:
         invocation_id = uuid4()
         started_at = datetime.now(UTC)
         started_monotonic = perf_counter()
+        failure_input_summary = _summarise_mapping(request.input)
+        failure_cost_amount_usd = Decimal("0.000000")
 
         try:
             execution = self._execution_engine.invoke(
                 request,
                 fallback.resolution,
                 invocation_id,
+            )
+            failure_input_summary = execution.input_summary
+            failure_cost_amount_usd = execution.result.cost_amount_usd
+            _raise_if_budget_exceeded(
+                execution=execution,
+                resolution=fallback.resolution,
             )
         except Exception as exc:
             completed_at = datetime.now(UTC)
@@ -841,11 +890,11 @@ class AgentRuntime:
                     request=request,
                     resolution=fallback.resolution,
                     invocation_id=invocation_id,
-                    input_summary=_summarise_mapping(request.input),
+                    input_summary=failure_input_summary,
                     output_summary=f"Agent runtime fallback failed: {exc}",
                     justification=str(exc),
                     outcome="failed",
-                    cost_amount_usd=Decimal("0.000000"),
+                    cost_amount_usd=failure_cost_amount_usd,
                     duration_ms=duration_ms,
                     started_at=started_at,
                     completed_at=completed_at,
@@ -859,7 +908,7 @@ class AgentRuntime:
                 | _route_selection_metadata(
                     resolution=fallback.resolution,
                     fallback_reason=fallback.reason,
-                    cost_amount_usd=Decimal("0.000000"),
+                    cost_amount_usd=failure_cost_amount_usd,
                     duration_ms=duration_ms,
                 )
                 | _provider_fallback_metadata(fallback, applied=False),
@@ -1028,6 +1077,24 @@ def _failure_decision_metadata(
     return metadata
 
 
+def _raise_if_budget_exceeded(
+    *,
+    execution: AgentExecutionResult,
+    resolution: RuntimeResolution,
+) -> None:
+    route = resolution.model_route
+    if execution.result.cost_amount_usd <= route.budget_cap_usd:
+        return
+    exc = ProviderBudgetExceededError(
+        provider=route.provider,
+        model=route.model,
+        budget_cap_usd=route.budget_cap_usd,
+        observed_cost_usd=execution.result.cost_amount_usd,
+    )
+    exc.agent_execution_graph_path = execution.graph_path
+    raise exc
+
+
 def _runtime_fallback_for(
     resolution: RuntimeResolution,
     exc: Exception,
@@ -1104,7 +1171,10 @@ def _runtime_fallback_for(
 
 
 def _provider_fallback_reason(exc: Exception) -> str | None:
-    if isinstance(exc, ProviderInvocationError | CommercialProviderDisabledError):
+    if isinstance(
+        exc,
+        ProviderInvocationError | CommercialProviderDisabledError | ProviderBudgetExceededError,
+    ):
         return exc.fallback_reason
     return None
 

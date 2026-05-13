@@ -159,10 +159,54 @@ class FailingCommercialAdapter:
         )
 
 
+class DegradingCommercialAdapter:
+    provider_id = "commercial.example"
+
+    def __init__(self, *, reason: str, retryable: bool) -> None:
+        self._reason = reason
+        self._retryable = retryable
+
+    def invoke(
+        self,
+        request: AgentInvocationRequest,
+        resolution: RuntimeResolution,
+        invocation_id: object,
+    ) -> ModelAdapterResult:
+        _ = request, invocation_id
+        raise ProviderInvocationError(
+            provider=resolution.model_route.provider,
+            model=resolution.model_route.model,
+            reason=self._reason,
+            retryable=self._retryable,
+            message=f"fixture commercial provider {self._reason}",
+        )
+
+
+class ExpensiveCommercialAdapter:
+    provider_id = "commercial.example"
+
+    def invoke(
+        self,
+        request: AgentInvocationRequest,
+        resolution: RuntimeResolution,
+        invocation_id: object,
+    ) -> ModelAdapterResult:
+        _ = request, resolution, invocation_id
+        return ModelAdapterResult(
+            summary="Commercial provider returned a result over the route budget.",
+            confidence=0.91,
+            structured_data={"provider_fixture": "budget_exceeded"},
+            recommended_next_step="continue",
+            rationale="Fixture result intentionally exceeds the route budget cap.",
+            citations=[],
+            cost_amount_usd=Decimal("0.500000"),
+        )
+
+
 def _fallback_route_policy() -> dict[str, Any]:
     return {
         "on_provider_error": "fallback_route",
-        "fallback_reasons": ["provider_error"],
+        "fallback_reasons": ["provider_error", "timeout", "rate_limited", "budget_exceeded"],
         "fallback_route": {
             "provider": "local",
             "model": "lighthouse-happy-path-v1",
@@ -441,6 +485,142 @@ def test_runtime_records_provider_failure_then_invokes_policy_fallback() -> None
         provider="local",
         model="lighthouse-happy-path-v1",
         fallback_reason="provider_error",
+        route_version=1,
+        selection_source="fallback_policy",
+    )
+
+
+@pytest.mark.parametrize(
+    ("reason", "retryable"),
+    [
+        ("timeout", True),
+        ("rate_limited", True),
+    ],
+)
+def test_runtime_records_provider_degradation_then_invokes_policy_fallback(
+    reason: str,
+    retryable: bool,
+) -> None:
+    request = _request()
+    store = RecordingRuntimeStore(
+        _resolution(
+            provider="commercial.example",
+            model="commercial-reasoner-v1",
+            fallback_policy=_fallback_route_policy(),
+        )
+    )
+
+    response = AgentRuntime(
+        store,
+        ModelAdapterRegistry(
+            [
+                DegradingCommercialAdapter(reason=reason, retryable=retryable),
+                LocalLighthouseModelAdapter(),
+            ]
+        ),
+    ).invoke(request)
+
+    assert response.recommended_next_step == "continue"
+    assert [record.outcome.value for record in store.records] == ["failed", "succeeded"]
+    assert store.records[0].model_route.provider == "commercial.example"
+    assert store.records[1].model_route.provider == "local"
+    assert f"fixture commercial provider {reason}" in store.records[0].output_summary
+    _assert_metadata_subset(
+        store.metadata[0],
+        {
+            "provider_failure.provider": "commercial.example",
+            "provider_failure.model": "commercial-reasoner-v1",
+            "provider_failure.reason": reason,
+            "provider_failure.retryable": retryable,
+            "provider_fallback.applied": False,
+            "provider_fallback.reason": reason,
+        },
+    )
+    _assert_route_selection_metadata(
+        store.metadata[0],
+        provider="commercial.example",
+        model="commercial-reasoner-v1",
+        fallback_reason=reason,
+    )
+    _assert_metadata_subset(
+        store.metadata[1],
+        {
+            "provider_fallback.applied": True,
+            "provider_fallback.reason": reason,
+            "provider_fallback.primary_provider": "commercial.example",
+            "provider_fallback.fallback_provider": "local",
+        },
+    )
+    _assert_route_selection_metadata(
+        store.metadata[1],
+        provider="local",
+        model="lighthouse-happy-path-v1",
+        fallback_reason=reason,
+        route_version=1,
+        selection_source="fallback_policy",
+    )
+
+
+def test_runtime_records_provider_budget_exceeded_then_invokes_policy_fallback() -> None:
+    request = _request()
+    store = RecordingRuntimeStore(
+        _resolution(
+            provider="commercial.example",
+            model="commercial-reasoner-v1",
+            fallback_policy=_fallback_route_policy(),
+        )
+    )
+
+    response = AgentRuntime(
+        store,
+        ModelAdapterRegistry([ExpensiveCommercialAdapter(), LocalLighthouseModelAdapter()]),
+    ).invoke(request)
+
+    assert response.recommended_next_step == "continue"
+    assert [record.outcome.value for record in store.records] == ["failed", "succeeded"]
+    assert store.records[0].cost.amount == Decimal("0.5")
+    assert Decimal(str(store.records[0].model_route.budget_cap_usd)) == Decimal("0.01")
+    assert "exceeded budget cap" in store.records[0].output_summary
+    _assert_metadata_subset(
+        store.metadata[0],
+        {
+            "agent_execution.graph_path": [
+                "prepare_context",
+                "invoke_model_adapter",
+                "normalise_result",
+                "validate_contract",
+                "final_response",
+            ],
+            "provider_budget.provider": "commercial.example",
+            "provider_budget.model": "commercial-reasoner-v1",
+            "provider_budget.reason": "budget_exceeded",
+            "provider_budget.budget_cap_usd": "0.01",
+            "provider_budget.observed_cost_usd": "0.500000",
+            "provider_fallback.applied": False,
+            "provider_fallback.reason": "budget_exceeded",
+        },
+    )
+    _assert_route_selection_metadata(
+        store.metadata[0],
+        provider="commercial.example",
+        model="commercial-reasoner-v1",
+        fallback_reason="budget_exceeded",
+    )
+    assert store.metadata[0]["model_route.cost_amount_usd"] == "0.500000"
+    _assert_metadata_subset(
+        store.metadata[1],
+        {
+            "provider_fallback.applied": True,
+            "provider_fallback.reason": "budget_exceeded",
+            "provider_fallback.primary_provider": "commercial.example",
+            "provider_fallback.fallback_provider": "local",
+        },
+    )
+    _assert_route_selection_metadata(
+        store.metadata[1],
+        provider="local",
+        model="lighthouse-happy-path-v1",
+        fallback_reason="budget_exceeded",
         route_version=1,
         selection_source="fallback_policy",
     )

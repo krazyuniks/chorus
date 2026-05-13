@@ -68,9 +68,9 @@ PHASE_0_PATHS = [
     "services/tool-gateway",
     "services/connectors-local",
     "services/projection-worker",
-    "workflows",
+    "docs/components/workflows.md",
+    "docs/components/eval.md",
     "frontend",
-    "eval",
     "infrastructure/otel/config.yaml",
 ]
 

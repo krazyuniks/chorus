@@ -34,6 +34,12 @@ HAPPY_PATH_ROLES: tuple[tuple[str, str, str], ...] = (
     ("drafter", "lighthouse.drafter", "response_draft"),
     ("validator", "lighthouse.validator", "response_validation"),
 )
+PROVIDER_DEGRADATION_REASONS = {
+    "lighthouse-provider-fallback": "provider_error",
+    "lighthouse-provider-timeout-fallback": "timeout",
+    "lighthouse-provider-rate-limit-fallback": "rate_limited",
+    "lighthouse-provider-budget-fallback": "budget_exceeded",
+}
 
 EvalStatus = Literal["pass", "fail", "skip"]
 
@@ -464,10 +470,14 @@ def _decision_output_summary(
         return "response_validation approved redrafted response"
     if _is_retry_exhaustion_fixture(fixture) and role == "researcher":
         return "company_research failed after Temporal activity retries exhausted"
-    if _is_provider_fallback_fixture(fixture) and role == "drafter" and index == 3:
-        return "response_draft failed on commercial provider; governed fallback route requested"
+    provider_reason = _provider_degradation_reason(fixture)
+    if provider_reason is not None and role == "drafter" and index == 3:
+        return (
+            "response_draft failed on commercial provider with "
+            f"{provider_reason}; governed fallback route requested"
+        )
     if _is_provider_fallback_fixture(fixture) and role == "drafter" and index == 4:
-        return "response_draft completed on local fallback route after provider failure"
+        return f"response_draft completed on local fallback route after {provider_reason}"
     return f"{task_kind} completed for happy path"
 
 
@@ -496,7 +506,11 @@ def _is_retry_exhaustion_fixture(fixture: EvalFixture) -> bool:
 
 
 def _is_provider_fallback_fixture(fixture: EvalFixture) -> bool:
-    return fixture.fixture_id == "lighthouse-provider-fallback"
+    return _provider_degradation_reason(fixture) is not None
+
+
+def _provider_degradation_reason(fixture: EvalFixture) -> str | None:
+    return PROVIDER_DEGRADATION_REASONS.get(fixture.fixture_id)
 
 
 def _decision_record(
@@ -543,7 +557,10 @@ def _decision_record(
                 else "succeeded"
             ),
             "tool_call_ids": [],
-            "cost": {"amount": 0.0, "currency": "USD"},
+            "cost": {
+                "amount": _decision_cost_amount(fixture, role, index),
+                "currency": "USD",
+            },
             "duration_ms": 25,
             "started_at": started_at.isoformat(),
             "completed_at": (started_at + timedelta(milliseconds=25)).isoformat(),
@@ -565,6 +582,16 @@ def _decision_model(fixture: EvalFixture, role: str, index: int) -> str:
     if _is_provider_fallback_fixture(fixture) and role == "drafter" and index == 3:
         return "commercial-reasoner-v1"
     return "lighthouse-happy-path-v1"
+
+
+def _decision_cost_amount(fixture: EvalFixture, role: str, index: int) -> float:
+    if (
+        _provider_degradation_reason(fixture) == "budget_exceeded"
+        and role == "drafter"
+        and index == 3
+    ):
+        return 0.5
+    return 0.0
 
 
 def _tool_call(
@@ -1254,6 +1281,7 @@ def _check_retry_exhaustion_dlq(
 
 
 def _check_provider_fallback_decisions(decisions: list[AgentInvocationRecord]) -> EvalCheck:
+    degradation_reason = "provider"
     primary_index: int | None = None
     fallback_index: int | None = None
     for index, record in enumerate(decisions):
@@ -1262,10 +1290,17 @@ def _check_provider_fallback_decisions(decisions: list[AgentInvocationRecord]) -
             and record.model_route.provider == "commercial.example"
             and record.model_route.model == "commercial-reasoner-v1"
             and record.outcome.value == "failed"
+            and any(
+                reason in record.output_summary for reason in PROVIDER_DEGRADATION_REASONS.values()
+            )
             and record.cost.currency == "USD"
             and record.duration_ms >= 0
         ):
             primary_index = index
+            for reason in PROVIDER_DEGRADATION_REASONS.values():
+                if reason in record.output_summary:
+                    degradation_reason = reason
+                    break
         if (
             record.agent.role.value == "drafter"
             and record.model_route.provider == "local"
@@ -1281,7 +1316,8 @@ def _check_provider_fallback_decisions(decisions: list[AgentInvocationRecord]) -
         return EvalCheck(
             "provider fallback route selection",
             "pass",
-            "failed commercial provider route, local fallback route, cost, and latency observed",
+            f"failed commercial provider route ({degradation_reason}), local fallback route, "
+            "cost, and latency observed",
         )
     return EvalCheck(
         "provider fallback route selection",

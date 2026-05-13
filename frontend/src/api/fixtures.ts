@@ -332,7 +332,7 @@ export const routeVersions: RouteVersionEntry[] = [
     max_latency_ms: 5000,
     fallback_policy: {
       mode: "escalate",
-      fallback_reasons: ["provider_error", "timeout", "budget_exceeded"],
+      fallback_reasons: ["provider_error", "timeout", "rate_limited", "budget_exceeded"],
     },
     eval_required: true,
     eval_fixture_refs: ["chorus/eval/fixtures/lighthouse_happy_path.json"],

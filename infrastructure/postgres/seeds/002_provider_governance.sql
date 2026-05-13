@@ -146,7 +146,7 @@ SELECT
     parameters,
     budget_cap_usd,
     5000,
-    '{"mode": "escalate", "fallback_reasons": ["provider_error", "timeout", "budget_exceeded"]}'::jsonb,
+    '{"mode": "escalate", "fallback_reasons": ["provider_error", "timeout", "rate_limited", "budget_exceeded"]}'::jsonb,
     true,
     ARRAY['chorus/eval/fixtures/lighthouse_happy_path.json']::text[],
     '{"change_ref": "2A-02", "approved_by": "architecture-docs"}'::jsonb

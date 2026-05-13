@@ -83,7 +83,7 @@ agent workflows across teams, providers, and business processes.
 | Phase 1A - Happy path | Mailpit SMTP intake, Temporal Lighthouse workflow, Agent Runtime, Tool Gateway, Postgres projections, Redpanda events, UI progress, audit trail, observability, and happy-path eval. | A reviewer can send a fixture email, follow one workflow by correlation ID, and run the happy-path eval. |
 | Phase 1B - Governance/failure evidence | Blocked write, low-confidence research, validator rejection, connector failure, retry exhaustion, and escalation fixtures. | Failure fixtures produce expected branches, audit verdicts, DLQ or escalation records, and passing eval checks. |
 | Phase 1C - Review packaging | Final README, screenshots or notes, demo script, evidence map, architecture links, and governance evidence. | An asynchronous reviewer can inspect the evidence path without hidden context. |
-| Phase 2 - Governed platform expansion | Planned LangGraph agent execution, provider/model governance, governed runtime change control, connector expansion, second workflow proof, and production-readiness architecture pack. | Provider-governance groundwork has begun with `contracts/governance/`, LangGraph now runs inside Agent Runtime with graph execution evidence in decision-trail metadata, the commercial provider placeholder has an explicit disabled-by-default adapter boundary, the provider-failure fixture proves fallback to the local route without production provider calls, route-selection audit metadata is captured for reviewer inspection, read-only BFF/UI views expose provider catalogue, route-version, and graph-execution evidence, and docs/runbook/evidence surfaces are aligned. See [`phase-2-plan.md`](phase-2-plan.md), [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md), and [ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md). |
+| Phase 2 - Governed platform expansion | Planned LangGraph agent execution, provider/model governance, governed identity/runtime change control, observability and journey evidence boundaries, connector expansion, second workflow proof, and production-readiness architecture pack. | Provider-governance groundwork has begun with `contracts/governance/`, LangGraph now runs inside Agent Runtime with graph execution evidence in decision-trail metadata, the commercial provider placeholder has an explicit disabled-by-default adapter boundary, provider failure, timeout, rate-limit, and budget-exceeded fixtures prove fallback to the local route without production provider calls, route-selection audit metadata is captured for reviewer inspection, read-only BFF/UI views expose provider catalogue, route-version, and graph-execution evidence, docs/runbook/evidence surfaces are aligned, and ADR 0013 defines the Phase 2B identity, authority, observability, journey-evidence, and audit boundary. See [`phase-2-plan.md`](phase-2-plan.md), [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md), [ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md), and [ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md). |
 
 ## Phase 2 Planning Boundary
 
@@ -92,11 +92,12 @@ evidence before breadth, Temporal-owned workflow state, runtime policy outside
 prompts, Tool Gateway authority, contract-first payloads, and eval as a release
 control.
 
-The current Phase 2A implementation focus is agent execution and provider
-governance. Provider catalogue contracts, route-version metadata, and a
-provider-keyed model adapter registry have landed. ADR 0012 pivots the next
-step to LangGraph as the first-class agent execution engine inside Agent
-Runtime before commercial provider adapters resume.
+Phase 2A implemented agent execution and provider governance evidence.
+Provider catalogue contracts, route-version metadata, a provider-keyed model
+adapter registry, LangGraph execution, disabled-provider evidence, fallback
+handling, and provider degradation fixtures have landed. ADR 0013 opens Phase
+2B by defining identity, authority, observability, journey-evidence, and audit
+boundaries before mutating runtime controls are added.
 
 Phase 2 does not make Chorus a top-level agent framework or SaaS product by
 default. LangGraph is scoped to per-invocation agent execution; Temporal still
@@ -262,6 +263,7 @@ chorus/
 │   ├── implementation-plan.md
 │   ├── phase-2-plan.md
 │   ├── demo-script.md
+│   ├── components/
 │   └── runbooks/
 ├── adrs/
 ├── contracts/
@@ -276,9 +278,7 @@ chorus/
 │   ├── tool-gateway/
 │   ├── connectors-local/
 │   └── projection-worker/
-├── workflows/
 ├── frontend/
-├── eval/
 ├── infrastructure/
 ├── tests/
 ├── compose.yml
@@ -442,6 +442,17 @@ configured fallback route through the same LangGraph graph with a new
 invocation ID. The shipped fixture uses a failing `commercial.example` boundary
 and a local `lighthouse-happy-path-v1` fallback so provider failure is visible
 in the decision trail instead of being swallowed.
+
+Provider degradation evidence now covers timeout, rate-limit, and
+budget-exceeded paths using local fixture adapters and the disabled-provider
+boundary shape. Timeout and rate-limit fixtures record provider-failure
+metadata with reason values `timeout` and `rate_limited`. Budget degradation is
+enforced inside Agent Runtime after adapter execution by comparing observed
+cost against the resolved route `budget_cap_usd`; an exceeded cap records
+provider-budget metadata and can use the same policy-gated fallback path. These
+fixtures do not add credential entry, production commercial provider calls,
+mutating provider admin, LangGraph checkpoint persistence, or LangGraph durable
+execution.
 
 Route-selection evidence is captured in `decision_trail_entries.metadata` next
 to the graph execution metadata and OTel IDs. Each invocation records the
@@ -651,9 +662,11 @@ The BFF reads Postgres projections and exposes server-sent events for one-way
 progress updates. Refresh and reconnect must be reliable because the source of
 truth is the projection, not an ephemeral browser stream.
 
-## Observability and Audit
+## Observability, Journey Evidence, and Audit
 
-Chorus separates auditability from operational telemetry.
+Chorus separates auditability, operational telemetry, and application journey
+evidence. They share correlation identifiers, but they answer different
+questions and have different retention, sensitivity, and authority semantics.
 
 | Surface | Purpose |
 |---|---|
@@ -665,7 +678,32 @@ Chorus separates auditability from operational telemetry.
 | UI audit views | Reviewer-friendly projection of workflow, agent, tool, provider, route-version, and graph-execution evidence. |
 | Eval output | Behavioural acceptance and governance invariant results. |
 
-Every material operation must carry a correlation ID.
+The boundary model is:
+
+| Plane | Owns | Does not own |
+|---|---|---|
+| Infrastructure telemetry | OpenTelemetry traces, metrics, logs, resource/service health, dependency latency, retries, saturation, and error rates. | Business authority, approval decisions, or canonical audit state. |
+| Application and user journey evidence | Workflow progress, BFF/UI route context, reviewer/session context, fixture replay path, and business correlation across `correlation_id`, `workflow_id`, `invocation_id`, and future `actor_session_id`. | Secrets, credentials, raw sensitive payloads, or enforcement decisions. |
+| Audit/accountability | Decision trail, tool action audit, approval audit, policy mutation audit, and immutable evidence for who or what was authorised under which policy. | Operational metrics dashboards or hosted tracing as the source of truth. |
+| Optional LLM observability sidecars | Derived trace/eval exports for prompt debugging, graph inspection, annotation, and experiment comparison. | Local release gates, policy enforcement, or accountability records. |
+
+Every material operation must carry a Chorus `correlation_id`; telemetry also
+carries OpenTelemetry `trace_id` and `span_id`. Workflow, agent, tool, approval,
+and policy mutation records use stable domain IDs in addition to trace IDs so
+that audit remains queryable even if traces are sampled, expired, or exported
+to a different backend.
+
+Context propagation must be conservative. Internal trace context may cross
+trusted service boundaries. Baggage or equivalent propagated context must not
+contain credentials, API keys, access tokens, raw customer content, or PII.
+When data leaves the trusted local boundary, trace headers and baggage should
+be filtered according to the connector's trust policy.
+
+LangSmith, Langfuse, or similar LLM observability tools are future optional
+sidecars. They may consume OpenTelemetry traces, graph execution metadata, or
+eval outputs for debugging and comparison, but they do not replace the local
+Grafana/OpenTelemetry evidence stack, Postgres decision trail, Tool Gateway
+audit, Temporal replay tests, or `just eval` release gate.
 
 ## Evaluation and Assurance
 
@@ -721,6 +759,36 @@ Chorus turns governance into runtime-enforced boundaries:
 The UI can inspect runtime governance state, provider-governance state, and
 graph-execution evidence. Mutation remains CLI/config driven.
 
+## Identity, Authority, and Future AWS Mapping
+
+Phase 1 implements logical identity and tenant scoping, not production IAM.
+Phase 2B will make the identity model explicit before adding mutating runtime
+change control. The model should distinguish:
+
+| Principal | Meaning | Current evidence | Future production mapping |
+|---|---|---|---|
+| Human principal | A person using the BFF/UI, approving risky actions, or proposing policy changes. | Deferred; the local BFF is tenant-fixed and read-only. | OIDC/SAML identity provider, AWS IAM Identity Center, RBAC groups, approval roles. |
+| Workload principal | A running service or worker such as BFF, Temporal worker, Agent Runtime, Tool Gateway, projection worker, or connector. | Compose service name plus local environment; OTel service attributes. | ECS task role, EKS pod identity, Lambda execution role, EC2 instance profile, IAM Roles Anywhere, or SPIFFE/SPIRE workload identity. |
+| Agent principal | Governed logical agent version selected for a tenant and task. | `agent_registry` rows: `tenant_id`, `agent_id`, role, version, lifecycle, owner, prompt reference/hash, capability tags. | Still a Chorus logical principal; it may be represented as IAM session tags or policy attributes, not as a long-lived IAM user. |
+| Invocation principal | One authorised agent invocation within a workflow context. | `invocation_id`, `workflow_id`, `correlation_id`, route, budget, prompt hash, decision-trail entry. | Short-lived authority token or STS session context with tenant, workflow, agent, task, and budget tags. |
+| Approval actor | Human or system actor deciding an approval-required action. | `approval_required` gateway verdict only. | Signed approval package with reviewer subject, tenant, role, expiry, decision, and audit record. |
+| Policy actor | Human or automation proposing/applying runtime policy changes. | Direct seeded/config mutation in local evidence. | Change-control workflow with proposer, approver, rollback, reason, eval evidence, and audit. |
+
+The future AWS shape is a mapping target, not a Phase 2 local dependency. In an
+AWS deployment, human identities would normally federate into roles or
+permission sets, while workloads would receive temporary role credentials from
+their compute environment. Non-AWS or hybrid workloads could use IAM Roles
+Anywhere with X.509 certificates. Chorus should preserve enough metadata to map
+local workload and invocation principals to role ARN, role session name,
+session tags, trust domain, and external identity provider without embedding AWS
+specifics into workflow logic or prompts.
+
+Tool Gateway authorisation remains application-level policy even when workload
+authentication is delegated to AWS IAM. IAM proves which workload called the
+gateway and constrains cloud-resource access; Chorus grants decide whether a
+specific tenant, agent version, invocation, tool, mode, and approval state allow
+the business action.
+
 ## Security and Data Boundaries
 
 Phase 1 is a single-user local reference implementation, not a production SaaS.
@@ -728,6 +796,7 @@ Security architecture is still explicit:
 
 - no production customer data;
 - no production auth/SSO in Phase 1;
+- no AWS IAM integration in the local evidence path;
 - secrets loaded from local environment files or injected environment
   variables, never committed;
 - model/provider credentials held only at the model/router boundary;
@@ -737,8 +806,9 @@ Security architecture is still explicit:
 - audit redaction policy applies before sensitive data is persisted or emitted;
 - closed third-party systems are not written to in Phase 1.
 
-Production identity, RBAC, SSO, secrets management, incident integration, and
-cloud network controls are deferred.
+Production identity, RBAC, SSO, AWS IAM mapping, secrets management, incident
+integration, and cloud network controls are deferred, with the identity and
+observability shape now planned for Phase 2B.
 
 ## Error Handling and Resilience
 
@@ -803,7 +873,7 @@ Out of scope for Phase 1:
 - second business workflow;
 - top-level agent framework replacing Temporal;
 - runtime-editable workflow DSL;
-- production auth, SSO, RBAC, and identity integration;
+- production auth, SSO, RBAC, AWS IAM integration, and identity integration;
 - production cloud deployment;
 - backup/disaster-recovery automation;
 - Scylla implementation;
