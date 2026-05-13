@@ -502,6 +502,15 @@ into Grafana. The pipeline shape is committed in
 criterion is that Temporal, Redpanda, Grafana, the UI, and the audit views
 can be correlated from one workflow ID.
 
+Phase 2B keeps the data placement rules in
+[`observability-user-journey-model.md`](observability-user-journey-model.md):
+OpenTelemetry is for operational diagnosis and correlation; propagated baggage
+is limited to safe join keys; Postgres projections and BFF/UI views carry
+refresh-safe journey evidence; and audit tables remain the accountability
+record. Do not put secrets, credentials, API keys, access tokens, raw sensitive
+content, or PII in span attributes, baggage, journey projections, or dashboard
+labels.
+
 ### Grafana
 
 `just up` launches Grafana at `http://localhost:${GRAFANA_PORT:-3001}` with

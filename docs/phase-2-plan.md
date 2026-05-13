@@ -135,11 +135,13 @@ approval belongs in 2B.
 
 Phase 2B is now open. ADR 0013 defines the local identity, authority,
 observability, user-journey evidence, and audit boundaries before adding
-mutating runtime controls. The next implementation item is the observability
-and user-journey data model: define which identifiers and fields belong in OTel
-attributes/baggage, Postgres projections, future actor/session records, and
-audit-only tables without introducing production SSO, AWS deployment, or a
-hosted observability dependency.
+mutating runtime controls. The observability and user-journey data model is now
+defined as a docs-first schema sketch in
+[`observability-user-journey-model.md`](observability-user-journey-model.md):
+it places identifiers and fields across OTel attributes/baggage, Postgres
+projections, BFF/UI read models, audit-only records, and future actor/session
+records without introducing production SSO, AWS deployment, or a hosted
+observability dependency.
 
 ## Phase 2B Backlog
 
@@ -180,7 +182,7 @@ path, or a required hosted dependency.
 | ID | Required item | Evidence artefact | Gate | Status | Notes |
 |---|---|---|---|---|---|
 | 2B-00 | Identity, authority, and observability boundary ADR | `adrs/`; `docs/architecture.md`; `docs/phase-2-plan.md` | doc review; `git diff --check` | complete | ADR 0013 defines human, workload, agent, invocation, approval, and policy principals; local authority context; future AWS IAM mapping; infrastructure telemetry, application/user journey evidence, audit/accountability, optional LLM observability sidecars, and context hygiene. Evidence: `git diff --check`, `just contracts-check`, `just eval`, and focused 2A tests on 2026-05-14. |
-| 2B-01 | Observability and user-journey data model | `contracts/` or docs-first schema sketch; BFF/UI projection plan; runbook | `just contracts-check` if contracts change | open | Define which fields belong in OTel attributes/baggage, which belong in Postgres projections, and which belong only in audit. Do not put secrets, credentials, or PII in propagated telemetry context. |
+| 2B-01 | Observability and user-journey data model | `contracts/` or docs-first schema sketch; BFF/UI projection plan; runbook | `git diff --check` | complete | Added `docs/observability-user-journey-model.md` as a docs-first model covering OTel resource/span attributes, baggage allow-list, Postgres projection and BFF/UI journey sketches, audit-only field families, and future actor/session identifiers. No contracts or code changed. |
 | 2B-02 | Workload principal and future AWS IAM mapping | persistence schema/docs; local seed; architecture mapping table | focused persistence tests if schema changes | open | Model service/workload identity without deploying AWS. Include optional future fields for IAM role ARN, STS session name/tags, trust domain, and external identity provider. |
 | 2B-03 | Invocation authority context | Agent Runtime and Tool Gateway request context; contracts if needed; tests | focused runtime/gateway tests; `just eval` | open | Bind tenant, workflow, correlation, agent ID/version, tool/mode, task kind, route, budget, expiry, and parent invocation into a local signed or structured authority context. |
 | 2B-04 | Human approval identity and audit lifecycle | approval table/contract; BFF/UI read path; eval fixture | focused tests; `just eval` | open | Turn `approval_required` from a verdict into a real approval package with reviewer identity, decision, SLA/expiry, and immutable audit evidence. |
@@ -364,6 +366,20 @@ path, or a required hosted dependency.
   records were aligned. No AWS implementation, production SSO, hosted
   observability dependency, credential entry, or mutating runtime admin was
   added.
+- 2026-05-14: `2B-01` added a docs-first observability and user-journey data
+  model in `docs/observability-user-journey-model.md`. It defines field
+  placement for OTel resource attributes, span attributes, and propagated
+  baggage; states a strict baggage allow-list; sketches future
+  `actor_sessions` and `journey_events` projection records plus BFF/UI journey
+  views; separates audit-only invocation, prompt/output, tool, approval,
+  policy mutation, and trace-join field families; and names future identifiers
+  including `workload_principal_id`, `workload_session_id`,
+  `actor_session_id`, `approval_id`, `policy_change_id`,
+  `authority_context_id`, and `fixture_run_id`. Architecture, runbook,
+  implementation plan, evidence map, phase plan, and Chorus vault continuation
+  records were aligned. No contracts, code, AWS implementation, production
+  SSO, hosted observability dependency, credential entry, or mutating runtime
+  admin was added.
 
 ## Current Handoff - 2026-05-14
 
@@ -371,33 +387,30 @@ Status:
 
 - `2A-11` is complete.
 - `2B-00` is complete.
-- Next ledger item: `2B-01` Observability and user-journey data model.
+- `2B-01` is complete.
+- Next ledger item: `2B-02` Workload principal and future AWS IAM mapping.
 
 Evidence added:
 
-- Agent Runtime records timeout and rate-limit provider degradation reasons and
-  budget-exceeded metadata before policy-gated local fallback.
-- New eval fixtures cover provider timeout, rate-limit, and budget-exceeded
-  fallback paths.
-- ADR 0013 defines local identity/authority, future AWS IAM mapping,
-  observability planes, user journey evidence, and audit boundaries.
+- `docs/observability-user-journey-model.md` defines the Phase 2B field
+  placement model for OTel attributes/baggage, Postgres projections, BFF/UI
+  journey views, audit-only field families, and future actor/session
+  identifiers.
+- Architecture, runbook, implementation plan, evidence map, Phase 2 plan, and
+  Chorus vault continuation records now point at the 2B-01 model and the
+  2B-02 continuation.
 
 Commands run:
 
-- `uv run pytest tests/agent_runtime/test_runtime.py tests/eval/test_run.py`
-- `uv run python -m chorus.eval.run --fixture chorus/eval/fixtures/lighthouse_provider_timeout_fallback.json --fixture chorus/eval/fixtures/lighthouse_provider_rate_limit_fallback.json --fixture chorus/eval/fixtures/lighthouse_provider_budget_fallback.json`
-- `just contracts-check`
-- `just eval`
-- `just lint-python`
-- `just test-frontend`
 - `git diff --check`
 
 Skipped gates:
 
-- `just test-replay`: skipped because no Temporal workflow code changed.
-- Full `just test`: skipped in favour of focused Agent Runtime/eval coverage
-  plus `just eval`, because the code change is confined to Agent Runtime budget
-  handling and deterministic eval fixture generation.
+- `just contracts-check`: skipped because `2B-01` made docs-only schema
+  sketches and did not change contracts or generated models.
+- Runtime/test gates, including `just test`, `just eval`, `just test-replay`,
+  and `just test-frontend`, were skipped because no code, contracts, Temporal
+  workflow logic, or UI implementation changed.
 
 ## Handoff Cadence
 
@@ -426,24 +439,27 @@ commands run, any skipped gates, files changed, and the next ledger item.
 Next prompt:
 
 ```text
-Continue Chorus Phase 2B: 2B-01 Observability and user-journey data model.
+Continue Chorus Phase 2B: 2B-02 Workload principal and future AWS IAM mapping.
 
 Read AGENTS.md, docs/architecture.md, adrs/, docs/phase-2-plan.md,
 docs/implementation-plan.md, and current git status first. Also read
 /home/ryan/Work/vault/records/work/projects/chorus/README.md,
 /home/ryan/Work/vault/records/work/projects/chorus/handoff-prompt.md, and
 /home/ryan/Work/vault/records/work/projects/chorus/learning/open-questions-phase-2.md.
-Keep Lighthouse Phase 1 working and do not implement AWS, production SSO, or a
-hosted observability dependency. Define the observability and user-journey data
-model that follows ADR 0013: which fields belong in OpenTelemetry
-attributes/baggage, which fields belong in Postgres projections and BFF/UI read
-models, which fields belong only in audit/accountability records, and which
-future actor/session identifiers are needed. Prefer docs-first schema sketches
-unless a contract is clearly required. Do not put secrets, credentials, API
-keys, access tokens, raw sensitive content, or PII in propagated telemetry
-context. Update docs/phase-2-plan.md with status/evidence notes and sync only
-the Chorus vault project records needed for the continuation cadence. Run
-`git diff --check` and the smallest relevant just gate if contracts or code
-change. Report files changed, commands run, skipped gates, and the next ledger
-item.
+Keep Lighthouse Phase 1 working and do not implement AWS, production SSO, or
+production cloud deployment. Model local workload principals and the future AWS
+IAM mapping from ADR 0013 and docs/observability-user-journey-model.md:
+represent service/workload identity, trust domain, local workload session
+metadata, tenant scope, and future optional IAM role ARN, STS session name/tags,
+IAM Roles Anywhere, and external identity-provider references without adding
+cloud dependencies or credentials. Prefer a docs-first schema sketch unless the
+implementation clearly needs a Postgres migration or contract. If a schema is
+added, seed local workload principals for the existing Compose services and add
+focused persistence tests. Do not put secrets, credentials, API keys, access
+tokens, raw sensitive content, or PII in telemetry context, projections, or
+seeds. Update docs/phase-2-plan.md with status/evidence notes and sync only the
+Chorus vault project records needed for the continuation cadence. Run
+`git diff --check` and the smallest relevant just gate; run focused persistence
+tests if schema changes. Report files changed, commands run, skipped gates, and
+the next ledger item.
 ```

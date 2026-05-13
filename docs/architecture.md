@@ -699,6 +699,17 @@ contain credentials, API keys, access tokens, raw customer content, or PII.
 When data leaves the trusted local boundary, trace headers and baggage should
 be filtered according to the connector's trust policy.
 
+The Phase 2B field-placement model is defined in
+[`observability-user-journey-model.md`](observability-user-journey-model.md).
+In short: OpenTelemetry attributes carry operational and correlation fields;
+propagated baggage is limited to a small allow-list of join keys; Postgres
+projections and BFF/UI read models carry refresh-safe journey evidence; and
+decision trail, tool audit, future approval audit, and future policy mutation
+audit remain the accountability records. Future actor/session identifiers such
+as `actor_session_id`, `workload_principal_id`, `approval_id`,
+`policy_change_id`, and `authority_context_id` are planned identifiers, not
+Phase 1 runtime dependencies.
+
 LangSmith, Langfuse, or similar LLM observability tools are future optional
 sidecars. They may consume OpenTelemetry traces, graph execution metadata, or
 eval outputs for debugging and comparison, but they do not replace the local

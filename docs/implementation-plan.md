@@ -140,6 +140,10 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
       future AWS IAM role mapping; infrastructure telemetry; application/user
       journey evidence; optional LLM observability sidecars; and canonical audit
       boundaries.
+    - Phase 2B item `2B-01` adds the docs-first observability and user-journey
+      data model: OTel attribute/baggage placement rules, Postgres
+      projection/BFF/UI sketch, audit-only field families, and future
+      actor/session identifiers.
     - Exit check for the planning pass: the Phase 2 roadmap, ADR, scope
       boundaries, backlog ledger, and handoff cadence are documented before
       implementation starts.
