@@ -785,6 +785,39 @@ change control. The model should distinguish:
 | Approval actor | Human or system actor deciding an approval-required action. | `approval_required` gateway verdict only. | Signed approval package with reviewer subject, tenant, role, expiry, decision, and audit record. |
 | Policy actor | Human or automation proposing/applying runtime policy changes. | Direct seeded/config mutation in local evidence. | Change-control workflow with proposer, approver, rollback, reason, eval evidence, and audit. |
 
+The Phase 2B-02 workload-principal model is a docs-first schema sketch in
+[`workload-principal-model.md`](workload-principal-model.md). It represents
+stable workload principals, short-lived workload sessions, tenant scope, local
+trust domains, and nullable future AWS mapping metadata without adding AWS,
+production SSO, cloud deployment, credentials, migrations, or contracts.
+
+| Workload field family | Local representation | Future AWS or hybrid mapping | Telemetry boundary |
+|---|---|---|---|
+| Service identity | `workload_principal_id`, `service.name`, `service.namespace`, workload kind, and status. | ECS task role, EKS pod identity, Lambda execution role, EC2 instance profile, IAM Roles Anywhere, or SPIFFE/SPIRE identity. | `service.name`, `service.namespace`, and `chorus.workload.principal_id` may be OTel resource attributes. |
+| Trust domain | `local.chorus` for Compose, `fixture.chorus` for local eval/replay automation. | AWS account or cluster trust domain, external OIDC/SAML provider, SPIFFE/SPIRE trust domain, or IAM Roles Anywhere trust anchor reference. | `chorus.workload.trust_domain` may be an OTel resource attribute. |
+| Workload session | Opaque `workload_session_id`, runtime kind, started/ended timestamps, and service version. | STS role session, pod/task execution instance, Lambda invocation environment, or signed local authority token context. | Keep out of baggage; span attributes only when bounded local diagnosis requires it. |
+| Tenant scope | `none`, `all_tenants`, or `tenant_allow_list` with stable tenant IDs. | STS session tags or application policy attributes. | Use tenant IDs only where already allowed by the observability model. |
+| IAM role and STS metadata | Nullable future role ARN, session-name template, tag-key allow-list, and safe defaults. | IAM role ARN, STS session name, session tags, and external ID reference. | Do not emit role ARN, external ID refs, or tag payloads as telemetry attributes. |
+| IAM Roles Anywhere and external IdP refs | Nullable profile ARN, trust-anchor ARN, certificate-subject ref, external IdP ref, or SPIFFE ID. | Hybrid workload identity, external OIDC/SAML, SPIFFE/SPIRE, or IAM Roles Anywhere. | Keep in identity/audit records only; never store certificate material or tokens. |
+
+The Phase 2B-03 invocation-authority context is a docs-first schema sketch in
+[`invocation-authority-context.md`](invocation-authority-context.md). It groups
+the authority fields already carried across Agent Runtime requests, Tool
+Gateway requests, decision trail, and tool audit into one future local context:
+tenant, correlation, workflow, invocation, agent ID/version, task kind,
+provider/model route ID/version, budget cap, requested tool and mode where
+applicable, parent invocation, expiry, workload principal/session refs,
+approval or policy-change refs when present, and safe trace-join metadata.
+
+The authority context is not telemetry baggage, prompt text, a credential
+container, or a replacement for gateway grants. Agent Runtime remains the
+authority boundary for agent version, prompt, route, provider, graph, and
+budget selection. Tool Gateway remains the authority boundary for grants,
+argument schema validation, mode enforcement, approval hooks, idempotency,
+redaction, connector invocation, and action audit. If this sketch becomes
+executable later, it should start as a local deterministic object and become a
+JSON Schema contract only when it crosses a service boundary or release gate.
+
 The future AWS shape is a mapping target, not a Phase 2 local dependency. In an
 AWS deployment, human identities would normally federate into roles or
 permission sets, while workloads would receive temporary role credentials from

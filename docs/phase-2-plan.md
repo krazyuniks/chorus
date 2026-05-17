@@ -22,9 +22,9 @@ replay, or authority controls.
 
 ## Planning Posture
 
-Phase 2 is planned and 2A has started with contract-only provider governance
-work. Phase 1 remains the stable demo baseline until each Phase 2 milestone has
-its own evidence, tests, and documentation.
+Phase 2 is in progress. Phase 2A is complete; Phase 2B is the active
+workstream. Phase 1 remains the stable demo baseline until each Phase 2
+milestone has its own evidence, tests, and documentation.
 
 The repository is now the authoritative planning surface. Historical vault
 records under `/home/ryan/Work/vault/records/work/projects/chorus/` informed
@@ -103,7 +103,7 @@ metadata, read-only provider/graph inspection views, and docs/runbook/evidence
 alignment are implemented. Provider timeout, rate-limit, and budget-exceeded
 fixture coverage now closes 2A without production provider calls.
 
-2A should deliver:
+2A delivered:
 
 - a LangGraph execution engine behind the existing `lighthouse.invoke_agent_runtime`
   activity boundary;
@@ -126,14 +126,14 @@ fixture coverage now closes 2A without production provider calls.
 - runbook notes for local credential handling, disabled-provider operation, and
   provider-failure diagnosis.
 
-2A should not implement a full provider-management product, LangGraph durable
+2A does not implement a full provider-management product, LangGraph durable
 execution, LangGraph checkpoint persistence, long-term graph memory,
 LangGraph-hosted deployment, or LangSmith as a core dependency. Mutating route
 approval belongs in 2B.
 
-## Recommended Current Workstream: 2B
+## Current Workstream: 2B
 
-Phase 2B is now open. ADR 0013 defines the local identity, authority,
+Phase 2B is in progress. ADR 0013 defines the local identity, authority,
 observability, user-journey evidence, and audit boundaries before adding
 mutating runtime controls. The observability and user-journey data model is now
 defined as a docs-first schema sketch in
@@ -145,7 +145,7 @@ observability dependency.
 
 ## Phase 2B Backlog
 
-Phase 2B should make the governance story more credible before adding another
+Phase 2B makes the governance story more credible before adding another
 connector or workflow. The important move is to separate identities, authority,
 telemetry, user journey evidence, and audit instead of using one overloaded
 "observability" or "agent" concept.
@@ -183,8 +183,8 @@ path, or a required hosted dependency.
 |---|---|---|---|---|---|
 | 2B-00 | Identity, authority, and observability boundary ADR | `adrs/`; `docs/architecture.md`; `docs/phase-2-plan.md` | doc review; `git diff --check` | complete | ADR 0013 defines human, workload, agent, invocation, approval, and policy principals; local authority context; future AWS IAM mapping; infrastructure telemetry, application/user journey evidence, audit/accountability, optional LLM observability sidecars, and context hygiene. Evidence: `git diff --check`, `just contracts-check`, `just eval`, and focused 2A tests on 2026-05-14. |
 | 2B-01 | Observability and user-journey data model | `contracts/` or docs-first schema sketch; BFF/UI projection plan; runbook | `git diff --check` | complete | Added `docs/observability-user-journey-model.md` as a docs-first model covering OTel resource/span attributes, baggage allow-list, Postgres projection and BFF/UI journey sketches, audit-only field families, and future actor/session identifiers. No contracts or code changed. |
-| 2B-02 | Workload principal and future AWS IAM mapping | persistence schema/docs; local seed; architecture mapping table | focused persistence tests if schema changes | open | Model service/workload identity without deploying AWS. Include optional future fields for IAM role ARN, STS session name/tags, trust domain, and external identity provider. |
-| 2B-03 | Invocation authority context | Agent Runtime and Tool Gateway request context; contracts if needed; tests | focused runtime/gateway tests; `just eval` | open | Bind tenant, workflow, correlation, agent ID/version, tool/mode, task kind, route, budget, expiry, and parent invocation into a local signed or structured authority context. |
+| 2B-02 | Workload principal and future AWS IAM mapping | persistence schema/docs; local seed; architecture mapping table | focused persistence tests if schema changes | complete | Added `docs/workload-principal-model.md` as a docs-first model for local workload principals, workload sessions, trust domains, tenant scope, safe telemetry placement, and future optional AWS IAM role, STS session, IAM Roles Anywhere, SPIFFE, and external identity-provider mapping metadata. No schema, seeds, contracts, AWS dependency, credentials, production SSO, or production deployment were added. |
+| 2B-03 | Invocation authority context | Agent Runtime and Tool Gateway request context; contracts if needed; tests | focused runtime/gateway tests; `just eval` | complete | Added `docs/invocation-authority-context.md` as a docs-first model for agent invocation and tool authority context: tenant, correlation, workflow, invocation, agent ID/version, task kind, provider/model route ID/version, budget cap, requested tool/mode where applicable, parent invocation, expiry, workload principal/session refs, approval/policy-change refs, safe trace joins, and promotion criteria. No runtime object, contract, signature, schema, seeds, AWS dependency, credentials, production SSO, mutating admin UI, or workflow evidence change was added. |
 | 2B-04 | Human approval identity and audit lifecycle | approval table/contract; BFF/UI read path; eval fixture | focused tests; `just eval` | open | Turn `approval_required` from a verdict into a real approval package with reviewer identity, decision, SLA/expiry, and immutable audit evidence. |
 | 2B-05 | Governed policy mutation workflow | route/prompt/budget/grant proposal tables; apply/rollback path; tests | focused tests; `just eval`; docs | open | Replace direct mutation as the normal operator path for route, prompt, budget, and grant changes. |
 | 2B-06 | Optional LLM observability sidecar evaluation | docs/runbook spike notes; exporter decision | doc review; no hosted dependency required | open | Evaluate Langfuse/LangSmith only as optional OTel/eval consumers. Keep Grafana/OTel plus Postgres audit as the local default evidence stack. |
@@ -349,8 +349,7 @@ path, or a required hosted dependency.
   unavailable and emitted the upstream LangGraph/LangChain
   pending-deprecation warning from `langgraph.cache.base`; no Chorus tests
   failed. Replay was not run because no Temporal workflow logic changed.
-- Phase 2A is complete. Next ledger item: `2B-01` Observability and
-  user-journey data model.
+- Phase 2A is complete. Phase 2B has completed `2B-00` through `2B-03`.
 
 ## Phase 2B Evidence Notes
 
@@ -380,6 +379,34 @@ path, or a required hosted dependency.
   records were aligned. No contracts, code, AWS implementation, production
   SSO, hosted observability dependency, credential entry, or mutating runtime
   admin was added.
+- 2026-05-14: `2B-02` added
+  `docs/workload-principal-model.md` as a docs-first workload identity model.
+  It sketches `workload_principals`, `workload_sessions`, and optional future
+  `workload_principal_aws_mappings` records; defines local trust domains,
+  tenant-scope rules, safe OTel resource-attribute placement, and a
+  Compose-service principal catalogue for the current local stack; and reserves
+  nullable future metadata for IAM role ARN, STS session name and tag keys, IAM
+  Roles Anywhere profile/trust-anchor/certificate-subject refs, SPIFFE ID, and
+  external identity-provider refs. Architecture, evidence map, the 2B-01 field
+  placement model, Phase 2 plan, and Chorus vault continuation records were
+  aligned. No Postgres migration, seed, contract, AWS dependency, production
+  SSO, cloud deployment, credentials, credential-entry UI, or runtime behaviour
+  change was added.
+- 2026-05-14: `2B-03` added
+  `docs/invocation-authority-context.md` as a docs-first invocation-authority
+  model. It sketches future `invocation_authority_context` and
+  `tool_authority_context` shapes; binds tenant, correlation, workflow,
+  invocation, agent ID/version, task kind, prompt reference/hash, provider,
+  model, route ID/version, budget cap, requested tool/mode, parent invocation,
+  expiry, workload principal/session refs, approval/policy-change refs, and
+  safe trace joins; defines lifecycle and telemetry/projection/audit placement
+  rules; and names promotion criteria for a local deterministic object,
+  service-boundary contract, or signed envelope. Architecture, evidence map,
+  implementation plan, the 2B-01/2B-02 companion docs, Phase 2 plan, and Chorus
+  vault continuation records were aligned. No runtime object, contract,
+  signature mechanism, Postgres migration, seed, AWS dependency, production
+  SSO, cloud deployment, credentials, credential-entry UI, mutating admin UI,
+  raw sensitive content, or workflow behaviour change was added.
 
 ## Current Handoff - 2026-05-14
 
@@ -388,7 +415,9 @@ Status:
 - `2A-11` is complete.
 - `2B-00` is complete.
 - `2B-01` is complete.
-- Next ledger item: `2B-02` Workload principal and future AWS IAM mapping.
+- `2B-02` is complete.
+- `2B-03` is complete.
+- Next ledger item: `2B-04` Human approval identity and audit lifecycle.
 
 Evidence added:
 
@@ -396,21 +425,31 @@ Evidence added:
   placement model for OTel attributes/baggage, Postgres projections, BFF/UI
   journey views, audit-only field families, and future actor/session
   identifiers.
-- Architecture, runbook, implementation plan, evidence map, Phase 2 plan, and
-  Chorus vault continuation records now point at the 2B-01 model and the
-  2B-02 continuation.
+- `docs/workload-principal-model.md` defines the Phase 2B workload-principal,
+  workload-session, tenant-scope, local trust-domain, and future AWS IAM mapping
+  sketch. It includes the current Compose-service principal catalogue and
+  context-hygiene rules for telemetry, projections, and audit.
+- `docs/invocation-authority-context.md` defines the Phase 2B
+  invocation-authority context sketch for Agent Runtime and Tool Gateway:
+  authority fields, lifecycle, safe trace joins, telemetry placement, audit
+  placement, and promotion criteria.
+- Architecture, observability model, workload-principal model, evidence map,
+  Phase 2 plan, and Chorus vault continuation records now point at the 2B-03
+  model and the 2B-04 continuation.
 
 Commands run:
 
 - `git diff --check`
+- `git -C /home/ryan/Work/vault diff --check -- records/work/projects/chorus/README.md records/work/projects/chorus/handoff-prompt.md records/work/projects/chorus/implementation-plan.md records/work/projects/chorus/learning/open-questions-phase-2.md`
+- `rg -n "[ \t]$" docs/invocation-authority-context.md docs/workload-principal-model.md`
+- `just contracts-check`
 
 Skipped gates:
 
-- `just contracts-check`: skipped because `2B-01` made docs-only schema
-  sketches and did not change contracts or generated models.
 - Runtime/test gates, including `just test`, `just eval`, `just test-replay`,
-  and `just test-frontend`, were skipped because no code, contracts, Temporal
-  workflow logic, or UI implementation changed.
+  `just test-persistence`, and `just test-frontend`, were skipped because no
+  code, runtime object, contracts, Postgres schema, seeds, Temporal workflow
+  logic, workflow evidence, or UI implementation changed.
 
 ## Handoff Cadence
 
@@ -439,27 +478,32 @@ commands run, any skipped gates, files changed, and the next ledger item.
 Next prompt:
 
 ```text
-Continue Chorus Phase 2B: 2B-02 Workload principal and future AWS IAM mapping.
+Continue Chorus Phase 2B: 2B-04 Human approval identity and audit lifecycle.
 
 Read AGENTS.md, docs/architecture.md, adrs/, docs/phase-2-plan.md,
 docs/implementation-plan.md, and current git status first. Also read
 /home/ryan/Work/vault/records/work/projects/chorus/README.md,
 /home/ryan/Work/vault/records/work/projects/chorus/handoff-prompt.md, and
 /home/ryan/Work/vault/records/work/projects/chorus/learning/open-questions-phase-2.md.
-Keep Lighthouse Phase 1 working and do not implement AWS, production SSO, or
-production cloud deployment. Model local workload principals and the future AWS
-IAM mapping from ADR 0013 and docs/observability-user-journey-model.md:
-represent service/workload identity, trust domain, local workload session
-metadata, tenant scope, and future optional IAM role ARN, STS session name/tags,
-IAM Roles Anywhere, and external identity-provider references without adding
-cloud dependencies or credentials. Prefer a docs-first schema sketch unless the
-implementation clearly needs a Postgres migration or contract. If a schema is
-added, seed local workload principals for the existing Compose services and add
-focused persistence tests. Do not put secrets, credentials, API keys, access
-tokens, raw sensitive content, or PII in telemetry context, projections, or
+Also read docs/observability-user-journey-model.md,
+docs/workload-principal-model.md, and docs/invocation-authority-context.md.
+Keep Lighthouse Phase 1 working and do not implement AWS, production SSO,
+production cloud deployment, credential entry, production identity-provider
+integration, or a mutating admin UI. Model human approval identity and audit
+lifecycle from ADR 0013 and the 2B-01/2B-03 docs: turn
+`approval_required` from a gateway verdict into a docs-first approval package
+or, only if clearly needed, a local deterministic approval context/table
+sketch. Bind approval ID, tenant, correlation, workflow, invocation/tool
+authority refs, requested action, requested/enforced tool mode, reviewer actor
+subject ref, reviewer role, decision, expiry/SLA, reason category, policy
+version refs, workload/session refs, and safe trace join metadata. Do not build
+a production SSO path, credential entry, mutating admin UI, or production
+connector write path. Do not put secrets, credentials, API keys, access tokens,
+raw sensitive content, raw prompts/outputs, raw tool arguments, raw approval
+rationale, or PII in approval context, telemetry baggage, projections, or
 seeds. Update docs/phase-2-plan.md with status/evidence notes and sync only the
 Chorus vault project records needed for the continuation cadence. Run
-`git diff --check` and the smallest relevant just gate; run focused persistence
-tests if schema changes. Report files changed, commands run, skipped gates, and
-the next ledger item.
+`git diff --check` and the smallest relevant just gate; run focused
+Tool Gateway/eval tests only if runtime approval behaviour changes. Report
+files changed, commands run, skipped gates, and the next ledger item.
 ```

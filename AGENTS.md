@@ -25,7 +25,7 @@ Phase 1 implements one evidence-grade vertical slice: an inbound lead email ente
 
 The repo is design-frozen for Phase 1. Phase 0, Phase 1A, Phase 1B, and Phase 1C are implemented: the happy-path Lighthouse slice, governance/failure fixtures, and asynchronous review package are shipped evidence.
 
-Phase 2 is now open for governed-platform expansion per [ADR 0011](./adrs/0011-phase-2-governed-platform-expansion.md), [ADR 0012](./adrs/0012-langgraph-agent-execution-runtime.md), and [docs/phase-2-plan.md](./docs/phase-2-plan.md). The current implementation focus is LangGraph agent execution inside Agent Runtime, then provider/model governance continuation. Do not broaden scope into a top-level agent framework replacing Temporal, SaaS product, production customer-data path, production cloud deployment, or unrestricted second workflow unless the project docs and ADRs explicitly change.
+Phase 2 is in progress for governed-platform expansion per [ADR 0011](./adrs/0011-phase-2-governed-platform-expansion.md), [ADR 0012](./adrs/0012-langgraph-agent-execution-runtime.md), [ADR 0013](./adrs/0013-identity-authority-observability-boundaries.md), and [docs/phase-2-plan.md](./docs/phase-2-plan.md). Phase 2A is complete: LangGraph now runs inside Agent Runtime, provider/model governance evidence exists, and disabled-provider/degradation fallback fixtures are implemented without production provider calls. The current implementation focus is Phase 2B governed identity, observability, approval, and runtime change control. Do not broaden scope into a top-level agent framework replacing Temporal, SaaS product, production customer-data path, production cloud deployment, production SSO, credential entry, mutating admin UI, or unrestricted second workflow unless the project docs and ADRs explicitly change.
 
 ## How To Run Commands
 
@@ -68,7 +68,7 @@ Do not run `just down-volumes` unless explicitly requested; it destroys local da
 | Concern | Technology |
 |---|---|
 | Durable orchestration | Temporal Python SDK |
-| Agent runtime | Python, FastAPI boundary, LangGraph planned inside Agent Runtime |
+| Agent runtime | Python, FastAPI boundary, LangGraph inside Agent Runtime |
 | Tool mediation | FastAPI Tool Gateway |
 | Storage | Postgres |
 | Events | Redpanda Community Edition + Schema Registry |

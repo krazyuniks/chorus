@@ -48,25 +48,32 @@ The repo is also an architecture package. A reviewer should be able to inspect `
 
 ## Phase 2 Direction
 
-Phase 2 is planned and partially started. It opens a governed-platform
-expansion after the Phase 1 evidence baseline. Initial provider/model
-governance groundwork has landed: contracts, Postgres route/catalogue
-metadata, a provider-keyed model adapter registry, route-selection evidence,
-and read-only provider/graph inspection surfaces.
+Phase 2 is in progress. It expands the Phase 1 evidence baseline into a
+governed-platform exemplar while preserving the same authority boundaries.
+Phase 2A is complete: provider/model-governance contracts and Postgres
+catalogue metadata exist, LangGraph runs inside Agent Runtime,
+decision-trail graph metadata is recorded, disabled-provider and degradation
+fallback fixtures are implemented, and read-only provider/graph inspection
+surfaces are available.
 
-The current Phase 2A pivot makes LangGraph the first-class agent execution
-runtime inside the existing Agent Runtime boundary before continuing real
-commercial provider adapters. Temporal remains the durable business workflow
-owner; the Tool Gateway remains the action authority; LangGraph owns only
-per-invocation agent execution. The shipped commercial provider boundary is a
-disabled placeholder used for evidence; production provider calls, credential
-entry, mutating admin controls, and LangGraph durability are not implemented.
+Phase 2B is the active workstream. ADR 0013 defines the identity, authority,
+observability, user-journey evidence, and audit boundary before runtime mutation
+controls are added. The docs-first observability/user-journey,
+workload-principal, and invocation-authority models are complete. Human
+approval identity and audit lifecycle is the next ledger item.
 
-Later Phase 2 milestones cover governed runtime change control, connector
-expansion, a second workflow proof, and production-readiness architecture. See
+Temporal remains the durable business workflow owner. Tool Gateway remains the
+action authority. LangGraph owns only per-invocation agent execution. The
+shipped commercial provider boundary is a disabled placeholder used for
+evidence; production provider calls, credential entry, production SSO, mutating
+admin controls, and LangGraph durability are not implemented.
+
+Later Phase 2 milestones cover governed policy mutation, connector expansion,
+a second workflow proof, and production-readiness architecture. See
 [`phase-2-plan.md`](phase-2-plan.md),
-[ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md), and
-[ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md).
+[ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md),
+[ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md), and
+[ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md).
 
 ## How to review Phase 1
 

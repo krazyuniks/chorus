@@ -144,6 +144,16 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
       data model: OTel attribute/baggage placement rules, Postgres
       projection/BFF/UI sketch, audit-only field families, and future
       actor/session identifiers.
+    - Phase 2B item `2B-02` added the docs-first workload-principal and future
+      AWS IAM mapping model: local workload principals, workload sessions,
+      trust domains, tenant scope, safe telemetry placement, and nullable
+      future IAM role/STS session/IAM Roles Anywhere/SPIFFE/external IdP
+      mapping metadata without local AWS dependencies or credentials.
+    - Phase 2B item `2B-03` added the docs-first invocation-authority context
+      model: Agent Runtime invocation authority, Tool Gateway tool-authority
+      subsets, parent invocation, expiry, workload refs, approval/policy-change
+      refs, and safe trace joins without adding runtime contracts, signatures,
+      AWS dependencies, credentials, or raw sensitive content.
     - Exit check for the planning pass: the Phase 2 roadmap, ADR, scope
       boundaries, backlog ledger, and handoff cadence are documented before
       implementation starts.

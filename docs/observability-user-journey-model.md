@@ -19,7 +19,13 @@ This is a docs-first schema sketch. No contract is added yet because no
 cross-boundary payload changes are required for the current Lighthouse path.
 Future implementation work should promote only stable service payloads into
 `contracts/`; local projection tables and UI view models can remain Postgres
-and BFF-owned until a second service consumes them as a contract.
+and BFF-owned until a second service consumes them as a contract. The companion
+workload-principal model in
+[`workload-principal-model.md`](workload-principal-model.md) defines the
+2B-02 local workload identity, workload-session, tenant-scope, and future AWS
+IAM mapping shape. The companion invocation-authority model in
+[`invocation-authority-context.md`](invocation-authority-context.md) defines
+the 2B-03 authority-context field set and where it may be carried.
 
 ## Placement Rules
 
@@ -123,9 +129,9 @@ Allowed internal baggage keys:
 
 Do not propagate `invocation_id`, `agent_id`, route fields, provider/model
 fields, prompt references, tool modes, approval IDs, policy change IDs, or
-authority state through baggage. Those values belong in typed request payloads,
-audit records, or local projections. This prevents accidental leakage to
-connectors and keeps business authority out of ambient context.
+authority context/state through baggage. Those values belong in typed request
+payloads, audit records, or local projections. This prevents accidental leakage
+to connectors and keeps business authority out of ambient context.
 
 ## Postgres Projections and BFF/UI Read Models
 
@@ -204,7 +210,7 @@ read-only subsets.
 
 | Audit field family | Examples |
 |---|---|
-| Invocation authority | `tenant_id`, `correlation_id`, `workflow_id`, `invocation_id`, `agent_id`, `agent_version`, `task_kind`, parent invocation, expiry, route ID/version, provider/model, budget cap. |
+| Invocation authority | `authority_context_id`, `tenant_id`, `correlation_id`, `workflow_id`, `invocation_id`, `agent_id`, `agent_version`, `task_kind`, parent invocation, expiry, route ID/version, provider/model, budget cap, workload principal/session refs. |
 | Prompt and output evidence | Prompt reference, prompt hash, contract refs, redacted input/output summaries, validation outcome, cost, duration. |
 | Tool authority | Tool call ID, tool name, requested/enforced mode, grant ID/version, idempotency key, verdict, bounded reason, connector invocation ID. |
 | Approval evidence | Future `approval_id`, approval package version, requested action, reviewer subject ref, reviewer role, decision, expiry, SLA, reason, and applied policy. |
@@ -234,7 +240,9 @@ SSO or AWS dependencies:
 
 Future AWS fields such as role ARN, role session name, STS session tags, IAM
 Roles Anywhere certificate subject, or external identity-provider reference are
-mapping metadata for `2B-02`; they are not required for local 2B-01 evidence.
+mapping metadata defined in
+[`workload-principal-model.md`](workload-principal-model.md). They are not
+required for local 2B-01 evidence and must not be carried in telemetry baggage.
 
 ## Implementation Notes
 
@@ -242,7 +250,8 @@ mapping metadata for `2B-02`; they are not required for local 2B-01 evidence.
 - Add fields to OpenTelemetry helpers only when a service actually emits them.
 - Prefer bounded enums and stable IDs over free text in telemetry.
 - Add Postgres schema only when a Phase 2B implementation item starts writing
-  actor sessions, journey events, approval packages, or policy changes.
+  workload sessions, actor sessions, journey events, approval packages, or
+  policy changes.
 - Promote schemas to `contracts/` only when a payload crosses a service
   boundary or must be validated by a release gate.
 - Keep optional LLM observability sidecars derived from OTel/eval data; never
