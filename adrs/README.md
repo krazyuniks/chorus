@@ -21,3 +21,4 @@ architecture is described in [`../docs/architecture.md`](../docs/architecture.md
 | [0013](0013-identity-authority-observability-boundaries.md) | Identity, authority, observability, journey evidence, and audit boundaries. |
 | [0014](0014-connector-expansion-approval-hardening-scope.md) | Phase 2C connector expansion and approval-hardening scope. |
 | [0015](0015-second-workflow-proof-scope.md) | Phase 2D second workflow proof scope. |
+| [0016](0016-production-readiness-architecture-pack-scope.md) | Phase 2E production-readiness architecture pack scope. |

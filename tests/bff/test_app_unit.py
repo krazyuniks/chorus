@@ -25,6 +25,12 @@ from chorus.persistence.projection import (
     ProviderCatalogueProvider,
     ProviderGovernanceSnapshot,
     RuntimePolicySnapshot,
+    SupportAgentDecisionReadModel,
+    SupportCaseUpdateProposalReadModel,
+    SupportInspectionReadModel,
+    SupportStatusWriteBoundaryReadModel,
+    SupportTicketVerdictReadModel,
+    SupportWorkflowEventReadModel,
     ToolActionAuditReadModel,
     ToolGrant,
     WorkflowHistoryEventReadModel,
@@ -36,12 +42,20 @@ class FakeProjectionStore:
     def __init__(self) -> None:
         self.workflow_id = "lighthouse-bff-unit"
         self.correlation_id = "cor_bff_unit"
+        self.support_workflow_id = "support-triage-bff-unit"
+        self.support_correlation_id = "cor_support_bff_unit"
         self.lead_id = uuid4()
         self.event_id = uuid4()
         self.invocation_id = uuid4()
         self.audit_event_id = uuid4()
         self.approval_id = uuid4()
         self.calendar_apply_audit_event_id = uuid4()
+        self.support_event_id = uuid4()
+        self.support_invocation_id = uuid4()
+        self.support_audit_event_id = uuid4()
+        self.support_tool_call_id = uuid4()
+        self.support_verdict_id = uuid4()
+        self.support_connector_invocation_id = uuid4()
         self.now = datetime(2026, 4, 29, 12, 0, tzinfo=UTC)
 
     def list_workflows(self, tenant_id: str, *, limit: int = 100) -> list[WorkflowRunReadModel]:
@@ -103,6 +117,19 @@ class FakeProjectionStore:
     ) -> list[CalendarProjectionReadModel]:
         _ = (tenant_id, workflow_id, limit)
         return [self._calendar_projection()]
+
+    def list_support_inspections(
+        self,
+        tenant_id: str,
+        *,
+        workflow_id: str | None = None,
+        correlation_id: str | None = None,
+        limit: int = 100,
+    ) -> list[SupportInspectionReadModel]:
+        _ = (tenant_id, correlation_id, limit)
+        if workflow_id is not None and workflow_id != self.support_workflow_id:
+            return []
+        return [self._support_inspection()]
 
     def runtime_policy_snapshot(self, tenant_id: str) -> RuntimePolicySnapshot:
         return RuntimePolicySnapshot(
@@ -369,6 +396,127 @@ class FakeProjectionStore:
             updated_at=self.now,
         )
 
+    def _support_inspection(self) -> SupportInspectionReadModel:
+        support_event = SupportWorkflowEventReadModel(
+            tenant_id="tenant_demo",
+            source_event_id=self.support_event_id,
+            workflow_id=self.support_workflow_id,
+            correlation_id=self.support_correlation_id,
+            workflow_type="support_triage",
+            request_ref="req_support_001",
+            event_type="workflow.step.completed",
+            sequence=4,
+            step="support_propose",
+            case_ref="case_existing_001",
+            account_ref="acct_demo_001",
+            product_ref="prod_core_platform",
+            severity_category="sev_high",
+            case_status_category="open",
+            verdict_category="propose_case_update",
+            gateway_verdict="propose",
+            enforced_mode="propose",
+            case_update_ref="caseupd_support_001",
+            outcome=None,
+            trace_join={},
+            occurred_at=self.now,
+        )
+        support_decision = SupportAgentDecisionReadModel(
+            tenant_id="tenant_demo",
+            invocation_id=self.support_invocation_id,
+            workflow_id=self.support_workflow_id,
+            correlation_id=self.support_correlation_id,
+            agent_id="support.resolution_planner",
+            agent_role="support_resolution_planner",
+            agent_version="v1",
+            task_kind="support_resolution_plan",
+            provider="local",
+            model="lighthouse-happy-path-v1",
+            route_id="route_support_resolution_plan_v1",
+            route_version=1,
+            execution_engine="langgraph",
+            graph_version="support-agent-runtime-graph-v1",
+            outcome="succeeded",
+            cost_amount=Decimal("0.0001"),
+            duration_ms=10,
+            contract_refs=["contracts/agents/support_agent_io.schema.json"],
+            trace_join={},
+            occurred_at=self.now,
+        )
+        ticket_verdict = SupportTicketVerdictReadModel(
+            tenant_id="tenant_demo",
+            audit_event_id=self.support_audit_event_id,
+            workflow_id=self.support_workflow_id,
+            correlation_id=self.support_correlation_id,
+            invocation_id=self.support_invocation_id,
+            tool_call_id=self.support_tool_call_id,
+            verdict_id=self.support_verdict_id,
+            agent_id="support.resolution_planner",
+            tool_name="ticket.propose_case_update",
+            requested_mode="propose",
+            enforced_mode="propose",
+            verdict="propose",
+            reason_category="proposal_mode",
+            idempotency_key_ref=(
+                f"{self.support_workflow_id}:ticket.propose_case_update:req_support_001"
+            ),
+            connector_invocation_id=self.support_connector_invocation_id,
+            output_refs={
+                "request_ref": "req_support_001",
+                "case_ref": "case_existing_001",
+                "case_update_ref": "caseupd_support_001",
+                "case_status_mutated": False,
+            },
+            trace_join={},
+            occurred_at=self.now,
+        )
+        case_update = SupportCaseUpdateProposalReadModel(
+            tenant_id="tenant_demo",
+            case_update_ref="caseupd_support_001",
+            workflow_id=self.support_workflow_id,
+            correlation_id=self.support_correlation_id,
+            source_audit_event_id=self.support_audit_event_id,
+            connector_invocation_id=self.support_connector_invocation_id,
+            request_ref="req_support_001",
+            case_ref="case_existing_001",
+            account_ref="acct_demo_001",
+            product_ref="prod_core_platform",
+            severity_category="sev_high",
+            target_status_category="pending_customer",
+            update_reason_category="resolution_plan_ready",
+            proposal_status="proposed",
+            policy_ref="policy_support_triage_local_v1",
+            case_status_mutated=False,
+            trace_join={},
+            updated_at=self.now,
+        )
+        status_boundary = SupportStatusWriteBoundaryReadModel(
+            grant_ref="tool_grant:12000000-0000-4000-8000-000000000016",
+            agent_id="support.resolution_planner",
+            agent_version="v1",
+            tool_name="ticket.update_status",
+            mode="write",
+            allowed=True,
+            approval_required=True,
+        )
+        return SupportInspectionReadModel(
+            tenant_id="tenant_demo",
+            workflow_id=self.support_workflow_id,
+            correlation_id=self.support_correlation_id,
+            workflow_type="support_triage",
+            request_refs=["req_support_001"],
+            case_refs=["case_existing_001"],
+            account_refs=["acct_demo_001"],
+            product_refs=["prod_core_platform"],
+            proposed_case_update_refs=["caseupd_support_001"],
+            latest_event_sequence=4,
+            workflow_events=[support_event],
+            agent_decisions=[support_decision],
+            ticket_verdicts=[ticket_verdict],
+            proposed_case_updates=[case_update],
+            status_write_boundary=[status_boundary],
+            updated_at=self.now,
+        )
+
 
 def _client() -> tuple[TestClient, FakeProjectionStore]:
     store = FakeProjectionStore()
@@ -427,6 +575,39 @@ def test_audit_and_runtime_policy_endpoints_are_read_only_views() -> None:
     assert registry[0]["lifecycle_state"] == "approved"
     assert grants[0]["tool_name"] == "email.propose_response"
     assert routing[0]["budget_usd"] == 0.01
+
+
+def test_support_inspection_endpoints_are_safe_read_only_views() -> None:
+    client, store = _client()
+
+    support_list = client.get(
+        f"/api/support/inspections?correlation_id={store.support_correlation_id}"
+    ).json()
+    support_detail = client.get(
+        f"/api/workflows/{store.support_workflow_id}/support/inspection"
+    ).json()
+
+    assert support_list == [support_detail]
+    assert support_detail["workflow_type"] == "support_triage"
+    assert support_detail["request_refs"] == ["req_support_001"]
+    assert support_detail["case_refs"] == ["case_existing_001"]
+    assert support_detail["proposed_case_update_refs"] == ["caseupd_support_001"]
+    assert support_detail["workflow_events"][0]["step"] == "support_propose"
+    assert support_detail["agent_decisions"][0]["agent_role"] == "support_resolution_planner"
+    assert support_detail["agent_decisions"][0]["contract_refs"] == [
+        "contracts/agents/support_agent_io.schema.json"
+    ]
+    assert support_detail["ticket_verdicts"][0]["tool_name"] == "ticket.propose_case_update"
+    assert support_detail["ticket_verdicts"][0]["reason_category"] == "proposal_mode"
+    assert support_detail["ticket_verdicts"][0]["output_refs"] == {
+        "request_ref": "req_support_001",
+        "case_ref": "case_existing_001",
+        "case_update_ref": "caseupd_support_001",
+        "case_status_mutated": False,
+    }
+    assert support_detail["proposed_case_updates"][0]["case_status_mutated"] is False
+    assert support_detail["status_write_boundary"][0]["tool_name"] == "ticket.update_status"
+    assert support_detail["status_write_boundary"][0]["approval_required"] is True
 
 
 def test_provider_and_graph_execution_endpoints_are_read_only_views() -> None:

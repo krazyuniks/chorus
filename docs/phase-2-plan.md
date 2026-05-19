@@ -22,18 +22,27 @@ replay, or authority controls.
 
 ## Planning Posture
 
-Phase 2 is in progress. Phase 2A, Phase 2B, and Phase 2C are complete. Phase
-2D has selected its second-workflow proof scope, added a contract baseline for
-safe support intake, agent IO, ticket tool arguments, and workflow/eval enum
-values, added the local ticket desk sandbox behind the Tool Gateway for
-read/propose ticket actions, and added the smallest code-defined
-`support_triage` Temporal runtime with replay evidence. The support-specific
-eval and persisted evidence baseline now proves the happy-path trace joins
-across workflow events, Agent Runtime decisions, Tool Gateway ticket verdicts,
-and proposed case-update refs. Read-only support inspection remains planned.
-Phase 1
-remains the stable demo baseline until each Phase 2 milestone has its own
-evidence, tests, and documentation.
+Phase 2 remains in progress. Phase 2A, Phase 2B, Phase 2C, and Phase 2D are
+complete. Phase 2D selected its second-workflow proof scope, added a contract
+baseline for safe support intake, agent IO, ticket tool arguments, and
+workflow/eval enum values, added the local ticket desk sandbox behind the Tool
+Gateway for read/propose ticket actions, added the smallest code-defined
+`support_triage` Temporal runtime with replay evidence, added support eval and
+persisted evidence joins, and added a safe read-only BFF inspection path for
+the existing support happy-path evidence. Phase 2E has started with ADR 0016 as
+the docs-first production-readiness architecture pack scope decision, and has
+completed the production identity/IAM mapping and secrets/credential handling
+architecture artefacts plus the deployment topology and backup/restore/DR
+architecture artefacts, and the retention/audit storage architecture artefact.
+Phase 1 remains the stable demo baseline until each Phase 2 milestone has its
+own evidence, tests, and documentation.
+
+On 2026-05-19 development paused for the transformation reset in
+[`docs/transformation/`](transformation/). The reset keeps existing technical
+evidence but stops the one-item continuation cadence. Before more feature work,
+Chorus must select or refine a real client-facing domain, define ubiquitous
+language, restructure the documentation around local POC value, and separate
+optional Amazon/Terraform deployment into its own later phase.
 
 The repository is now the authoritative planning surface. Historical vault
 records under `/home/ryan/Work/vault/records/radianit/projects/chorus/` informed
@@ -56,6 +65,8 @@ deferred:
    giving agents ambient authority?
 5. Can the same orchestration and governance pattern support a second business
    workflow without becoming a generic DSL or framework skeleton?
+6. Which production-readiness concerns belong in architecture artefacts first,
+   and which later need thin executable evidence?
 
 ## Non-goals
 
@@ -70,6 +81,8 @@ deferred:
 - Agent-framework features that duplicate Temporal workflow state, Tool Gateway
   authority, Postgres audit, or eval/replay release controls.
 - LangSmith, Langfuse, or similar tooling as a required hosted dependency.
+- Production-readiness runtime work before the relevant architecture artefact
+  and evidence expectations are explicit.
 
 ## Design Principles
 
@@ -93,8 +106,8 @@ deferred:
 | 2A. Agent execution and provider governance | Add LangGraph as the first-class agent execution runtime inside Agent Runtime, then continue commercial-provider adapter boundaries, model-route promotion rules, failover/degradation policy, budget telemetry, and provider-failure fixtures while retaining the local structured boundary as the default runnable path. | complete | A reviewer can inspect which LangGraph execution path ran, why a provider/model was selected, and prove fallback behaviour under provider failure, timeout, rate-limit, and budget-exceeded fixtures without production provider calls. |
 | 2B. Governed identity, observability, and runtime change control | Add the identity/authority data model, observability boundary model, and audited proposal/approval/rollback flows for prompt references, model routes, budget caps, and tool grants. Keep direct database mutation out of the normal operator path. | complete | A reviewer can inspect the docs-first human, workload, agent, invocation, approval, policy-change, correlation, sidecar-export, and field-placement models before executable runtime mutation is added. |
 | 2C. Connector expansion and approval hardening | Add one new sandbox or protocol-backed connector behind the Tool Gateway, plus stronger approval, idempotency, retry, and compensation evidence for risky writes. | complete | ADR 0014 selects a local CalDAV calendar connector candidate. Calendar argument schemas and safe samples cover availability lookup, hold proposal, hold creation, and hold cancellation. A local Radicale sandbox and Tool Gateway-dispatched connector path covers availability lookup and hold proposal, create/cancel writes remain approval-required and create a minimal local approval package, an approved local apply path re-enters the gateway to prove idempotent VEVENT creation, transient retry classification, cancellation compensation, and compensation-failure escalation, and the BFF exposes safe read-only calendar status/audit refs derived from local approval and audit rows. Calendar eval fixtures and a Lighthouse workflow calendar branch remain deferred. |
-| 2D. Second workflow proof | Add one adjacent business workflow that reuses Agent Runtime, Tool Gateway, contracts, projections, eval, and observability without introducing a workflow DSL. | in progress | ADR 0015 selects a local Support Desk Triage workflow as the second workflow candidate. Contract schemas, generated models, safe samples, enum baselines, and a Postgres-backed local ticket desk sandbox now exist for support intake, support agent IO, local ticket arguments, `support_triage` workflow events, Phase 2D eval contract values, ticket case lookup, duplicate lookup, and proposed case updates. A code-defined `support_triage` Temporal workflow now reuses Agent Runtime and Tool Gateway activity boundaries for a local read/propose happy path, is registered on the worker, and has focused replay evidence. The support eval fixture and persisted evidence baseline now prove workflow events, Agent Runtime decisions, Tool Gateway ticket verdicts, and proposed case-update refs join by safe tenant/correlation/workflow refs while `ticket.update_status` remains approval-required and unexecuted. Read-only support inspection remains planned while Lighthouse remains intact. |
-| 2E. Production-readiness architecture pack | Decide which production concerns should remain design-only and which need thin executable evidence: AWS identity mapping, secrets, deployment topology, retention, backup/restore, incident integration, and managed observability. | planned | ADRs and docs distinguish implemented local evidence from production architecture, with any executable spikes gated and explicitly scoped. |
+| 2D. Second workflow proof | Add one adjacent business workflow that reuses Agent Runtime, Tool Gateway, contracts, projections, eval, and observability without introducing a workflow DSL. | complete | ADR 0015 selects a local Support Desk Triage workflow as the second workflow candidate. Contract schemas, generated models, safe samples, enum baselines, and a Postgres-backed local ticket desk sandbox exist for support intake, support agent IO, local ticket arguments, `support_triage` workflow events, Phase 2D eval contract values, ticket case lookup, duplicate lookup, and proposed case updates. A code-defined `support_triage` Temporal workflow reuses Agent Runtime and Tool Gateway activity boundaries for a local read/propose happy path, is registered on the worker, and has focused replay evidence. The support eval fixture, persisted evidence baseline, and read-only BFF inspection path prove workflow events, Agent Runtime decisions, Tool Gateway ticket verdicts, proposed case-update refs, and the `ticket.update_status` approval-required boundary can be inspected by safe tenant/correlation/workflow refs while Lighthouse remains intact. |
+| 2E. Production-readiness architecture pack | Decide which production concerns should remain design-only and which need thin executable evidence: production identity/IAM mapping, secrets, deployment topology, backup/restore and DR, retention and audit storage, incident/on-call integration, managed observability, and production provider or connector hardening. | in progress | ADR 0016 defines the docs-first scope, non-goals, required future artefacts, evidence expectations, and backlog shape before production-readiness code. 2E-01 adds the production identity and IAM mapping architecture, preserving Chorus business authority in Agent Runtime, Tool Gateway, approval audit, policy-change audit, and eval gates while mapping future human, workload, agent, invocation, approval, and policy principals to production trust domains, tenant/RBAC boundaries, IAM roles or equivalent workload identity, STS session rules, IAM Roles Anywhere, SPIFFE/SPIRE, and external IdP refs. 2E-02 adds the secrets and credential handling architecture for secret refs, bounded credential categories, local-to-production configuration, runtime injection boundaries, rotation, revocation, break-glass, audit/evidence refs, safe field rules, and promotion criteria. 2E-03 adds the deployment topology architecture for future service topology, environment classes, deployment unit boundaries, trust zones, ingress/egress, data-store and event-stream placement, managed-versus-self-hosted decisions, and IaC spike criteria. 2E-04 adds backup, restore, and DR architecture for RPO/RTO classes, authoritative store order, backup scope, restore responsibilities and dependency order, Temporal/application Postgres/event/projection/telemetry/eval/secrets/config handling, restore drills, safe field rules, promotion criteria, and backlog implications. 2E-05 adds retention and audit storage architecture for retention classes, audit ownership, Postgres-first audit posture, scaling signals, archive/export criteria, delete/expire/hold categories, append-store evaluation triggers, restore/DR interactions, safe field rules, and promotion criteria. Future executable spikes must be gated and explicitly scoped. |
 
 ## Phase 2A Completed Workstream
 
@@ -239,7 +252,33 @@ keeps Lighthouse as the stable Phase 1 demo and regression baseline.
 | 2D-02 | Local ticket desk sandbox and Tool Gateway dispatch baseline | local ticket connector code; gateway validation/dispatch; grants/seeds if needed; focused tests; runbook/evidence notes | focused Tool Gateway/connector tests; `just contracts-check`; `git diff --check`; persistence gate if migrations/seeds change | complete | Added a Postgres-backed local ticket desk sandbox, support agent/grant seeds, safe local ticket case seeds, Tool Gateway argument validation and connector dispatch for `ticket.lookup_case`, `ticket.lookup_duplicates`, and `ticket.propose_case_update`, plus an approval-required `ticket.update_status` grant that stops before connector execution. Focused tests cover local read/propose dispatch, proposed case-update persistence without case-status mutation, approval-required status update behaviour, and schema validation blocking before connector execution. No Support Temporal workflow runtime, activity registrations, BFF/UI routes, eval fixtures, replay histories, production ticketing providers, credential entry, reviewer decision UI, policy mutation UI, hosted observability dependency, workflow DSL, raw sensitive content, raw prompts/outputs, raw tool arguments, raw connector payloads, raw approval or policy rationale, identity-provider claims, attendee names, email addresses, or PII were added. |
 | 2D-03 | Support workflow runtime and replay baseline | code-defined Temporal support workflow; activity registrations; focused replay/history fixture; docs/evidence notes | focused workflow tests; `just test-replay`; `just contracts-check`; `git diff --check`; `just eval` only if eval fixtures change | complete | Added the smallest code-defined `support_triage` Temporal workflow runtime and worker/activity registration needed for a local happy path. The workflow reuses the existing Agent Runtime activity for support classification/context/planning/validation, reuses the Tool Gateway activity for `ticket.lookup_case`, `ticket.lookup_duplicates`, and `ticket.propose_case_update`, records support workflow events with safe subject refs, and never calls `ticket.update_status`. Agent Runtime now validates the 2D-01 support agent contract through the local model boundary. Focused tests and replay history cover the happy path. No Support BFF/UI routes, eval fixtures, production ticketing providers, reviewer decision UI, credential entry, policy mutation UI, hosted observability dependencies, production connector writes, workflow DSL, raw sensitive content, raw prompts/outputs, raw tool arguments, raw connector payloads, raw approval or policy rationale, identity-provider claims, attendee names, email addresses, or PII were added. |
 | 2D-04 | Support eval and persisted evidence baseline | support eval fixture; local persisted run/evidence assertions; runbook/evidence notes | focused eval/runtime tests; targeted support eval; `just test-replay`; `just contracts-check`; `git diff --check`; persistence gate | complete | Added the smallest support-specific eval and persisted evidence baseline for the `support_triage` happy path, using only safe refs and bounded categories. The support eval fixture asserts workflow path, final completion, support Agent Runtime decision evidence, ticket lookup/duplicate/proposal Tool Gateway verdicts, proposed case-update refs, no `ticket.update_status` call, no case-status mutation, and safe tenant/correlation/workflow trace joins. A new migration admits support agent roles into persisted decision-trail evidence, and a focused persistence test proves workflow events, support decisions, ticket audit rows, and local proposed case-update refs can be joined while the seeded `ticket.update_status` grant remains approval-required and unexecuted. No Support BFF/UI routes, production ticketing providers, reviewer decision UI, credential entry, policy mutation UI, hosted observability dependencies, production connector writes, ticket status execution, or workflow DSL work were added. |
-| 2D-05 | Support read-only inspection path | safe BFF/UI support evidence projection if needed; runbook/evidence notes | focused BFF/UI tests; frontend gates if UI changes; `just contracts-check`; `git diff --check`; relevant persistence/eval checks | open | Add the smallest read-only inspection path for the existing `support_triage` happy-path evidence so a reviewer can inspect safe support workflow events, Agent Runtime decisions, ticket Tool Gateway verdicts, and proposed case-update refs by tenant/correlation/workflow refs. Do not add reviewer decision UI, mutating admin UI, production ticketing providers, credential entry, policy mutation UI, production connector writes, ticket status execution, generic workflow DSL work, or a top-level agent framework replacing Temporal. |
+| 2D-05 | Support read-only inspection path | safe BFF support evidence projection; runbook/evidence notes | focused BFF tests; `just contracts-check`; `git diff --check`; relevant persistence/eval checks | complete | Added the smallest read-only BFF inspection path for existing `support_triage` happy-path evidence. A reviewer can inspect safe support workflow event categories, Agent Runtime decision refs, ticket Tool Gateway verdict categories, proposed case-update refs, and the approval-required `ticket.update_status` write boundary by tenant/correlation/workflow refs. No Support UI route, reviewer decision UI, mutating admin UI, production ticketing providers, credential entry, policy mutation UI, production connector writes, ticket status execution, generic workflow DSL work, or top-level agent framework replacing Temporal was added. |
+
+## Phase 2E Backlog
+
+Phase 2E should keep production-readiness work docs-first until the local
+evidence surface proves which concerns need executable spikes. Production
+identity, secrets, deployment, backup/restore, retention, incident integration,
+managed observability, and provider or connector hardening should be scoped
+explicitly before any runtime behaviour changes. ADR 0016 fixes the first
+boundary: the production-readiness pack may add ADRs, diagrams, checklists,
+runbook sections, evidence-map rows, and phase-plan backlog items, but it does
+not add migrations, services, credentials, cloud resources, production
+connectors, hosted observability exporters, mutating admin paths, reviewer
+decision paths, policy apply paths, ticket status execution, production
+provider calls, or runtime behaviour changes.
+
+| ID | Required item | Evidence artefact | Gate | Status | Notes |
+|---|---|---|---|---|---|
+| 2E-00 | Production-readiness architecture pack scope ADR | ADR 0016; phase plan; architecture/evidence/runbook updates | doc review; `just contracts-check`; `git diff --check`; smallest relevant docs gate | complete | ADR 0016 defines the scope, non-goals, safe-data rules, required future artefacts, evidence expectations, and ordered backlog shape for production identity/IAM mapping, secrets and credential handling, deployment topology, backup/restore and DR, retention and audit storage, incident/on-call integration, managed observability, and production provider or connector hardening. It is architecture-only: no migrations, services, credentials, cloud resources, production connectors, hosted observability exporters, mutating admin paths, reviewer decision paths, policy apply paths, ticket status execution, production provider calls, or runtime behaviour changes were added. |
+| 2E-01 | Production identity and IAM mapping architecture | `docs/production-identity-iam-mapping.md`; phase/architecture/evidence/runbook notes | doc review; `just contracts-check`; `just doctor-quick`; `git diff --check`; focused docs alignment check | complete | Added the docs-first production identity and IAM mapping artefact. It maps human, workload, agent, invocation, approval, and policy principals to future production trust domains, tenant/RBAC boundaries, IAM roles or equivalent workload identity, STS session-name/tag rules, IAM Roles Anywhere, SPIFFE/SPIRE, and external IdP refs while keeping Chorus business authority in Agent Runtime, Tool Gateway, approval audit, policy-change audit, and eval gates. No AWS, production SSO, identity-provider integration, credentials, migrations, seeds, runtime enforcement, tenant-admin UI, reviewer decision path, policy apply path, production connector, hosted observability exporter, production provider call, or runtime behaviour change was added. |
+| 2E-02 | Secrets and credential handling architecture | `docs/secrets-credential-handling.md`; phase/architecture/evidence/runbook notes | doc review; `just contracts-check`; `just doctor-quick`; `git diff --check`; focused docs alignment check | complete | Added the docs-first secrets and credential handling artefact. It defines credential categories, secret-ref naming rules, secret-ref catalogue shape, local-to-production configuration boundary, runtime injection boundaries, rotation/revocation lifecycle, break-glass controls, audit/evidence refs, forbidden-data checklist, required future artefacts, evidence expectations, safe field rules, promotion criteria, and backlog implications. No secret-manager integration, credential entry, credential mutation, actual credentials, provider keys, connector credentials, signing keys, identity-provider client secrets, cloud resources, production SSO, production identity-provider integration, IAM enforcement, production connectors, hosted observability exporters, production provider calls, migrations, services, runtime enforcement changes, or runtime behaviour changes were added. |
+| 2E-03 | Deployment topology architecture | `docs/deployment-topology-architecture.md`; phase/architecture/evidence/runbook notes | doc review; `just contracts-check`; `just doctor-quick`; `git diff --check`; focused docs alignment check | complete | Added the docs-first deployment topology artefact. It defines future production service topology, environment classes, deployment unit boundaries, network and trust zones, ingress and egress boundaries, data-store and event-stream placement, component placement, local-to-production boundaries, managed-versus-self-hosted decision rules, IaC spike criteria, evidence expectations, safe field rules, promotion criteria, and backlog implications. No cloud resources, Terraform, Kubernetes/ECS/EKS/Lambda work, DNS, certificates, deployment automation, network resources, managed databases, production SSO, identity-provider integration, secret-manager integration, credential entry, credential mutation, production connectors, hosted observability exporters, production provider calls, migrations, services, runtime enforcement changes, or runtime behaviour changes were added. |
+| 2E-04 | Backup, restore, and DR architecture | `docs/backup-restore-dr-architecture.md`; phase/architecture/evidence/runbook notes | doc review; `just contracts-check`; `just doctor-quick`; `git diff --check`; focused docs alignment check | complete | Added the docs-first backup, restore, and DR artefact. It defines RPO/RTO classes, authoritative store order, backup scope by data class, restore responsibility by component, restore dependency order, Temporal persistence handling, application Postgres/audit handling, event-stream and schema-registry handling, projection rebuild rules, telemetry store treatment, eval/replay artefact handling, secret metadata versus secret value handling, configuration/deployment refs, restore drill model, synthetic/local evidence expectations, safe field rules, promotion criteria, and backlog implications. No backup automation, restore automation, replication setup, PITR configuration, managed database configuration, managed event stream, object storage resource, cloud resource, Terraform, Kubernetes/ECS/EKS/Lambda work, DNS, certificate, network resource, deployment automation, production SSO, production identity-provider integration, IAM enforcement, secret-manager integration, credential entry, credential mutation, production connector, hosted observability exporter, production provider call, migration, service, runtime enforcement change, or runtime behaviour change was added. |
+| 2E-05 | Retention and audit storage architecture | `docs/retention-audit-storage-architecture.md`; phase/architecture/evidence/runbook notes | doc review; `just contracts-check`; `just doctor-quick`; `git diff --check`; focused docs alignment check | complete | Added the docs-first retention and audit storage artefact. It defines retention classes for telemetry, journey projections, audit/accountability, decision-trail and Tool Gateway audit records, approval and policy-change packages, eval/replay artefacts, connector evidence, event-stream/schema evidence, secret metadata lifecycle evidence, backup/restore/DR evidence, and incident/on-call evidence. It defines audit-storage ownership, Postgres-first retention posture, audit scaling signals, archival/export criteria, delete/expire/hold categories, Scylla or append-store evaluation triggers, restore/DR interactions, safe field rules, synthetic/local evidence expectations, promotion criteria, and backlog implications. No retention automation, archive/export job, long-retention store, Scylla implementation, migration, managed database, object storage resource, cloud resource, hosted exporter, service, runtime enforcement change, or runtime behaviour change was added. |
+| 2E-06 | Incident and on-call integration architecture | docs-first incident/on-call artefact; runbook notes | doc review; `just contracts-check`; `just doctor-quick`; `git diff --check`; smallest relevant docs gate | open | Define severity categories, incident refs, escalation lifecycle, change-freeze expectations, post-incident evidence, and incident-to-policy-change linkage before pager integration, alert routing, incident workflows, or production incident tooling. |
+| 2E-07 | Managed observability architecture | docs-first managed observability artefact; exporter allow-list notes | doc review; `just contracts-check`; `just doctor-quick`; `git diff --check`; smallest relevant docs gate | open | Map local Grafana/OTel evidence to managed telemetry or optional sidecar export while preserving Postgres audit, Temporal replay, and `just eval` as authoritative. Do not add hosted exporters, managed dependencies, sidecar SDKs, credentials, or runtime export behaviour. |
+| 2E-08 | Production provider and connector hardening architecture | docs-first provider/connector hardening artefact; runbook/evidence notes | doc review; `just contracts-check`; `just doctor-quick`; `git diff --check`; smallest relevant docs gate | open | Define readiness gates for real provider adapters and production connector providers: credential refs, rate limits, retries, circuit breakers, kill switches, approval, idempotency, eval, replay where relevant, and rollback. Do not add production provider calls, production connector writes, credentials, or production adapters. |
 
 ## Phase 2A Work Breakdown
 
@@ -726,6 +765,148 @@ keeps Lighthouse as the stable Phase 1 demo and regression baseline.
   tool arguments, raw connector payloads, raw approval or policy rationale,
   identity-provider claims, attendee names, email addresses, or PII were
   added.
+- 2026-05-19: `2D-05` added the smallest read-only Support Desk Triage
+  inspection path. `chorus.persistence.ProjectionStore` now builds safe support
+  inspection summaries from persisted workflow events, Agent Runtime decision
+  trail rows, Tool Gateway ticket audit rows, proposed local case-update refs,
+  and the seeded `ticket.update_status` grant boundary. The BFF exposes
+  read-only support inspection endpoints filtered by tenant plus optional
+  workflow or correlation refs:
+  `/api/support/inspections?workflow_id=<workflow-ref>&correlation_id=<correlation-ref>`
+  and `/api/workflows/<workflow-ref>/support/inspection`. Responses expose only
+  bounded categories and safe refs, including support workflow step categories,
+  agent/tool refs, requested/enforced modes, verdict categories, grant/policy
+  refs, trace joins, proposed case-update refs, and the approval-required
+  status-write boundary. Focused BFF unit coverage proves the endpoints return
+  safe inspection views and do not expose a status execution path; the live BFF
+  fixture seeds the same persisted support refs when Postgres is available. No
+  Support UI route, reviewer decision UI, mutating admin UI, production
+  ticketing providers, credential entry, policy mutation UI, hosted
+  observability dependencies, production connector writes, ticket status
+  execution, workflow DSL, raw sensitive content, raw prompts/outputs, raw tool
+  arguments, raw connector payloads, raw approval or policy rationale,
+  identity-provider claims, attendee names, email addresses, or PII were added.
+
+## Phase 2E Evidence Notes
+
+- 2026-05-19: `2E-00` added
+  `adrs/0016-production-readiness-architecture-pack-scope.md` as the
+  production-readiness architecture pack scope decision. ADR 0016 defines the
+  scope, non-goals, safe-data rules, required future artefacts, evidence
+  expectations, and ordered backlog shape for production identity/IAM mapping,
+  secrets and credential handling, deployment topology, backup/restore and DR,
+  retention and audit storage, incident/on-call integration, managed
+  observability, and production provider or connector hardening. The decision
+  keeps Phase 2E architecture-first: it may add ADRs, diagrams, checklists,
+  runbook sections, evidence-map rows, and phase-plan backlog items, but it
+  does not add migrations, services, credentials, cloud resources, production
+  connectors, hosted observability exporters, mutating admin paths, reviewer
+  decision paths, policy apply paths, ticket status execution, production
+  provider calls, or runtime behaviour changes. Architecture, implementation
+  plan, evidence map, runbook, ADR index, and Chorus vault continuation records
+  were aligned.
+- 2026-05-19: `2E-01` added
+  `docs/production-identity-iam-mapping.md` as the production identity and IAM
+  mapping architecture artefact. The document maps Chorus human, workload,
+  agent, invocation, approval, and policy principals to future production trust
+  domains, tenant/RBAC boundaries, IAM roles or equivalent workload identity,
+  safe STS session-name and session-tag rules, IAM Roles Anywhere,
+  SPIFFE/SPIRE, and external identity-provider refs. It keeps IAM and external
+  IdPs as authentication/resource-scope mechanisms while preserving Chorus
+  business authority in Agent Runtime, Tool Gateway, approval audit,
+  policy-change audit, and eval gates. It also defines non-goals, safe field
+  rules, required future artefacts, evidence expectations, promotion criteria,
+  and backlog implications for 2E-02 through 2E-08. Architecture,
+  implementation plan, evidence map, runbook, and Chorus vault continuation
+  records were aligned. No migration, service, credential, cloud resource,
+  production SSO, production identity-provider integration, tenant-admin UI,
+  mutating admin path, reviewer decision path, policy apply path, runtime
+  enforcement change, production connector, hosted observability exporter,
+  production provider call, or runtime behaviour change was added.
+- 2026-05-19: `2E-02` added
+  `docs/secrets-credential-handling.md` as the secrets and credential handling
+  architecture artefact. The document defines future credential categories,
+  secret-ref naming rules, secret-ref catalogue shape, local-to-production
+  configuration boundary, runtime injection boundaries, rotation and
+  revocation lifecycle, break-glass controls, audit and evidence refs,
+  forbidden-data checklist, required future artefacts, evidence expectations,
+  safe field rules, promotion criteria, and backlog implications for provider,
+  connector, database, signing, identity-provider, observability, and workload
+  identity credentials. It keeps credential handling architecture-only and
+  uses secret refs and bounded categories only. Architecture, implementation
+  plan, evidence map, runbook, and Chorus vault continuation records were
+  aligned. No secret-manager integration, credential entry, credential
+  mutation, actual credential, provider key, connector credential, signing key,
+  identity-provider client secret, cloud resource, production SSO, production
+  identity-provider integration, IAM enforcement, production connector, hosted
+  observability exporter, production provider call, migration, service,
+  runtime enforcement change, or runtime behaviour change was added.
+- 2026-05-19: `2E-03` added
+  `docs/deployment-topology-architecture.md` as the deployment topology
+  architecture artefact. The document defines the future production service
+  topology, environment classes, deployment unit boundaries, network and trust
+  zones, ingress and egress boundaries, data-store and event-stream placement,
+  Temporal, Agent Runtime, Tool Gateway, BFF/UI, projection, connector,
+  observability, identity, and secret-injection placement,
+  local-to-production boundaries, managed-versus-self-hosted decision rules,
+  IaC spike criteria, evidence expectations, safe field rules, promotion
+  criteria, and backlog implications. It keeps deployment architecture-only
+  and uses service refs, workload refs, zone refs, deployment refs, store refs,
+  stream refs, secret refs, provider refs, connector refs, and bounded
+  categories only. Architecture, implementation plan, evidence map, runbook,
+  README, overview, agent guide, and Chorus vault continuation records were
+  aligned. No cloud resource, Terraform, Kubernetes/ECS/EKS/Lambda work, DNS,
+  certificate, deployment automation, network resource, managed database,
+  production SSO, production identity-provider integration, IAM enforcement,
+  secret-manager integration, credential entry, credential mutation,
+  production connector, hosted observability exporter, production provider
+  call, migration, service, runtime enforcement change, or runtime behaviour
+  change was added.
+- 2026-05-19: `2E-04` added
+  `docs/backup-restore-dr-architecture.md` as the backup, restore, and DR
+  architecture artefact. The document defines future RPO/RTO classes,
+  authoritative store order, backup scope by data class, restore responsibility
+  by component, restore dependency order, Temporal persistence handling,
+  application Postgres and audit handling, event-stream and schema-registry
+  handling, projection rebuild rules, telemetry treatment, eval/replay artefact
+  handling, secret metadata versus secret value handling,
+  configuration/deployment refs, restore drill models, synthetic/local evidence
+  expectations, safe field rules, promotion criteria, and backlog implications.
+  It keeps recovery architecture-only and uses safe refs and bounded categories
+  only. Architecture, implementation plan, evidence map, runbook, README,
+  overview, agent guide, and Chorus vault continuation records were aligned. No
+  backup automation, restore tooling, replication, PITR policy, managed database
+  configuration, managed event stream, object storage resource, cloud resource,
+  Terraform, Kubernetes/ECS/EKS/Lambda work, DNS, certificate, network resource,
+  deployment automation, production SSO, production identity-provider
+  integration, IAM enforcement, secret-manager integration, credential entry,
+  credential mutation, production connector, hosted observability exporter,
+  production provider call, migration, service, runtime enforcement change, or
+  runtime behaviour change was added.
+- 2026-05-19: `2E-05` added
+  `docs/retention-audit-storage-architecture.md` as the retention and audit
+  storage architecture artefact. The document defines future retention classes
+  for telemetry, application/user journey projections, audit/accountability,
+  decision trail, Tool Gateway audit, approval packages, policy-change
+  packages, eval/replay artefacts, connector evidence, event-stream/schema
+  evidence, secret metadata lifecycle evidence, backup/restore/DR evidence,
+  incident/on-call evidence, and optional sidecar exports. It defines
+  audit-storage ownership, the Postgres-first audit-retention posture, audit
+  scaling signals, archive/export criteria, delete/expire/hold categories,
+  Scylla or append-store evaluation triggers, restore/DR interactions,
+  synthetic/local evidence expectations, safe field rules, promotion criteria,
+  and backlog implications. It keeps retention architecture-only and uses safe
+  refs and bounded categories only. Architecture, implementation plan,
+  evidence map, runbook, README, overview, agent guide, and Chorus vault
+  continuation records were aligned. No retention automation, archive/export
+  job, long-retention store, Scylla implementation, migration, managed
+  database, object storage resource, cloud resource, Terraform,
+  Kubernetes/ECS/EKS/Lambda work, DNS, certificate, network resource,
+  deployment automation, production SSO, production identity-provider
+  integration, IAM enforcement, secret-manager integration, credential entry,
+  credential mutation, production connector, hosted observability exporter,
+  production provider call, service, runtime enforcement change, or runtime
+  behaviour change was added.
 
 ## Current Handoff - 2026-05-19
 
@@ -737,154 +918,60 @@ Status:
 - `2D-02` is complete.
 - `2D-03` is complete.
 - `2D-04` is complete.
-- Next ledger item: `2D-05` Support read-only inspection path.
+- `2D-05` is complete.
+- `2E-00` is complete.
+- `2E-01` is complete.
+- `2E-02` is complete.
+- `2E-03` is complete.
+- `2E-04` is complete.
+- `2E-05` is complete.
+- Development pause: use [`docs/transformation/`](transformation/) before
+  selecting the next implementation item. Remaining `2E-06` through `2E-08`
+  architecture docs should be batched or closed during the reset, not advanced
+  through the old one-item continuation cadence.
 
 Evidence added:
 
-- `chorus/eval/fixtures/support_triage_happy_path.json` adds the support
-  happy-path eval fixture with safe refs and bounded categories only.
-- `chorus/eval/run.py` now has support-specific offline and optional live
-  persisted evidence checks. It proves support workflow path, final completion,
-  Agent Runtime decisions, ticket Tool Gateway verdicts, proposed
-  case-update refs, no `ticket.update_status` action, no case-status mutation,
-  and tenant/correlation/workflow trace joins.
-- `infrastructure/postgres/migrations/009_support_eval_persisted_evidence_baseline.sql`
-  admits support agent roles into `decision_trail_entries` so support runtime
-  decisions can persist.
-- `tests/eval/test_run.py` covers the support eval fixture.
-- `tests/persistence/test_postgres_foundation.py` adds a persisted support
-  evidence baseline that joins workflow events, support decisions, ticket
-  audit rows, and the local proposed case-update row by safe refs while
-  keeping `ticket.update_status` approval-required and unexecuted.
-- Runbook, evidence map, implementation plan, architecture/status docs, and
-  Chorus vault continuation records now point at `2D-05` while keeping the
-  repo as the active source of truth.
+- `docs/retention-audit-storage-architecture.md` defines retention and audit
+  storage architecture for future retention classes, evidence retention matrix,
+  audit-storage ownership, Postgres-first audit posture, scaling signals,
+  archive/export criteria, delete/expire/hold categories, Scylla or append-store
+  evaluation triggers, restore/DR interactions, safe field rules, promotion
+  criteria, and backlog implications using safe refs and bounded categories
+  only.
+- `docs/phase-2-plan.md` marks `2E-05` complete, records evidence notes, and
+  points the next handoff at incident and on-call integration architecture.
+- Architecture, implementation plan, evidence map, runbook, README/overview,
+  and agent-guide notes now link the 2E-05 artefact and keep retention and
+  audit storage mapped as architecture, not implemented behaviour.
+- Chorus vault continuation records were synchronised only for the project
+  status and next continuation prompt.
 
 Commands run:
 
-- `python -m py_compile chorus/eval/run.py tests/eval/test_run.py tests/persistence/test_postgres_foundation.py`
-- `uv run ruff check chorus/eval/run.py tests/eval/test_run.py tests/persistence/test_postgres_foundation.py`
-- `uv run python -m chorus.eval.run --fixture chorus/eval/fixtures/support_triage_happy_path.json`
-- `uv run pytest tests/eval/test_run.py -q`
-- `uv run pytest tests/agent_runtime/test_runtime.py -k support -q`
-- `uv run pytest tests/workflows/test_support_workflow.py -q`
-- `uv run pytest tests/persistence/test_postgres_foundation.py -k support_eval_persisted_evidence -q`
 - `just contracts-check`
-- `just test-replay`
-- `just test-persistence`
-- `just eval`
+- `just doctor-quick`
+- `rg -n "2E-05|2E-06|retention-audit-storage|Retention and audit|audit storage|Postgres-first|incident and on-call|Incident and on-call" AGENTS.md README.md docs/architecture.md docs/evidence-map.md docs/implementation-plan.md docs/overview.md docs/phase-2-plan.md docs/runbook.md docs/retention-audit-storage-architecture.md /home/ryan/Work/vault/records/radianit/projects/chorus`
 - `git diff --check`
-- `git -C /home/ryan/Work/vault diff --check -- records/radianit/projects/chorus/README.md records/radianit/projects/chorus/handoff-prompt.md records/radianit/projects/chorus/implementation-plan.md records/radianit/projects/chorus/learning/open-questions-phase-2.md`
+- `git -C /home/ryan/Work/vault diff --check -- records/radianit/projects/chorus/README.md records/radianit/projects/chorus/handoff-prompt.md records/radianit/projects/chorus/learning/open-questions-phase-2.md`
 
 Skipped gates:
 
-- BFF/UI/frontend gates were skipped because no Support BFF route, UI route,
-  or frontend code changed.
-- Tool Gateway/connector-focused gates were skipped because 2D-04 did not
-  change gateway dispatch or connector behaviour.
-- Full `just test` was skipped in favour of focused eval/support runtime tests,
-  replay, contracts, persistence, eval, lint, and diff checks.
-- The optional live persisted eval check was skipped by `just eval` because no
-  `CHORUS_EVAL_CORRELATION_ID` or `CHORUS_EVAL_WORKFLOW_ID` selector was
-  supplied.
-- `just test-persistence` completed, with the existing Redpanda projection test
-  skipped by its fixture because Redpanda projection dependencies were not part
-  of this change.
+- Runtime, replay, eval, persistence, BFF/UI, frontend, Tool Gateway, and
+  connector gates were skipped because `2E-05` added only architecture docs,
+  evidence, runbook, and continuation updates with no runtime, contract,
+  schema, service, connector, persistence, UI, workflow, retention, archive,
+  export, or storage behaviour changes.
+- Full `just test`, `just lint`, `just test-replay`, `just eval`,
+  `just test-persistence`, `just test-frontend`, and `just test-e2e` were
+  skipped in favour of the docs-first gates above.
 
 ## Handoff Cadence
 
-Each continuation prompt for Phase 2 should start by naming the milestone and
-ledger item, then require the session to update this plan before handoff. If a
-session updates project-memory material in
-`/home/ryan/Work/vault/records/radianit/projects/chorus/`, it must keep the repo as
-the source of truth and describe which vault files were synchronised.
-
-This is a continuation-prompt driven workflow. A continuation is not complete
-until the session has updated the `Next prompt` block below for the following
-ledger item and included that exact copy-pasteable prompt in its final response.
-The prompt should carry forward the same scope boundaries, required reading,
-gate expectations, vault-sync rule, and "give the next prompt when you finish"
-instruction.
-
-Use this shape:
-
-```text
-Continue Chorus Phase <phase>: <ledger id and title>.
-
-Read AGENTS.md, docs/architecture.md, adrs/, docs/phase-2-plan.md, and the
-current git status first. If the work involves project metadata, also read
-/home/ryan/Work/vault/records/radianit/projects/chorus/README.md and
-/home/ryan/Work/vault/records/radianit/projects/chorus/handoff-prompt.md. Keep
-Lighthouse Phase 1 working. Implement only this ledger item and its directly
-required docs/tests. Use just recipes for gates. Update docs/phase-2-plan.md
-with status/evidence notes before handoff. If vault records are touched, update
-only Chorus project records and preserve unrelated vault changes. Report
-commands run, any skipped gates, files changed, and the next ledger item.
-Finish by giving the next continuation prompt verbatim, including this same
-instruction to give the next prompt when finished.
-```
-
-Next prompt:
-
-```text
-Continue Chorus Phase 2D: 2D-05 Support read-only inspection path.
-
-Read AGENTS.md, docs/architecture.md, adrs/, docs/phase-2-plan.md,
-docs/implementation-plan.md, docs/evidence-map.md, docs/runbook.md, and current
-git status first. Also read
-/home/ryan/Work/vault/records/radianit/projects/chorus/README.md,
-/home/ryan/Work/vault/records/radianit/projects/chorus/handoff-prompt.md, and
-/home/ryan/Work/vault/records/radianit/projects/chorus/learning/open-questions-phase-2.md.
-Also read docs/observability-user-journey-model.md,
-docs/workload-principal-model.md, docs/invocation-authority-context.md,
-docs/human-approval-audit-lifecycle.md,
-docs/policy-change-governance-workflow.md, and
-docs/llm-observability-sidecar-evaluation.md. Pay particular attention to
-adrs/0011-phase-2-governed-platform-expansion.md,
-adrs/0012-langgraph-agent-execution-runtime.md,
-adrs/0013-identity-authority-observability-boundaries.md,
-adrs/0014-connector-expansion-approval-hardening-scope.md,
-adrs/0015-second-workflow-proof-scope.md, and the completed 2D-00, 2D-01,
-2D-02, 2D-03, and 2D-04 handoff/evidence notes in docs/phase-2-plan.md.
-Keep Lighthouse Phase 1 working and do not implement AWS, production SSO,
-production cloud deployment, credential entry, production identity-provider
-integration, production connector writes, credential mutation, production
-provider calls, a hosted observability dependency, a mutating admin UI, a
-generic workflow DSL, or a top-level agent framework replacing Temporal.
-Implement only 2D-05: add the smallest read-only inspection path for the
-existing `support_triage` happy-path evidence. Reuse the 2D-03 workflow
-runtime, the 2D-04 eval/persisted evidence baseline, and the 2D-02 local ticket
-read/propose gateway path; make safe support workflow events, Agent Runtime
-decisions, Tool Gateway ticket verdicts, and proposed case-update refs
-inspectable by tenant/correlation/workflow refs. Keep `ticket.update_status`
-approval-required with no connector execution. Do not add reviewer decision UI,
-mutating admin UI, production ticketing providers, credential entry, policy
-mutation UI, hosted observability dependencies, production connector writes,
-ticket status execution, generic workflow DSL work, or a top-level agent
-framework replacing Temporal in this item. Bind only safe refs and bounded
-categories in contracts, samples, examples, docs, audit, projections, fixtures,
-tests, and UI/API responses: request refs, case refs, account refs, product
-refs, severity/status categories, idempotency refs, tenant/correlation/workflow
-refs, agent/tool refs, requested/enforced modes, verdict categories,
-grant/policy refs, workflow step categories, eval fixture refs, proposed
-case-update refs, and safe trace joins. Do not put secrets, credentials, API
-keys, access tokens, raw sensitive content, raw prompts/outputs, raw tool
-arguments, raw connector payloads, raw approval or policy rationale,
-identity-provider claims, attendee names, email addresses, or PII in
-contracts, telemetry baggage, projections, sidecar examples, audit examples,
-seeds, samples, fixtures, eval fixtures, replay histories, API responses, or
-UI views.
-Update docs/phase-2-plan.md with status/evidence notes, update
-runbook/evidence-map/implementation-plan notes if workflow, activity,
-registration, replay, eval, persistence, BFF/UI, frontend, gate, or evidence
-expectations change, and sync only the Chorus vault project records needed for
-the continuation cadence. Run `just contracts-check`, focused Support
-inspection/BFF tests, the relevant support eval command or `just eval`,
-`git diff --check`, and the smallest additional relevant gate; run frontend
-gates if UI changes, persistence gates if projections or persisted reads
-change, Tool Gateway/connector gates only if gateway or connector behaviour
-changes, and `just test-replay` only if workflow or replay behaviour changes.
-Report files changed, commands run, skipped gates, and the next ledger item.
-Finish by giving the next continuation prompt verbatim, including this same
-instruction to give the next prompt when finished.
-```
+The old continuation-prompt driven workflow is retired for the reset period.
+Future sessions should use checkpoint-sized tasks from
+[`docs/transformation/engineering-reset-roadmap.md`](transformation/engineering-reset-roadmap.md).
+If vault records are touched, update only Chorus project records and preserve
+unrelated vault changes. Handoffs should record files changed, gates run,
+skipped gates, and the next reset checkpoint, but they should not copy a large
+next prompt into every response.

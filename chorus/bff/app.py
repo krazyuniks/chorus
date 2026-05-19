@@ -25,6 +25,12 @@ from chorus.persistence import (
     ProjectionStore,
     ProviderCatalogueModel,
     ProviderCatalogueProvider,
+    SupportAgentDecisionReadModel,
+    SupportCaseUpdateProposalReadModel,
+    SupportInspectionReadModel,
+    SupportStatusWriteBoundaryReadModel,
+    SupportTicketVerdictReadModel,
+    SupportWorkflowEventReadModel,
     ToolActionAuditReadModel,
     WorkflowHistoryEventReadModel,
     WorkflowRunReadModel,
@@ -184,6 +190,121 @@ class CalendarStatusEntryView(BaseModel):
     grant_ref: str | None
     policy_version_refs: dict[str, Any]
     trace_join: dict[str, Any]
+    updated_at: str
+
+
+class SupportWorkflowEventSummaryView(BaseModel):
+    id: str
+    workflow_id: str
+    correlation_id: str
+    workflow_type: str
+    request_ref: str | None
+    event_type: str
+    sequence: int
+    step: str | None
+    case_ref: str | None
+    account_ref: str | None
+    product_ref: str | None
+    severity_category: str | None
+    case_status_category: str | None
+    verdict_category: str | None
+    gateway_verdict: str | None
+    enforced_mode: str | None
+    case_update_ref: str | None
+    outcome: str | None
+    trace_join: dict[str, Any]
+    occurred_at: str
+
+
+class SupportAgentDecisionSummaryView(BaseModel):
+    id: str
+    workflow_id: str
+    correlation_id: str
+    invocation_id: str
+    agent_id: str
+    agent_role: str
+    agent_version: str
+    task_kind: str
+    provider: str
+    model: str
+    route_id: str | None
+    route_version: int | None
+    execution_engine: str | None
+    graph_version: str | None
+    outcome: str
+    cost_usd: float
+    latency_ms: int
+    contract_refs: list[str]
+    trace_join: dict[str, Any]
+    occurred_at: str
+
+
+class SupportTicketVerdictSummaryView(BaseModel):
+    id: str
+    workflow_id: str
+    correlation_id: str
+    invocation_id: str | None
+    tool_call_id: str | None
+    verdict_id: str | None
+    agent_id: str
+    tool_name: str
+    requested_mode: str | None
+    enforced_mode: str | None
+    verdict: str
+    reason_category: str
+    idempotency_key_ref: str | None
+    connector_invocation_id: str | None
+    output_refs: dict[str, Any]
+    trace_join: dict[str, Any]
+    occurred_at: str
+
+
+class SupportCaseUpdateProposalSummaryView(BaseModel):
+    id: str
+    workflow_id: str
+    correlation_id: str
+    source_audit_event_id: str
+    connector_invocation_id: str
+    request_ref: str
+    case_ref: str
+    account_ref: str
+    product_ref: str
+    severity_category: str
+    target_status_category: str
+    update_reason_category: str
+    proposal_status: str
+    policy_ref: str | None
+    case_status_mutated: bool
+    trace_join: dict[str, Any]
+    updated_at: str
+
+
+class SupportStatusWriteBoundaryView(BaseModel):
+    grant_ref: str
+    agent_id: str
+    agent_version: str
+    tool_name: str
+    mode: str
+    allowed: bool
+    approval_required: bool
+
+
+class SupportInspectionEntryView(BaseModel):
+    tenant_id: str
+    workflow_id: str
+    correlation_id: str
+    workflow_type: str
+    request_refs: list[str]
+    case_refs: list[str]
+    account_refs: list[str]
+    product_refs: list[str]
+    proposed_case_update_refs: list[str]
+    latest_event_sequence: int | None
+    workflow_events: list[SupportWorkflowEventSummaryView]
+    agent_decisions: list[SupportAgentDecisionSummaryView]
+    ticket_verdicts: list[SupportTicketVerdictSummaryView]
+    proposed_case_updates: list[SupportCaseUpdateProposalSummaryView]
+    status_write_boundary: list[SupportStatusWriteBoundaryView]
     updated_at: str
 
 
@@ -405,6 +526,38 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
     ) -> list[CalendarStatusEntryView]:
         entries = store.list_calendar_projections(resolved.tenant_id, workflow_id=workflow_id)
         return [_calendar_status_view(row) for row in entries]
+
+    @app.get("/api/support/inspections", response_model=list[SupportInspectionEntryView])
+    def list_support_inspections(
+        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        workflow_id: Annotated[str | None, Query()] = None,
+        correlation_id: Annotated[str | None, Query()] = None,
+        limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    ) -> list[SupportInspectionEntryView]:
+        entries = store.list_support_inspections(
+            resolved.tenant_id,
+            workflow_id=workflow_id,
+            correlation_id=correlation_id,
+            limit=limit,
+        )
+        return [_support_inspection_view(row) for row in entries]
+
+    @app.get(
+        "/api/workflows/{workflow_id}/support/inspection",
+        response_model=SupportInspectionEntryView,
+    )
+    def get_workflow_support_inspection(
+        workflow_id: str,
+        store: Annotated[ProjectionStore, Depends(store_dependency)],
+    ) -> SupportInspectionEntryView:
+        entries = store.list_support_inspections(
+            resolved.tenant_id,
+            workflow_id=workflow_id,
+            limit=1,
+        )
+        if not entries:
+            raise HTTPException(status_code=404, detail="support inspection not found")
+        return _support_inspection_view(entries[0])
 
     @app.get("/api/runtime/registry", response_model=list[RegistryEntryView])
     def list_registry(
@@ -759,6 +912,145 @@ def _calendar_status_view(row: CalendarProjectionReadModel) -> CalendarStatusEnt
         policy_version_refs=row.policy_version_refs,
         trace_join=row.trace_join,
         updated_at=row.updated_at.isoformat(),
+    )
+
+
+def _support_inspection_view(row: SupportInspectionReadModel) -> SupportInspectionEntryView:
+    return SupportInspectionEntryView(
+        tenant_id=row.tenant_id,
+        workflow_id=row.workflow_id,
+        correlation_id=row.correlation_id,
+        workflow_type=row.workflow_type,
+        request_refs=row.request_refs,
+        case_refs=row.case_refs,
+        account_refs=row.account_refs,
+        product_refs=row.product_refs,
+        proposed_case_update_refs=row.proposed_case_update_refs,
+        latest_event_sequence=row.latest_event_sequence,
+        workflow_events=[_support_event_view(event) for event in row.workflow_events],
+        agent_decisions=[_support_decision_view(decision) for decision in row.agent_decisions],
+        ticket_verdicts=[_support_ticket_verdict_view(verdict) for verdict in row.ticket_verdicts],
+        proposed_case_updates=[
+            _support_case_update_view(proposal) for proposal in row.proposed_case_updates
+        ],
+        status_write_boundary=[
+            _support_status_write_boundary_view(boundary) for boundary in row.status_write_boundary
+        ],
+        updated_at=row.updated_at.isoformat(),
+    )
+
+
+def _support_event_view(row: SupportWorkflowEventReadModel) -> SupportWorkflowEventSummaryView:
+    return SupportWorkflowEventSummaryView(
+        id=str(row.source_event_id),
+        workflow_id=row.workflow_id,
+        correlation_id=row.correlation_id,
+        workflow_type=row.workflow_type,
+        request_ref=row.request_ref,
+        event_type=row.event_type,
+        sequence=row.sequence,
+        step=row.step,
+        case_ref=row.case_ref,
+        account_ref=row.account_ref,
+        product_ref=row.product_ref,
+        severity_category=row.severity_category,
+        case_status_category=row.case_status_category,
+        verdict_category=row.verdict_category,
+        gateway_verdict=row.gateway_verdict,
+        enforced_mode=row.enforced_mode,
+        case_update_ref=row.case_update_ref,
+        outcome=row.outcome,
+        trace_join=row.trace_join,
+        occurred_at=row.occurred_at.isoformat(),
+    )
+
+
+def _support_decision_view(row: SupportAgentDecisionReadModel) -> SupportAgentDecisionSummaryView:
+    return SupportAgentDecisionSummaryView(
+        id=str(row.invocation_id),
+        workflow_id=row.workflow_id,
+        correlation_id=row.correlation_id,
+        invocation_id=str(row.invocation_id),
+        agent_id=row.agent_id,
+        agent_role=row.agent_role,
+        agent_version=row.agent_version,
+        task_kind=row.task_kind,
+        provider=row.provider,
+        model=row.model,
+        route_id=row.route_id,
+        route_version=row.route_version,
+        execution_engine=row.execution_engine,
+        graph_version=row.graph_version,
+        outcome=row.outcome,
+        cost_usd=_decimal_to_float(row.cost_amount),
+        latency_ms=row.duration_ms,
+        contract_refs=row.contract_refs,
+        trace_join=row.trace_join,
+        occurred_at=row.occurred_at.isoformat(),
+    )
+
+
+def _support_ticket_verdict_view(
+    row: SupportTicketVerdictReadModel,
+) -> SupportTicketVerdictSummaryView:
+    return SupportTicketVerdictSummaryView(
+        id=str(row.audit_event_id),
+        workflow_id=row.workflow_id,
+        correlation_id=row.correlation_id,
+        invocation_id=str(row.invocation_id) if row.invocation_id is not None else None,
+        tool_call_id=str(row.tool_call_id) if row.tool_call_id is not None else None,
+        verdict_id=str(row.verdict_id) if row.verdict_id is not None else None,
+        agent_id=row.agent_id,
+        tool_name=row.tool_name,
+        requested_mode=row.requested_mode,
+        enforced_mode=row.enforced_mode,
+        verdict=row.verdict,
+        reason_category=row.reason_category,
+        idempotency_key_ref=row.idempotency_key_ref,
+        connector_invocation_id=(
+            str(row.connector_invocation_id) if row.connector_invocation_id is not None else None
+        ),
+        output_refs=row.output_refs,
+        trace_join=row.trace_join,
+        occurred_at=row.occurred_at.isoformat(),
+    )
+
+
+def _support_case_update_view(
+    row: SupportCaseUpdateProposalReadModel,
+) -> SupportCaseUpdateProposalSummaryView:
+    return SupportCaseUpdateProposalSummaryView(
+        id=row.case_update_ref,
+        workflow_id=row.workflow_id,
+        correlation_id=row.correlation_id,
+        source_audit_event_id=str(row.source_audit_event_id),
+        connector_invocation_id=str(row.connector_invocation_id),
+        request_ref=row.request_ref,
+        case_ref=row.case_ref,
+        account_ref=row.account_ref,
+        product_ref=row.product_ref,
+        severity_category=row.severity_category,
+        target_status_category=row.target_status_category,
+        update_reason_category=row.update_reason_category,
+        proposal_status=row.proposal_status,
+        policy_ref=row.policy_ref,
+        case_status_mutated=row.case_status_mutated,
+        trace_join=row.trace_join,
+        updated_at=row.updated_at.isoformat(),
+    )
+
+
+def _support_status_write_boundary_view(
+    row: SupportStatusWriteBoundaryReadModel,
+) -> SupportStatusWriteBoundaryView:
+    return SupportStatusWriteBoundaryView(
+        grant_ref=row.grant_ref,
+        agent_id=row.agent_id,
+        agent_version=row.agent_version,
+        tool_name=row.tool_name,
+        mode=row.mode,
+        allowed=row.allowed,
+        approval_required=row.approval_required,
     )
 
 

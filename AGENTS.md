@@ -7,13 +7,14 @@
 When a task concerns architecture, runtime behaviour, contracts, governance, or implementation direction, use this order:
 
 1. [docs/architecture.md](./docs/architecture.md)
-2. [adrs/](./adrs/)
-3. [docs/governance-guardrails.md](./docs/governance-guardrails.md)
-4. [docs/phase-2-plan.md](./docs/phase-2-plan.md)
-5. [docs/implementation-plan.md](./docs/implementation-plan.md)
-6. [docs/evidence-map.md](./docs/evidence-map.md)
-7. [README.md](./README.md)
-8. This file
+2. [docs/transformation/](./docs/transformation/)
+3. [adrs/](./adrs/)
+4. [docs/governance-guardrails.md](./docs/governance-guardrails.md)
+5. [docs/phase-2-plan.md](./docs/phase-2-plan.md)
+6. [docs/implementation-plan.md](./docs/implementation-plan.md)
+7. [docs/evidence-map.md](./docs/evidence-map.md)
+8. [README.md](./README.md)
+9. This file
 
 Architecture and docs move with code. If behaviour, boundaries, contracts, commands, or evidence surfaces change, update the matching docs in the same work.
 
@@ -25,7 +26,7 @@ Phase 1 implements one evidence-grade vertical slice: an inbound lead email ente
 
 The repo is design-frozen for Phase 1. Phase 0, Phase 1A, Phase 1B, and Phase 1C are implemented: the happy-path Lighthouse slice, governance/failure fixtures, and asynchronous review package are shipped evidence.
 
-Phase 2 is in progress for governed-platform expansion per [ADR 0011](./adrs/0011-phase-2-governed-platform-expansion.md), [ADR 0012](./adrs/0012-langgraph-agent-execution-runtime.md), [ADR 0013](./adrs/0013-identity-authority-observability-boundaries.md), [ADR 0014](./adrs/0014-connector-expansion-approval-hardening-scope.md), [ADR 0015](./adrs/0015-second-workflow-proof-scope.md), and [docs/phase-2-plan.md](./docs/phase-2-plan.md). Phase 2A is complete: LangGraph now runs inside Agent Runtime, provider/model governance evidence exists, and disabled-provider/degradation fallback fixtures are implemented without production provider calls. Phase 2B is complete: governed identity, observability, approval, policy-change, and optional sidecar boundaries are docs-first. Phase 2C connector expansion and approval hardening is complete: the local CalDAV connector scope, calendar argument schemas, local Radicale sandbox, Tool Gateway-dispatched read/propose connector paths, minimal calendar approval package persistence, approved local idempotency/retry/compensation evidence, and safe read-only BFF calendar status/audit projection are complete. Phase 2D has selected local Support Desk Triage, added the safe support intake, support agent IO, local ticket argument, workflow-event, and eval enum baseline, added the local ticket desk sandbox plus Tool Gateway read/propose dispatch baseline, added a code-defined `support_triage` Temporal workflow runtime with replay evidence, and added the support eval plus persisted evidence baseline. The next planned item is 2D-05 Support read-only inspection path. Do not broaden scope into a top-level agent framework replacing Temporal, SaaS product, production customer-data path, production cloud deployment, production SSO, credential entry, production connector writes, mutating admin UI, unrestricted second workflow, or workflow DSL unless the project docs and ADRs explicitly change.
+Phase 2 is in progress for governed-platform expansion per [ADR 0011](./adrs/0011-phase-2-governed-platform-expansion.md), [ADR 0012](./adrs/0012-langgraph-agent-execution-runtime.md), [ADR 0013](./adrs/0013-identity-authority-observability-boundaries.md), [ADR 0014](./adrs/0014-connector-expansion-approval-hardening-scope.md), [ADR 0015](./adrs/0015-second-workflow-proof-scope.md), [ADR 0016](./adrs/0016-production-readiness-architecture-pack-scope.md), and [docs/phase-2-plan.md](./docs/phase-2-plan.md). Phase 2A is complete: LangGraph now runs inside Agent Runtime, provider/model governance evidence exists, and disabled-provider/degradation fallback fixtures are implemented without production provider calls. Phase 2B is complete: governed identity, observability, approval, policy-change, and optional sidecar boundaries are docs-first. Phase 2C connector expansion and approval hardening is complete: the local CalDAV connector scope, calendar argument schemas, local Radicale sandbox, Tool Gateway-dispatched read/propose connector paths, minimal calendar approval package persistence, approved local idempotency/retry/compensation evidence, and safe read-only BFF calendar status/audit projection are complete. Phase 2D is complete: local Support Desk Triage has safe support/ticket contracts, a local ticket desk sandbox plus Tool Gateway read/propose dispatch baseline, a code-defined `support_triage` Temporal workflow runtime with replay evidence, support eval plus persisted evidence, and a safe read-only Support BFF inspection path. Phase 2E has started docs-first: ADR 0016 scopes production-readiness architecture before production-readiness code, 2E-01 adds the production identity and IAM mapping architecture, 2E-02 adds the secrets and credential handling architecture, 2E-03 adds the deployment topology architecture, 2E-04 adds the backup, restore, and DR architecture, and 2E-05 adds the retention and audit storage architecture. Development is now paused for the transformation reset in [docs/transformation/](./docs/transformation/): the project must refocus on a grounded client-facing domain, ubiquitous language, local POC readiness, and a separate optional deployment phase before further feature work. Do not resume the old one-item Phase 2E continuation cadence. Do not broaden scope into a top-level agent framework replacing Temporal, SaaS product, production customer-data path, production cloud deployment, production SSO, credential entry, credential mutation, production connector writes, mutating admin UI, reviewer decision UI, policy mutation UI, policy apply path, hosted observability exporter, backup automation, restore tooling, retention jobs, archive/export jobs, long-retention store implementation, unrestricted second workflow, or workflow DSL unless the project docs and ADRs explicitly change.
 
 ## How To Run Commands
 

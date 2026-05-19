@@ -503,7 +503,8 @@ Gateway for read/propose ticket evidence. 2D-03 adds the smallest
 code-defined `support_triage` Temporal workflow runtime and replay baseline
 using the existing Agent Runtime and Tool Gateway activity boundaries. 2D-04
 adds the support eval fixture and persisted evidence baseline for the happy
-path. There is still no Support BFF route, UI route, production ticketing
+path. 2D-05 adds a safe read-only Support BFF inspection path for the existing
+happy-path evidence. There is still no Support UI route, production ticketing
 provider, reviewer decision UI, credential entry, ticket status execution, or
 workflow DSL.
 
@@ -513,8 +514,8 @@ lookup, resolution planning, response and case-update proposal, validation,
 completion, and escalation. It is a code-defined Temporal workflow, not a
 workflow DSL, and it reuses the existing Agent Runtime, LangGraph inside Agent
 Runtime, and Tool Gateway activity boundaries. Later items still need
-Redpanda/projection inspection, BFF/UI read-only projection if promoted, and
-OTel/Grafana evidence.
+Redpanda/projection inspection, optional Support UI inspection if promoted,
+and OTel/Grafana evidence.
 
 Future support-ticket actions must remain local-only and gateway-only:
 
@@ -575,6 +576,10 @@ Future support-ticket actions must remain local-only and gateway-only:
 - `tests/persistence/test_postgres_foundation.py` includes a focused support
   evidence test that joins workflow events, support decisions, ticket audit
   rows, and the local proposed case-update row by safe refs.
+- 2D-05 exposes the same safe joined evidence through the BFF:
+  `/api/support/inspections?correlation_id=<correlation-id>`,
+  `/api/support/inspections?workflow_id=<support-workflow-id>`, and
+  `/api/workflows/<support-workflow-id>/support/inspection`.
 
 Run focused support runtime/replay checks:
 
@@ -641,6 +646,27 @@ raw connector payloads, raw approval or policy rationale, identity-provider
 claims, personal names, email addresses, credentials, access tokens, API keys,
 or PII for ticket evidence.
 
+Inspect the BFF's safe Support inspection projection:
+
+```bash
+curl -s "http://localhost:${BFF_PORT:-8000}/api/support/inspections?correlation_id=<correlation-id>" | jq
+```
+
+```bash
+curl -s "http://localhost:${BFF_PORT:-8000}/api/workflows/<support-workflow-id>/support/inspection" | jq
+```
+
+The projection is derived from `outbox_events`, `decision_trail_entries`,
+`tool_action_audit`, `local_ticket_case_update_proposals`, and the seeded
+`ticket.update_status` Tool Gateway grant. It exposes only support workflow
+steps, request/case/account/product refs, severity/status categories,
+invocation and agent refs, tool names and requested/enforced modes, verdict
+categories, idempotency refs, proposed case-update refs, grant refs, and safe
+trace joins. It does not expose raw request content, raw prompts/outputs, raw
+tool arguments, raw connector payloads, raw approval or policy rationale,
+identity-provider claims, names, email addresses, credentials, API keys,
+access tokens, or PII.
+
 The current 2D-01 contract inspection set is:
 
 - `contracts/events/support_request_intake.schema.json`
@@ -662,11 +688,11 @@ just contracts-check
 uv run pytest tests/test_contracts.py
 ```
 
-These contracts and samples contain only refs and bounded categories. 2D-04
-now adds only the support eval and persisted evidence baseline on top of the
-2D-03 support workflow runtime and the 2D-02 ticket connector/Tool Gateway
-read/propose dispatch path. It does not imply a Support BFF route, UI route,
-production ticketing provider, or ticket write path.
+These contracts and samples contain only refs and bounded categories. 2D-05
+adds only the read-only Support BFF inspection path on top of the 2D-04 support
+eval/persisted evidence baseline, the 2D-03 support workflow runtime, and the
+2D-02 ticket connector/Tool Gateway read/propose dispatch path. It does not
+imply a Support UI route, production ticketing provider, or ticket write path.
 
 Before any later 2D implementation item is called complete, inspect the
 following surfaces:
@@ -678,7 +704,7 @@ following surfaces:
 - `just eval` output or targeted eval output for support-specific fixtures;
 - Postgres workflow projections, decision trail, and `tool_action_audit` rows
   joined by `workflow_id` and `correlation_id`;
-- BFF/UI read-only support workflow inspection endpoints or views if promoted;
+- BFF read-only support workflow inspection endpoints;
 - Grafana/OTel spans with `chorus.workflow.type=support_triage` and bounded
   `chorus.workflow.step` values.
 
@@ -688,11 +714,149 @@ Lighthouse eval/replay fixtures, change the existing demo script, or make a
 shared helper that weakens Lighthouse replay compatibility without explicit
 replay coverage.
 
-For the next support read-only inspection item, expected gates are focused
-BFF/UI tests if those surfaces are added, frontend gates if UI changes, `just
-contracts-check`, `git diff --check`, and the smallest relevant persistence or
-eval gate needed to prove the inspection path. Mutating reviewer decisions and
-ticket status execution remain out of scope.
+For future support inspection changes, expected gates are focused BFF tests,
+frontend gates if UI changes, `just contracts-check`, `git diff --check`, and
+the smallest relevant persistence or eval gate needed to prove the inspection
+path. Mutating reviewer decisions and ticket status execution remain out of
+scope.
+
+### Phase 2E production-readiness architecture pack scope
+
+ADR 0016 starts Phase 2E with a docs-first production-readiness architecture
+pack. It is a scoping and evidence-planning item only. It does not add AWS,
+production SSO, production identity-provider integration, credential entry,
+credential mutation, cloud deployment, production provider calls, production
+connector writes, hosted observability exporters, reviewer decision paths,
+policy apply paths, mutating admin paths, ticket status execution, or runtime
+behaviour changes.
+
+The pack backlog is ordered around future architecture artefacts:
+
+| Item | Future artefact |
+|---|---|
+| `2E-01` | Production identity and IAM mapping architecture. |
+| `2E-02` | Secrets and credential handling architecture. |
+| `2E-03` | Deployment topology architecture. |
+| `2E-04` | Backup, restore, and DR architecture. |
+| `2E-05` | Retention and audit storage architecture. |
+| `2E-06` | Incident and on-call integration architecture. |
+| `2E-07` | Managed observability architecture. |
+| `2E-08` | Production provider and connector hardening architecture. |
+
+2E-01 is complete as a docs-first architecture item:
+[`production-identity-iam-mapping.md`](production-identity-iam-mapping.md)
+maps Chorus human, workload, agent, invocation, approval, and policy
+principals to future production trust domains, tenant/RBAC boundaries, IAM
+roles or equivalent workload identity, STS session-name and tag rules, IAM
+Roles Anywhere, SPIFFE/SPIRE, and external identity-provider refs. It keeps IAM
+and external IdPs as authentication/resource-scope mechanisms while Agent
+Runtime, Tool Gateway, approval audit, policy-change audit, and eval gates
+remain the business-authority owners.
+
+2E-02 is complete as a docs-first architecture item:
+[`secrets-credential-handling.md`](secrets-credential-handling.md) defines
+future credential categories, secret-ref naming rules, secret-ref catalogue
+shape, local-to-production configuration boundaries, runtime injection
+boundaries, rotation and revocation lifecycle, break-glass controls,
+audit/evidence refs, forbidden-data checks, required future artefacts, evidence
+expectations, safe field rules, promotion criteria, and backlog implications.
+It covers future provider, connector, database, signing, identity-provider,
+observability, and workload identity credentials using secret refs and bounded
+categories only. It does not add secret-manager integration, credential entry,
+credential mutation, actual credentials, provider keys, connector credentials,
+signing keys, identity-provider client secrets, cloud resources, production
+SSO, IAM enforcement, production connectors, hosted observability exporters,
+production provider calls, migrations, services, runtime enforcement, or
+runtime behaviour changes.
+
+2E-03 is complete as a docs-first architecture item:
+[`deployment-topology-architecture.md`](deployment-topology-architecture.md)
+defines the future production service topology, environment classes,
+deployment unit boundaries, network and trust zones, ingress and egress
+boundaries, data-store and event-stream placement, Temporal, Agent Runtime,
+Tool Gateway, BFF/UI, projection, connector, observability, identity, and
+secret-injection placement, local-to-production boundaries,
+managed-versus-self-hosted decision rules, IaC spike criteria, evidence
+expectations, safe field rules, promotion criteria, and backlog implications.
+It uses service refs, workload refs, zone refs, deployment refs, store refs,
+stream refs, secret refs, provider refs, connector refs, and bounded categories
+only. It does not add cloud resources, Terraform, Kubernetes/ECS/EKS/Lambda
+work, DNS, certificates, deployment automation, network resources, managed
+databases, production SSO, identity-provider integration, IAM enforcement,
+secret-manager integration, credential entry, credential mutation, production
+connectors, hosted observability exporters, production provider calls,
+migrations, services, runtime enforcement, or runtime behaviour changes.
+
+2E-04 is complete as a docs-first architecture item:
+[`backup-restore-dr-architecture.md`](backup-restore-dr-architecture.md)
+defines future RPO/RTO classes, authoritative store order, backup scope by data
+class, restore responsibility by component, restore dependency order, Temporal
+persistence handling, application Postgres and audit handling, event-stream and
+schema-registry handling, projection rebuild rules, telemetry treatment,
+eval/replay artefact handling, secret metadata versus values,
+configuration/deployment refs, restore drill models, synthetic/local evidence
+expectations, safe field rules, promotion criteria, and backlog implications. It
+uses tenant, workflow, correlation, workload, invocation, approval,
+policy-change, backup, restore, deployment, secret, provider, connector, event
+stream, schema subject, store, runbook, gate, trust-domain, role,
+identity-provider, environment, retention, and data-class refs plus bounded
+categories only. It does not add backup automation, restore tooling,
+replication, PITR policy, managed database configuration, managed event streams,
+object storage resources, cloud resources, Terraform, Kubernetes/ECS/EKS/Lambda
+work, DNS, certificates, network resources, deployment automation, production
+SSO, identity-provider integration, IAM enforcement, secret-manager integration,
+credential entry, credential mutation, production connectors, hosted
+observability exporters, production provider calls, migrations, services,
+runtime enforcement, or runtime behaviour changes.
+
+2E-05 is complete as a docs-first architecture item:
+[`retention-audit-storage-architecture.md`](retention-audit-storage-architecture.md)
+defines future retention classes for telemetry, journey projections,
+audit/accountability, decision trail, Tool Gateway audit, approval and
+policy-change packages, eval/replay artefacts, connector evidence,
+event-stream/schema evidence, secret metadata lifecycle evidence,
+backup/restore/DR evidence, incident/on-call evidence, and optional sidecar
+exports. It defines audit-storage ownership, Postgres-first audit posture,
+audit scaling signals, archive/export criteria, delete/expire/hold categories,
+Scylla or append-store evaluation triggers, restore/DR interactions,
+synthetic/local evidence expectations, safe field rules, promotion criteria,
+and backlog implications. It uses safe refs and bounded categories only. It
+does not add retention automation, archive/export jobs, long-retention stores,
+Scylla implementation, migrations, managed databases, object storage
+resources, cloud resources, Terraform, Kubernetes/ECS/EKS/Lambda work, DNS,
+certificates, network resources, deployment automation, production SSO,
+identity-provider integration, IAM enforcement, secret-manager integration,
+credential entry, credential mutation, production connectors, hosted
+observability exporters, production provider calls, services, runtime
+enforcement, or runtime behaviour changes.
+
+Each artefact must state scope, non-goals, safe field set, required future
+evidence, gates, and skipped runtime gates before implementation starts.
+Examples and docs may use only safe refs and bounded categories such as tenant,
+workflow, correlation, workload, invocation, approval, policy-change, route,
+grant, fixture, incident, backup, restore, deployment, secret, provider,
+connector, runbook, severity, status, trust-domain, RBAC role, workload
+identity, IAM role, STS session template, identity-provider, retention,
+archive, export, hold, and failure refs/categories. Do not include secrets,
+credentials, API keys, access tokens, session tokens, signing keys,
+certificate material, raw sensitive content, raw prompts/outputs, raw tool
+arguments, raw connector payloads, raw approval or policy rationale,
+identity-provider claims, names, email addresses, hostnames, filesystem paths,
+IP addresses, cloud account IDs, full ARNs, DNS names, certificate subjects, or
+PII.
+
+For docs-first Phase 2E items, expected gates are:
+
+```bash
+just contracts-check
+just doctor-quick
+git diff --check
+```
+
+Run runtime, replay, eval, persistence, BFF/UI, frontend, Tool Gateway, or
+connector gates only when the item changes that behaviour. Any future
+executable spike must add its own focused gate and update this runbook plus the
+evidence map before it is called complete.
 
 ## Workstream E BFF + UI operations
 
@@ -722,6 +886,11 @@ The BFF runs as the `chorus-bff` Compose service under the
   audit rows. It exposes only safe calendar refs, approval/audit refs, bounded
   projection status, retry/compensation/failure categories, grant/policy refs,
   and safe trace joins.
+- `GET /api/support/inspections` and
+  `/api/workflows/{workflow_id}/support/inspection` — read-only Phase 2D
+  support inspection projection derived from safe support workflow events,
+  Agent Runtime decisions, ticket Tool Gateway audit rows, proposed
+  case-update refs, and the approval-required ticket status write grant.
 - `GET /api/progress` — Server-Sent Events stream of workflow-history rows.
   Optional `workflow_id` / `correlation_id` query parameters scope the
   stream; `?once=true` makes the stream terminate after one batch (used
@@ -1057,7 +1226,11 @@ both signal a project-level contract slipping.
 
 ## Deferrals
 
-- Production deployment, secret management, on-call rotation, incident response.
+- Production deployment, secret management, on-call rotation, incident
+  response, managed observability, backup/restore and DR automation, retention
+  automation, archive/export jobs, long-retention stores, and production
+  provider or connector hardening until the relevant Phase 2E architecture
+  artefact and a later executable ledger item explicitly open the work.
 - Real third-party connectors and production provider calls.
 - Credential-entry UI or committed provider keys.
 - Mutating provider, prompt, route, or grant admin controls before executable

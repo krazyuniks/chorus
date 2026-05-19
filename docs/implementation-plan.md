@@ -14,7 +14,7 @@ Phase 1 builds one evidence-grade vertical slice for Lighthouse, including the h
 
 **1A is the first public ship-checkpoint.** Phases 1B (governance/failure fixtures) and 1C (review packaging) are committed continuations that extend the 1A baseline; they are not gating the first usable architecture review.
 
-Phase 2 planning is open through [`phase-2-plan.md`](phase-2-plan.md), [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md), [ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md), [ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md), [ADR 0014](../adrs/0014-connector-expansion-approval-hardening-scope.md), and [ADR 0015](../adrs/0015-second-workflow-proof-scope.md). Phase 2A has delivered provider/model-governance groundwork, LangGraph execution inside Agent Runtime, provider failure/timeout/rate-limit/budget fallback evidence, route-selection metadata, read-only BFF/UI provider and graph inspection, and docs/runbook/evidence alignment. Phase 2B has delivered docs-first identity, authority, approval, policy-change, and optional sidecar boundaries. Phase 2C has delivered the local CalDAV calendar connector candidate: contract-only calendar argument schemas, a local Radicale sandbox, Tool Gateway-dispatched connector paths for read/propose actions, minimal approval package persistence while writes remain approval-required, approved local apply evidence for idempotent create, retry classification, cancellation compensation, compensation-failure escalation, and safe read-only calendar status/audit projection. Phase 2D has selected local Support Desk Triage as the second workflow proof scope, added the safe support intake, support agent IO, ticket argument, workflow-event, and eval enum baseline, added a Postgres-backed local ticket desk sandbox behind the Tool Gateway for read/propose ticket actions while status writes remain approval-required, added the code-defined `support_triage` Temporal workflow runtime plus replay baseline, and added the support eval plus persisted evidence baseline. The next active item is support read-only inspection. Later workstreams cover production-readiness architecture.
+Phase 2 planning is open through [`phase-2-plan.md`](phase-2-plan.md), [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md), [ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md), [ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md), [ADR 0014](../adrs/0014-connector-expansion-approval-hardening-scope.md), [ADR 0015](../adrs/0015-second-workflow-proof-scope.md), and [ADR 0016](../adrs/0016-production-readiness-architecture-pack-scope.md). Phase 2A has delivered provider/model-governance groundwork, LangGraph execution inside Agent Runtime, provider failure/timeout/rate-limit/budget fallback evidence, route-selection metadata, read-only BFF/UI provider and graph inspection, and docs/runbook/evidence alignment. Phase 2B has delivered docs-first identity, authority, approval, policy-change, and optional sidecar boundaries. Phase 2C has delivered the local CalDAV calendar connector candidate: contract-only calendar argument schemas, a local Radicale sandbox, Tool Gateway-dispatched connector paths for read/propose actions, minimal approval package persistence while writes remain approval-required, approved local apply evidence for idempotent create, retry classification, cancellation compensation, compensation-failure escalation, and safe read-only calendar status/audit projection. Phase 2D has selected local Support Desk Triage as the second workflow proof scope, added the safe support intake, support agent IO, ticket argument, workflow-event, and eval enum baseline, added a Postgres-backed local ticket desk sandbox behind the Tool Gateway for read/propose ticket actions while status writes remain approval-required, added the code-defined `support_triage` Temporal workflow runtime plus replay baseline, added the support eval plus persisted evidence baseline, and added the safe read-only Support BFF inspection path. Phase 2E has started with ADR 0016, which scopes the production-readiness architecture pack before any production-readiness code; 2E-01 has added the docs-first production identity and IAM mapping architecture, 2E-02 has added the docs-first secrets and credential handling architecture, 2E-03 has added the docs-first deployment topology architecture, and 2E-04 has added the docs-first backup, restore, and DR architecture. Later workstreams cover the remaining production-readiness architecture artefacts.
 
 ## Phases and Milestones
 
@@ -24,7 +24,7 @@ Phase 2 planning is open through [`phase-2-plan.md`](phase-2-plan.md), [ADR 0011
 | 1A. Lighthouse happy-path slice | Send fixture lead email through Mailpit, run Temporal workflow, invoke governed agents, mediate at least one tool action, project state, stream progress, and show audit trail. | done | A reviewer can run one command, send the fixture lead to Mailpit SMTP, see workflow state advance through the BFF/UI, inspect Temporal/Redpanda/Grafana/audit by correlation ID, and run the happy-path eval. |
 | 1B. Governance and failure evidence | Add blocked write, low-confidence research, validator rejection, connector failure, retry/exhaustion, and escalation paths. | done | Failure fixtures produce expected workflow branches, audit verdicts, DLQ or escalation records, and passing trace/eval checks. |
 | 1C. Review packaging | Tighten README, screenshots or screencast notes, demo script, architecture links, governance evidence, and project-facing summary. | done | Asynchronous reviewers can answer the evidence-map questions in under 15 minutes; guided demo fits 3 minutes without opening an editor. |
-| 2. Governed platform expansion | Planned LangGraph agent execution, provider/model governance, governed identity and runtime change control, observability/user-journey boundaries, connector expansion, second workflow proof, and production-readiness architecture. | in progress | Phase 2 milestones are documented, each with evidence gates; Phase 2A documentation distinguishes implemented LangGraph/provider evidence from deferred production provider calls and LangGraph durability, Phase 2B owns the identity/authority and observability boundary design before mutating runtime controls, Phase 2C has a completed local CalDAV connector proof with contract schemas, Radicale sandbox, Tool Gateway read/propose dispatch, approval package persistence, approved local idempotency/retry/compensation evidence, and safe read-only calendar projection/audit inspection, and Phase 2D has selected local Support Desk Triage, added support/ticket contracts, local ticket desk Tool Gateway dispatch, a code-defined support workflow runtime, replay evidence, support eval, and persisted evidence before read-only support inspection. |
+| 2. Governed platform expansion | Planned LangGraph agent execution, provider/model governance, governed identity and runtime change control, observability/user-journey boundaries, connector expansion, second workflow proof, and production-readiness architecture. | in progress | Phase 2 milestones are documented, each with evidence gates; Phase 2A documentation distinguishes implemented LangGraph/provider evidence from deferred production provider calls and LangGraph durability, Phase 2B owns the identity/authority and observability boundary design before mutating runtime controls, Phase 2C has a completed local CalDAV connector proof with contract schemas, Radicale sandbox, Tool Gateway read/propose dispatch, approval package persistence, approved local idempotency/retry/compensation evidence, and safe read-only calendar projection/audit inspection, Phase 2D has selected local Support Desk Triage, added support/ticket contracts, local ticket desk Tool Gateway dispatch, a code-defined support workflow runtime, replay evidence, support eval, persisted evidence, and safe read-only Support BFF inspection, and Phase 2E has a docs-first production-readiness architecture pack scope decision plus production identity/IAM mapping, secrets/credential handling, deployment topology, and backup/restore/DR architecture before production-readiness code. |
 
 ## Definition of Delivered
 
@@ -306,6 +306,105 @@ Items are tagged with the phase that owns them. **(Phase 0)** items must complet
       prompts/outputs, raw tool arguments, raw connector payloads, raw approval
       or policy rationale, identity-provider claims, email addresses, or PII
       was added.
+    - Phase 2D item `2D-05` added the safe read-only Support BFF inspection
+      path for the existing `support_triage` happy-path evidence. The
+      projection aggregates support workflow events from `outbox_events`,
+      support Agent Runtime decisions, ticket Tool Gateway verdicts, proposed
+      case-update refs, and the approval-required `ticket.update_status` grant
+      by safe tenant/correlation/workflow refs. No Support UI route,
+      production ticketing provider, reviewer decision UI, credential path,
+      hosted dependency, mutating admin UI, production connector write, ticket
+      status execution, workflow DSL, raw sensitive content, raw prompts or
+      outputs, raw tool arguments, raw connector payloads, raw approval or
+      policy rationale, identity-provider claims, email addresses, or PII was
+      added.
+    - Phase 2E item `2E-00` added ADR 0016 as the production-readiness
+      architecture pack scope decision. It defines the future artefact and
+      evidence shape for production identity/IAM mapping, secrets and
+      credential handling, deployment topology, backup/restore and DR,
+      retention and audit storage, incident/on-call integration, managed
+      observability, and production provider or connector hardening. No
+      migration, service, credential, cloud resource, production connector,
+      hosted observability exporter, mutating admin path, reviewer decision
+      path, policy apply path, ticket status execution, production provider
+      call, or runtime behaviour change was added.
+    - Phase 2E item `2E-01` added
+      [`production-identity-iam-mapping.md`](production-identity-iam-mapping.md)
+      as the production identity and IAM mapping architecture artefact. It
+      maps human, workload, agent, invocation, approval, and policy principals
+      to future trust domains, tenant/RBAC boundaries, IAM roles or equivalent
+      workload identity, safe STS session-name and tag rules, IAM Roles
+      Anywhere, SPIFFE/SPIRE, and external IdP refs while keeping business
+      authority in Agent Runtime, Tool Gateway, approval audit, policy-change
+      audit, and eval gates. No AWS, production SSO, identity-provider
+      integration, credential, cloud resource, tenant-admin UI, runtime
+      enforcement, production connector, hosted exporter, production provider
+      call, or runtime behaviour change was added.
+    - Phase 2E item `2E-02` added
+      [`secrets-credential-handling.md`](secrets-credential-handling.md) as
+      the secrets and credential handling architecture artefact. It defines
+      future credential categories, secret-ref naming rules, secret-ref
+      catalogue shape, local-to-production configuration boundary, runtime
+      injection boundaries, rotation/revocation lifecycle, break-glass
+      controls, audit/evidence refs, forbidden-data checklist, required future
+      artefacts, evidence expectations, safe field rules, promotion criteria,
+      and backlog implications. No secret-manager integration, credential
+      entry, credential mutation, actual credential, provider key, connector
+      credential, signing key, identity-provider client secret, cloud resource,
+      production SSO, IAM enforcement, hosted exporter, production provider
+      call, migration, service, runtime enforcement, or runtime behaviour
+      change was added.
+    - Phase 2E item `2E-03` added
+      [`deployment-topology-architecture.md`](deployment-topology-architecture.md)
+      as the deployment topology architecture artefact. It defines future
+      production service topology, environment classes, deployment unit
+      boundaries, network and trust zones, ingress and egress boundaries,
+      data-store and event-stream placement, component placement,
+      local-to-production boundaries, managed-versus-self-hosted decision
+      rules, IaC spike criteria, evidence expectations, safe field rules,
+      promotion criteria, and backlog implications. No cloud resource,
+      Terraform, Kubernetes/ECS/EKS/Lambda work, DNS, certificate, deployment
+      automation, network resource, managed database, production SSO,
+      identity-provider integration, IAM enforcement, secret-manager
+      integration, credential entry, credential mutation, production connector,
+      hosted observability exporter, production provider call, migration,
+      service, runtime enforcement, or runtime behaviour change was added.
+    - Phase 2E item `2E-04` added
+      [`backup-restore-dr-architecture.md`](backup-restore-dr-architecture.md)
+      as the backup, restore, and DR architecture artefact. It defines future
+      RPO/RTO classes, authoritative store order, backup scope by data class,
+      restore responsibility by component, restore dependency order, Temporal
+      persistence handling, application Postgres and audit handling,
+      event-stream and schema-registry handling, projection rebuild rules,
+      telemetry treatment, eval/replay artefact handling, secret metadata
+      versus secret value handling, configuration/deployment refs, restore
+      drill models, synthetic/local evidence expectations, safe field rules,
+      promotion criteria, and backlog implications. No backup automation,
+      restore tooling, replication, PITR policy, managed database
+      configuration, managed event stream, object storage resource, cloud
+      resource, Terraform, Kubernetes/ECS/EKS/Lambda work, DNS, certificate,
+      network resource, deployment automation, production SSO,
+      identity-provider integration, IAM enforcement, secret-manager
+      integration, credential entry, credential mutation, production connector,
+      hosted observability exporter, production provider call, migration,
+      service, runtime enforcement, or runtime behaviour change was added.
+    - Phase 2E item `2E-05` added
+      [`retention-audit-storage-architecture.md`](retention-audit-storage-architecture.md)
+      as the retention and audit storage architecture artefact. It defines
+      future retention classes for telemetry, journey projections,
+      audit/accountability, decision trail, Tool Gateway audit, approval and
+      policy-change packages, eval/replay artefacts, connector evidence,
+      event-stream/schema evidence, secret metadata lifecycle evidence,
+      backup/restore/DR evidence, incident/on-call evidence, and optional
+      sidecar exports. It also defines audit-storage ownership,
+      Postgres-first audit posture, scaling signals, archive/export criteria,
+      delete/expire/hold categories, Scylla or append-store evaluation
+      triggers, restore/DR interactions, synthetic/local evidence
+      expectations, safe field rules, promotion criteria, and backlog
+      implications. No retention automation, archive/export job,
+      long-retention store, Scylla implementation, migration, managed
+      database, object storage resource, cloud resource, hosted exporter,
+      service, runtime enforcement, or runtime behaviour change was added.
     - Exit check for the planning pass: the Phase 2 roadmap, ADR, scope
       boundaries, backlog ledger, and handoff cadence are documented before
       implementation starts.
@@ -527,6 +626,10 @@ Each workstream description is structured to be a self-contained agent-session p
 - Production auth/SSO.
 - Scylla implementation.
 - Production cloud deployment and backup/disaster-recovery automation.
+- Production identity/IAM implementation, secrets handling, deployment
+  topology, retention, DR, incident integration, managed observability, and
+  production provider/connector hardening until the relevant Phase 2E
+  architecture item explicitly opens them.
 - Production commercial provider calls and credential-entry UI until a later
   Phase 2 item explicitly opens them.
 - Mutating provider, prompt, route, or grant admin controls before executable

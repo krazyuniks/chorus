@@ -58,11 +58,19 @@ def migrated_database_url() -> Iterator[str]:
 def seeded_bff(migrated_database_url: str) -> TestClient:
     workflow_id = f"lighthouse-bff-{uuid4().hex}"
     correlation_id = f"cor_bff_{uuid4().hex}"
+    support_workflow_id = f"support-triage-bff-{uuid4().hex}"
+    support_correlation_id = f"cor_support_bff_{uuid4().hex}"
     lead_id = uuid4()
+    support_subject_id = uuid4()
     invocation_id = uuid4()
     audit_event_id = uuid4()
     tool_call_id = uuid4()
     verdict_id = uuid4()
+    support_invocation_id = uuid4()
+    support_audit_event_id = uuid4()
+    support_tool_call_id = uuid4()
+    support_verdict_id = uuid4()
+    support_connector_invocation_id = uuid4()
     calendar_source_audit_event_id = uuid4()
     calendar_apply_audit_event_id = uuid4()
     calendar_tool_call_id = uuid4()
@@ -497,6 +505,239 @@ def seeded_bff(migrated_database_url: str) -> TestClient:
                 ),
             ),
         )
+        support_event = WorkflowEvent.model_validate(
+            {
+                "schema_version": "1.0.0",
+                "event_id": str(uuid4()),
+                "event_type": "workflow.step.completed",
+                "occurred_at": "2026-04-29T12:01:00Z",
+                "tenant_id": "tenant_demo",
+                "correlation_id": support_correlation_id,
+                "workflow_id": support_workflow_id,
+                "workflow_type": "support_triage",
+                "lead_id": str(support_subject_id),
+                "subject_ref": "req_support_001",
+                "sequence": 1,
+                "step": "support_propose",
+                "payload": {
+                    "workflow_type": "support_triage",
+                    "request_ref": "req_support_001",
+                    "case_ref": "case_existing_001",
+                    "account_ref": "acct_demo_001",
+                    "product_ref": "prod_core_platform",
+                    "severity_category": "sev_high",
+                    "case_status_category": "open",
+                    "gateway_verdict": "propose",
+                    "enforced_mode": "propose",
+                    "case_update_ref": "caseupd_support_bff_001",
+                    "case_status_mutated": False,
+                },
+            }
+        )
+        store.record_workflow_event(support_event)
+        store.apply_workflow_event(support_event)
+        conn.execute(
+            """
+            INSERT INTO decision_trail_entries (
+                tenant_id,
+                invocation_id,
+                correlation_id,
+                workflow_id,
+                agent_id,
+                agent_role,
+                agent_version,
+                lifecycle_state,
+                prompt_reference,
+                prompt_hash,
+                provider,
+                model,
+                task_kind,
+                budget_cap_usd,
+                input_summary,
+                output_summary,
+                justification,
+                outcome,
+                tool_call_ids,
+                cost_amount,
+                cost_currency,
+                duration_ms,
+                started_at,
+                completed_at,
+                contract_refs,
+                raw_record,
+                metadata
+            )
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+            """,
+            (
+                "tenant_demo",
+                support_invocation_id,
+                support_correlation_id,
+                support_workflow_id,
+                "support.resolution_planner",
+                "support_resolution_planner",
+                "v1",
+                "approved",
+                "prompts/support/resolution-planner/v1.md",
+                "sha256:" + "5" * 64,
+                "local",
+                "lighthouse-happy-path-v1",
+                "support_resolution_plan",
+                "0.0100",
+                "support input refs",
+                "support output refs",
+                "support safe decision summary",
+                "succeeded",
+                [],
+                "0.000100",
+                "USD",
+                10,
+                datetime(2026, 4, 29, 12, 1, 1, tzinfo=UTC),
+                datetime(2026, 4, 29, 12, 1, 2, tzinfo=UTC),
+                ["contracts/agents/support_agent_io.schema.json"],
+                Jsonb({"metadata": {"fixture_ref": "fixture_support_bff"}}),
+                Jsonb(
+                    {
+                        "agent_execution.engine": "langgraph",
+                        "agent_execution.graph_version": "support-agent-runtime-graph-v1",
+                        "model_route.route_id": str(uuid4()),
+                        "model_route.route_version": 1,
+                    }
+                ),
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO tool_action_audit (
+                tenant_id,
+                audit_event_id,
+                correlation_id,
+                workflow_id,
+                invocation_id,
+                tool_call_id,
+                verdict_id,
+                actor_type,
+                actor_id,
+                category,
+                action,
+                tool_name,
+                requested_mode,
+                enforced_mode,
+                verdict,
+                idempotency_key,
+                arguments_redacted,
+                reason,
+                connector_invocation_id,
+                occurred_at,
+                raw_event
+            )
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s
+            )
+            """,
+            (
+                "tenant_demo",
+                support_audit_event_id,
+                support_correlation_id,
+                support_workflow_id,
+                support_invocation_id,
+                support_tool_call_id,
+                support_verdict_id,
+                "agent",
+                "support.resolution_planner",
+                "tool_gateway",
+                "tool_call.decided",
+                "ticket.propose_case_update",
+                "propose",
+                "propose",
+                "propose",
+                f"{support_workflow_id}:ticket.propose_case_update:req_support_001",
+                Jsonb(
+                    {
+                        "request_ref": "req_support_001",
+                        "case_ref": "case_existing_001",
+                        "account_ref": "acct_demo_001",
+                        "product_ref": "prod_core_platform",
+                        "case_update_ref": "caseupd_support_bff_001",
+                    }
+                ),
+                "Proposal-mode grant accepted; connector captured sandbox proposal.",
+                support_connector_invocation_id,
+                datetime(2026, 4, 29, 12, 1, 3, tzinfo=UTC),
+                Jsonb(
+                    {
+                        "details": {
+                            "gateway_response": {
+                                "output": {
+                                    "request_ref": "req_support_001",
+                                    "case_ref": "case_existing_001",
+                                    "account_ref": "acct_demo_001",
+                                    "product_ref": "prod_core_platform",
+                                    "severity_category": "sev_high",
+                                    "target_status_category": "pending_customer",
+                                    "case_update_ref": "caseupd_support_bff_001",
+                                    "proposal_status": "proposed",
+                                    "update_reason_category": "resolution_plan_ready",
+                                    "policy_ref": "policy_support_triage_local_v1",
+                                    "case_status_mutated": False,
+                                }
+                            }
+                        }
+                    }
+                ),
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO local_ticket_case_update_proposals (
+                tenant_id,
+                case_update_ref,
+                connector_invocation_id,
+                request_ref,
+                case_ref,
+                account_ref,
+                product_ref,
+                severity_category,
+                target_status_category,
+                resolution_plan_ref,
+                response_draft_ref,
+                update_reason_category,
+                policy_ref,
+                proposal_status,
+                metadata
+            )
+            VALUES (
+                'tenant_demo',
+                'caseupd_support_bff_001',
+                %s,
+                'req_support_001',
+                'case_existing_001',
+                'acct_demo_001',
+                'prod_core_platform',
+                'sev_high',
+                'pending_customer',
+                'plan_support_001',
+                'response_support_001',
+                'resolution_plan_ready',
+                'policy_support_triage_local_v1',
+                'proposed',
+                %s
+            )
+            """,
+            (
+                support_connector_invocation_id,
+                Jsonb(
+                    {
+                        "source": "tool_gateway.ticket.propose_case_update",
+                        "case_status_mutated": False,
+                    }
+                ),
+            ),
+        )
 
     app = create_app(
         BffSettings(
@@ -507,11 +748,25 @@ def seeded_bff(migrated_database_url: str) -> TestClient:
     )
     client = TestClient(app)
     client.headers.update({"x-test-workflow-id": workflow_id})
+    client.headers.update({"x-test-support-workflow-id": support_workflow_id})
+    client.headers.update({"x-test-support-correlation-id": support_correlation_id})
     return client
 
 
 def _workflow_id(client: TestClient) -> str:
     value = client.headers["x-test-workflow-id"]
+    assert isinstance(value, str)
+    return value
+
+
+def _support_workflow_id(client: TestClient) -> str:
+    value = client.headers["x-test-support-workflow-id"]
+    assert isinstance(value, str)
+    return value
+
+
+def _support_correlation_id(client: TestClient) -> str:
+    value = client.headers["x-test-support-correlation-id"]
     assert isinstance(value, str)
     return value
 
@@ -571,6 +826,53 @@ def test_bff_serves_timeline_decisions_tool_verdicts_and_runtime_policy(
         "slot_ref": "slot_lighthouse_followup_001",
         "event_uid_ref": "evt_lighthouse_followup_001",
     }
+
+
+def test_bff_serves_support_inspection_without_ticket_status_execution(
+    seeded_bff: TestClient,
+) -> None:
+    workflow_id = _support_workflow_id(seeded_bff)
+    correlation_id = _support_correlation_id(seeded_bff)
+
+    support_list = seeded_bff.get(
+        f"/api/support/inspections?correlation_id={correlation_id}"
+    ).json()
+    support_detail = seeded_bff.get(f"/api/workflows/{workflow_id}/support/inspection").json()
+
+    assert support_list == [support_detail]
+    assert support_detail["workflow_id"] == workflow_id
+    assert support_detail["correlation_id"] == correlation_id
+    assert support_detail["workflow_type"] == "support_triage"
+    assert support_detail["request_refs"] == ["req_support_001"]
+    assert support_detail["case_refs"] == ["case_existing_001"]
+    assert support_detail["account_refs"] == ["acct_demo_001"]
+    assert support_detail["product_refs"] == ["prod_core_platform"]
+    assert support_detail["proposed_case_update_refs"] == ["caseupd_support_bff_001"]
+    assert support_detail["workflow_events"][0]["step"] == "support_propose"
+    assert support_detail["workflow_events"][0]["gateway_verdict"] == "propose"
+    assert support_detail["agent_decisions"][0]["agent_role"] == "support_resolution_planner"
+    assert support_detail["agent_decisions"][0]["execution_engine"] == "langgraph"
+    assert support_detail["agent_decisions"][0]["contract_refs"] == [
+        "contracts/agents/support_agent_io.schema.json"
+    ]
+    assert support_detail["ticket_verdicts"][0]["tool_name"] == "ticket.propose_case_update"
+    assert support_detail["ticket_verdicts"][0]["verdict"] == "propose"
+    assert support_detail["ticket_verdicts"][0]["output_refs"]["case_update_ref"] == (
+        "caseupd_support_bff_001"
+    )
+    assert support_detail["ticket_verdicts"][0]["output_refs"]["case_status_mutated"] is False
+    assert support_detail["proposed_case_updates"][0]["case_status_mutated"] is False
+    assert support_detail["status_write_boundary"] == [
+        {
+            "grant_ref": "tool_grant:12000000-0000-4000-8000-000000000016",
+            "agent_id": "support.resolution_planner",
+            "agent_version": "v1",
+            "tool_name": "ticket.update_status",
+            "mode": "write",
+            "allowed": True,
+            "approval_required": True,
+        }
+    ]
 
 
 def test_bff_progress_sse_streams_projection_events_once(seeded_bff: TestClient) -> None:

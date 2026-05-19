@@ -75,23 +75,53 @@ proposed case updates. A code-defined `support_triage` Temporal workflow,
 focused replay evidence, support eval fixture, and persisted evidence baseline
 now prove workflow events, Agent Runtime decisions, ticket Tool Gateway
 verdicts, and proposed case-update refs join by safe tenant/correlation/workflow
-refs. Support read-only BFF/UI inspection remains planned.
+refs. A safe read-only Support BFF inspection path now exposes those joins by
+tenant/correlation/workflow refs; Support UI routes remain deferred. Phase 2E
+has started with ADR 0016 as the docs-first production-readiness architecture
+pack scope decision before any production-readiness code, and 2E-01 adds the
+production identity and IAM mapping architecture. 2E-02 adds the secrets and
+credential handling architecture for future provider, connector, database,
+signing, identity-provider, observability, and workload identity credentials
+using secret refs and bounded categories only. 2E-03 adds the deployment
+topology architecture for future service topology, environment classes,
+deployment unit boundaries, trust zones, ingress/egress, data-store and
+event-stream placement, managed-versus-self-hosted decisions, and IaC spike
+criteria. 2E-04 adds the backup, restore, and DR architecture for future
+RPO/RTO classes, authoritative store order, backup scope by data class,
+component restore responsibilities, restore dependency order, Temporal
+persistence, application Postgres/audit, event-stream and schema-registry
+handling, projection rebuild rules, telemetry treatment, eval/replay artefact
+handling, secret metadata versus values, configuration/deployment refs, and
+restore drills. 2E-05 adds the retention and audit storage architecture for
+future retention classes, audit-storage ownership, Postgres-first audit
+posture, scaling signals, archive/export criteria, delete/expire/hold
+categories, append-store evaluation triggers, restore/DR interactions, safe
+field rules, and promotion criteria.
 
 Temporal remains the durable business workflow owner. Tool Gateway remains the
 action authority. LangGraph owns only per-invocation agent execution. The
 shipped commercial provider boundary is a disabled placeholder used for
 evidence; production provider calls, credential entry, production SSO, mutating
-admin controls, production connector writes, and LangGraph durability are not
-implemented.
+admin controls, production connector writes, cloud resources, secret-manager
+integration, deployment automation, backup automation, restore tooling,
+retention jobs, archive/export jobs, long-retention store implementation,
+hosted observability exporters, reviewer decision paths, policy apply paths,
+and LangGraph durability are not implemented.
 
-Later Phase 2 milestones cover support read-only inspection and
-production-readiness architecture. See
+Later Phase 2 milestones cover incident/on-call integration, managed
+observability, and production provider or connector hardening architecture. See
 [`phase-2-plan.md`](phase-2-plan.md),
+[`production-identity-iam-mapping.md`](production-identity-iam-mapping.md),
+[`secrets-credential-handling.md`](secrets-credential-handling.md),
+[`deployment-topology-architecture.md`](deployment-topology-architecture.md),
+[`backup-restore-dr-architecture.md`](backup-restore-dr-architecture.md),
+[`retention-audit-storage-architecture.md`](retention-audit-storage-architecture.md),
 [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md),
 [ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md),
 [ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md),
-[ADR 0014](../adrs/0014-connector-expansion-approval-hardening-scope.md), and
-[ADR 0015](../adrs/0015-second-workflow-proof-scope.md).
+[ADR 0014](../adrs/0014-connector-expansion-approval-hardening-scope.md),
+[ADR 0015](../adrs/0015-second-workflow-proof-scope.md), and
+[ADR 0016](../adrs/0016-production-readiness-architecture-pack-scope.md).
 
 ## How to review Phase 1
 
@@ -107,7 +137,7 @@ Start with the README first-time reviewer checklist for commands. For the eviden
 
 ## Decision record
 
-Architectural decisions are recorded as ADRs under [`../adrs/`](../adrs/). The ADRs explain why the project selected Lighthouse as the evidence slice, Temporal as the orchestration spine, Redpanda for event visibility, explicit Agent Runtime and Tool Gateway boundaries, Postgres-first storage, JSON Schema contracts, trace/eval assurance, Mailpit SMTP intake, Phase 2 governed-platform expansion, LangGraph inside Agent Runtime, the local CalDAV connector expansion scope, and the Support Desk Triage second workflow scope.
+Architectural decisions are recorded as ADRs under [`../adrs/`](../adrs/). The ADRs explain why the project selected Lighthouse as the evidence slice, Temporal as the orchestration spine, Redpanda for event visibility, explicit Agent Runtime and Tool Gateway boundaries, Postgres-first storage, JSON Schema contracts, trace/eval assurance, Mailpit SMTP intake, Phase 2 governed-platform expansion, LangGraph inside Agent Runtime, the local CalDAV connector expansion scope, the Support Desk Triage second workflow scope, and the production-readiness architecture pack scope.
 
 The architecture document should reflect accepted decisions, but the ADRs remain the source of record for why material choices were made.
 

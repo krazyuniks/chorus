@@ -956,6 +956,10 @@ def test_support_eval_persisted_evidence_joins_safe_refs(
             """,
             (tenant_id,),
         ).fetchone()
+        inspection_rows = projection.list_support_inspections(
+            tenant_id,
+            workflow_id=workflow_id,
+        )
 
     assert lookup.verdict == "allow"
     assert duplicates.verdict == "allow"
@@ -987,6 +991,48 @@ def test_support_eval_persisted_evidence_joins_safe_refs(
     assert proposal_row == ("proposed", "pending_customer", "false")
     assert case_status == ("open",)
     assert status_write_grant == (True,)
+    assert len(inspection_rows) == 1
+    inspection = inspection_rows[0]
+    assert inspection.tenant_id == tenant_id
+    assert inspection.workflow_id == workflow_id
+    assert inspection.correlation_id == correlation_id
+    assert inspection.workflow_type == "support_triage"
+    assert inspection.request_refs == [request_ref]
+    assert inspection.case_refs == [case_ref]
+    assert inspection.account_refs == [account_ref]
+    assert inspection.product_refs == [product_ref]
+    assert inspection.proposed_case_update_refs == ["caseupd_support_001"]
+    assert [event.step for event in inspection.workflow_events] == [
+        "support_intake",
+        "support_context_lookup",
+        "support_resolution_plan",
+        "support_propose",
+        "support_complete",
+    ]
+    assert {decision.agent_role for decision in inspection.agent_decisions} == {
+        "support_classifier",
+        "support_context_researcher",
+        "support_resolution_planner",
+        "support_validator",
+    }
+    assert {
+        (verdict.tool_name, verdict.requested_mode, verdict.enforced_mode, verdict.verdict)
+        for verdict in inspection.ticket_verdicts
+    } == {
+        ("ticket.lookup_case", "read", "read", "allow"),
+        ("ticket.lookup_duplicates", "read", "read", "allow"),
+        ("ticket.propose_case_update", "propose", "propose", "propose"),
+    }
+    assert {proposal.case_update_ref for proposal in inspection.proposed_case_updates} == {
+        "caseupd_support_001"
+    }
+    assert all(
+        proposal.case_status_mutated is False for proposal in inspection.proposed_case_updates
+    )
+    assert [
+        (boundary.tool_name, boundary.mode, boundary.approval_required)
+        for boundary in inspection.status_write_boundary
+    ] == [("ticket.update_status", "write", True)]
 
 
 def test_provider_governance_snapshot_keeps_route_versions_tenant_scoped(
