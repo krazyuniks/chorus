@@ -49,6 +49,14 @@
         "company_research.lookup",
         "crm.lookup_company",
         "crm.create_lead",
+        "calendar.lookup_availability",
+        "calendar.propose_hold",
+        "calendar.create_hold",
+        "calendar.cancel_hold",
+        "ticket.lookup_case",
+        "ticket.lookup_duplicates",
+        "ticket.propose_case_update",
+        "ticket.update_status",
         "email.propose_response",
         "email.send_response"
       ]

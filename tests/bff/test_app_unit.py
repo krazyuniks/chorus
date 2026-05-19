@@ -16,6 +16,7 @@ from chorus.bff.app import (
 )
 from chorus.persistence.projection import (
     AgentRegistryEntry,
+    CalendarProjectionReadModel,
     DecisionTrailEntryReadModel,
     ModelRouteVersion,
     ModelRoutingPolicy,
@@ -39,6 +40,8 @@ class FakeProjectionStore:
         self.event_id = uuid4()
         self.invocation_id = uuid4()
         self.audit_event_id = uuid4()
+        self.approval_id = uuid4()
+        self.calendar_apply_audit_event_id = uuid4()
         self.now = datetime(2026, 4, 29, 12, 0, tzinfo=UTC)
 
     def list_workflows(self, tenant_id: str, *, limit: int = 100) -> list[WorkflowRunReadModel]:
@@ -90,6 +93,16 @@ class FakeProjectionStore:
     ) -> list[ToolActionAuditReadModel]:
         _ = (tenant_id, workflow_id, limit)
         return [self._audit()]
+
+    def list_calendar_projections(
+        self,
+        tenant_id: str,
+        *,
+        workflow_id: str | None = None,
+        limit: int = 100,
+    ) -> list[CalendarProjectionReadModel]:
+        _ = (tenant_id, workflow_id, limit)
+        return [self._calendar_projection()]
 
     def runtime_policy_snapshot(self, tenant_id: str) -> RuntimePolicySnapshot:
         return RuntimePolicySnapshot(
@@ -323,6 +336,39 @@ class FakeProjectionStore:
             created_at=self.now,
         )
 
+    def _calendar_projection(self) -> CalendarProjectionReadModel:
+        return CalendarProjectionReadModel(
+            tenant_id="tenant_demo",
+            approval_id=self.approval_id,
+            workflow_id=self.workflow_id,
+            correlation_id=self.correlation_id,
+            tool_name="calendar.create_hold",
+            requested_action="calendar.create_hold.write",
+            requested_mode="write",
+            enforced_mode="write",
+            approval_state="approved",
+            idempotency_key_ref="sha256:" + "a" * 64,
+            calendar_refs={
+                "calendar_ref": "cal_lighthouse_local_followup",
+                "hold_ref": "hold_lighthouse_followup_001",
+                "slot_ref": "slot_lighthouse_followup_001",
+                "event_uid_ref": "evt_lighthouse_followup_001",
+            },
+            projection_status="calendar_hold_created",
+            source_audit_event_id=self.audit_event_id,
+            latest_audit_event_id=self.calendar_apply_audit_event_id,
+            latest_verdict="allow",
+            latest_reason="Approved local calendar package re-entered the Tool Gateway.",
+            connector_invocation_id=uuid4(),
+            retry_category=None,
+            compensation_category=None,
+            failure_category=None,
+            grant_ref="tool_grant:12000000-0000-4000-8000-000000000011",
+            policy_version_refs={"approval_policy_ref": "approval_policy.calendar_write.local.v1"},
+            trace_join={},
+            updated_at=self.now,
+        )
+
 
 def _client() -> tuple[TestClient, FakeProjectionStore]:
     store = FakeProjectionStore()
@@ -359,6 +405,7 @@ def test_audit_and_runtime_policy_endpoints_are_read_only_views() -> None:
 
     decisions = client.get(f"/api/workflows/{store.workflow_id}/decision-trail").json()
     verdicts = client.get(f"/api/workflows/{store.workflow_id}/tool-verdicts").json()
+    calendar_status = client.get(f"/api/workflows/{store.workflow_id}/calendar/status").json()
     registry = client.get("/api/runtime/registry").json()
     grants = client.get("/api/runtime/grants").json()
     routing = client.get("/api/runtime/routing").json()
@@ -369,6 +416,14 @@ def test_audit_and_runtime_policy_endpoints_are_read_only_views() -> None:
     assert decisions[0]["fallback_reason"] is None
     assert decisions[0]["fallback_applied"] is False
     assert verdicts[0]["redactions"] == ["body_text"]
+    assert calendar_status[0]["projection_status"] == "calendar_hold_created"
+    assert calendar_status[0]["calendar_refs"] == {
+        "calendar_ref": "cal_lighthouse_local_followup",
+        "hold_ref": "hold_lighthouse_followup_001",
+        "slot_ref": "slot_lighthouse_followup_001",
+        "event_uid_ref": "evt_lighthouse_followup_001",
+    }
+    assert calendar_status[0]["latest_audit_event_id"] == str(store.calendar_apply_audit_event_id)
     assert registry[0]["lifecycle_state"] == "approved"
     assert grants[0]["tool_name"] == "email.propose_response"
     assert routing[0]["budget_usd"] == 0.01

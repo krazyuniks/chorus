@@ -13,6 +13,14 @@ authority context. It extends
 [ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md), the
 [observability and user-journey model](observability-user-journey-model.md),
 and the [workload-principal model](workload-principal-model.md).
+The companion human-approval model in
+[`human-approval-audit-lifecycle.md`](human-approval-audit-lifecycle.md)
+defines the approval package and audit lifecycle that future `approval_id`
+references bind to.
+The companion policy-change model in
+[`policy-change-governance-workflow.md`](policy-change-governance-workflow.md)
+defines the policy mutation package and lifecycle that future
+`policy_change_id` references bind to.
 
 The model names the bounded context that proves why one Agent Runtime
 invocation, and any later Tool Gateway request derived from it, had authority
@@ -101,7 +109,7 @@ Field rules:
 | Route | `provider_id`, `model_id`, `route_id`, and `route_version` come from approved immutable route metadata. Provider credential state and secret refs are excluded. |
 | Budget | `budget_cap_usd` is the policy cap used for enforcement. Observed cost remains decision-trail evidence, not authority input. |
 | Workload | Workload references use the 2B-02 docs-first IDs. They are nullable until workload-session persistence exists. |
-| Approval and policy | `approval_id` and `policy_change_id` are nullable until 2B-04 and 2B-05 make them executable. Store references, not approval rationale or policy diff bodies. |
+| Approval and policy | `approval_id` follows the 2B-04 approval package model and stays nullable until executable approval work exists. `policy_change_id` follows the 2B-05 policy-change package model and stays nullable until executable policy mutation work exists. Store references, not approval rationale or policy diff bodies. |
 | Expiry | `expires_at` should be short-lived and bounded to the invocation or activity attempt. It is service evidence, not Temporal workflow state. |
 | Trace join | Include only `otel.trace_id`, `otel.span_id`, service name, workload principal ID, and trust domain when available. |
 | Integrity | If a signed envelope is later added, store algorithm ID, key reference, issued-at, expires-at, and signature outside the canonical payload. Never store signing key material. |

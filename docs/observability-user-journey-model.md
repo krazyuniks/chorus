@@ -26,6 +26,22 @@ workload-principal model in
 IAM mapping shape. The companion invocation-authority model in
 [`invocation-authority-context.md`](invocation-authority-context.md) defines
 the 2B-03 authority-context field set and where it may be carried.
+The companion approval lifecycle model in
+[`human-approval-audit-lifecycle.md`](human-approval-audit-lifecycle.md)
+defines the 2B-04 approval package, reviewer actor refs, decision/SLA fields,
+policy refs, workload refs, safe trace joins, and audit lifecycle for future
+approval-required actions.
+The companion policy-change workflow in
+[`policy-change-governance-workflow.md`](policy-change-governance-workflow.md)
+defines the 2B-05 policy-change package, target refs, before/after refs,
+proposer/reviewer actor refs, approval refs, eval evidence refs, apply/rollback
+refs, expiry/SLA, workload refs, safe trace joins, and audit lifecycle for
+future prompt, route, budget, and grant mutation.
+The companion sidecar evaluation in
+[`llm-observability-sidecar-evaluation.md`](llm-observability-sidecar-evaluation.md)
+defines the 2B-06 allowed export field set, forbidden data, trace/eval join
+rules, retention and sampling assumptions, local authority split, and promotion
+criteria for optional LangSmith, Langfuse, or similar tooling.
 
 ## Placement Rules
 
@@ -213,8 +229,8 @@ read-only subsets.
 | Invocation authority | `authority_context_id`, `tenant_id`, `correlation_id`, `workflow_id`, `invocation_id`, `agent_id`, `agent_version`, `task_kind`, parent invocation, expiry, route ID/version, provider/model, budget cap, workload principal/session refs. |
 | Prompt and output evidence | Prompt reference, prompt hash, contract refs, redacted input/output summaries, validation outcome, cost, duration. |
 | Tool authority | Tool call ID, tool name, requested/enforced mode, grant ID/version, idempotency key, verdict, bounded reason, connector invocation ID. |
-| Approval evidence | Future `approval_id`, approval package version, requested action, reviewer subject ref, reviewer role, decision, expiry, SLA, reason, and applied policy. |
-| Policy mutation evidence | Future `policy_change_id`, proposer, approver, target object, before/after references, eval evidence, apply/rollback records, reason, and timestamps. |
+| Approval evidence | `approval_id`, approval package version, requested action, reviewer subject ref, reviewer role, decision, expiry, SLA, bounded reason category, policy refs, workload/session refs, and applied policy. |
+| Policy mutation evidence | `policy_change_id`, target policy type, target object refs, before/after version refs, proposer and reviewer actor refs, approval refs where required, reason category, eval evidence refs, apply/rollback refs, expiry/SLA, workload/session refs, and timestamps. |
 | Trace join metadata | `otel.trace_id`, `otel.span_id`, plus safe service/workload IDs at write time. |
 
 Audit may contain redacted arguments or summaries when accountability requires
@@ -254,5 +270,6 @@ required for local 2B-01 evidence and must not be carried in telemetry baggage.
   policy changes.
 - Promote schemas to `contracts/` only when a payload crosses a service
   boundary or must be validated by a release gate.
-- Keep optional LLM observability sidecars derived from OTel/eval data; never
-  make them the accountability store or a hosted local dependency.
+- Keep optional LLM observability sidecars derived from filtered OTel/eval data;
+  never make them the accountability store, release gate, policy mutation path,
+  prompt source of truth, or hosted local dependency.

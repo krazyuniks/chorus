@@ -17,8 +17,9 @@ See [ADR 0004 — Agent Runtime and Tool Gateway](../../adrs/0004-agent-runtime-
 Workstream D implements the boundary in `chorus.tool_gateway`. The Temporal
 activity `lighthouse.invoke_tool_gateway` now:
 
-- validates generated `ToolCall`, `GatewayVerdict`, `AuditEvent`, and outbound
-  email argument contracts;
+- validates generated `ToolCall`, `GatewayVerdict`, `AuditEvent`, outbound
+  email argument contracts, the Phase 2C calendar argument contracts, and the
+  Phase 2D ticket argument contracts;
 - resolves `tool_grants` for `(agent_id, tenant_id, tool, mode)`;
 - enforces allow, block, write-to-propose downgrade, and approval-required
   decisions;
@@ -26,5 +27,18 @@ activity `lighthouse.invoke_tool_gateway` now:
 - returns an idempotent persisted response for replayed keys;
 - writes `tool_action_audit` with OTel metadata where active;
 - invokes local connectors only after the gateway verdict permits it.
+
+Phase 2C adds local Radicale calendar dispatch for
+`calendar.lookup_availability` and `calendar.propose_hold`. Calendar
+`write` grants for hold creation and cancellation remain `approval_required`,
+so normal requests do not invoke the connector. The focused local approved
+apply path consumes an already approved approval package, re-enters the
+gateway, checks package state, expiry, grant, idempotency, and safe calendar
+refs, and only then invokes the Radicale connector.
+
+Phase 2D adds local ticket desk dispatch for `ticket.lookup_case`,
+`ticket.lookup_duplicates`, and `ticket.propose_case_update`. Ticket status
+writes remain `approval_required` and stop before connector execution; there is
+no ticket approved-apply path in 2D-02.
 
 See [implementation-plan.md](../../docs/implementation-plan.md).

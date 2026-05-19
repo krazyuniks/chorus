@@ -3,7 +3,7 @@
   "$id": "https://chorus.local/contracts/events/workflow_event.schema.json",
   "x-subject": "chorus.workflow.events.v1-value",
   "title": "WorkflowEvent",
-  "description": "Schema-governed Lighthouse workflow event emitted through the transactional outbox to Redpanda.",
+  "description": "Schema-governed workflow event emitted through the transactional outbox to Redpanda.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,7 +14,6 @@
     "tenant_id",
     "correlation_id",
     "workflow_id",
-    "lead_id",
     "sequence",
     "payload"
   ],
@@ -55,9 +54,20 @@
       "type": "string",
       "minLength": 1
     },
+    "workflow_type": {
+      "type": "string",
+      "enum": [
+        "lighthouse",
+        "support_triage"
+      ]
+    },
     "lead_id": {
       "type": "string",
       "format": "uuid"
+    },
+    "subject_ref": {
+      "type": "string",
+      "pattern": "^(lead|req|case)_[A-Za-z0-9_-]+$"
     },
     "sequence": {
       "type": "integer",
@@ -72,7 +82,16 @@
         "validation",
         "propose_send",
         "complete",
-        "escalate"
+        "escalate",
+        "support_intake",
+        "support_classification",
+        "support_context_lookup",
+        "support_resolution_plan",
+        "support_draft",
+        "support_validation",
+        "support_propose",
+        "support_complete",
+        "support_escalate"
       ]
     },
     "payload": {

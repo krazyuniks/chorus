@@ -10,10 +10,21 @@ import psycopg
 import pytest
 from psycopg import sql
 
+from chorus.agent_runtime import (
+    SUPPORT_AGENT_CONTRACT_REF,
+    AgentRuntime,
+    AgentRuntimeStore,
+    default_model_adapter_registry,
+)
 from chorus.contracts.generated.events.workflow_event import WorkflowEvent
 from chorus.persistence import OutboxStore, ProjectionStore, apply_migrations
+from chorus.tool_gateway.gateway import LocalToolConnector, ToolGateway, ToolGatewayStore
 from chorus.workflows.activities import record_retry_exhaustion_dlq
-from chorus.workflows.types import RetryExhaustionDlqCommand
+from chorus.workflows.types import (
+    AgentInvocationRequest,
+    RetryExhaustionDlqCommand,
+    ToolGatewayRequest,
+)
 
 ADMIN_DATABASE_URL = os.environ.get(
     "CHORUS_TEST_ADMIN_DATABASE_URL",
@@ -87,6 +98,41 @@ def _workflow_event(
     )
 
 
+def _support_workflow_event(
+    *,
+    tenant_id: str,
+    workflow_id: str,
+    correlation_id: str,
+    subject_id: str,
+    sequence: int,
+    event_type: str,
+    step: str | None,
+    payload: dict[str, object] | None = None,
+) -> WorkflowEvent:
+    return WorkflowEvent.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "event_id": str(uuid4()),
+            "event_type": event_type,
+            "occurred_at": "2026-05-19T12:00:00Z",
+            "tenant_id": tenant_id,
+            "correlation_id": correlation_id,
+            "workflow_id": workflow_id,
+            "workflow_type": "support_triage",
+            "lead_id": subject_id,
+            "subject_ref": "req_support_001",
+            "sequence": sequence,
+            "step": step,
+            "payload": {
+                "workflow_type": "support_triage",
+                "request_ref": "req_support_001",
+                "case_ref": "case_existing_001",
+                **(payload or {}),
+            },
+        }
+    )
+
+
 def test_migration_applies_schema_and_demo_seed_data(migrated_database_url: str) -> None:
     with psycopg.connect(migrated_database_url) as conn:
         tenants = conn.execute("SELECT tenant_id FROM tenants ORDER BY tenant_id").fetchall()
@@ -113,7 +159,10 @@ def test_migration_applies_schema_and_demo_seed_data(migrated_database_url: str)
                 'tool_action_audit',
                 'workflow_history_events',
                 'outbox_events',
-                'model_route_versions'
+                'model_route_versions',
+                'approval_packages',
+                'local_ticket_cases',
+                'local_ticket_case_update_proposals'
               )
             ORDER BY relname
             """
@@ -125,8 +174,11 @@ def test_migration_applies_schema_and_demo_seed_data(migrated_database_url: str)
     assert ("provider_catalogue_providers",) in tables
     assert ("provider_catalogue_models",) in tables
     assert ("model_route_versions",) in tables
+    assert ("approval_packages",) in tables
+    assert ("local_ticket_cases",) in tables
+    assert ("local_ticket_case_update_proposals",) in tables
     assert ("workflow_read_models",) in tables
-    assert len(rls_enabled) == 10
+    assert len(rls_enabled) == 13
 
 
 def test_migrations_and_seeds_are_idempotent(migrated_database_url: str) -> None:
@@ -142,7 +194,7 @@ def test_migrations_and_seeds_are_idempotent(migrated_database_url: str) -> None
     assert first == ["001_demo_tenants.sql", "002_provider_governance.sql"]
     assert second == ["001_demo_tenants.sql", "002_provider_governance.sql"]
     assert tenant_count == (2,)
-    assert seed_agents == (8,)
+    assert seed_agents == (12,)
 
 
 def test_provider_governance_seed_preserves_phase_1_routes(
@@ -191,6 +243,14 @@ def test_provider_governance_seed_preserves_phase_1_routes(
             ORDER BY provider, model
             """
         ).fetchall()
+        support_routes = conn.execute(
+            """
+            SELECT agent_role, task_kind, provider, model
+            FROM model_routing_policies
+            WHERE agent_role LIKE 'support_%'
+            ORDER BY agent_role, task_kind
+            """
+        ).fetchall()
         commercial_route_count = conn.execute(
             """
             SELECT count(*)
@@ -213,6 +273,32 @@ def test_provider_governance_seed_preserves_phase_1_routes(
     assert {row[6] for row in route_alignment} == {"provider-catalogue.phase2a.seed"}
     assert {row[7] for row in route_alignment} == {5000}
     assert runtime_route_models == [("local", "lighthouse-happy-path-v1")]
+    assert support_routes == [
+        (
+            "support_classifier",
+            "support_classification",
+            "local",
+            "lighthouse-happy-path-v1",
+        ),
+        (
+            "support_context_researcher",
+            "support_context_lookup",
+            "local",
+            "lighthouse-happy-path-v1",
+        ),
+        (
+            "support_resolution_planner",
+            "support_resolution_plan",
+            "local",
+            "lighthouse-happy-path-v1",
+        ),
+        (
+            "support_validator",
+            "support_validation",
+            "local",
+            "lighthouse-happy-path-v1",
+        ),
+    ]
     assert commercial_route_count == (0,)
 
 
@@ -569,8 +655,338 @@ def test_runtime_policy_snapshot_is_tenant_scoped(migrated_database_url: str) ->
     assert {grant.tool_name for grant in demo_snapshot.tool_grants} >= {
         "company_research.lookup",
         "email.propose_response",
+        "ticket.lookup_case",
+        "ticket.propose_case_update",
+        "ticket.update_status",
     }
     assert {agent.tenant_id for agent in alt_snapshot.agents} == {"tenant_demo_alt"}
+
+
+def test_local_ticket_desk_seed_is_tenant_scoped(migrated_database_url: str) -> None:
+    with psycopg.connect(migrated_database_url, autocommit=True) as conn:
+        _set_app_role(conn, "tenant_demo")
+        demo_cases = conn.execute(
+            """
+            SELECT case_ref, account_ref, product_ref, severity_category, status_category
+            FROM local_ticket_cases
+            ORDER BY case_ref
+            """
+        ).fetchall()
+
+        conn.execute("RESET ROLE")
+        _set_app_role(conn, "tenant_demo_alt")
+        alt_cases = conn.execute(
+            """
+            SELECT case_ref
+            FROM local_ticket_cases
+            ORDER BY case_ref
+            """
+        ).fetchall()
+
+    assert demo_cases == [
+        (
+            "case_duplicate_001",
+            "acct_demo_001",
+            "prod_core_platform",
+            "sev_high",
+            "pending_internal",
+        ),
+        ("case_existing_001", "acct_demo_001", "prod_core_platform", "sev_high", "open"),
+    ]
+    assert alt_cases == []
+
+
+def test_support_eval_persisted_evidence_joins_safe_refs(
+    migrated_database_url: str,
+) -> None:
+    tenant_id = "tenant_demo"
+    workflow_id = "support-eval-persisted-evidence"
+    correlation_id = "cor_support_eval_persisted_evidence"
+    subject_id = str(uuid4())
+    request_ref = "req_support_001"
+    case_ref = "case_existing_001"
+    account_ref = "acct_demo_001"
+    product_ref = "prod_core_platform"
+    policy_ref = "policy_support_triage_local_v1"
+
+    input_refs = {
+        "request_ref": request_ref,
+        "account_ref": account_ref,
+        "product_ref": product_ref,
+        "case_ref": case_ref,
+        "redacted_summary_ref": "summary_support_001",
+    }
+
+    def agent_request(agent_role: str, task_kind: str) -> AgentInvocationRequest:
+        return AgentInvocationRequest(
+            tenant_id=tenant_id,
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            lead_id=request_ref,
+            agent_role=agent_role,
+            task_kind=task_kind,
+            input={
+                "workflow_type": "support_triage",
+                "input_refs": input_refs,
+                "severity_hint_category": "sev_high",
+                "request_status_category": "open",
+                "routing_policy_ref": policy_ref,
+            },
+            expected_output_contract=SUPPORT_AGENT_CONTRACT_REF,
+        )
+
+    with psycopg.connect(migrated_database_url) as conn:
+        projection = ProjectionStore(conn)
+        events = [
+            _support_workflow_event(
+                tenant_id=tenant_id,
+                workflow_id=workflow_id,
+                correlation_id=correlation_id,
+                subject_id=subject_id,
+                sequence=1,
+                event_type="workflow.started",
+                step="support_intake",
+                payload={"account_ref": account_ref, "product_ref": product_ref},
+            ),
+            _support_workflow_event(
+                tenant_id=tenant_id,
+                workflow_id=workflow_id,
+                correlation_id=correlation_id,
+                subject_id=subject_id,
+                sequence=2,
+                event_type="workflow.step.completed",
+                step="support_context_lookup",
+                payload={
+                    "lookup_verdict": "allow",
+                    "duplicate_lookup_verdict": "allow",
+                    "duplicate_status": "duplicates_found",
+                },
+            ),
+            _support_workflow_event(
+                tenant_id=tenant_id,
+                workflow_id=workflow_id,
+                correlation_id=correlation_id,
+                subject_id=subject_id,
+                sequence=3,
+                event_type="workflow.step.completed",
+                step="support_resolution_plan",
+                payload={
+                    "resolution_plan_ref": "plan_support_001",
+                    "response_draft_ref": "response_support_001",
+                    "case_update_ref": "caseupd_support_001",
+                    "verdict_category": "propose_case_update",
+                },
+            ),
+            _support_workflow_event(
+                tenant_id=tenant_id,
+                workflow_id=workflow_id,
+                correlation_id=correlation_id,
+                subject_id=subject_id,
+                sequence=4,
+                event_type="workflow.step.completed",
+                step="support_propose",
+                payload={
+                    "gateway_verdict": "propose",
+                    "enforced_mode": "propose",
+                    "case_update_ref": "caseupd_support_001",
+                    "case_status_mutated": False,
+                },
+            ),
+            _support_workflow_event(
+                tenant_id=tenant_id,
+                workflow_id=workflow_id,
+                correlation_id=correlation_id,
+                subject_id=subject_id,
+                sequence=5,
+                event_type="workflow.completed",
+                step="support_complete",
+                payload={"outcome": "completed"},
+            ),
+        ]
+        for event in events:
+            projection.record_workflow_event(event)
+            projection.apply_workflow_event(event)
+
+        runtime = AgentRuntime(AgentRuntimeStore(conn), default_model_adapter_registry())
+        responses = {
+            task_kind: runtime.invoke(agent_request(agent_role, task_kind))
+            for agent_role, task_kind in [
+                ("support_classifier", "support_classification"),
+                ("support_context_researcher", "support_context_lookup"),
+                ("support_resolution_planner", "support_resolution_plan"),
+                ("support_validator", "support_validation"),
+            ]
+        }
+
+        plan_refs = responses["support_resolution_plan"].structured_data["output_refs"]
+        gateway = ToolGateway(ToolGatewayStore(conn), LocalToolConnector(conn))
+        lookup = gateway.invoke(
+            ToolGatewayRequest(
+                tenant_id=tenant_id,
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                invocation_id=responses["support_context_lookup"].invocation_id,
+                agent_id="support.context_researcher",
+                tool_name="ticket.lookup_case",
+                mode="read",
+                idempotency_key=f"{workflow_id}:ticket.lookup_case:{case_ref}",
+                arguments={
+                    "case_ref": case_ref,
+                    "request_ref": request_ref,
+                    "account_ref": account_ref,
+                    "product_ref": product_ref,
+                    "lookup_policy_ref": policy_ref,
+                    "include_history_category": "bounded_recent_status_refs",
+                },
+            )
+        )
+        duplicates = gateway.invoke(
+            ToolGatewayRequest(
+                tenant_id=tenant_id,
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                invocation_id=responses["support_context_lookup"].invocation_id,
+                agent_id="support.context_researcher",
+                tool_name="ticket.lookup_duplicates",
+                mode="read",
+                idempotency_key=f"{workflow_id}:ticket.lookup_duplicates:{request_ref}",
+                arguments={
+                    "request_ref": request_ref,
+                    "case_ref": case_ref,
+                    "account_ref": account_ref,
+                    "product_ref": product_ref,
+                    "severity_category": "sev_high",
+                    "status_categories": ["new", "open", "pending_customer", "pending_internal"],
+                    "duplicate_scope_category": "same_account_product_open",
+                    "lookup_policy_ref": policy_ref,
+                },
+            )
+        )
+        proposal = gateway.invoke(
+            ToolGatewayRequest(
+                tenant_id=tenant_id,
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                invocation_id=responses["support_resolution_plan"].invocation_id,
+                agent_id="support.resolution_planner",
+                tool_name="ticket.propose_case_update",
+                mode="propose",
+                idempotency_key=f"{workflow_id}:ticket.propose_case_update:{request_ref}",
+                arguments={
+                    "request_ref": request_ref,
+                    "case_ref": case_ref,
+                    "account_ref": account_ref,
+                    "product_ref": product_ref,
+                    "severity_category": "sev_high",
+                    "target_status_category": "pending_customer",
+                    "resolution_plan_ref": plan_refs["resolution_plan_ref"],
+                    "response_draft_ref": plan_refs["response_draft_ref"],
+                    "case_update_ref": plan_refs["case_update_ref"],
+                    "update_reason_category": "resolution_plan_ready",
+                    "policy_ref": policy_ref,
+                },
+            )
+        )
+
+        outbox_rows = conn.execute(
+            """
+            SELECT
+                tenant_id,
+                correlation_id,
+                workflow_id,
+                event_type,
+                step,
+                payload ->> 'workflow_type'
+            FROM outbox_events
+            WHERE tenant_id = %s AND correlation_id = %s AND workflow_id = %s
+            ORDER BY sequence
+            """,
+            (tenant_id, correlation_id, workflow_id),
+        ).fetchall()
+        decision_rows = conn.execute(
+            """
+            SELECT agent_role, provider, model, task_kind, contract_refs
+            FROM decision_trail_entries
+            WHERE tenant_id = %s AND correlation_id = %s AND workflow_id = %s
+            ORDER BY started_at
+            """,
+            (tenant_id, correlation_id, workflow_id),
+        ).fetchall()
+        tool_rows = conn.execute(
+            """
+            SELECT
+                tool_name,
+                requested_mode,
+                enforced_mode,
+                verdict,
+                raw_event -> 'details' -> 'gateway_response' -> 'output' ->> 'case_update_ref'
+            FROM tool_action_audit
+            WHERE tenant_id = %s AND correlation_id = %s AND workflow_id = %s
+            ORDER BY tool_name
+            """,
+            (tenant_id, correlation_id, workflow_id),
+        ).fetchall()
+        proposal_row = conn.execute(
+            """
+            SELECT
+                proposal_status,
+                target_status_category,
+                metadata ->> 'case_status_mutated'
+            FROM local_ticket_case_update_proposals
+            WHERE tenant_id = %s AND case_update_ref = %s
+            """,
+            (tenant_id, "caseupd_support_001"),
+        ).fetchone()
+        case_status = conn.execute(
+            """
+            SELECT status_category
+            FROM local_ticket_cases
+            WHERE tenant_id = %s AND case_ref = %s
+            """,
+            (tenant_id, case_ref),
+        ).fetchone()
+        status_write_grant = conn.execute(
+            """
+            SELECT approval_required
+            FROM tool_grants
+            WHERE tenant_id = %s
+              AND agent_id = 'support.resolution_planner'
+              AND tool_name = 'ticket.update_status'
+              AND mode = 'write'
+            """,
+            (tenant_id,),
+        ).fetchone()
+
+    assert lookup.verdict == "allow"
+    assert duplicates.verdict == "allow"
+    assert proposal.verdict == "propose"
+    assert proposal.output["case_update_ref"] == "caseupd_support_001"
+    assert proposal.output["case_status_mutated"] is False
+
+    assert {row[:3] for row in outbox_rows} == {(tenant_id, correlation_id, workflow_id)}
+    assert {row[5] for row in outbox_rows} == {"support_triage"}
+    assert {row[0] for row in decision_rows} == {
+        "support_classifier",
+        "support_context_researcher",
+        "support_resolution_planner",
+        "support_validator",
+    }
+    assert {row[1:3] for row in decision_rows} == {("local", "lighthouse-happy-path-v1")}
+    assert all(SUPPORT_AGENT_CONTRACT_REF in row[4] for row in decision_rows)
+    assert tool_rows == [
+        ("ticket.lookup_case", "read", "read", "allow", None),
+        ("ticket.lookup_duplicates", "read", "read", "allow", None),
+        (
+            "ticket.propose_case_update",
+            "propose",
+            "propose",
+            "propose",
+            "caseupd_support_001",
+        ),
+    ]
+    assert proposal_row == ("proposed", "pending_customer", "false")
+    assert case_status == ("open",)
+    assert status_write_grant == (True,)
 
 
 def test_provider_governance_snapshot_keeps_route_versions_tenant_scoped(

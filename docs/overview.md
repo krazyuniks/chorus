@@ -56,24 +56,42 @@ decision-trail graph metadata is recorded, disabled-provider and degradation
 fallback fixtures are implemented, and read-only provider/graph inspection
 surfaces are available.
 
-Phase 2B is the active workstream. ADR 0013 defines the identity, authority,
+Phase 2B is complete. ADR 0013 defines the identity, authority,
 observability, user-journey evidence, and audit boundary before runtime mutation
 controls are added. The docs-first observability/user-journey,
-workload-principal, and invocation-authority models are complete. Human
-approval identity and audit lifecycle is the next ledger item.
+workload-principal, invocation-authority, human-approval audit lifecycle,
+policy-change governance workflow, and optional LLM observability sidecar
+evaluation are complete. Phase 2C connector expansion and approval hardening is
+complete: ADR 0014 selects a local CalDAV calendar connector candidate, calendar
+argument schemas exist, a local Radicale sandbox plus Tool Gateway-dispatched
+connector paths cover availability lookup and hold proposal, calendar writes
+remain approval-required, local approved apply evidence proves idempotent
+create/retry/compensation, and the BFF exposes safe read-only calendar status
+and audit refs. Phase 2D has selected local Support Desk Triage as the second
+workflow proof, added the safe support intake, support agent IO, local ticket
+argument, workflow-event, and eval enum baseline, and added a local ticket desk
+sandbox behind the Tool Gateway for ticket lookup, duplicate lookup, and
+proposed case updates. A code-defined `support_triage` Temporal workflow,
+focused replay evidence, support eval fixture, and persisted evidence baseline
+now prove workflow events, Agent Runtime decisions, ticket Tool Gateway
+verdicts, and proposed case-update refs join by safe tenant/correlation/workflow
+refs. Support read-only BFF/UI inspection remains planned.
 
 Temporal remains the durable business workflow owner. Tool Gateway remains the
 action authority. LangGraph owns only per-invocation agent execution. The
 shipped commercial provider boundary is a disabled placeholder used for
 evidence; production provider calls, credential entry, production SSO, mutating
-admin controls, and LangGraph durability are not implemented.
+admin controls, production connector writes, and LangGraph durability are not
+implemented.
 
-Later Phase 2 milestones cover governed policy mutation, connector expansion,
-a second workflow proof, and production-readiness architecture. See
+Later Phase 2 milestones cover support read-only inspection and
+production-readiness architecture. See
 [`phase-2-plan.md`](phase-2-plan.md),
 [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md),
-[ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md), and
-[ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md).
+[ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md),
+[ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md),
+[ADR 0014](../adrs/0014-connector-expansion-approval-hardening-scope.md), and
+[ADR 0015](../adrs/0015-second-workflow-proof-scope.md).
 
 ## How to review Phase 1
 
@@ -89,7 +107,7 @@ Start with the README first-time reviewer checklist for commands. For the eviden
 
 ## Decision record
 
-Architectural decisions are recorded as ADRs under [`../adrs/`](../adrs/). The ADRs explain why the project selected Lighthouse as the evidence slice, Temporal as the orchestration spine, Redpanda for event visibility, explicit Agent Runtime and Tool Gateway boundaries, Postgres-first storage, JSON Schema contracts, trace/eval assurance, Mailpit SMTP intake, Phase 2 governed-platform expansion, and LangGraph inside Agent Runtime.
+Architectural decisions are recorded as ADRs under [`../adrs/`](../adrs/). The ADRs explain why the project selected Lighthouse as the evidence slice, Temporal as the orchestration spine, Redpanda for event visibility, explicit Agent Runtime and Tool Gateway boundaries, Postgres-first storage, JSON Schema contracts, trace/eval assurance, Mailpit SMTP intake, Phase 2 governed-platform expansion, LangGraph inside Agent Runtime, the local CalDAV connector expansion scope, and the Support Desk Triage second workflow scope.
 
 The architecture document should reflect accepted decisions, but the ADRs remain the source of record for why material choices were made.
 

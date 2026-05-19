@@ -1,0 +1,8 @@
+{
+  "calendar_ref": "cal_lighthouse_local_followup",
+  "hold_ref": "hold_lighthouse_demo_001",
+  "event_uid_ref": "evt_hold_lighthouse_demo_001",
+  "cancellation_reason_category": "workflow_compensation",
+  "compensation_ref": "comp_lighthouse_demo_001",
+  "requested_cancellation_at": "2026-05-19T08:45:00Z"
+}

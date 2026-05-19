@@ -25,7 +25,7 @@ Phase 1 implements one evidence-grade vertical slice: an inbound lead email ente
 
 The repo is design-frozen for Phase 1. Phase 0, Phase 1A, Phase 1B, and Phase 1C are implemented: the happy-path Lighthouse slice, governance/failure fixtures, and asynchronous review package are shipped evidence.
 
-Phase 2 is in progress for governed-platform expansion per [ADR 0011](./adrs/0011-phase-2-governed-platform-expansion.md), [ADR 0012](./adrs/0012-langgraph-agent-execution-runtime.md), [ADR 0013](./adrs/0013-identity-authority-observability-boundaries.md), and [docs/phase-2-plan.md](./docs/phase-2-plan.md). Phase 2A is complete: LangGraph now runs inside Agent Runtime, provider/model governance evidence exists, and disabled-provider/degradation fallback fixtures are implemented without production provider calls. The current implementation focus is Phase 2B governed identity, observability, approval, and runtime change control. Do not broaden scope into a top-level agent framework replacing Temporal, SaaS product, production customer-data path, production cloud deployment, production SSO, credential entry, mutating admin UI, or unrestricted second workflow unless the project docs and ADRs explicitly change.
+Phase 2 is in progress for governed-platform expansion per [ADR 0011](./adrs/0011-phase-2-governed-platform-expansion.md), [ADR 0012](./adrs/0012-langgraph-agent-execution-runtime.md), [ADR 0013](./adrs/0013-identity-authority-observability-boundaries.md), [ADR 0014](./adrs/0014-connector-expansion-approval-hardening-scope.md), [ADR 0015](./adrs/0015-second-workflow-proof-scope.md), and [docs/phase-2-plan.md](./docs/phase-2-plan.md). Phase 2A is complete: LangGraph now runs inside Agent Runtime, provider/model governance evidence exists, and disabled-provider/degradation fallback fixtures are implemented without production provider calls. Phase 2B is complete: governed identity, observability, approval, policy-change, and optional sidecar boundaries are docs-first. Phase 2C connector expansion and approval hardening is complete: the local CalDAV connector scope, calendar argument schemas, local Radicale sandbox, Tool Gateway-dispatched read/propose connector paths, minimal calendar approval package persistence, approved local idempotency/retry/compensation evidence, and safe read-only BFF calendar status/audit projection are complete. Phase 2D has selected local Support Desk Triage, added the safe support intake, support agent IO, local ticket argument, workflow-event, and eval enum baseline, added the local ticket desk sandbox plus Tool Gateway read/propose dispatch baseline, added a code-defined `support_triage` Temporal workflow runtime with replay evidence, and added the support eval plus persisted evidence baseline. The next planned item is 2D-05 Support read-only inspection path. Do not broaden scope into a top-level agent framework replacing Temporal, SaaS product, production customer-data path, production cloud deployment, production SSO, credential entry, production connector writes, mutating admin UI, unrestricted second workflow, or workflow DSL unless the project docs and ADRs explicitly change.
 
 ## How To Run Commands
 
@@ -75,7 +75,7 @@ Do not run `just down-volumes` unless explicitly requested; it destroys local da
 | Contracts | JSON Schema -> generated Pydantic |
 | Frontend | React, Vite, TypeScript, TanStack, Tailwind |
 | BFF | FastAPI + server-sent events |
-| Local connectors | Mailpit, Companies House/public APIs, Postgres-backed local CRM |
+| Local connectors | Mailpit, Companies House/public APIs, Postgres-backed local CRM, Radicale-backed local CalDAV sandbox, Postgres-backed local ticket desk sandbox |
 | Observability | OpenTelemetry + Grafana stack |
 | Assurance | pytest, Vitest, Playwright, Temporal replay, trace/eval fixtures |
 
@@ -149,6 +149,7 @@ When code changes, update the matching docs and run the relevant gates. If a doc
 - Temporal UI: `http://localhost:8233`
 - Mailpit SMTP: `localhost:1025`
 - Mailpit UI/API: `http://localhost:8025`
+- Radicale / CalDAV sandbox: `http://localhost:5232`
 - Grafana: `http://localhost:3001`
 - OTLP: `localhost:4317` and `localhost:4318`
 

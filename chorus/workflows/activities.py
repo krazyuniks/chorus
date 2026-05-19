@@ -29,6 +29,7 @@ from chorus.workflows.lighthouse import (
     EVENT_WORKFLOW_FAILED,
 )
 from chorus.workflows.mailpit import MailpitPoller, TemporalWorkflowStarter
+from chorus.workflows.support import ACTIVITY_RECORD_SUPPORT_WORKFLOW_EVENT, SUPPORT_WORKFLOW_TYPE
 from chorus.workflows.types import (
     AgentInvocationRequest,
     AgentInvocationResponse,
@@ -36,6 +37,7 @@ from chorus.workflows.types import (
     MailpitPollResult,
     RetryExhaustionDlqCommand,
     RetryExhaustionDlqResult,
+    SupportWorkflowEventCommand,
     ToolFailureCompensationCommand,
     ToolFailureCompensationResult,
     ToolGatewayRequest,
@@ -82,6 +84,37 @@ class WorkflowEventRecorder:
         )
 
 
+class SupportWorkflowEventRecorder:
+    def __init__(self, sink_factory: Callable[[], WorkflowEventSink]) -> None:
+        self._sink_factory = sink_factory
+
+    def record(self, command: SupportWorkflowEventCommand) -> WorkflowEventResult:
+        event = WorkflowEvent.model_validate(
+            {
+                "schema_version": "1.0.0",
+                "event_id": str(uuid4()),
+                "event_type": command.event_type,
+                "occurred_at": _now().isoformat(),
+                "tenant_id": command.tenant_id,
+                "correlation_id": command.correlation_id,
+                "workflow_id": command.workflow_id,
+                "workflow_type": SUPPORT_WORKFLOW_TYPE,
+                "lead_id": command.subject_id,
+                "subject_ref": command.subject_ref,
+                "sequence": command.sequence,
+                "step": command.step,
+                "payload": command.payload,
+            }
+        )
+        self._sink_factory().record_workflow_event(event)
+        return WorkflowEventResult(
+            event_id=str(event.event_id),
+            sequence=event.sequence,
+            event_type=event.event_type.value,
+            step=event.step.value if event.step is not None else None,
+        )
+
+
 def _postgres_sink_factory() -> WorkflowEventSink:
     database_url = os.environ.get("CHORUS_DATABASE_URL", database_url_from_env())
     conn = psycopg.connect(database_url)
@@ -104,6 +137,18 @@ def record_workflow_event_activity(command: WorkflowEventCommand) -> WorkflowEve
         workflow_id=command.workflow_id,
     )
     return WorkflowEventRecorder(_postgres_sink_factory).record(command)
+
+
+@activity.defn(name=ACTIVITY_RECORD_SUPPORT_WORKFLOW_EVENT)
+def record_support_workflow_event_activity(
+    command: SupportWorkflowEventCommand,
+) -> WorkflowEventResult:
+    set_current_span_attributes(
+        tenant_id=command.tenant_id,
+        correlation_id=command.correlation_id,
+        workflow_id=command.workflow_id,
+    )
+    return SupportWorkflowEventRecorder(_postgres_sink_factory).record(command)
 
 
 @activity.defn(name=ACTIVITY_INVOKE_AGENT_RUNTIME)

@@ -1,0 +1,12 @@
+{
+  "calendar_ref": "cal_lighthouse_local_followup",
+  "hold_ref": "hold_lighthouse_demo_001",
+  "slot_ref": "slot_lighthouse_demo_20260519_0930",
+  "meeting_type": "lighthouse_follow_up",
+  "participant_refs": [
+    "participant_lighthouse_owner",
+    "participant_demo_lead"
+  ],
+  "summary_category": "lead_follow_up",
+  "proposal_note_ref": "note_lighthouse_followup_template"
+}

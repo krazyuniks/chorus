@@ -1,0 +1,4 @@
+[anonymous-local-sandbox]
+user: ^$
+collection: .*
+permissions: RrWw

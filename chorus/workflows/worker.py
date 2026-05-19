@@ -17,10 +17,12 @@ from chorus.workflows.activities import (
     invoke_tool_gateway_activity,
     poll_mailpit_activity,
     record_retry_exhaustion_dlq_activity,
+    record_support_workflow_event_activity,
     record_tool_failure_compensation_activity,
     record_workflow_event_activity,
 )
 from chorus.workflows.lighthouse import LighthouseWorkflow
+from chorus.workflows.support import SupportTriageWorkflow
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -52,9 +54,10 @@ async def _run(target_host: str, namespace: str, task_queue: str) -> None:
         worker = Worker(
             client,
             task_queue=task_queue,
-            workflows=[LighthouseWorkflow],
+            workflows=[LighthouseWorkflow, SupportTriageWorkflow],
             activities=[
                 record_workflow_event_activity,
+                record_support_workflow_event_activity,
                 invoke_agent_runtime_activity,
                 invoke_tool_gateway_activity,
                 record_tool_failure_compensation_activity,

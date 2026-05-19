@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 WorkflowOutcome = Literal["completed", "escalated", "failed"]
+SupportWorkflowOutcome = Literal["completed", "escalated", "failed"]
 
 
 def _empty_citations() -> list[AgentCitation]:
@@ -65,6 +66,21 @@ class WorkflowEventResult:
     sequence: int
     event_type: str
     step: str | None
+
+
+@dataclass(frozen=True)
+class SupportWorkflowEventCommand:
+    tenant_id: str
+    correlation_id: str
+    workflow_id: str
+    workflow_type: str
+    request_ref: str
+    subject_ref: str
+    subject_id: str
+    sequence: int
+    event_type: str
+    step: str | None
+    payload: dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -176,6 +192,38 @@ class LighthouseWorkflowResult:
     correlation_id: str
     lead_id: str
     outcome: WorkflowOutcome
+    path: list[str]
+    final_summary: str
+    escalation_reason: str | None = None
+
+
+@dataclass(frozen=True)
+class SupportWorkflowInput:
+    schema_version: str
+    request_ref: str
+    tenant_id: str
+    correlation_id: str
+    source_ref: str
+    received_at: str
+    intake_channel_category: str
+    account_ref: str
+    product_ref: str
+    case_ref: str | None
+    severity_hint_category: str
+    request_status_category: str
+    redacted_summary_ref: str
+    attachment_refs: list[str]
+    idempotency_ref: str
+    routing_policy_ref: str | None = None
+
+
+@dataclass(frozen=True)
+class SupportWorkflowResult:
+    workflow_id: str
+    tenant_id: str
+    correlation_id: str
+    request_ref: str
+    outcome: SupportWorkflowOutcome
     path: list[str]
     final_summary: str
     escalation_reason: str | None = None

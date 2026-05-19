@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/tools/calendar_availability_lookup_args.schema.json",
+  "title": "CalendarAvailabilityLookupArgs",
+  "description": "Contract-only arguments for local CalDAV availability lookup using safe refs and bounded scheduling fields.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "calendar_ref",
+    "window_start",
+    "window_end",
+    "duration_minutes",
+    "timezone",
+    "availability_policy_ref"
+  ],
+  "properties": {
+    "calendar_ref": {
+      "type": "string",
+      "pattern": "^cal_[A-Za-z0-9_-]+$"
+    },
+    "window_start": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "window_end": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "duration_minutes": {
+      "type": "integer",
+      "minimum": 15,
+      "maximum": 240
+    },
+    "timezone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "availability_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    },
+    "required_slot_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "exclude_event_uid_refs": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "pattern": "^evt_[A-Za-z0-9_-]+$"
+      }
+    }
+  }
+}

@@ -83,7 +83,7 @@ agent workflows across teams, providers, and business processes.
 | Phase 1A - Happy path | Mailpit SMTP intake, Temporal Lighthouse workflow, Agent Runtime, Tool Gateway, Postgres projections, Redpanda events, UI progress, audit trail, observability, and happy-path eval. | A reviewer can send a fixture email, follow one workflow by correlation ID, and run the happy-path eval. |
 | Phase 1B - Governance/failure evidence | Blocked write, low-confidence research, validator rejection, connector failure, retry exhaustion, and escalation fixtures. | Failure fixtures produce expected branches, audit verdicts, DLQ or escalation records, and passing eval checks. |
 | Phase 1C - Review packaging | Final README, screenshots or notes, demo script, evidence map, architecture links, and governance evidence. | An asynchronous reviewer can inspect the evidence path without hidden context. |
-| Phase 2 - Governed platform expansion | Planned LangGraph agent execution, provider/model governance, governed identity/runtime change control, observability and journey evidence boundaries, connector expansion, second workflow proof, and production-readiness architecture pack. | Provider-governance groundwork has begun with `contracts/governance/`, LangGraph now runs inside Agent Runtime with graph execution evidence in decision-trail metadata, the commercial provider placeholder has an explicit disabled-by-default adapter boundary, provider failure, timeout, rate-limit, and budget-exceeded fixtures prove fallback to the local route without production provider calls, route-selection audit metadata is captured for reviewer inspection, read-only BFF/UI views expose provider catalogue, route-version, and graph-execution evidence, docs/runbook/evidence surfaces are aligned, and ADR 0013 defines the Phase 2B identity, authority, observability, journey-evidence, and audit boundary. See [`phase-2-plan.md`](phase-2-plan.md), [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md), [ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md), and [ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md). |
+| Phase 2 - Governed platform expansion | Planned LangGraph agent execution, provider/model governance, governed identity/runtime change control, observability and journey evidence boundaries, connector expansion, second workflow proof, and production-readiness architecture pack. | Provider-governance groundwork has begun with `contracts/governance/`, LangGraph now runs inside Agent Runtime with graph execution evidence in decision-trail metadata, the commercial provider placeholder has an explicit disabled-by-default adapter boundary, provider failure, timeout, rate-limit, and budget-exceeded fixtures prove fallback to the local route without production provider calls, route-selection audit metadata is captured for reviewer inspection, read-only BFF/UI views expose provider catalogue, route-version, and graph-execution evidence, docs/runbook/evidence surfaces are aligned, ADR 0013 defines the Phase 2B identity, authority, observability, journey-evidence, and audit boundary, and ADR 0014 selects a local CalDAV calendar connector as the Phase 2C connector-expansion scope. Phase 2C now has calendar argument schemas, a local Radicale sandbox, Tool Gateway-dispatched availability/hold-proposal paths, approval-required calendar write packages, approved local apply evidence for idempotent create/retry/compensation, and read-only BFF calendar status/audit projection. ADR 0015 selects local Support Desk Triage as the Phase 2D second workflow proof scope; 2D-01 adds the support intake, support agent IO, ticket argument, workflow-event, and eval enum baseline, 2D-02 adds a Postgres-backed local ticket desk sandbox plus Tool Gateway read/propose dispatch for ticket lookup, duplicate lookup, and case-update proposals while ticket status writes remain approval-required, 2D-03 adds the code-defined `support_triage` Temporal workflow runtime plus replay baseline, and 2D-04 adds support eval plus persisted evidence proving safe trace joins across workflow events, Agent Runtime decisions, ticket Tool Gateway verdicts, and proposed case-update refs. Read-only support inspection remains planned. See [`phase-2-plan.md`](phase-2-plan.md), [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md), [ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md), [ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md), [ADR 0014](../adrs/0014-connector-expansion-approval-hardening-scope.md), and [ADR 0015](../adrs/0015-second-workflow-proof-scope.md). |
 
 ## Phase 2 Planning Boundary
 
@@ -98,6 +98,66 @@ adapter registry, LangGraph execution, disabled-provider evidence, fallback
 handling, and provider degradation fixtures have landed. ADR 0013 opens Phase
 2B by defining identity, authority, observability, journey-evidence, and audit
 boundaries before mutating runtime controls are added.
+ADR 0014 opens Phase 2C by selecting a local Radicale/CalDAV calendar connector
+candidate. The scope is a Lighthouse follow-up calendar hold behind the Tool
+Gateway with explicit approval, idempotency, retry, compensation, projection,
+audit, eval, runbook, and evidence-map expectations. Calendar argument schemas
+now cover availability lookup, hold proposal, hold creation, and hold
+cancellation using safe refs and bounded categories only. The 2C-02 runtime
+slice adds a local Radicale sandbox and Tool Gateway-dispatched connector paths
+for availability lookup and hold proposal. Calendar create/cancel grants remain
+`approval_required`; writes stop before connector execution and 2C-03 records a
+minimal local `approval_packages` row with safe refs, bounded state/category
+fields, idempotency key hash, grant/policy refs, redaction summary, expiry/SLA
+refs, and trace joins. This does not add reviewer decisions, approval apply,
+production calendar providers, OAuth, credential entry, production connector
+writes, a hosted observability dependency, a Lighthouse workflow calendar
+branch, an eval fixture, or a mutating admin UI. The 2C-04 runtime slice adds a
+local approved calendar apply path inside the Tool Gateway: an already approved
+package re-enters the gateway, package state/expiry/grant/idempotency/safe
+calendar refs are checked, and the Radicale connector is invoked only from that
+gateway path. This proves idempotent local VEVENT creation, transient retry
+classification, cancellation compensation, and compensation-failure escalation
+without adding a reviewer decision service, workflow branch, UI mutation, or
+production integration.
+The 2C-05 closeout adds a read-only BFF calendar status projection derived from
+`approval_packages` and `tool_action_audit`. It exposes safe approval/audit
+refs, calendar refs, bounded status and retry/compensation/failure categories,
+grant/policy refs, and trace joins only; it does not expose raw event bodies,
+raw tool arguments, connector payloads, reviewer decisions, or PII.
+
+ADR 0015 scopes Phase 2D to a local Support Desk Triage workflow using future
+workflow type `support_triage`. The selected workflow is adjacent to
+Lighthouse but distinct: support request intake, classification/severity
+triage, account or case context lookup, resolution planning, response and
+case-update proposal, validation, completion, and escalation. Future
+implementation must use only safe refs and bounded categories in examples,
+keep support-ticket actions behind the Tool Gateway, start any local ticket
+write as approval-required, add support-specific replay and eval evidence when
+workflow behaviour changes, and expose read-only projection/audit/observability
+surfaces. 2D-01 adds only contracts, generated models, safe samples, and enum
+baselines: support request intake, support agent IO, ticket case lookup,
+duplicate lookup, case-update proposal, future approval-required status
+update, optional `support_triage` workflow-event values, and Phase 2D eval
+contract values. 2D-02 adds only the local ticket desk sandbox and gateway
+dispatch baseline: Postgres safe-ref ticket cases and case-update proposal
+rows, support agent/grant seeds, Tool Gateway validation/dispatch for ticket
+lookup, duplicate lookup, and proposed case update, and an approval-required
+`ticket.update_status` grant that stops before connector execution. 2D-03 adds
+`chorus.workflows.support.SupportTriageWorkflow`, registers it on the existing
+Temporal worker, records safe support workflow events, and reuses the existing
+Agent Runtime and Tool Gateway activities for classification, context lookup,
+resolution planning, validation, ticket case lookup, duplicate lookup, and
+proposed case-update dispatch. Agent Runtime now validates the support agent
+IO contract through the local structured boundary. 2D-04 adds the support
+happy-path eval fixture and persisted evidence baseline: support decisions can
+persist in `decision_trail_entries`, and tests/eval prove workflow events,
+support decisions, ticket verdicts, and proposed case-update refs join by safe
+tenant/correlation/workflow refs. The runtime path does not call
+`ticket.update_status` and does not add Support BFF/UI routes, production
+connectors, credential entry, hosted observability dependencies, production
+connector writes, ticket status execution, or a workflow DSL. Lighthouse
+remains the Phase 1 demo and regression baseline.
 
 Phase 2 does not make Chorus a top-level agent framework or SaaS product by
 default. LangGraph is scoped to per-invocation agent execution; Temporal still
@@ -184,7 +244,7 @@ rather than a hand-fed form.
 | Frontend | React, Vite, TypeScript, TanStack, Tailwind | Dense data-first UI and read-only admin surfaces. |
 | BFF | FastAPI plus server-sent events | Read model API and one-way workflow progress stream. |
 | Contracts | JSON Schema and generated Pydantic models | Language-neutral contract source with generated runtime types and drift checks. |
-| Connectors | Mailpit, Companies House API, Postgres-backed local CRM | Real software in sandbox/local mode with no production writes to closed third-party systems. |
+| Connectors | Mailpit, Companies House API, Postgres-backed local CRM, Radicale-backed local CalDAV sandbox, Postgres-backed local ticket desk sandbox | Real software in sandbox/local mode with no production writes to closed third-party systems. |
 | Observability | OpenTelemetry, Grafana stack, Temporal Console, Redpanda Console | Correlated technical and audit evidence. |
 | Assurance | pytest, Vitest, Playwright, Temporal replay, trace/eval fixtures | Regression coverage over contracts, infrastructure behaviour, workflow determinism, and governance invariants. |
 
@@ -519,6 +579,8 @@ Phase 1 connectors use real software in sandbox/local mode:
 | Email proposal/send | Mailpit captures all outbound SMTP. |
 | CRM | Postgres-backed local service implementing lookup/create/update contract paths. |
 | Company research | Public company-information APIs where suitable, starting with Companies House for UK company examples. |
+| Calendar holds | Radicale-backed local CalDAV sandbox for safe availability lookup and hold proposal dispatch. |
+| Ticket desk | Postgres-backed local ticket desk sandbox for safe support case lookup, duplicate lookup, and proposed case-update dispatch. |
 
 The local connector service is contract-faithful and sits behind the Tool
 Gateway. Phase 1 does not write to real CRMs, production mailboxes, payment
@@ -531,6 +593,50 @@ Companies House research behind an environment-gated connector. The gateway
 records every decided call in `tool_action_audit` with generated
 `AuditEvent`/`GatewayVerdict` payloads and active OTel metadata where present.
 
+Phase 2C connector expansion is scoped by
+[ADR 0014](../adrs/0014-connector-expansion-approval-hardening-scope.md) to a
+local CalDAV calendar connector backed by Radicale or an equivalent local
+sandbox. The scoped action family is calendar availability lookup, follow-up
+hold proposal, local hold creation, and local hold cancellation. Runtime work
+must prove gateway-only access, approval-required write handling, idempotent
+VEVENT creation, retry classification, compensation through the gateway, safe
+projections, redacted audit, eval fixtures, and runbook evidence before it is
+treated as delivered.
+
+The 2C-01 baseline adds generated Pydantic argument models for those four
+calendar actions and extends the `ToolCall` tool-name enum. The 2C-02 runtime
+slice adds `chorus.connectors.calendar.RadicaleCalendarConnector`, a local
+Radicale sandbox in `compose.yml`, seeded calendar grants, and Tool Gateway
+dispatch for the calendar tool family. Availability lookup and hold proposal
+can execute against the local sandbox. Hold creation and cancellation grants
+are seeded as `approval_required`; 2C-03 creates a requested approval package
+with safe refs for those verdicts, and the connector is not invoked for writes
+until an already approved local apply call re-enters the Tool Gateway. The
+2C-04 apply path checks package state, expiry, grant, original idempotency key
+hash, tenant/correlation/workflow/invocation refs, and safe calendar refs
+before connector execution. The connector treats duplicate VEVENT UIDs as
+idempotent only when the stored safe context matches, and cancellation
+compensation uses `calendar.cancel_hold` through the gateway. The 2C-05 BFF
+projection derives safe calendar status from local approval packages and
+Tool Gateway apply audit rows for reviewer inspection without exposing raw
+CalDAV bodies or tool arguments. Reviewer decisions, the Lighthouse workflow,
+eval fixtures, UI mutation, production calendar providers, OAuth, credential
+entry, and production connector writes remain unchanged and out of scope.
+
+Phase 2D adds `chorus.connectors.ticket.LocalTicketDeskConnector` behind the
+same Tool Gateway boundary. The connector reads safe local ticket case refs,
+finds duplicate case refs, and persists proposed case-update refs in Postgres
+without mutating case status. `ticket.lookup_case` and
+`ticket.lookup_duplicates` use `read` grants, `ticket.propose_case_update` uses
+a `propose` grant, and `ticket.update_status` is seeded as
+`approval_required` so the gateway stops before connector execution. The ticket
+sandbox is now consumed by the 2D-03 `support_triage` workflow only through
+the existing Tool Gateway activity boundary. The 2D-04 eval and persistence
+baseline proves proposal refs without status mutation. Support BFF/UI
+inspection, production ticketing providers, credential entry, reviewer
+decision UI, ticket status execution, and production connector writes remain
+out of scope.
+
 ## Contracts and Schema Evolution
 
 JSON Schema is canonical for cross-boundary contracts:
@@ -541,6 +647,8 @@ JSON Schema is canonical for cross-boundary contracts:
 | Workflow events | `contracts/events/` plus Redpanda Schema Registry | Event publication, projection, UI progress, eval assertions. |
 | Agent inputs/outputs | `contracts/agents/` -> generated Pydantic | Runtime validation and decision-trail capture. |
 | Tool calls/verdicts | `contracts/tools/` -> generated Pydantic | Gateway validation and audit. |
+| Calendar connector arguments | `contracts/tools/calendar_*_args.schema.json` -> generated Pydantic | Phase 2C local CalDAV connector arguments validated by Tool Gateway dispatch for the local Radicale sandbox. |
+| Ticket connector arguments | `contracts/tools/ticket_*_args.schema.json` -> generated Pydantic | Phase 2D local ticket desk arguments validated by Tool Gateway dispatch for the local Postgres sandbox. |
 | Audit records | `contracts/events/` and Postgres schema | Review, eval, and traceability. |
 | Eval fixtures | `contracts/eval/` | Regression checks for path, outcome, governance, cost, and latency. |
 | Provider catalogue and route versions | `contracts/governance/` -> generated Pydantic; `provider_catalogues`, `provider_catalogue_providers`, `provider_catalogue_models`, `model_route_versions` | Phase 2 provider/model governance, route-version evidence, fallback policy, and promotion metadata. |
@@ -710,11 +818,16 @@ as `actor_session_id`, `workload_principal_id`, `approval_id`,
 `policy_change_id`, and `authority_context_id` are planned identifiers, not
 Phase 1 runtime dependencies.
 
-LangSmith, Langfuse, or similar LLM observability tools are future optional
-sidecars. They may consume OpenTelemetry traces, graph execution metadata, or
-eval outputs for debugging and comparison, but they do not replace the local
-Grafana/OpenTelemetry evidence stack, Postgres decision trail, Tool Gateway
-audit, Temporal replay tests, or `just eval` release gate.
+LangSmith, Langfuse, or similar LLM observability tools remain optional
+sidecars. The Phase 2B-06 evaluation in
+[`llm-observability-sidecar-evaluation.md`](llm-observability-sidecar-evaluation.md)
+decides that no exporter belongs in the default local stack. A future sidecar
+may consume filtered OpenTelemetry traces, graph execution metadata, or eval
+summaries through an opt-in collector or deterministic export, but it must not
+receive raw prompts, outputs, tool arguments, approval or policy rationale,
+credentials, identity-provider claims, or PII. It also does not replace the
+local Grafana/OpenTelemetry evidence stack, Postgres decision trail, Tool
+Gateway audit, Temporal replay tests, or `just eval` release gate.
 
 ## Evaluation and Assurance
 
@@ -736,19 +849,27 @@ Fixture expectations include:
 Phase 1A includes the happy-path eval. Phase 1B extends coverage to governance
 and failure fixtures: low-confidence research, validator redraft, forbidden
 write, connector failure compensation, and retry-exhaustion DLQ escalation.
+Phase 2A adds provider fallback/degradation fixtures. Phase 2D adds the
+support happy-path eval fixture for `support_triage`.
 
 The harness is implemented by `just eval`. It runs the contract-shaped
-Lighthouse happy-path fixture and the Phase 1B governance/failure fixtures
-under `chorus/eval/fixtures/`, then asserts the expected workflow path,
-proposal or escalation outcome, required workflow events, Agent Runtime
-decision-trail completeness, Tool Gateway verdict/audit evidence, budget,
-latency, DLQ/compensation evidence where applicable, and correlation ID
-propagation. When a reviewer passes `CHORUS_EVAL_CORRELATION_ID` or
+Lighthouse happy-path fixture, the Phase 1B governance/failure fixtures, the
+Phase 2A provider fallback/degradation fixtures, and the Phase 2D support
+happy-path fixture under `chorus/eval/fixtures/`, then asserts the expected
+workflow path, proposal/completion/escalation outcome, required workflow
+events, Agent Runtime decision-trail completeness, Tool Gateway verdict/audit
+evidence, budget, latency, DLQ/compensation/support proposal evidence where
+applicable, and correlation ID propagation. When a reviewer passes
+`CHORUS_EVAL_CORRELATION_ID` or
 `CHORUS_EVAL_WORKFLOW_ID` on the default `just eval` path, the harness also
 inspects persisted Postgres evidence for the live happy-path workflow from
 `workflow_read_models`, `workflow_history_events`, `outbox_events`,
 `decision_trail_entries`, and `tool_action_audit`. Live governance/failure
 checks can be targeted with `uv run python -m chorus.eval.run --fixture ...`.
+The support fixture can also target a persisted support workflow by workflow
+ID or correlation ID; it joins support outbox events, decision-trail rows,
+ticket Tool Gateway audit rows, and local proposed case-update refs without
+requiring a Support BFF/UI path.
 Redpanda, Temporal, Mailpit, and Grafana remain live review surfaces for the
 3-minute path; the deterministic eval portion keeps CI and offline review from
 depending on an already-running local stack.
@@ -818,6 +939,33 @@ redaction, connector invocation, and action audit. If this sketch becomes
 executable later, it should start as a local deterministic object and become a
 JSON Schema contract only when it crosses a service boundary or release gate.
 
+The Phase 2B-04 human-approval model is a docs-first lifecycle sketch in
+[`human-approval-audit-lifecycle.md`](human-approval-audit-lifecycle.md). It
+turns the existing Tool Gateway `approval_required` verdict into the trigger
+for a future approval package: approval ID, tenant, correlation, workflow,
+invocation/tool authority refs, requested action, requested and enforced tool
+mode, opaque reviewer subject ref, reviewer role, decision, expiry/SLA, bounded
+reason category, policy version refs, workload/session refs, and safe trace
+join metadata. Phase 2C-03 promotes the narrow calendar subset into local
+Postgres persistence: approval-required calendar writes now create requested
+approval packages with safe refs only. The current Lighthouse runtime still
+stops at `approval_required`; no reviewer decision path, approval apply,
+production SSO, identity-provider integration, credential entry, mutating admin
+UI, production connector write, contract, seed, or Temporal wait state is added.
+
+The Phase 2B-05 policy-change model is a docs-first governance workflow in
+[`policy-change-governance-workflow.md`](policy-change-governance-workflow.md).
+It defines the future propose, approve, apply, and rollback lifecycle for
+prompt references, model routes, budget caps, and tool grants. The package
+shape binds policy change ID, tenant, optional correlation/workflow refs,
+target policy type, target object refs, before/after version refs, proposer
+and reviewer actor subject refs, approval ID when required, bounded reason
+category, eval evidence refs, apply/rollback refs, expiry/SLA, workload/session
+refs, and safe trace joins. It remains docs-first: no policy-change table,
+contract, seed, runtime apply service, production SSO, credential path,
+production provider call, production connector write, or mutating admin UI is
+added by this model.
+
 The future AWS shape is a mapping target, not a Phase 2 local dependency. In an
 AWS deployment, human identities would normally federate into roles or
 permission sets, while workloads would receive temporary role credentials from
@@ -841,6 +989,8 @@ Security architecture is still explicit:
 - no production customer data;
 - no production auth/SSO in Phase 1;
 - no AWS IAM integration in the local evidence path;
+- no production calendar, CRM, email, or other closed-system connector writes
+  in the local evidence path;
 - secrets loaded from local environment files or injected environment
   variables, never committed;
 - model/provider credentials held only at the model/router boundary;
@@ -905,6 +1055,7 @@ Local operation is part of the evidence surface.
 | Temporal Console | Inspect workflow execution. |
 | Redpanda Console | Inspect events and schemas. |
 | Mailpit UI/API | Inspect inbound and outbound email. |
+| Radicale / CalDAV sandbox | Inspect local calendar collection metadata and safe event UID refs. |
 | Grafana | Inspect traces, metrics, logs, errors, latency, and cost signals. |
 | UI | Inspect workflow progress, audit, runtime policy, grants, routing, and eval status. |
 

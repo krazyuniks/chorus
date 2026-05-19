@@ -11,19 +11,30 @@ class Phase(StrEnum):
     FIELD_1_A = "1A"
     FIELD_1_B = "1B"
     FIELD_2_A = "2A"
+    FIELD_2_D = "2D"
+
+
+class WorkflowType(StrEnum):
+    LIGHTHOUSE = "lighthouse"
+    SUPPORT_TRIAGE = "support_triage"
 
 
 class Input(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    email_fixture_path: Annotated[str, Field(min_length=1)]
+    email_fixture_path: Annotated[str | None, Field(min_length=1)] = None
+    support_request_ref: Annotated[str | None, Field(pattern="^req_[A-Za-z0-9_-]+$")] = None
+    support_request_fixture_ref: Annotated[
+        str | None, Field(pattern="^fixture_[A-Za-z0-9_-]+$")
+    ] = None
     tenant_id: Annotated[str, Field(min_length=1)]
 
 
 class FinalOutcome(StrEnum):
     SEND = "send"
     PROPOSE = "propose"
+    COMPLETE = "complete"
     ESCALATE = "escalate"
     REJECT = "reject"
 
@@ -50,5 +61,6 @@ class EvalFixture(BaseModel):
     fixture_id: Annotated[str, Field(min_length=1)]
     name: Annotated[str, Field(min_length=1)]
     phase: Phase
+    workflow_type: WorkflowType | None = None
     input: Input
     expected: Expected

@@ -15,6 +15,7 @@ from psycopg import sql
 from chorus.agent_runtime import (
     LANGGRAPH_EXECUTION_ENGINE,
     LIGHTHOUSE_AGENT_GRAPH_VERSION,
+    SUPPORT_AGENT_CONTRACT_REF,
     AgentRuntime,
     AgentRuntimeError,
     AgentRuntimeStore,
@@ -31,6 +32,7 @@ from chorus.agent_runtime import (
     default_model_adapter_registry,
 )
 from chorus.contracts.generated.agents.lighthouse_agent_io import LighthouseAgentIO
+from chorus.contracts.generated.agents.support_agent_io import SupportAgentIO
 from chorus.contracts.generated.events.agent_invocation_record import AgentInvocationRecord
 from chorus.persistence import apply_migrations
 from chorus.workflows.activities import invoke_agent_runtime_activity
@@ -116,6 +118,63 @@ def _resolution(
             parameters={"temperature": 0.3},
             budget_cap_usd=Decimal("0.01"),
             fallback_policy=fallback_policy or {"on_provider_error": "escalate"},
+        ),
+    )
+
+
+def _support_request(
+    task_kind: str = "support_resolution_plan",
+    role: str = "support_resolution_planner",
+) -> AgentInvocationRequest:
+    return AgentInvocationRequest(
+        tenant_id="tenant_demo",
+        correlation_id=f"cor_support_runtime_{uuid4().hex}",
+        workflow_id=f"support-runtime-{uuid4().hex}",
+        lead_id="req_support_001",
+        agent_role=role,
+        task_kind=task_kind,
+        input={
+            "workflow_type": "support_triage",
+            "input_refs": {
+                "request_ref": "req_support_001",
+                "case_ref": "case_existing_001",
+                "account_ref": "acct_demo_001",
+                "product_ref": "prod_core_platform",
+                "redacted_summary_ref": "summary_support_001",
+            },
+            "severity_hint_category": "sev_high",
+            "request_status_category": "open",
+            "routing_policy_ref": "policy_support_triage_local_v1",
+        },
+        expected_output_contract=SUPPORT_AGENT_CONTRACT_REF,
+    )
+
+
+def _support_resolution(
+    *,
+    role: str = "support_resolution_planner",
+    agent_id: str = "support.resolution_planner",
+    task_kind: str = "support_resolution_plan",
+) -> RuntimeResolution:
+    return RuntimeResolution(
+        tenant=TenantPolicy(tenant_id="tenant_demo", tenant_tier="demo", status="active"),
+        agent=ResolvedAgent(
+            agent_id=agent_id,
+            role=role,
+            version="v1",
+            lifecycle_state="approved",
+            owner="agent-runtime",
+            prompt_reference="prompts/support/resolution-planner/v1.md",
+            prompt_hash="sha256:5555555555555555555555555555555555555555555555555555555555555555",
+            capability_tags=["support", "ticket_proposal"],
+        ),
+        model_route=ResolvedModelRoute(
+            provider="local",
+            model="lighthouse-happy-path-v1",
+            task_kind=task_kind,
+            parameters={"temperature": 0.1},
+            budget_cap_usd=Decimal("0.01"),
+            fallback_policy={"on_provider_error": "escalate"},
         ),
     )
 
@@ -296,6 +355,7 @@ def test_langgraph_execution_engine_invokes_adapter_through_expected_graph_path(
         "graph_version": LIGHTHOUSE_AGENT_GRAPH_VERSION,
         "graph_steps": list(execution.graph_path),
     }
+    assert isinstance(execution.contract, LighthouseAgentIO)
     assert execution.contract.result.structured_data == execution.response.structured_data
     assert execution.decision_metadata == {
         "agent_execution.engine": LANGGRAPH_EXECUTION_ENGINE,
@@ -331,6 +391,24 @@ def test_policy_resolution_uses_registry_prompt_and_model_route(
     assert resolution.model_route.selection_source == (
         "model_routing_policies+model_route_versions"
     )
+
+
+def test_support_policy_resolution_uses_local_runtime_route(
+    migrated_database_url: str,
+) -> None:
+    request = _support_request()
+
+    with psycopg.connect(migrated_database_url) as conn:
+        resolution = AgentRuntimeStore(conn).resolve(request)
+
+    assert resolution.agent.agent_id == "support.resolution_planner"
+    assert resolution.agent.role == "support_resolution_planner"
+    assert resolution.agent.prompt_reference == "prompts/support/resolution-planner/v1.md"
+    assert resolution.model_route.provider == "local"
+    assert resolution.model_route.model == "lighthouse-happy-path-v1"
+    assert resolution.model_route.task_kind == "support_resolution_plan"
+    assert resolution.model_route.route_version is None
+    assert resolution.model_route.selection_source == "model_routing_policies"
 
 
 def test_default_model_adapter_registry_registers_local_and_disabled_commercial_boundary() -> None:
@@ -675,6 +753,66 @@ def test_runtime_invokes_selected_local_adapter_without_changing_activity_contra
         model="lighthouse-happy-path-v1",
         fallback_reason=None,
     )
+
+
+def test_runtime_validates_support_agent_contract_with_safe_refs() -> None:
+    request = _support_request()
+    store = RecordingRuntimeStore(_support_resolution())
+
+    response = AgentRuntime(store, default_model_adapter_registry()).invoke(request)
+
+    assert response.recommended_next_step == "propose_only"
+    assert response.structured_data["workflow_type"] == "support_triage"
+    assert response.structured_data["agent_role"] == "support_resolution_planner"
+    assert response.structured_data["task_kind"] == "support_resolution_plan"
+    assert response.structured_data["verdict_category"] == "propose_case_update"
+    assert response.structured_data["severity_category"] == "sev_high"
+    assert response.structured_data["case_status_category"] == "pending_customer"
+    assert response.structured_data["output_refs"] == {
+        "request_ref": "req_support_001",
+        "case_ref": "case_existing_001",
+        "resolution_plan_ref": "plan_support_001",
+        "response_draft_ref": "response_support_001",
+        "case_update_ref": "caseupd_support_001",
+    }
+    assert response.structured_data["evidence_refs"] == ["evidence_support_local_runtime"]
+    assert len(store.records) == 1
+    record = store.records[0]
+    assert record.agent.agent_id == "support.resolution_planner"
+    assert record.agent.role == "support_resolution_planner"
+    assert [contract.root for contract in record.contract_refs] == [
+        SUPPORT_AGENT_CONTRACT_REF,
+        "contracts/events/agent_invocation_record.schema.json",
+    ]
+
+
+def test_langgraph_execution_engine_validates_support_agent_contract() -> None:
+    request = _support_request(task_kind="support_validation", role="support_validator")
+    resolution = _support_resolution(
+        role="support_validator",
+        agent_id="support.validator",
+        task_kind="support_validation",
+    )
+    invocation_id = uuid4()
+
+    execution = LangGraphAgentExecutionEngine(
+        ModelAdapterRegistry([LocalLighthouseModelAdapter()])
+    ).invoke(
+        request,
+        resolution,
+        invocation_id,
+    )
+
+    assert isinstance(execution.contract, SupportAgentIO)
+    assert execution.contract.workflow_type == "support_triage"
+    assert execution.contract.agent_role == "support_validator"
+    assert execution.contract.task_kind == "support_validation"
+    assert execution.response.recommended_next_step == "complete"
+    assert execution.response.structured_data["output_refs"] == {
+        "request_ref": "req_support_001",
+        "case_ref": "case_existing_001",
+        "validation_ref": "validation_support_001",
+    }
 
 
 def test_runtime_records_failure_when_selected_provider_has_no_adapter() -> None:

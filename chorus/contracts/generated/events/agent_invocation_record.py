@@ -14,6 +14,11 @@ class Role(StrEnum):
     QUALIFIER = "qualifier"
     DRAFTER = "drafter"
     VALIDATOR = "validator"
+    SUPPORT_CLASSIFIER = "support_classifier"
+    SUPPORT_CONTEXT_RESEARCHER = "support_context_researcher"
+    SUPPORT_RESOLUTION_PLANNER = "support_resolution_planner"
+    SUPPORT_DRAFTER = "support_drafter"
+    SUPPORT_VALIDATOR = "support_validator"
 
 
 class LifecycleState(StrEnum):

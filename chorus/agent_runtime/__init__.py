@@ -5,6 +5,7 @@ from __future__ import annotations
 from chorus.agent_runtime.runtime import (
     LANGGRAPH_EXECUTION_ENGINE,
     LIGHTHOUSE_AGENT_GRAPH_VERSION,
+    SUPPORT_AGENT_CONTRACT_REF,
     AgentExecutionResult,
     AgentRuntime,
     AgentRuntimeError,
@@ -32,6 +33,7 @@ from chorus.agent_runtime.runtime import (
 __all__ = [
     "LANGGRAPH_EXECUTION_ENGINE",
     "LIGHTHOUSE_AGENT_GRAPH_VERSION",
+    "SUPPORT_AGENT_CONTRACT_REF",
     "AgentExecutionResult",
     "AgentRuntime",
     "AgentRuntimeError",

@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from chorus.persistence.outbox import OutboxStore, OutboxWorkflowEvent
     from chorus.persistence.projection import (
         AgentRegistryEntry,
+        CalendarProjectionReadModel,
         DecisionTrailEntryReadModel,
         ModelRouteVersion,
         ModelRoutingPolicy,
@@ -34,6 +35,7 @@ __all__ = [
     "MIGRATIONS_DIR",
     "SEEDS_DIR",
     "AgentRegistryEntry",
+    "CalendarProjectionReadModel",
     "DecisionTrailEntryReadModel",
     "ModelRouteVersion",
     "ModelRoutingPolicy",
@@ -63,6 +65,7 @@ def __getattr__(name: str) -> Any:
 
     if name in {
         "AgentRegistryEntry",
+        "CalendarProjectionReadModel",
         "DecisionTrailEntryReadModel",
         "ModelRouteVersion",
         "ModelRoutingPolicy",

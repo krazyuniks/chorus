@@ -153,4 +153,5 @@ SELECT
 FROM model_routing_policies
 WHERE provider = 'local'
   AND model = 'lighthouse-happy-path-v1'
+  AND agent_role IN ('researcher', 'qualifier', 'drafter', 'validator')
 ON CONFLICT (route_id, route_version) DO NOTHING;

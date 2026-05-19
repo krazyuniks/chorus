@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from chorus.observability import set_current_span_attributes
 from chorus.persistence import (
+    CalendarProjectionReadModel,
     DecisionTrailEntryReadModel,
     ModelRouteVersion,
     ProjectionStore,
@@ -158,6 +159,32 @@ class ToolVerdictEntryView(BaseModel):
     caller_agent_id: str
     correlation_id: str
     occurred_at: str
+
+
+class CalendarStatusEntryView(BaseModel):
+    id: str
+    workflow_id: str
+    correlation_id: str
+    tool_name: str
+    requested_action: str
+    requested_mode: str
+    enforced_mode: str
+    approval_state: str
+    idempotency_key_ref: str
+    calendar_refs: dict[str, Any]
+    projection_status: str
+    source_audit_event_id: str
+    latest_audit_event_id: str | None
+    latest_verdict: str | None
+    latest_reason: str | None
+    connector_invocation_id: str | None
+    retry_category: str | None
+    compensation_category: str | None
+    failure_category: str | None
+    grant_ref: str | None
+    policy_version_refs: dict[str, Any]
+    trace_join: dict[str, Any]
+    updated_at: str
 
 
 class RegistryEntryView(BaseModel):
@@ -359,6 +386,25 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
     ) -> list[ToolVerdictEntryView]:
         entries = store.list_tool_action_audit(resolved.tenant_id, limit=limit)
         return [_tool_verdict_view(row) for row in entries]
+
+    @app.get("/api/calendar/status", response_model=list[CalendarStatusEntryView])
+    def list_calendar_status(
+        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    ) -> list[CalendarStatusEntryView]:
+        entries = store.list_calendar_projections(resolved.tenant_id, limit=limit)
+        return [_calendar_status_view(row) for row in entries]
+
+    @app.get(
+        "/api/workflows/{workflow_id}/calendar/status",
+        response_model=list[CalendarStatusEntryView],
+    )
+    def list_workflow_calendar_status(
+        workflow_id: str,
+        store: Annotated[ProjectionStore, Depends(store_dependency)],
+    ) -> list[CalendarStatusEntryView]:
+        entries = store.list_calendar_projections(resolved.tenant_id, workflow_id=workflow_id)
+        return [_calendar_status_view(row) for row in entries]
 
     @app.get("/api/runtime/registry", response_model=list[RegistryEntryView])
     def list_registry(
@@ -681,6 +727,38 @@ def _tool_verdict_view(row: ToolActionAuditReadModel) -> ToolVerdictEntryView:
         caller_agent_id=row.actor_id,
         correlation_id=row.correlation_id,
         occurred_at=row.occurred_at.isoformat(),
+    )
+
+
+def _calendar_status_view(row: CalendarProjectionReadModel) -> CalendarStatusEntryView:
+    return CalendarStatusEntryView(
+        id=str(row.approval_id),
+        workflow_id=row.workflow_id,
+        correlation_id=row.correlation_id,
+        tool_name=row.tool_name,
+        requested_action=row.requested_action,
+        requested_mode=row.requested_mode,
+        enforced_mode=row.enforced_mode,
+        approval_state=row.approval_state,
+        idempotency_key_ref=row.idempotency_key_ref,
+        calendar_refs=row.calendar_refs,
+        projection_status=row.projection_status,
+        source_audit_event_id=str(row.source_audit_event_id),
+        latest_audit_event_id=(
+            str(row.latest_audit_event_id) if row.latest_audit_event_id is not None else None
+        ),
+        latest_verdict=row.latest_verdict,
+        latest_reason=row.latest_reason,
+        connector_invocation_id=(
+            str(row.connector_invocation_id) if row.connector_invocation_id is not None else None
+        ),
+        retry_category=row.retry_category,
+        compensation_category=row.compensation_category,
+        failure_category=row.failure_category,
+        grant_ref=row.grant_ref,
+        policy_version_refs=row.policy_version_refs,
+        trace_join=row.trace_join,
+        updated_at=row.updated_at.isoformat(),
     )
 
 

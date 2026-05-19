@@ -55,7 +55,9 @@ operations to keep environment handling consistent.
 | `just lint` / `just fmt` | Linters and formatters across Python and frontend. |
 | `just hooks` | Run every prek hook against the whole tree. |
 | `just demo` | Send the fixture lead via Mailpit. |
-| `just eval` | Run the happy-path, Phase 1B governance/failure, and Phase 2A provider-fallback eval fixtures; inspect live Postgres evidence when a workflow/correlation ID is supplied. |
+| `just eval` | Run the happy-path, Phase 1B governance/failure, Phase 2A provider-fallback, and Phase 2D support eval fixtures; inspect live Postgres evidence when a workflow/correlation ID is supplied. |
+| `just caldav-propfind` | Probe the local Radicale collection over WebDAV. |
+| `just caldav-event-refs` | List local calendar event UID ref filenames without printing event bodies. |
 
 ## Local endpoints
 
@@ -69,6 +71,7 @@ operations to keep environment handling consistent.
 | Temporal UI | `http://localhost:${TEMPORAL_UI_PORT:-8233}` |
 | Mailpit SMTP | `localhost:${MAILPIT_SMTP_PORT:-1025}` |
 | Mailpit UI / HTTP API | `http://localhost:${MAILPIT_HTTP_PORT:-8025}` |
+| Radicale / CalDAV sandbox | `http://localhost:${CALDAV_SANDBOX_PORT:-5232}` |
 | Grafana | `http://localhost:${GRAFANA_PORT:-3001}` |
 | OTLP gRPC / HTTP | `localhost:${OTEL_GRPC_PORT:-4317}` / `localhost:${OTEL_HTTP_PORT:-4318}` |
 | BFF | `localhost:${BFF_PORT:-8000}` |
@@ -312,6 +315,385 @@ worker containers. Companies House lookup remains environment-gated by
 `CHORUS_COMPANIES_HOUSE_API_KEY`; absence of that key blocks research connector
 execution instead of falling back to a fake result.
 
+### Phase 2C local CalDAV connector scope
+
+ADR 0014 selects a local CalDAV calendar connector, backed by Radicale, as the
+Phase 2C connector-expansion candidate. The calendar argument schemas and
+generated models exist for `calendar.lookup_availability`,
+`calendar.propose_hold`, `calendar.create_hold`, and `calendar.cancel_hold`,
+with safe representative samples under `contracts/tools/samples/`.
+
+2C-02 adds the local-only Radicale sandbox and connector dispatch behind the
+Tool Gateway:
+
+- `compose.yml` runs `radicale` as `chorus-caldav-sandbox` on
+  `http://localhost:${CALDAV_SANDBOX_PORT:-5232}`.
+- `infrastructure/radicale/config` sets a local unauthenticated sandbox with
+  anonymous local rights from `infrastructure/radicale/rights`.
+- `chorus.connectors.calendar.RadicaleCalendarConnector` talks CalDAV/WebDAV to
+  the configured `CHORUS_CALDAV_BASE_URL`.
+- `chorus.tool_gateway.LocalToolConnector` dispatches the four calendar tool
+  names only after Tool Gateway validation, grant resolution, mode enforcement,
+  idempotency lookup, and verdict handling.
+- Seeded calendar write grants for `calendar.create_hold` and
+  `calendar.cancel_hold` are `approval_required`, so the connector is not
+  invoked for writes in the current runtime.
+- 2C-03 promotes a minimal local `approval_packages` table for those calendar
+  write verdicts. The gateway creates a `requested` package with safe refs,
+  idempotency key hash, SLA/expiry refs, grant/policy refs, redaction summary,
+  and trace joins, then still stops before connector execution.
+- 2C-04 adds a local approved-apply path inside the Tool Gateway for focused
+  evidence. It consumes an already approved calendar package, derives a stable
+  apply idempotency key, re-checks package state, expiry, grant, tenant,
+  workflow, invocation, original idempotency key hash, and safe calendar refs,
+  then invokes the Radicale connector only from the gateway.
+
+There is still no reviewer decision path, reviewer UI, calendar eval fixture,
+Lighthouse workflow calendar branch, or UI mutation surface for calendar
+actions. 2C-05 adds a read-only BFF calendar status projection derived from
+local approval/audit rows; it does not create a mutating calendar UI or
+workflow branch.
+
+Start and inspect the sandbox:
+
+```bash
+just up
+just caldav-propfind
+just caldav-event-refs
+```
+
+`just caldav-propfind` returns WebDAV collection metadata. `just
+caldav-event-refs` lists only safe `evt_*.ics` filenames from the local
+Radicale storage volume and does not print raw iCalendar event bodies.
+
+To prove no production calendar provider is configured, inspect only these
+local settings:
+
+```bash
+rg -n "CALDAV|RADICALE|Google|Microsoft|OAuth|Graph" .env.example compose.yml chorus/connectors docs/runbook.md
+```
+
+The implemented connector has no Google Calendar, Microsoft Graph, OAuth,
+production calendar credential, or production provider call path. The only
+calendar endpoint is `CHORUS_CALDAV_BASE_URL`, defaulting to the local
+Radicale sandbox.
+
+Inspect calendar grants:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT agent_id, agent_version, tool_name, mode, allowed, approval_required, redaction_policy FROM tool_grants WHERE tenant_id = 'tenant_demo' AND tool_name LIKE 'calendar.%' ORDER BY tool_name, mode;"
+```
+
+Inspect calendar gateway audit for a workflow or focused test correlation ID:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT correlation_id, tool_name, requested_mode, enforced_mode, verdict, reason, connector_invocation_id, arguments_redacted, metadata, occurred_at FROM tool_action_audit WHERE tenant_id = 'tenant_demo' AND tool_name LIKE 'calendar.%' ORDER BY occurred_at DESC LIMIT 20;"
+```
+
+Inspect calendar approval packages created by approval-required writes:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT approval_id, approval_state, correlation_id, workflow_id, tool_name, requested_action, requested_mode, enforced_mode, idempotency_key_ref, redaction_summary, sla_policy_ref, expires_at, grant_id, policy_version_refs, trace_join FROM approval_packages WHERE tenant_id = 'tenant_demo' ORDER BY requested_at DESC LIMIT 20;"
+```
+
+Approval packages contain only safe refs and bounded categories. They do not
+store raw tool arguments, raw connector payloads, attendee names, email
+addresses, reviewer identity claims, raw rationale, credentials, or PII.
+
+For current Phase 2C evidence, `calendar.lookup_availability` and
+`calendar.propose_hold` may invoke the local connector when grants allow them.
+`calendar.create_hold` and `calendar.cancel_hold` should return
+`approval_required`, create one requested approval package, and keep
+`connector_invocation_id` empty. Focused tests then mark the package approved
+inside local Postgres and call `ToolGateway.apply_approved_calendar_write()`;
+that method re-enters the gateway, re-checks the package and authority refs,
+and writes bounded apply audit before any connector execution.
+
+Inspect approved apply audit rows without printing raw event bodies:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT correlation_id, tool_name, verdict, reason, connector_invocation_id, raw_event->'details'->'approval_apply' AS approval_apply, raw_event->'details'->'connector_failure' AS connector_failure FROM tool_action_audit WHERE tenant_id = 'tenant_demo' AND tool_name IN ('calendar.create_hold', 'calendar.cancel_hold') ORDER BY occurred_at DESC LIMIT 20;"
+```
+
+Inspect the BFF's safe calendar status projection:
+
+```bash
+curl -s "http://localhost:${BFF_PORT:-8000}/api/calendar/status" | jq
+```
+
+```bash
+curl -s "http://localhost:${BFF_PORT:-8000}/api/workflows/<workflow-id>/calendar/status" | jq
+```
+
+The projection is derived from `approval_packages` and matching
+`tool_action_audit` rows where `raw_event.details.approval_apply.approval_id`
+matches the package. It exposes bounded statuses such as
+`calendar_hold_requested`, `calendar_hold_approved_pending_apply`,
+`calendar_hold_created`, `calendar_hold_cancelled`,
+`calendar_hold_retry_pending`, `calendar_hold_blocked`, and
+`calendar_hold_compensation_failed`, plus safe approval/audit refs,
+idempotency key refs, calendar refs, grant/policy refs, retry/compensation
+categories, failure categories, and trace joins. It does not include raw event
+bodies, raw tool arguments, raw connector payloads, raw approval or policy
+rationale, attendee names, email addresses, identity-provider claims,
+credentials, API keys, access tokens, or PII.
+
+Idempotent replay evidence is in `tool_action_audit`: the approval request row
+uses the original idempotency key and the approved apply row uses a stable
+package-bound apply idempotency key ref. Replaying the same approved apply
+request returns the persisted `ToolGatewayResponse` and does not invoke the
+connector again. Connector-side duplicate VEVENT UIDs are idempotent only when
+the stored safe calendar, hold, slot, event UID, meeting, summary, and
+participant refs match the requested create context; mismatched duplicate UIDs
+are blocked with `caldav_duplicate_uid_context_mismatch`.
+
+Compensation evidence is also gateway-owned. A cancellation compensation uses
+`calendar.cancel_hold` through `ToolGateway.apply_approved_calendar_write()`;
+successful compensation records `compensation_completed`, while failed
+compensation records `compensation_failed` plus the bounded escalation category
+`calendar_compensation_failed`. Do not inspect Radicale `.ics` bodies for this
+evidence; use the safe event UID refs and gateway audit rows.
+
+Future calendar connector work must remain local-only and gateway-only:
+
+1. Use the Tool Gateway for availability lookup, hold proposal, hold creation,
+   and hold cancellation. Workflows, agents, LangGraph, and the BFF must not
+   call the connector directly.
+2. Start calendar write grants as `approval_required`. A reviewer decision must
+   not call the connector; the approved apply path re-enters the Tool Gateway
+   and re-checks package state, grant, mode, expiry, idempotency, tenant,
+   workflow, invocation, and safe authority refs.
+3. Derive idempotency from stable non-secret refs and map the connector VEVENT
+   UID to the same safe context so replay cannot create duplicate holds.
+4. Classify transient CalDAV failures for Temporal activity retry, distinguish
+   idempotent duplicate UIDs from conflicting duplicate UIDs, and use bounded
+   failure categories in telemetry, projections, and audit.
+5. Compensate created local holds by calling a cancellation action through the
+   Tool Gateway, not by calling the connector directly.
+6. Project only safe status and refs such as hold requested, created,
+   cancelled, compensation failed, slot ref, event UID ref, workflow ID, and
+   correlation ID.
+7. Keep raw event bodies, attendee names, email addresses, raw lead content,
+   raw prompts/outputs, raw tool arguments, raw connector payloads, raw
+   approval or policy rationale, identity-provider claims, credentials, API
+   keys, access tokens, and PII out of contracts, telemetry baggage,
+   projections, sidecar examples, audit examples, and seeds.
+
+For contract inspection, run `just contracts-check` and inspect:
+
+- `contracts/tools/calendar_availability_lookup_args.schema.json`
+- `contracts/tools/calendar_hold_proposal_args.schema.json`
+- `contracts/tools/calendar_hold_creation_args.schema.json`
+- `contracts/tools/calendar_hold_cancellation_args.schema.json`
+- `contracts/tools/tool_call.schema.json`
+- `chorus/contracts/generated/tools/`
+
+Calendar eval fixtures if promoted and workflow projections remain later work.
+Production calendar providers such as Google Calendar or Microsoft Graph,
+OAuth, production SSO, credential entry, production connector writes, hosted
+observability dependencies, and mutating admin UI remain out of scope.
+
+### Phase 2D Support Desk Triage scope
+
+ADR 0015 selects local Support Desk Triage as the Phase 2D second workflow
+proof. 2D-01 adds the contract-only baseline for safe support intake, support
+agent IO, local ticket tool arguments, workflow-event values, and eval contract
+values. 2D-02 adds a Postgres-backed local ticket desk sandbox behind the Tool
+Gateway for read/propose ticket evidence. 2D-03 adds the smallest
+code-defined `support_triage` Temporal workflow runtime and replay baseline
+using the existing Agent Runtime and Tool Gateway activity boundaries. 2D-04
+adds the support eval fixture and persisted evidence baseline for the happy
+path. There is still no Support BFF route, UI route, production ticketing
+provider, reviewer decision UI, credential entry, ticket status execution, or
+workflow DSL.
+
+The selected future workflow type is `support_triage`. It should cover support
+request intake, classification and severity triage, account or case context
+lookup, resolution planning, response and case-update proposal, validation,
+completion, and escalation. It is a code-defined Temporal workflow, not a
+workflow DSL, and it reuses the existing Agent Runtime, LangGraph inside Agent
+Runtime, and Tool Gateway activity boundaries. Later items still need
+Redpanda/projection inspection, BFF/UI read-only projection if promoted, and
+OTel/Grafana evidence.
+
+Future support-ticket actions must remain local-only and gateway-only:
+
+1. Use the Tool Gateway for case lookup, duplicate-case lookup, proposed case
+   update, and any later local write.
+2. Start local ticket writes as `approval_required`; a reviewer decision must
+   not call the connector directly.
+3. Use stable refs and bounded categories such as `request_ref`, `case_ref`,
+   `account_ref`, `product_ref`, `severity_category`,
+   `case_status_category`, idempotency key refs, workflow ID, correlation ID,
+   and failure categories.
+4. Keep raw request content, raw prompts/outputs, raw tool arguments, raw
+   connector payloads, raw approval or policy rationale, identity-provider
+   claims, personal names, email addresses, credentials, API keys, access
+   tokens, and PII out of contracts, telemetry baggage, projections, sidecar
+   examples, audit examples, seeds, and fixtures.
+
+2D-02 local ticket desk inspection:
+
+- `chorus.connectors.ticket.LocalTicketDeskConnector` reads safe case refs from
+  `local_ticket_cases`, finds duplicate case refs, and writes proposed
+  case-update refs to `local_ticket_case_update_proposals`.
+- `chorus.tool_gateway.LocalToolConnector` dispatches
+  `ticket.lookup_case`, `ticket.lookup_duplicates`, and
+  `ticket.propose_case_update` only after Tool Gateway validation, grant
+  resolution, mode enforcement, idempotency lookup, and verdict handling.
+- Seeded `ticket.update_status` is `approval_required`; normal requests return
+  an approval-required verdict and keep `connector_invocation_id` empty. There
+  is no ticket approved-apply path in 2D-02.
+
+2D-03 support workflow runtime inspection:
+
+- `chorus.workflows.support.SupportTriageWorkflow` runs on the same worker
+  entry point and default local task queue as Lighthouse.
+- The worker registers `SupportTriageWorkflow` plus
+  `support.record_workflow_event`; the support workflow reuses
+  `lighthouse.invoke_agent_runtime` and `lighthouse.invoke_tool_gateway`.
+- The local happy path calls support classification, context lookup,
+  resolution planning, and validation through Agent Runtime, then calls
+  `ticket.lookup_case`, `ticket.lookup_duplicates`, and
+  `ticket.propose_case_update` through the Tool Gateway.
+- The workflow does not call `ticket.update_status`; status writes remain
+  approval-required and there is still no ticket approved-apply path.
+- Replay evidence is in
+  `tests/workflows/fixtures/support_triage_happy_history.json`, generated by
+  `uv run python scripts/generate_support_triage_history.py`.
+
+2D-04 support eval and persisted evidence inspection:
+
+- `chorus/eval/fixtures/support_triage_happy_path.json` asserts the
+  `support_triage` happy path, final completion, support Agent Runtime
+  decisions, ticket lookup/duplicate/proposal Tool Gateway verdicts, proposed
+  `caseupd_support_001`, no `ticket.update_status` call, no case-status
+  mutation, and safe tenant/correlation/workflow joins.
+- `infrastructure/postgres/migrations/009_support_eval_persisted_evidence_baseline.sql`
+  aligns `decision_trail_entries` with the support agent roles so support
+  decisions can persist.
+- `tests/persistence/test_postgres_foundation.py` includes a focused support
+  evidence test that joins workflow events, support decisions, ticket audit
+  rows, and the local proposed case-update row by safe refs.
+
+Run focused support runtime/replay checks:
+
+```bash
+uv run pytest tests/workflows/test_support_workflow.py tests/workflows/test_activities.py tests/agent_runtime/test_runtime.py -k 'support or Support' -q
+```
+
+```bash
+just test-replay
+```
+
+Run support eval evidence checks:
+
+```bash
+uv run python -m chorus.eval.run --fixture chorus/eval/fixtures/support_triage_happy_path.json
+just eval
+```
+
+To assert a persisted local support run, pass either the workflow ID or
+correlation ID and require live evidence:
+
+```bash
+CHORUS_EVAL_WORKFLOW_ID=<support-workflow-id> uv run python -m chorus.eval.run --fixture chorus/eval/fixtures/support_triage_happy_path.json --require-live
+```
+
+Inspect support workflow outbox rows after a local run by correlation ID:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT workflow_id, event_type, step, payload FROM outbox_events WHERE tenant_id = 'tenant_demo' AND correlation_id = '<correlation-id>' AND payload->>'workflow_type' = 'support_triage' ORDER BY sequence;"
+```
+
+Inspect support Agent Runtime decisions for a local run:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT workflow_id, agent_id, agent_role, task_kind, provider, model, outcome, contract_refs, metadata FROM decision_trail_entries WHERE tenant_id = 'tenant_demo' AND correlation_id = '<correlation-id>' AND agent_role LIKE 'support_%' ORDER BY created_at;"
+```
+
+Inspect support ticket grants:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT agent_id, agent_version, tool_name, mode, allowed, approval_required, redaction_policy FROM tool_grants WHERE tenant_id = 'tenant_demo' AND tool_name LIKE 'ticket.%' ORDER BY agent_id, tool_name, mode;"
+```
+
+Inspect safe local ticket case refs and proposed update refs:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT case_ref, request_ref, account_ref, product_ref, severity_category, status_category, duplicate_group_ref, recent_status_refs FROM local_ticket_cases WHERE tenant_id = 'tenant_demo' ORDER BY case_ref;"
+```
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT case_update_ref, request_ref, case_ref, account_ref, product_ref, severity_category, target_status_category, update_reason_category, proposal_status FROM local_ticket_case_update_proposals WHERE tenant_id = 'tenant_demo' ORDER BY updated_at DESC LIMIT 20;"
+```
+
+Inspect ticket gateway audit for focused tests or a future workflow
+correlation ID:
+
+```bash
+./scripts/dc exec postgres psql -U "${CHORUS_PG_USER:-chorus}" -d "${CHORUS_PG_DB:-chorus}" -c "SELECT correlation_id, tool_name, requested_mode, enforced_mode, verdict, reason, connector_invocation_id, arguments_redacted, metadata, occurred_at FROM tool_action_audit WHERE tenant_id = 'tenant_demo' AND tool_name LIKE 'ticket.%' ORDER BY occurred_at DESC LIMIT 20;"
+```
+
+These tables and audit rows contain only safe refs and bounded categories. Do
+not add or inspect raw request bodies, raw prompts/outputs, raw tool arguments,
+raw connector payloads, raw approval or policy rationale, identity-provider
+claims, personal names, email addresses, credentials, access tokens, API keys,
+or PII for ticket evidence.
+
+The current 2D-01 contract inspection set is:
+
+- `contracts/events/support_request_intake.schema.json`
+- `contracts/agents/support_agent_io.schema.json`
+- `contracts/tools/ticket_case_lookup_args.schema.json`
+- `contracts/tools/ticket_duplicate_case_lookup_args.schema.json`
+- `contracts/tools/ticket_case_update_proposal_args.schema.json`
+- `contracts/tools/ticket_status_update_args.schema.json`
+- `contracts/tools/tool_call.schema.json`
+- `contracts/events/workflow_event.schema.json`
+- `contracts/events/agent_invocation_record.schema.json`
+- `contracts/eval/eval_fixture.schema.json`
+- `chorus/contracts/generated/`
+
+Run the support contract drift checks with:
+
+```bash
+just contracts-check
+uv run pytest tests/test_contracts.py
+```
+
+These contracts and samples contain only refs and bounded categories. 2D-04
+now adds only the support eval and persisted evidence baseline on top of the
+2D-03 support workflow runtime and the 2D-02 ticket connector/Tool Gateway
+read/propose dispatch path. It does not imply a Support BFF route, UI route,
+production ticketing provider, or ticket write path.
+
+Before any later 2D implementation item is called complete, inspect the
+following surfaces:
+
+- contracts and generated models for support intake, support agent IO, support
+  ticket tool arguments, workflow events, and eval fixtures;
+- Temporal replay histories for the support workflow happy path and any
+  support-specific failure branches introduced by code;
+- `just eval` output or targeted eval output for support-specific fixtures;
+- Postgres workflow projections, decision trail, and `tool_action_audit` rows
+  joined by `workflow_id` and `correlation_id`;
+- BFF/UI read-only support workflow inspection endpoints or views if promoted;
+- Grafana/OTel spans with `chorus.workflow.type=support_triage` and bounded
+  `chorus.workflow.step` values.
+
+Lighthouse remains the default review path until Support Desk Triage has its
+own complete evidence. Do not rename Lighthouse activity boundaries, delete
+Lighthouse eval/replay fixtures, change the existing demo script, or make a
+shared helper that weakens Lighthouse replay compatibility without explicit
+replay coverage.
+
+For the next support read-only inspection item, expected gates are focused
+BFF/UI tests if those surfaces are added, frontend gates if UI changes, `just
+contracts-check`, `git diff --check`, and the smallest relevant persistence or
+eval gate needed to prove the inspection path. Mutating reviewer decisions and
+ticket status execution remain out of scope.
+
 ## Workstream E BFF + UI operations
 
 The BFF runs as the `chorus-bff` Compose service under the
@@ -334,6 +716,12 @@ The BFF runs as the `chorus-bff` Compose service under the
 - `GET /api/graph-executions` and
   `/api/workflows/{workflow_id}/graph-executions` — read-only LangGraph
   execution evidence projected from decision-trail metadata.
+- `GET /api/calendar/status` and
+  `/api/workflows/{workflow_id}/calendar/status` — read-only Phase 2C calendar
+  status projection derived from local approval packages and Tool Gateway
+  audit rows. It exposes only safe calendar refs, approval/audit refs, bounded
+  projection status, retry/compensation/failure categories, grant/policy refs,
+  and safe trace joins.
 - `GET /api/progress` — Server-Sent Events stream of workflow-history rows.
   Optional `workflow_id` / `correlation_id` query parameters scope the
   stream; `?once=true` makes the stream terminate after one batch (used
@@ -583,6 +971,49 @@ The OTel pipeline shipped in Phase 1 follows ADR 0010. Operating notes:
   restart the Grafana container — Grafana itself rejects edits in the
   UI.
 
+### Optional LLM observability sidecar spike
+
+Phase 2B-06 evaluated LangSmith, Langfuse, and similar LLM observability tools
+as optional trace/eval sidecars. The full decision lives in
+[`llm-observability-sidecar-evaluation.md`](llm-observability-sidecar-evaluation.md).
+The local runbook decision is: no sidecar exporter is implemented in the
+default stack.
+
+If a later spike exports to one of these tools, keep the spike outside the
+default `just up` path and follow these rules:
+
+1. Export through the OTel Collector or a deterministic eval/report export, not
+   direct application SDK fan-out from Agent Runtime or Tool Gateway.
+2. Keep Grafana/Tempo/Loki/Prometheus, Postgres audit, Temporal replay, and
+   `just eval` authoritative. The sidecar is for debugging, annotation, graph
+   inspection, and experiment comparison only.
+3. Export only safe identifiers and bounded categories: service name,
+   deployment environment, workload principal/trust-domain IDs, trace/span IDs,
+   tenant/correlation/workflow/invocation IDs, workflow step, agent ID/version,
+   task kind, execution engine/graph version, provider/model IDs, route
+   ID/version, fallback state/reason, tool name/modes, gateway verdict,
+   fixture ID, eval run ID, pass/fail status, bounded failure category,
+   aggregate cost, and aggregate latency.
+4. Do not export secrets, credentials, API keys, access tokens, raw sensitive
+   content, raw prompts/outputs, raw tool arguments, raw connector responses,
+   raw approval or policy rationale, identity-provider claims, PII, request
+   headers, cookies, IP addresses, hostnames, filesystem paths, or full audit
+   records.
+5. Join sidecar traces back to local evidence by `correlation_id`,
+   `workflow_id`, `invocation_id`, `trace_id`, `span_id`, fixture ID, or eval
+   run ID. Approval IDs, policy-change IDs, authority-context IDs, and grant
+   refs stay audit-owned unless a future allow-list explicitly promotes them.
+6. Make sidecar export non-blocking. Exporter failure must not affect workflow
+   progress, Tool Gateway verdicts, audit writes, or `just eval`.
+7. Document retention and sampling before enabling export. Tempo/Loki remain
+   short-retention local operational stores, Postgres audit remains the local
+   accountability store, and sidecar retention is never assumed by release
+   gates.
+
+There is intentionally no `just` recipe for sidecar export yet. Add one only
+after a future ledger item includes an export allow-list test and a clear
+operator reason for the sidecar.
+
 ### Onboarding a Phase 1A service
 
 When a Workstream adds an application service to `compose.yml`, three
@@ -629,10 +1060,10 @@ both signal a project-level contract slipping.
 - Production deployment, secret management, on-call rotation, incident response.
 - Real third-party connectors and production provider calls.
 - Credential-entry UI or committed provider keys.
-- Mutating provider, prompt, route, or grant admin controls before Phase 2B
-  change-control work.
+- Mutating provider, prompt, route, or grant admin controls before executable
+  change-control work explicitly opens them.
 - LangGraph checkpoint persistence, durable execution, hosted deployment,
-  long-term graph memory, or LangSmith as a required dependency.
+  long-term graph memory, or LangSmith/Langfuse as required dependencies.
 - Cloud-hosted observability backends.
 
 These are documented in [implementation-plan.md §Deferred After Phase 1](./implementation-plan.md#deferred-after-phase-1).

@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "support-triage-happy-path",
+  "name": "Support triage happy path with proposed case update",
+  "phase": "2D",
+  "workflow_type": "support_triage",
+  "input": {
+    "tenant_id": "tenant_demo",
+    "support_request_ref": "req_support_001",
+    "support_request_fixture_ref": "fixture_support_triage_happy"
+  },
+  "expected": {
+    "workflow_path": [
+      "support_intake",
+      "support_classification",
+      "support_context_lookup",
+      "support_resolution_plan",
+      "support_validation",
+      "support_propose",
+      "support_complete"
+    ],
+    "final_outcome": "complete",
+    "allowed_tool_actions": [
+      "ticket.lookup_case",
+      "ticket.lookup_duplicates",
+      "ticket.propose_case_update"
+    ],
+    "blocked_tool_actions": [],
+    "max_cost_usd": 0.25,
+    "max_latency_ms": 120000,
+    "required_audit_fields": [
+      "correlation_id",
+      "tenant_id",
+      "workflow_id",
+      "agent",
+      "model_route",
+      "prompt_hash",
+      "input_summary",
+      "output_summary",
+      "tool_call_ids"
+    ],
+    "required_event_types": [
+      "workflow.started",
+      "workflow.step.completed",
+      "workflow.completed"
+    ]
+  }
+}

@@ -19,12 +19,15 @@ from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field
 
 from chorus.contracts.generated.agents.lighthouse_agent_io import LighthouseAgentIO
+from chorus.contracts.generated.agents.support_agent_io import SupportAgentIO
 from chorus.contracts.generated.events.agent_invocation_record import AgentInvocationRecord
 from chorus.observability import current_otel_ids
 from chorus.workflows.types import AgentCitation, AgentInvocationRequest, AgentInvocationResponse
 
 LANGGRAPH_EXECUTION_ENGINE = "langgraph"
 LIGHTHOUSE_AGENT_GRAPH_VERSION = "lighthouse-agent-runtime-graph-v1"
+LIGHTHOUSE_AGENT_CONTRACT_REF = "contracts/agents/lighthouse_agent_io.schema.json"
+SUPPORT_AGENT_CONTRACT_REF = "contracts/agents/support_agent_io.schema.json"
 LIGHTHOUSE_AGENT_GRAPH_STEPS = (
     "prepare_context",
     "invoke_model_adapter",
@@ -32,6 +35,8 @@ LIGHTHOUSE_AGENT_GRAPH_STEPS = (
     "validate_contract",
     "final_response",
 )
+
+AgentOutputContract = LighthouseAgentIO | SupportAgentIO
 
 
 class AgentRuntimeError(RuntimeError):
@@ -198,7 +203,7 @@ class AgentExecutionGraphState(TypedDict, total=False):
     invocation_id: UUID
     input_summary: str
     result: ModelAdapterResult
-    contract: LighthouseAgentIO
+    contract: AgentOutputContract
     response: AgentInvocationResponse
     path: list[str]
 
@@ -273,7 +278,7 @@ def default_model_adapter_registry() -> ModelAdapterRegistry:
 @dataclass(frozen=True)
 class AgentExecutionResult:
     result: ModelAdapterResult
-    contract: LighthouseAgentIO
+    contract: AgentOutputContract
     response: AgentInvocationResponse
     input_summary: str
     graph_path: tuple[str, ...]
@@ -417,7 +422,7 @@ class LangGraphAgentExecutionEngine:
         }
 
     def _validate_contract(self, state: AgentExecutionGraphState) -> AgentExecutionGraphState:
-        contract = _lighthouse_contract(
+        contract = _agent_output_contract(
             request=_state_request(state),
             invocation_id=_state_invocation_id(state),
             result=_state_result(state),
@@ -429,17 +434,10 @@ class LangGraphAgentExecutionEngine:
 
     def _final_response(self, state: AgentExecutionGraphState) -> AgentExecutionGraphState:
         contract = _state_contract(state)
-        response = AgentInvocationResponse(
-            invocation_id=str(_state_invocation_id(state)),
-            summary=contract.result.summary,
-            confidence=contract.result.confidence,
-            structured_data=contract.result.structured_data,
-            recommended_next_step=contract.result.recommended_next_step.value,
-            rationale=contract.result.rationale,
-            citations=[
-                AgentCitation(source=citation.source, reference=citation.reference)
-                for citation in contract.result.citations
-            ],
+        response = _agent_response(
+            contract=contract,
+            result=_state_result(state),
+            invocation_id=_state_invocation_id(state),
         )
         return {
             "response": response,
@@ -688,7 +686,7 @@ class LocalLighthouseModelAdapter:
                 "Lighthouse adapter"
             )
 
-        summary, next_step, structured_data, confidence = _lighthouse_result_for(request)
+        summary, next_step, structured_data, confidence = _local_result_for(request)
         return ModelAdapterResult(
             summary=summary,
             confidence=confidence,
@@ -835,8 +833,8 @@ class AgentRuntime:
                 resolution=resolution,
                 invocation_id=invocation_id,
                 input_summary=execution.input_summary,
-                output_summary=execution.contract.result.summary,
-                justification=execution.contract.result.rationale,
+                output_summary=execution.response.summary,
+                justification=execution.response.rationale,
                 outcome=outcome,
                 cost_amount_usd=execution.result.cost_amount_usd,
                 duration_ms=duration_ms,
@@ -923,8 +921,8 @@ class AgentRuntime:
                 resolution=fallback.resolution,
                 invocation_id=invocation_id,
                 input_summary=execution.input_summary,
-                output_summary=execution.contract.result.summary,
-                justification=execution.contract.result.rationale,
+                output_summary=execution.response.summary,
+                justification=execution.response.rationale,
                 outcome="succeeded",
                 cost_amount_usd=execution.result.cost_amount_usd,
                 duration_ms=duration_ms,
@@ -998,6 +996,29 @@ def _decision_record(
     )
 
 
+def _agent_output_contract(
+    *,
+    request: AgentInvocationRequest,
+    invocation_id: UUID,
+    result: ModelAdapterResult,
+) -> AgentOutputContract:
+    if request.expected_output_contract == LIGHTHOUSE_AGENT_CONTRACT_REF:
+        return _lighthouse_contract(
+            request=request,
+            invocation_id=invocation_id,
+            result=result,
+        )
+    if request.expected_output_contract == SUPPORT_AGENT_CONTRACT_REF:
+        return _support_contract(
+            request=request,
+            invocation_id=invocation_id,
+            result=result,
+        )
+    raise AgentRuntimeError(
+        f"Unsupported agent output contract {request.expected_output_contract!r}"
+    )
+
+
 def _lighthouse_contract(
     *,
     request: AgentInvocationRequest,
@@ -1027,6 +1048,78 @@ def _lighthouse_contract(
                 ],
             },
         }
+    )
+
+
+def _support_contract(
+    *,
+    request: AgentInvocationRequest,
+    invocation_id: UUID,
+    result: ModelAdapterResult,
+) -> SupportAgentIO:
+    return SupportAgentIO.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "task_id": str(invocation_id),
+            "tenant_id": request.tenant_id,
+            "correlation_id": request.correlation_id,
+            "workflow_id": request.workflow_id,
+            "workflow_type": "support_triage",
+            "agent_role": request.agent_role,
+            "task_kind": request.task_kind,
+            "input_refs": _support_input_refs(request),
+            "expected_output_contract": request.expected_output_contract,
+            "result": _support_result_payload(result),
+        }
+    )
+
+
+def _agent_response(
+    *,
+    contract: AgentOutputContract,
+    result: ModelAdapterResult,
+    invocation_id: UUID,
+) -> AgentInvocationResponse:
+    if isinstance(contract, LighthouseAgentIO):
+        return AgentInvocationResponse(
+            invocation_id=str(invocation_id),
+            summary=contract.result.summary,
+            confidence=contract.result.confidence,
+            structured_data=contract.result.structured_data,
+            recommended_next_step=contract.result.recommended_next_step.value,
+            rationale=contract.result.rationale,
+            citations=[
+                AgentCitation(source=citation.source, reference=citation.reference)
+                for citation in contract.result.citations
+            ],
+        )
+
+    output_refs = contract.result.output_refs.model_dump(mode="json", exclude_none=True)
+    evidence_refs = (
+        [evidence_ref.root for evidence_ref in contract.result.evidence_refs]
+        if contract.result.evidence_refs is not None
+        else []
+    )
+    structured_data: dict[str, Any] = {
+        "workflow_type": "support_triage",
+        "agent_role": contract.agent_role.value,
+        "task_kind": contract.task_kind.value,
+        "verdict_category": contract.result.verdict_category.value,
+        "severity_category": contract.result.severity_category.value,
+        "case_status_category": contract.result.case_status_category.value,
+        "output_refs": output_refs,
+        "evidence_refs": evidence_refs,
+    }
+    if contract.result.resolution_category is not None:
+        structured_data["resolution_category"] = contract.result.resolution_category.value
+    return AgentInvocationResponse(
+        invocation_id=str(invocation_id),
+        summary=result.summary,
+        confidence=contract.result.confidence,
+        structured_data=structured_data,
+        recommended_next_step=contract.result.recommended_next_step.value,
+        rationale=result.rationale,
+        citations=result.citations,
     )
 
 
@@ -1246,11 +1339,43 @@ def _state_result(state: AgentExecutionGraphState) -> ModelAdapterResult:
     return value
 
 
-def _state_contract(state: AgentExecutionGraphState) -> LighthouseAgentIO:
+def _state_contract(state: AgentExecutionGraphState) -> AgentOutputContract:
     value = state.get("contract")
     if value is None:
         raise AgentRuntimeError("LangGraph execution state missing validated contract")
     return value
+
+
+def _support_input_refs(request: AgentInvocationRequest) -> dict[str, Any]:
+    input_refs = request.input.get("input_refs")
+    if not isinstance(input_refs, dict):
+        raise AgentRuntimeError("Support agent input must include safe input_refs")
+    return cast(dict[str, Any], input_refs)
+
+
+def _support_result_payload(result: ModelAdapterResult) -> dict[str, Any]:
+    raw_payload = result.structured_data.get("support_result", result.structured_data)
+    if not isinstance(raw_payload, dict):
+        raise AgentRuntimeError("Support agent result must be a structured mapping")
+    payload = cast(dict[str, Any], raw_payload)
+    return {
+        "confidence": result.confidence,
+        "recommended_next_step": result.recommended_next_step,
+        "verdict_category": payload.get("verdict_category"),
+        "severity_category": payload.get("severity_category"),
+        "case_status_category": payload.get("case_status_category"),
+        "resolution_category": payload.get("resolution_category"),
+        "output_refs": payload.get("output_refs", {}),
+        "evidence_refs": payload.get("evidence_refs"),
+    }
+
+
+def _local_result_for(
+    request: AgentInvocationRequest,
+) -> tuple[str, str, dict[str, Any], float]:
+    if request.expected_output_contract == SUPPORT_AGENT_CONTRACT_REF:
+        return _support_result_for(request)
+    return _lighthouse_result_for(request)
 
 
 def _lighthouse_result_for(
@@ -1388,6 +1513,147 @@ def _lighthouse_result_for(
                 {"classification": "lead"},
                 0.88,
             )
+
+
+def _support_result_for(
+    request: AgentInvocationRequest,
+) -> tuple[str, str, dict[str, Any], float]:
+    input_refs = _support_input_refs(request)
+    request_ref = str(input_refs["request_ref"])
+    case_ref = input_refs.get("case_ref")
+    severity_category = _support_severity_category(request)
+    request_status = _support_case_status_category(request)
+    suffix = request_ref.removeprefix("req_")
+    output_refs: dict[str, str] = {"request_ref": request_ref}
+    if isinstance(case_ref, str):
+        output_refs["case_ref"] = case_ref
+
+    match request.task_kind:
+        case "support_classification":
+            return (
+                "Support request classified for local triage.",
+                "continue",
+                _support_structured_data(
+                    verdict_category="triage_continue",
+                    severity_category=severity_category,
+                    case_status_category=request_status,
+                    output_refs=output_refs,
+                ),
+                0.90,
+            )
+        case "support_context_lookup":
+            return (
+                "Support context lookup prepared for local ticket desk refs.",
+                "continue",
+                _support_structured_data(
+                    verdict_category="needs_context",
+                    severity_category=severity_category,
+                    case_status_category=request_status,
+                    output_refs=output_refs,
+                ),
+                0.88,
+            )
+        case "support_resolution_plan":
+            planned_refs = {
+                **output_refs,
+                "resolution_plan_ref": f"plan_{suffix}",
+                "response_draft_ref": f"response_{suffix}",
+                "case_update_ref": f"caseupd_{suffix}",
+            }
+            return (
+                "Resolution plan refs prepared for proposed case update.",
+                "propose_only",
+                _support_structured_data(
+                    verdict_category="propose_case_update",
+                    severity_category=severity_category,
+                    case_status_category="pending_customer",
+                    output_refs=planned_refs,
+                    resolution_category="known_answer",
+                ),
+                0.89,
+            )
+        case "support_response_draft":
+            drafted_refs = {
+                **output_refs,
+                "response_draft_ref": f"response_{suffix}",
+            }
+            return (
+                "Support response draft ref prepared for proposal mode.",
+                "continue",
+                _support_structured_data(
+                    verdict_category="propose_response",
+                    severity_category=severity_category,
+                    case_status_category=request_status,
+                    output_refs=drafted_refs,
+                    resolution_category="known_answer",
+                ),
+                0.88,
+            )
+        case "support_validation":
+            validation_refs = {
+                **output_refs,
+                "validation_ref": f"validation_{suffix}",
+            }
+            return (
+                "Support proposal validated for local propose mode.",
+                "complete",
+                _support_structured_data(
+                    verdict_category="propose_case_update",
+                    severity_category=severity_category,
+                    case_status_category="pending_customer",
+                    output_refs=validation_refs,
+                    resolution_category="known_answer",
+                ),
+                0.92,
+            )
+        case _:
+            return (
+                "Support agent accepted safe refs for local triage.",
+                "continue",
+                _support_structured_data(
+                    verdict_category="triage_continue",
+                    severity_category=severity_category,
+                    case_status_category=request_status,
+                    output_refs=output_refs,
+                ),
+                0.88,
+            )
+
+
+def _support_structured_data(
+    *,
+    verdict_category: str,
+    severity_category: str,
+    case_status_category: str,
+    output_refs: dict[str, str],
+    resolution_category: str | None = None,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "verdict_category": verdict_category,
+        "severity_category": severity_category,
+        "case_status_category": case_status_category,
+        "output_refs": output_refs,
+        "evidence_refs": ["evidence_support_local_runtime"],
+    }
+    if resolution_category is not None:
+        result["resolution_category"] = resolution_category
+    return result
+
+
+def _support_severity_category(request: AgentInvocationRequest) -> str:
+    value = request.input.get("severity_category") or request.input.get("severity_hint_category")
+    if value == "unknown" or not isinstance(value, str):
+        return "sev_medium"
+    return value
+
+
+def _support_case_status_category(request: AgentInvocationRequest) -> str:
+    value = request.input.get("case_status_category") or request.input.get(
+        "request_status_category"
+    )
+    if isinstance(value, str):
+        return value
+    return "open"
 
 
 def _is_low_confidence_research_fixture(request: AgentInvocationRequest) -> bool:

@@ -1,0 +1,12 @@
+{
+  "calendar_ref": "cal_lighthouse_local_followup",
+  "window_start": "2026-05-19T09:00:00Z",
+  "window_end": "2026-05-19T17:00:00Z",
+  "duration_minutes": 30,
+  "timezone": "Europe/London",
+  "availability_policy_ref": "policy_local_business_hours",
+  "required_slot_count": 3,
+  "exclude_event_uid_refs": [
+    "evt_hold_demo_existing"
+  ]
+}

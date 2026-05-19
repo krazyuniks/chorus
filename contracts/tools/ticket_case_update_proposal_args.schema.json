@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/tools/ticket_case_update_proposal_args.schema.json",
+  "title": "TicketCaseUpdateProposalArgs",
+  "description": "Contract-only arguments for proposing a local ticket case update without mutating ticket state.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_ref",
+    "case_ref",
+    "account_ref",
+    "product_ref",
+    "severity_category",
+    "target_status_category",
+    "resolution_plan_ref",
+    "response_draft_ref",
+    "update_reason_category"
+  ],
+  "properties": {
+    "request_ref": {
+      "type": "string",
+      "pattern": "^req_[A-Za-z0-9_-]+$"
+    },
+    "case_ref": {
+      "type": "string",
+      "pattern": "^case_[A-Za-z0-9_-]+$"
+    },
+    "account_ref": {
+      "type": "string",
+      "pattern": "^acct_[A-Za-z0-9_-]+$"
+    },
+    "product_ref": {
+      "type": "string",
+      "pattern": "^prod_[A-Za-z0-9_-]+$"
+    },
+    "severity_category": {
+      "type": "string",
+      "enum": [
+        "sev_low",
+        "sev_medium",
+        "sev_high",
+        "sev_critical"
+      ]
+    },
+    "target_status_category": {
+      "type": "string",
+      "enum": [
+        "open",
+        "pending_customer",
+        "pending_internal",
+        "resolved",
+        "escalated"
+      ]
+    },
+    "resolution_plan_ref": {
+      "type": "string",
+      "pattern": "^plan_[A-Za-z0-9_-]+$"
+    },
+    "response_draft_ref": {
+      "type": "string",
+      "pattern": "^response_[A-Za-z0-9_-]+$"
+    },
+    "case_update_ref": {
+      "type": "string",
+      "pattern": "^caseupd_[A-Za-z0-9_-]+$"
+    },
+    "update_reason_category": {
+      "type": "string",
+      "enum": [
+        "triage_classification",
+        "duplicate_case_found",
+        "resolution_plan_ready",
+        "needs_customer_response",
+        "needs_internal_review",
+        "escalation_required"
+      ]
+    },
+    "policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    }
+  }
+}

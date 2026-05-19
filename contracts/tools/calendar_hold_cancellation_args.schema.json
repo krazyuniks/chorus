@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/tools/calendar_hold_cancellation_args.schema.json",
+  "title": "CalendarHoldCancellationArgs",
+  "description": "Contract-only arguments for cancelling a previously created local sandbox calendar hold through the Tool Gateway.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "calendar_ref",
+    "hold_ref",
+    "event_uid_ref",
+    "cancellation_reason_category",
+    "compensation_ref"
+  ],
+  "properties": {
+    "calendar_ref": {
+      "type": "string",
+      "pattern": "^cal_[A-Za-z0-9_-]+$"
+    },
+    "hold_ref": {
+      "type": "string",
+      "pattern": "^hold_[A-Za-z0-9_-]+$"
+    },
+    "event_uid_ref": {
+      "type": "string",
+      "pattern": "^evt_[A-Za-z0-9_-]+$"
+    },
+    "cancellation_reason_category": {
+      "type": "string",
+      "enum": [
+        "workflow_compensation",
+        "approval_denied",
+        "lead_withdrawn",
+        "rescheduled",
+        "validation_failed",
+        "other_bounded"
+      ]
+    },
+    "compensation_ref": {
+      "type": "string",
+      "pattern": "^comp_[A-Za-z0-9_-]+$"
+    },
+    "requested_cancellation_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

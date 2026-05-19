@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import UTC, datetime
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from typing import Any, Protocol
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from psycopg import Connection
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from chorus.connectors.calendar import RadicaleCalendarConnector
 from chorus.connectors.local import (
     CompanyResearchArguments,
     CompanyResearchConnector,
@@ -23,12 +25,40 @@ from chorus.connectors.local import (
     LocalCrmConnector,
     MailpitEmailConnector,
 )
+from chorus.connectors.ticket import LocalTicketDeskConnector
 from chorus.contracts.generated.events.audit_event import AuditEvent
+from chorus.contracts.generated.tools.calendar_availability_lookup_args import (
+    CalendarAvailabilityLookupArgs,
+)
+from chorus.contracts.generated.tools.calendar_hold_cancellation_args import (
+    CalendarHoldCancellationArgs,
+)
+from chorus.contracts.generated.tools.calendar_hold_creation_args import CalendarHoldCreationArgs
+from chorus.contracts.generated.tools.calendar_hold_proposal_args import CalendarHoldProposalArgs
 from chorus.contracts.generated.tools.email_message_args import EmailMessageArgs
 from chorus.contracts.generated.tools.gateway_verdict import GatewayVerdict
+from chorus.contracts.generated.tools.ticket_case_lookup_args import TicketCaseLookupArgs
+from chorus.contracts.generated.tools.ticket_case_update_proposal_args import (
+    TicketCaseUpdateProposalArgs,
+)
+from chorus.contracts.generated.tools.ticket_duplicate_case_lookup_args import (
+    TicketDuplicateCaseLookupArgs,
+)
+from chorus.contracts.generated.tools.ticket_status_update_args import TicketStatusUpdateArgs
 from chorus.contracts.generated.tools.tool_call import ToolCall
 from chorus.observability import current_otel_ids
 from chorus.workflows.types import ToolGatewayRequest, ToolGatewayResponse
+
+_CALENDAR_WRITE_TOOLS = {"calendar.create_hold", "calendar.cancel_hold"}
+_CONNECTOR_FAILURE_CATEGORIES = {
+    "calendar_hold_invalid_time_window",
+    "caldav_duplicate_uid_context_mismatch",
+    "caldav_invalid_report_response",
+    "caldav_protocol_error",
+    "caldav_rejected",
+    "caldav_transient_unavailable",
+    "ticket_case_not_found",
+}
 
 
 class ToolGatewayError(RuntimeError):
@@ -56,6 +86,8 @@ class LocalToolConnector:
         self._email = email_connector or MailpitEmailConnector()
         self._crm = LocalCrmConnector(conn)
         self._research = CompanyResearchConnector()
+        self._calendar = RadicaleCalendarConnector()
+        self._tickets = LocalTicketDeskConnector(conn)
 
     def invoke(
         self,
@@ -90,6 +122,30 @@ class LocalToolConnector:
             case "company_research.lookup":
                 parsed = CompanyResearchArguments.model_validate(arguments)
                 return self._research.lookup(parsed)
+            case "calendar.lookup_availability":
+                parsed = CalendarAvailabilityLookupArgs.model_validate(arguments)
+                return self._calendar.lookup_availability(parsed)
+            case "calendar.propose_hold":
+                parsed = CalendarHoldProposalArgs.model_validate(arguments)
+                return self._calendar.propose_hold(parsed)
+            case "calendar.create_hold":
+                parsed = CalendarHoldCreationArgs.model_validate(arguments)
+                return self._calendar.create_hold(parsed)
+            case "calendar.cancel_hold":
+                parsed = CalendarHoldCancellationArgs.model_validate(arguments)
+                return self._calendar.cancel_hold(parsed)
+            case "ticket.lookup_case":
+                parsed = TicketCaseLookupArgs.model_validate(arguments)
+                return self._tickets.lookup_case(tenant_id=tenant_id, arguments=parsed)
+            case "ticket.lookup_duplicates":
+                parsed = TicketDuplicateCaseLookupArgs.model_validate(arguments)
+                return self._tickets.lookup_duplicates(tenant_id=tenant_id, arguments=parsed)
+            case "ticket.propose_case_update":
+                parsed = TicketCaseUpdateProposalArgs.model_validate(arguments)
+                return self._tickets.propose_case_update(
+                    tenant_id=tenant_id,
+                    arguments=parsed,
+                )
             case _:
                 raise ToolGatewayError(f"Unsupported tool {tool_name!r}")
 
@@ -97,6 +153,7 @@ class LocalToolConnector:
 class ToolGrant(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    grant_id: UUID
     tenant_id: str
     agent_id: str
     agent_version: str
@@ -116,6 +173,115 @@ class GatewayDecision:
     rewritten_arguments: dict[str, Any] | None = None
     approval_required: bool = False
     connector_allowed: bool = False
+
+
+@dataclass(frozen=True)
+class ApprovalPackage:
+    approval_id: UUID
+    approval_package_version: int
+    tenant_id: str
+    correlation_id: str
+    workflow_id: str
+    workflow_type: str
+    invocation_id: str
+    tool_call_id: UUID
+    verdict_id: UUID
+    source_audit_event_id: UUID
+    agent_id: str
+    agent_version: str
+    requested_action: str
+    tool_name: str
+    requested_mode: str
+    enforced_mode: str
+    idempotency_key_ref: str
+    redaction_policy_ref: str
+    redaction_summary: dict[str, Any]
+    approval_state: str
+    reason_category: str
+    requested_at: datetime
+    decision_due_at: datetime
+    expires_at: datetime
+    sla_policy_ref: str
+    reviewer_trust_domain: str
+    requested_by_workload_principal_id: str | None
+    requested_by_workload_session_id: str | None
+    trust_domain: str
+    grant_id: UUID
+    policy_version_refs: dict[str, Any]
+    trace_join: dict[str, Any]
+    metadata: dict[str, Any]
+
+    def response_output(self) -> dict[str, Any]:
+        return {
+            "approval_id": str(self.approval_id),
+            "approval_state": self.approval_state,
+            "requested_action": self.requested_action,
+            "decision_due_at": self.decision_due_at.isoformat(),
+            "expires_at": self.expires_at.isoformat(),
+        }
+
+    def audit_summary(self) -> dict[str, Any]:
+        return {
+            "approval_id": str(self.approval_id),
+            "approval_package_version": self.approval_package_version,
+            "approval_state": self.approval_state,
+            "requested_action": self.requested_action,
+            "tool_name": self.tool_name,
+            "requested_mode": self.requested_mode,
+            "enforced_mode": self.enforced_mode,
+            "idempotency_key_ref": self.idempotency_key_ref,
+            "redaction_summary": self.redaction_summary,
+            "decision_due_at": self.decision_due_at.isoformat(),
+            "expires_at": self.expires_at.isoformat(),
+            "sla_policy_ref": self.sla_policy_ref,
+            "grant_ref": f"tool_grant:{self.grant_id}",
+            "trace_join": self.trace_join,
+        }
+
+
+@dataclass(frozen=True)
+class ApprovalPackageRecord:
+    approval_id: UUID
+    approval_state: str
+    decision: str | None
+    tenant_id: str
+    correlation_id: str
+    workflow_id: str
+    workflow_type: str
+    invocation_id: UUID
+    agent_id: str
+    agent_version: str
+    requested_action: str
+    tool_name: str
+    requested_mode: str
+    enforced_mode: str
+    idempotency_key_ref: str
+    expires_at: datetime
+    grant_id: UUID
+    policy_version_refs: dict[str, Any]
+    trace_join: dict[str, Any]
+    metadata: dict[str, Any]
+
+    def apply_summary(self, *, apply_idempotency_key: str) -> dict[str, Any]:
+        summary = {
+            "approval_id": str(self.approval_id),
+            "approval_state": self.approval_state,
+            "decision": self.decision,
+            "requested_action": self.requested_action,
+            "tool_name": self.tool_name,
+            "requested_mode": self.requested_mode,
+            "enforced_mode": self.enforced_mode,
+            "idempotency_key_ref": self.idempotency_key_ref,
+            "apply_idempotency_key_ref": _safe_ref_hash(apply_idempotency_key),
+            "expires_at": self.expires_at.isoformat(),
+            "grant_ref": f"tool_grant:{self.grant_id}",
+            "policy_version_refs": self.policy_version_refs,
+            "calendar_refs": self.metadata.get("calendar_refs", {}),
+            "trace_join": self.trace_join,
+        }
+        if self.tool_name == "calendar.cancel_hold":
+            summary["compensation_category"] = "compensation_requested"
+        return summary
 
 
 class ToolGatewayStore:
@@ -143,6 +309,7 @@ class ToolGatewayStore:
             cur.execute(
                 """
                 SELECT
+                    grant_id,
                     tenant_id,
                     agent_id,
                     agent_version,
@@ -178,6 +345,7 @@ class ToolGatewayStore:
             cur.execute(
                 """
                 SELECT
+                    grant_id,
                     tenant_id,
                     agent_id,
                     agent_version,
@@ -225,6 +393,67 @@ class ToolGatewayStore:
             return None
         return ToolGatewayResponse(**row[0])
 
+    def fetch_approval_package(
+        self,
+        *,
+        tenant_id: str,
+        approval_id: UUID,
+    ) -> ApprovalPackageRecord | None:
+        self.set_tenant_context(tenant_id)
+        row = self._conn.execute(
+            """
+            SELECT
+                approval_id,
+                approval_state,
+                decision,
+                tenant_id,
+                correlation_id,
+                workflow_id,
+                workflow_type,
+                invocation_id,
+                agent_id,
+                agent_version,
+                requested_action,
+                tool_name,
+                requested_mode,
+                enforced_mode,
+                idempotency_key_ref,
+                expires_at,
+                grant_id,
+                policy_version_refs,
+                trace_join,
+                metadata
+            FROM approval_packages
+            WHERE tenant_id = %s
+              AND approval_id = %s
+            """,
+            (tenant_id, approval_id),
+        ).fetchone()
+        if row is None:
+            return None
+        return ApprovalPackageRecord(
+            approval_id=row[0],
+            approval_state=row[1],
+            decision=row[2],
+            tenant_id=row[3],
+            correlation_id=row[4],
+            workflow_id=row[5],
+            workflow_type=row[6],
+            invocation_id=row[7],
+            agent_id=row[8],
+            agent_version=row[9],
+            requested_action=row[10],
+            tool_name=row[11],
+            requested_mode=row[12],
+            enforced_mode=row[13],
+            idempotency_key_ref=row[14],
+            expires_at=row[15],
+            grant_id=row[16],
+            policy_version_refs=row[17],
+            trace_join=row[18],
+            metadata=row[19],
+        )
+
     def record_audit(
         self,
         *,
@@ -234,6 +463,7 @@ class ToolGatewayStore:
         audit_event: AuditEvent,
         arguments_redacted: dict[str, Any],
         response: ToolGatewayResponse | None = None,
+        approval_package: ApprovalPackage | None = None,
     ) -> None:
         details = audit_event.details
         self.set_tenant_context(request.tenant_id)
@@ -296,6 +526,99 @@ class ToolGatewayStore:
                     Jsonb(current_otel_ids()),
                 ),
             )
+            if approval_package is not None:
+                self._conn.execute(
+                    """
+                    INSERT INTO approval_packages (
+                        tenant_id,
+                        approval_id,
+                        approval_package_version,
+                        approval_state,
+                        decision,
+                        reason_category,
+                        correlation_id,
+                        workflow_id,
+                        workflow_type,
+                        invocation_id,
+                        tool_call_id,
+                        verdict_id,
+                        source_audit_event_id,
+                        authority_context_id,
+                        tool_authority_context_id,
+                        agent_id,
+                        agent_version,
+                        task_kind,
+                        requested_action,
+                        tool_name,
+                        requested_mode,
+                        enforced_mode,
+                        idempotency_key_ref,
+                        redaction_policy_ref,
+                        redaction_summary,
+                        requested_at,
+                        decision_due_at,
+                        expires_at,
+                        sla_policy_ref,
+                        escalation_policy_ref,
+                        reviewer_actor_subject_ref,
+                        reviewer_actor_session_id,
+                        reviewer_role,
+                        reviewer_trust_domain,
+                        decision_at,
+                        requested_by_workload_principal_id,
+                        requested_by_workload_session_id,
+                        decided_by_workload_principal_id,
+                        decided_by_workload_session_id,
+                        trust_domain,
+                        grant_id,
+                        policy_version_refs,
+                        trace_join,
+                        metadata
+                    )
+                    VALUES (
+                        %s, %s, %s, %s, NULL, %s, %s, %s, %s, %s, %s, %s, %s,
+                        NULL, NULL, %s, %s, NULL, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, NULL, NULL, NULL, NULL, %s, NULL, %s,
+                        %s, NULL, NULL, %s, %s, %s, %s, %s
+                    )
+                    ON CONFLICT (tenant_id, tool_name, idempotency_key_ref) DO NOTHING
+                    """,
+                    (
+                        approval_package.tenant_id,
+                        approval_package.approval_id,
+                        approval_package.approval_package_version,
+                        approval_package.approval_state,
+                        approval_package.reason_category,
+                        approval_package.correlation_id,
+                        approval_package.workflow_id,
+                        approval_package.workflow_type,
+                        approval_package.invocation_id,
+                        approval_package.tool_call_id,
+                        approval_package.verdict_id,
+                        approval_package.source_audit_event_id,
+                        approval_package.agent_id,
+                        approval_package.agent_version,
+                        approval_package.requested_action,
+                        approval_package.tool_name,
+                        approval_package.requested_mode,
+                        approval_package.enforced_mode,
+                        approval_package.idempotency_key_ref,
+                        approval_package.redaction_policy_ref,
+                        Jsonb(approval_package.redaction_summary),
+                        approval_package.requested_at,
+                        approval_package.decision_due_at,
+                        approval_package.expires_at,
+                        approval_package.sla_policy_ref,
+                        approval_package.reviewer_trust_domain,
+                        approval_package.requested_by_workload_principal_id,
+                        approval_package.requested_by_workload_session_id,
+                        approval_package.trust_domain,
+                        approval_package.grant_id,
+                        Jsonb(approval_package.policy_version_refs),
+                        Jsonb(approval_package.trace_join),
+                        Jsonb(approval_package.metadata),
+                    ),
+                )
 
 
 class ToolGateway:
@@ -330,10 +653,11 @@ class ToolGateway:
                 )
                 connector_output = connector_result.output
             except ConnectorTransientError as exc:
+                failure_category = _connector_failure_category(exc)
                 decision = GatewayDecision(
                     verdict="block",
                     enforced_mode=decision.enforced_mode,
-                    reason=f"Connector transient failure after authorised call: {exc}",
+                    reason="Connector transient failure after authorised call.",
                     grant=decision.grant,
                     rewritten_arguments=decision.rewritten_arguments,
                     connector_allowed=False,
@@ -351,7 +675,7 @@ class ToolGateway:
                     tool_call=tool_call,
                     verdict=verdict,
                     occurred_at=verdict.decided_at,
-                    error=str(exc),
+                    failure_category=failure_category,
                 )
                 self._store.record_audit(
                     request=request,
@@ -363,14 +687,20 @@ class ToolGateway:
                 self._store.commit()
                 raise
             except (ConnectorError, ValidationError) as exc:
+                failure_category = _connector_failure_category(exc)
                 decision = GatewayDecision(
                     verdict="block",
                     enforced_mode=decision.enforced_mode,
-                    reason=f"Connector rejected authorised call: {exc}",
+                    reason="Connector rejected authorised call.",
                     grant=decision.grant,
                     rewritten_arguments=decision.rewritten_arguments,
                     connector_allowed=False,
                 )
+                connector_output = {
+                    "connector_status": "blocked",
+                    "failure_category": failure_category,
+                    "retry_category": "non_retryable",
+                }
 
         verdict = _gateway_verdict(
             tool_call=tool_call,
@@ -382,6 +712,17 @@ class ToolGateway:
             ),
             decided_at=_now(),
         )
+        approval_package: ApprovalPackage | None = None
+        if _requires_calendar_approval_package(request, decision):
+            approval_package = _approval_package(
+                request=request,
+                tool_call=tool_call,
+                verdict=verdict,
+                decision=decision,
+                requested_at=verdict.decided_at,
+            )
+            connector_output = approval_package.response_output()
+
         response = ToolGatewayResponse(
             verdict_id=str(verdict.verdict_id),
             tool_call_id=str(tool_call.tool_call_id),
@@ -401,10 +742,197 @@ class ToolGateway:
             tool_call=tool_call,
             verdict=verdict,
             response=response,
+            approval_package=approval_package,
             occurred_at=verdict.decided_at,
         )
         self._store.record_audit(
             request=request,
+            tool_call=tool_call,
+            verdict=verdict,
+            audit_event=audit_event,
+            arguments_redacted=_redact(request.arguments, decision.grant),
+            response=response,
+            approval_package=approval_package,
+        )
+        return response
+
+    def apply_approved_calendar_write(
+        self,
+        request: ToolGatewayRequest,
+        *,
+        approval_id: str | UUID,
+    ) -> ToolGatewayResponse:
+        """Apply an approved local calendar package by re-entering the gateway."""
+
+        approval_uuid = UUID(str(approval_id))
+        if request.mode != "write" or request.tool_name not in _CALENDAR_WRITE_TOOLS:
+            raise ToolGatewayError("Calendar approval apply only supports calendar write tools.")
+
+        apply_idempotency_key = _approval_apply_idempotency_key(
+            request.idempotency_key,
+            approval_uuid,
+        )
+        replay = self._store.fetch_idempotent_response(
+            tenant_id=request.tenant_id,
+            tool_name=request.tool_name,
+            idempotency_key=apply_idempotency_key,
+        )
+        if replay is not None:
+            return replay
+
+        apply_request = replace(request, idempotency_key=apply_idempotency_key)
+        now = _now()
+        tool_call = _tool_call(apply_request, now)
+        decision, approval_package, failure_category = self._decide_calendar_approval_apply(
+            request=request,
+            approval_id=approval_uuid,
+            now=now,
+        )
+        connector_result: ConnectorResult | None = None
+        connector_output: dict[str, Any] = {}
+        connector_failure: dict[str, Any] | None = None
+
+        if decision.connector_allowed:
+            try:
+                connector_result = self._connector.invoke(
+                    tool_name=request.tool_name,
+                    mode=decision.enforced_mode,
+                    tenant_id=request.tenant_id,
+                    correlation_id=request.correlation_id,
+                    workflow_id=request.workflow_id,
+                    arguments=decision.rewritten_arguments or request.arguments,
+                )
+                connector_output = {
+                    **connector_result.output,
+                    "approval_id": str(approval_uuid),
+                    "calendar_apply_status": "applied",
+                }
+                if request.tool_name == "calendar.cancel_hold":
+                    connector_output["compensation_category"] = (
+                        "compensation_completed"
+                        if connector_result.output.get("cancellation_status") == "cancelled"
+                        else "compensation_idempotent_missing"
+                    )
+            except ConnectorTransientError as exc:
+                failure_category = _connector_failure_category(exc)
+                decision = GatewayDecision(
+                    verdict="block",
+                    enforced_mode=decision.enforced_mode,
+                    reason="Connector transient failure after approved calendar apply.",
+                    grant=decision.grant,
+                    rewritten_arguments=decision.rewritten_arguments,
+                    connector_allowed=False,
+                )
+                verdict = _gateway_verdict(
+                    tool_call=tool_call,
+                    tenant_id=apply_request.tenant_id,
+                    correlation_id=apply_request.correlation_id,
+                    decision=decision,
+                    connector_invocation_id=None,
+                    decided_at=_now(),
+                )
+                audit_event = _connector_failure_audit_event(
+                    request=apply_request,
+                    tool_call=tool_call,
+                    verdict=verdict,
+                    occurred_at=verdict.decided_at,
+                    failure_category=failure_category,
+                    extra_details={
+                        "approval_apply": _approval_apply_summary(
+                            approval_package=approval_package,
+                            approval_id=approval_uuid,
+                            apply_idempotency_key=apply_idempotency_key,
+                        )
+                    },
+                )
+                self._store.record_audit(
+                    request=apply_request,
+                    tool_call=tool_call,
+                    verdict=verdict,
+                    audit_event=audit_event,
+                    arguments_redacted=_redact(request.arguments, decision.grant),
+                )
+                self._store.commit()
+                raise
+            except (ConnectorError, ValidationError) as exc:
+                failure_category = _connector_failure_category(exc)
+                decision = GatewayDecision(
+                    verdict="block",
+                    enforced_mode=decision.enforced_mode,
+                    reason="Connector rejected approved calendar apply.",
+                    grant=decision.grant,
+                    rewritten_arguments=decision.rewritten_arguments,
+                    connector_allowed=False,
+                )
+                connector_failure = _connector_failure_details(
+                    classification="non_retryable",
+                    failure_category=failure_category,
+                    retryable_by=None,
+                )
+                if request.tool_name == "calendar.cancel_hold":
+                    connector_failure["compensation_category"] = "compensation_failed"
+                    connector_failure["escalation_category"] = "calendar_compensation_failed"
+                connector_output = {
+                    "approval_id": str(approval_uuid),
+                    "calendar_apply_status": "blocked",
+                    "failure_category": failure_category,
+                    "retry_category": "non_retryable",
+                }
+                if request.tool_name == "calendar.cancel_hold":
+                    connector_output["compensation_category"] = "compensation_failed"
+                    connector_output["escalation_category"] = "calendar_compensation_failed"
+        elif failure_category is not None:
+            connector_output = {
+                "approval_id": str(approval_uuid),
+                "calendar_apply_status": "blocked",
+                "failure_category": failure_category,
+            }
+            if request.tool_name == "calendar.cancel_hold":
+                connector_output["compensation_category"] = "compensation_blocked"
+
+        verdict = _gateway_verdict(
+            tool_call=tool_call,
+            tenant_id=apply_request.tenant_id,
+            correlation_id=apply_request.correlation_id,
+            decision=decision,
+            connector_invocation_id=(
+                connector_result.connector_invocation_id if connector_result is not None else None
+            ),
+            decided_at=_now(),
+        )
+        extra_details = {
+            "approval_apply": _approval_apply_summary(
+                approval_package=approval_package,
+                approval_id=approval_uuid,
+                apply_idempotency_key=apply_idempotency_key,
+            )
+        }
+        if connector_failure is not None:
+            extra_details["connector_failure"] = connector_failure
+        response = ToolGatewayResponse(
+            verdict_id=str(verdict.verdict_id),
+            tool_call_id=str(tool_call.tool_call_id),
+            audit_event_id=str(verdict.audit_event_id),
+            verdict=verdict.verdict.value,
+            enforced_mode=verdict.enforced_mode.value,
+            reason=verdict.reason,
+            connector_invocation_id=(
+                str(verdict.connector_invocation_id)
+                if verdict.connector_invocation_id is not None
+                else None
+            ),
+            output=connector_output,
+        )
+        audit_event = _audit_event(
+            request=apply_request,
+            tool_call=tool_call,
+            verdict=verdict,
+            response=response,
+            occurred_at=verdict.decided_at,
+            extra_details=extra_details,
+        )
+        self._store.record_audit(
+            request=apply_request,
             tool_call=tool_call,
             verdict=verdict,
             audit_event=audit_event,
@@ -492,6 +1020,129 @@ class ToolGateway:
             grant=None,
         )
 
+    def _decide_calendar_approval_apply(
+        self,
+        *,
+        request: ToolGatewayRequest,
+        approval_id: UUID,
+        now: datetime,
+    ) -> tuple[GatewayDecision, ApprovalPackageRecord | None, str | None]:
+        try:
+            _validate_tool_arguments(request.tool_name, request.arguments)
+        except ToolGatewayError, ValidationError:
+            return (
+                GatewayDecision(
+                    verdict="block",
+                    enforced_mode=request.mode,
+                    reason="Tool argument schema validation failed.",
+                    grant=None,
+                ),
+                None,
+                "contract_validation_failed",
+            )
+
+        approval_package = self._store.fetch_approval_package(
+            tenant_id=request.tenant_id,
+            approval_id=approval_id,
+        )
+        if approval_package is None:
+            return (
+                GatewayDecision(
+                    verdict="block",
+                    enforced_mode=request.mode,
+                    reason="No local calendar approval package matched the apply request.",
+                    grant=None,
+                ),
+                None,
+                "approval_package_missing",
+            )
+
+        denied_grant = self._store.fetch_denied_grant(
+            tenant_id=request.tenant_id,
+            agent_id=request.agent_id,
+            tool_name=request.tool_name,
+            mode=request.mode,
+        )
+        if denied_grant is not None:
+            return (
+                GatewayDecision(
+                    verdict="block",
+                    enforced_mode=request.mode,
+                    reason="Explicit Tool Gateway grant denies the approved calendar apply.",
+                    grant=denied_grant,
+                ),
+                approval_package,
+                "grant_denied",
+            )
+
+        exact_grant = self._store.fetch_grant(
+            tenant_id=request.tenant_id,
+            agent_id=request.agent_id,
+            tool_name=request.tool_name,
+            mode=request.mode,
+        )
+        if exact_grant is None:
+            return (
+                GatewayDecision(
+                    verdict="block",
+                    enforced_mode=request.mode,
+                    reason="No current Tool Gateway grant matched the approved calendar apply.",
+                    grant=None,
+                ),
+                approval_package,
+                "grant_missing",
+            )
+        if not exact_grant.approval_required:
+            return (
+                GatewayDecision(
+                    verdict="block",
+                    enforced_mode=request.mode,
+                    reason=(
+                        "Current grant no longer requires an approval package for calendar apply."
+                    ),
+                    grant=exact_grant,
+                ),
+                approval_package,
+                "grant_state_mismatch",
+            )
+
+        mismatch_category = _approval_package_mismatch_category(
+            request=request,
+            approval_package=approval_package,
+            grant=exact_grant,
+            now=now,
+        )
+        if mismatch_category is not None:
+            return (
+                GatewayDecision(
+                    verdict="block",
+                    enforced_mode=request.mode,
+                    reason="Approved calendar package failed gateway re-check.",
+                    grant=exact_grant,
+                ),
+                approval_package,
+                mismatch_category,
+            )
+
+        reason = (
+            "Approved local calendar compensation package re-entered the Tool Gateway; "
+            "connector execution permitted."
+            if request.tool_name == "calendar.cancel_hold"
+            else "Approved local calendar package re-entered the Tool Gateway; "
+            "connector execution permitted."
+        )
+        return (
+            GatewayDecision(
+                verdict="allow",
+                enforced_mode=request.mode,
+                reason=reason,
+                grant=exact_grant,
+                connector_allowed=True,
+            ),
+            approval_package,
+            None,
+        )
+
 
 def _now() -> datetime:
     return datetime.now(UTC)
@@ -545,14 +1196,223 @@ def _gateway_verdict(
     )
 
 
+def _requires_calendar_approval_package(
+    request: ToolGatewayRequest,
+    decision: GatewayDecision,
+) -> bool:
+    return (
+        decision.approval_required
+        and decision.grant is not None
+        and request.mode == "write"
+        and request.tool_name in {"calendar.create_hold", "calendar.cancel_hold"}
+    )
+
+
+def _approval_package(
+    *,
+    request: ToolGatewayRequest,
+    tool_call: ToolCall,
+    verdict: GatewayVerdict,
+    decision: GatewayDecision,
+    requested_at: datetime,
+) -> ApprovalPackage:
+    if decision.grant is None:
+        raise ToolGatewayError("Approval package creation requires an exact grant.")
+
+    redacted_fields = _redacted_fields(decision.grant)
+    idempotency_key_ref = _safe_ref_hash(request.idempotency_key)
+    approval_id = uuid5(
+        NAMESPACE_URL,
+        f"chorus.approval:{request.tenant_id}:{request.tool_name}:{idempotency_key_ref}",
+    )
+    decision_due_at = requested_at + timedelta(hours=4)
+    expires_at = requested_at + timedelta(hours=24)
+    grant_ref = f"tool_grant:{decision.grant.grant_id}"
+    approval_policy_ref = "approval_policy.calendar_write.local.v1"
+    sla_policy_ref = "approval_sla.calendar_write.local.v1"
+
+    return ApprovalPackage(
+        approval_id=approval_id,
+        approval_package_version=1,
+        tenant_id=request.tenant_id,
+        correlation_id=request.correlation_id,
+        workflow_id=request.workflow_id,
+        workflow_type="lighthouse",
+        invocation_id=request.invocation_id,
+        tool_call_id=tool_call.tool_call_id,
+        verdict_id=verdict.verdict_id,
+        source_audit_event_id=verdict.audit_event_id,
+        agent_id=request.agent_id,
+        agent_version=decision.grant.agent_version,
+        requested_action=f"{request.tool_name}.{request.mode}",
+        tool_name=request.tool_name,
+        requested_mode=request.mode,
+        enforced_mode=verdict.enforced_mode.value,
+        idempotency_key_ref=idempotency_key_ref,
+        redaction_policy_ref=f"{grant_ref}:redaction_policy",
+        redaction_summary={
+            "redaction_policy_ref": f"{grant_ref}:redaction_policy",
+            "redacted_field_count": len(redacted_fields),
+            "redacted_field_refs": redacted_fields,
+        },
+        approval_state="requested",
+        reason_category="tool_write_risk",
+        requested_at=requested_at,
+        decision_due_at=decision_due_at,
+        expires_at=expires_at,
+        sla_policy_ref=sla_policy_ref,
+        reviewer_trust_domain="local.chorus",
+        requested_by_workload_principal_id=None,
+        requested_by_workload_session_id=None,
+        trust_domain="local.chorus",
+        grant_id=decision.grant.grant_id,
+        policy_version_refs={
+            "tool_grant_ref": grant_ref,
+            "approval_policy_ref": approval_policy_ref,
+            "sla_policy_ref": sla_policy_ref,
+        },
+        trace_join=current_otel_ids(),
+        metadata={
+            "source": "tool_gateway.approval_required",
+            "scope": "phase_2c_calendar_write",
+            "calendar_refs": _calendar_argument_refs(request.tool_name, request.arguments),
+        },
+    )
+
+
+def _safe_ref_hash(value: str) -> str:
+    return f"sha256:{sha256(value.encode('utf-8')).hexdigest()}"
+
+
+def _approval_apply_idempotency_key(idempotency_key: str, approval_id: UUID) -> str:
+    return f"{idempotency_key}:approval_apply:{approval_id}"
+
+
+def _approval_package_mismatch_category(
+    *,
+    request: ToolGatewayRequest,
+    approval_package: ApprovalPackageRecord,
+    grant: ToolGrant,
+    now: datetime,
+) -> str | None:
+    expected_action = f"{request.tool_name}.{request.mode}"
+    expected_refs = _calendar_argument_refs(request.tool_name, request.arguments)
+    package_refs = approval_package.metadata.get("calendar_refs", {})
+    checks = {
+        "tenant_id": approval_package.tenant_id == request.tenant_id,
+        "correlation_id": approval_package.correlation_id == request.correlation_id,
+        "workflow_id": approval_package.workflow_id == request.workflow_id,
+        "workflow_type": approval_package.workflow_type == "lighthouse",
+        "invocation_id": str(approval_package.invocation_id) == request.invocation_id,
+        "agent_id": approval_package.agent_id == request.agent_id,
+        "agent_version": approval_package.agent_version == grant.agent_version,
+        "requested_action": approval_package.requested_action == expected_action,
+        "tool_name": approval_package.tool_name == request.tool_name,
+        "requested_mode": approval_package.requested_mode == request.mode,
+        "enforced_mode": approval_package.enforced_mode == request.mode,
+        "grant_id": approval_package.grant_id == grant.grant_id,
+    }
+    if not all(checks.values()):
+        return "authority_context_mismatch"
+    if approval_package.approval_state != "approved" or approval_package.decision != "approved":
+        return "approval_state_not_approved"
+    if approval_package.expires_at <= now:
+        return "approval_expired"
+    if approval_package.idempotency_key_ref != _safe_ref_hash(request.idempotency_key):
+        return "idempotency_ref_mismatch"
+    if package_refs != expected_refs:
+        return "calendar_ref_mismatch"
+    return None
+
+
+def _approval_apply_summary(
+    *,
+    approval_package: ApprovalPackageRecord | None,
+    approval_id: UUID,
+    apply_idempotency_key: str,
+) -> dict[str, Any]:
+    if approval_package is None:
+        return {
+            "approval_id": str(approval_id),
+            "approval_state": "missing",
+            "apply_idempotency_key_ref": _safe_ref_hash(apply_idempotency_key),
+        }
+    return approval_package.apply_summary(apply_idempotency_key=apply_idempotency_key)
+
+
+def _calendar_argument_refs(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    match tool_name:
+        case "calendar.create_hold":
+            return {
+                "calendar_ref": arguments.get("calendar_ref"),
+                "hold_ref": arguments.get("hold_ref"),
+                "slot_ref": arguments.get("slot_ref"),
+                "event_uid_ref": arguments.get("event_uid_ref"),
+            }
+        case "calendar.cancel_hold":
+            return {
+                "calendar_ref": arguments.get("calendar_ref"),
+                "hold_ref": arguments.get("hold_ref"),
+                "event_uid_ref": arguments.get("event_uid_ref"),
+                "compensation_ref": arguments.get("compensation_ref"),
+                "cancellation_reason_category": arguments.get("cancellation_reason_category"),
+            }
+        case _:
+            return {}
+
+
+def _connector_failure_category(exc: BaseException) -> str:
+    raw_category = str(exc)
+    if raw_category in _CONNECTOR_FAILURE_CATEGORIES:
+        return raw_category
+    if isinstance(exc, ConnectorTransientError):
+        return "transient_connector_error"
+    if isinstance(exc, ValidationError):
+        return "contract_validation_failed"
+    return "connector_rejected"
+
+
+def _connector_failure_details(
+    *,
+    classification: str,
+    failure_category: str,
+    retryable_by: str | None,
+) -> dict[str, Any]:
+    return {
+        "classification": classification,
+        "failure_category": failure_category,
+        "retryable_by": retryable_by,
+    }
+
+
+def _redacted_fields(grant: ToolGrant | None) -> list[str]:
+    if grant is None:
+        return []
+    return [
+        field for field in grant.redaction_policy.get("redact_fields", []) if isinstance(field, str)
+    ]
+
+
 def _audit_event(
     *,
     request: ToolGatewayRequest,
     tool_call: ToolCall,
     verdict: GatewayVerdict,
     response: ToolGatewayResponse,
+    approval_package: ApprovalPackage | None = None,
     occurred_at: datetime,
+    extra_details: dict[str, Any] | None = None,
 ) -> AuditEvent:
+    details: dict[str, Any] = {
+        "tool_call": tool_call.model_dump(mode="json"),
+        "gateway_verdict": verdict.model_dump(mode="json"),
+        "gateway_response": response.__dict__,
+    }
+    if approval_package is not None:
+        details["approval_package"] = approval_package.audit_summary()
+    if extra_details is not None:
+        details.update(extra_details)
+
     return AuditEvent.model_validate(
         {
             "schema_version": "1.0.0",
@@ -565,11 +1425,7 @@ def _audit_event(
             "category": "tool_gateway",
             "action": "tool_call.decided",
             "verdict": verdict.verdict.value,
-            "details": {
-                "tool_call": tool_call.model_dump(mode="json"),
-                "gateway_verdict": verdict.model_dump(mode="json"),
-                "gateway_response": response.__dict__,
-            },
+            "details": details,
         }
     )
 
@@ -580,8 +1436,20 @@ def _connector_failure_audit_event(
     tool_call: ToolCall,
     verdict: GatewayVerdict,
     occurred_at: datetime,
-    error: str,
+    failure_category: str,
+    extra_details: dict[str, Any] | None = None,
 ) -> AuditEvent:
+    details: dict[str, Any] = {
+        "tool_call": tool_call.model_dump(mode="json"),
+        "gateway_verdict": verdict.model_dump(mode="json"),
+        "connector_failure": _connector_failure_details(
+            classification="transient",
+            failure_category=failure_category,
+            retryable_by="temporal_activity_retry_policy",
+        ),
+    }
+    if extra_details is not None:
+        details.update(extra_details)
     return AuditEvent.model_validate(
         {
             "schema_version": "1.0.0",
@@ -594,15 +1462,7 @@ def _connector_failure_audit_event(
             "category": "connector",
             "action": "connector.transient_failure",
             "verdict": verdict.verdict.value,
-            "details": {
-                "tool_call": tool_call.model_dump(mode="json"),
-                "gateway_verdict": verdict.model_dump(mode="json"),
-                "connector_failure": {
-                    "classification": "transient",
-                    "message": error,
-                    "retryable_by": "temporal_activity_retry_policy",
-                },
-            },
+            "details": details,
         }
     )
 
@@ -617,6 +1477,22 @@ def _validate_tool_arguments(tool_name: str, arguments: dict[str, Any]) -> None:
             CrmLookupCompanyArguments.model_validate(arguments)
         case "crm.create_lead":
             CrmCreateLeadArguments.model_validate(arguments)
+        case "calendar.lookup_availability":
+            CalendarAvailabilityLookupArgs.model_validate(arguments)
+        case "calendar.propose_hold":
+            CalendarHoldProposalArgs.model_validate(arguments)
+        case "calendar.create_hold":
+            CalendarHoldCreationArgs.model_validate(arguments)
+        case "calendar.cancel_hold":
+            CalendarHoldCancellationArgs.model_validate(arguments)
+        case "ticket.lookup_case":
+            TicketCaseLookupArgs.model_validate(arguments)
+        case "ticket.lookup_duplicates":
+            TicketDuplicateCaseLookupArgs.model_validate(arguments)
+        case "ticket.propose_case_update":
+            TicketCaseUpdateProposalArgs.model_validate(arguments)
+        case "ticket.update_status":
+            TicketStatusUpdateArgs.model_validate(arguments)
         case _:
             raise ToolGatewayError(f"No argument schema registered for tool {tool_name!r}")
 

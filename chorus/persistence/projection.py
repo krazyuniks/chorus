@@ -122,6 +122,37 @@ class ToolActionAuditReadModel(BaseModel):
     created_at: datetime
 
 
+class CalendarProjectionReadModel(BaseModel):
+    """Safe calendar approval/apply projection derived from local audit evidence."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: str
+    approval_id: UUID
+    workflow_id: str
+    correlation_id: str
+    tool_name: str
+    requested_action: str
+    requested_mode: str
+    enforced_mode: str
+    approval_state: str
+    idempotency_key_ref: str
+    calendar_refs: dict[str, Any]
+    projection_status: str
+    source_audit_event_id: UUID
+    latest_audit_event_id: UUID | None
+    latest_verdict: str | None
+    latest_reason: str | None
+    connector_invocation_id: UUID | None
+    retry_category: str | None
+    compensation_category: str | None
+    failure_category: str | None
+    grant_ref: str | None
+    policy_version_refs: dict[str, Any]
+    trace_join: dict[str, Any]
+    updated_at: datetime
+
+
 class AgentRegistryEntry(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -805,6 +836,115 @@ class ProjectionStore:
             LIMIT %s
             """,
             (tenant_id, limit),
+        )
+
+    def list_calendar_projections(
+        self,
+        tenant_id: str,
+        *,
+        workflow_id: str | None = None,
+        limit: int = 100,
+    ) -> list[CalendarProjectionReadModel]:
+        return _fetch_models(
+            self._conn,
+            CalendarProjectionReadModel,
+            """
+            SELECT
+                p.tenant_id,
+                p.approval_id,
+                p.workflow_id,
+                p.correlation_id,
+                p.tool_name,
+                p.requested_action,
+                p.requested_mode,
+                p.enforced_mode,
+                p.approval_state,
+                p.idempotency_key_ref,
+                COALESCE(p.metadata->'calendar_refs', '{}'::jsonb) AS calendar_refs,
+                CASE
+                    WHEN latest.raw_event->'details'->'connector_failure'->>'classification'
+                        = 'transient'
+                        THEN 'calendar_hold_retry_pending'
+                    WHEN latest.raw_event->'details'->'connector_failure'
+                        ->>'compensation_category' = 'compensation_failed'
+                        THEN 'calendar_hold_compensation_failed'
+                    WHEN latest.raw_event->'details'->'gateway_response'->'output'
+                        ->>'compensation_category' = 'compensation_completed'
+                        THEN 'calendar_hold_cancelled'
+                    WHEN p.tool_name = 'calendar.cancel_hold'
+                        AND latest.raw_event->'details'->'gateway_response'->'output'
+                            ->>'calendar_apply_status' = 'applied'
+                        THEN 'calendar_hold_cancelled'
+                    WHEN p.tool_name = 'calendar.create_hold'
+                        AND latest.raw_event->'details'->'gateway_response'->'output'
+                            ->>'calendar_apply_status' = 'applied'
+                        THEN 'calendar_hold_created'
+                    WHEN latest.verdict = 'block'
+                        THEN 'calendar_hold_blocked'
+                    WHEN p.approval_state = 'approved'
+                        THEN 'calendar_hold_approved_pending_apply'
+                    WHEN p.approval_state = 'denied'
+                        THEN 'calendar_hold_denied'
+                    WHEN p.approval_state IN ('expired', 'cancelled', 'superseded')
+                        THEN 'calendar_hold_' || p.approval_state
+                    ELSE 'calendar_hold_requested'
+                END AS projection_status,
+                p.source_audit_event_id,
+                latest.audit_event_id AS latest_audit_event_id,
+                latest.verdict AS latest_verdict,
+                latest.reason AS latest_reason,
+                latest.connector_invocation_id,
+                COALESCE(
+                    latest.raw_event->'details'->'gateway_response'->'output'->>'retry_category',
+                    CASE
+                        WHEN latest.raw_event->'details'->'connector_failure'
+                            ->>'classification' = 'transient'
+                            THEN 'temporal_activity_retry_policy'
+                        ELSE NULL
+                    END
+                ) AS retry_category,
+                COALESCE(
+                    latest.raw_event->'details'->'gateway_response'->'output'
+                        ->>'compensation_category',
+                    latest.raw_event->'details'->'connector_failure'
+                        ->>'compensation_category'
+                ) AS compensation_category,
+                COALESCE(
+                    latest.raw_event->'details'->'gateway_response'->'output'
+                        ->>'failure_category',
+                    latest.raw_event->'details'->'connector_failure'
+                        ->>'failure_category'
+                ) AS failure_category,
+                CASE
+                    WHEN p.grant_id IS NULL THEN NULL
+                    ELSE 'tool_grant:' || p.grant_id::text
+                END AS grant_ref,
+                p.policy_version_refs,
+                p.trace_join,
+                COALESCE(latest.occurred_at, p.updated_at) AS updated_at
+            FROM approval_packages p
+            LEFT JOIN LATERAL (
+                SELECT
+                    audit_event_id,
+                    verdict,
+                    reason,
+                    connector_invocation_id,
+                    raw_event,
+                    occurred_at
+                FROM tool_action_audit
+                WHERE tenant_id = p.tenant_id
+                  AND tool_name = p.tool_name
+                  AND raw_event->'details'->'approval_apply'->>'approval_id'
+                    = p.approval_id::text
+                ORDER BY occurred_at DESC, audit_event_id DESC
+                LIMIT 1
+            ) latest ON true
+            WHERE p.tenant_id = %s
+              AND (%s::text IS NULL OR p.workflow_id = %s)
+            ORDER BY COALESCE(latest.occurred_at, p.updated_at) DESC, p.approval_id
+            LIMIT %s
+            """,
+            (tenant_id, workflow_id, workflow_id, limit),
         )
 
     def runtime_policy_snapshot(self, tenant_id: str) -> RuntimePolicySnapshot:

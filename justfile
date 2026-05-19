@@ -57,6 +57,14 @@ status:
 logs *service:
     {{dc}} logs -f {{service}}
 
+# Inspect the local CalDAV sandbox collection without printing event bodies.
+caldav-event-refs:
+    {{dc}} exec radicale sh -lc 'find /data/collections/collection-root/cal_lighthouse_local_followup -type f -name "evt_*.ics" -exec basename {} \; 2>/dev/null || true'
+
+# Probe the local CalDAV sandbox collection over WebDAV.
+caldav-propfind:
+    curl -sS -X PROPFIND -H 'Depth: 1' http://localhost:${CALDAV_SANDBOX_PORT:-5232}/cal_lighthouse_local_followup/
+
 # ----- Health -----
 
 # Verify Phase 0 scaffold and probe the live local stack (skips probes for services that aren't up).

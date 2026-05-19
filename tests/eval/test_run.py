@@ -58,6 +58,10 @@ def test_eval_provider_budget_fallback_fixture_passes_offline() -> None:
     )
 
 
+def test_eval_support_triage_happy_path_fixture_passes_offline() -> None:
+    assert run.main(["--fixture", "chorus/eval/fixtures/support_triage_happy_path.json"]) == 0
+
+
 def test_default_live_selector_targets_happy_path_only() -> None:
     happy = EvalFixture.model_validate(
         json.loads((ROOT / "chorus/eval/fixtures/lighthouse_happy_path.json").read_text())

@@ -106,6 +106,10 @@ CREATE TABLE IF NOT EXISTS tool_grants (
             'company_research.lookup',
             'crm.lookup_company',
             'crm.create_lead',
+            'calendar.lookup_availability',
+            'calendar.propose_hold',
+            'calendar.create_hold',
+            'calendar.cancel_hold',
             'email.propose_response',
             'email.send_response'
         )
@@ -232,6 +236,10 @@ CREATE TABLE IF NOT EXISTS tool_action_audit (
             'company_research.lookup',
             'crm.lookup_company',
             'crm.create_lead',
+            'calendar.lookup_availability',
+            'calendar.propose_hold',
+            'calendar.create_hold',
+            'calendar.cancel_hold',
             'email.propose_response',
             'email.send_response'
         )

@@ -22,3 +22,7 @@ the Tool Gateway.
 - `local.py` contains the Mailpit SMTP email connector, Postgres-backed local
   CRM connector, Companies House lookup connector, connector argument models,
   and connector result/error types.
+- `calendar.py` contains the Radicale/CalDAV local calendar connector for the
+  Phase 2C calendar tool family.
+- `ticket.py` contains the Postgres-backed local ticket desk connector for the
+  Phase 2D read/propose ticket tool family.
