@@ -19,91 +19,160 @@ Chorus has accumulated strong technical evidence:
 - local connector sandboxes;
 - read-only BFF inspection surfaces.
 
-The problem is not absence of engineering. The problem is that the project
-story and code language have become too abstract. Recent work has focused on
-architecture controls, production-readiness deferrals, and continuation
-ledger hygiene. That makes the project hard to understand as a client-facing
-exemplar.
+The problem is not absence of engineering. The problem is that the project's
+engineering identity was too soft to defend. The codebase pointed at several
+real ideas at once - durable orchestration, governed tool authority, audit
+and replay, multi-agent workflow shape, optional LangGraph runtime, optional
+deployment - without naming the architectural commitment that ties them
+together. That made the project harder to write about, harder to extend
+without drift, and harder to use as a reasoning tool.
 
-The reset exists because a reviewer or potential client should be able to
-answer these questions quickly:
+The reset exists to settle that. Chorus must declare its architectural
+thesis, hold to it, and let the surrounding decisions follow from it.
 
-1. What real-world business process is this?
-2. Who benefits from it?
-3. What pain does the workflow reduce?
-4. Which decisions are made by agents, which are deterministic, and which need
-   approval?
-5. Where are the business rules, contracts, evidence, and audit trail?
-6. What can be run locally today?
+## Architectural Thesis
 
-The current docs answer the technical-control questions better than the
-business-domain questions. That balance must change before more development.
+Chorus is a **hexagonal, ports-and-adapters exemplar for governed agentic
+systems with data-contract-first design at every port**.
+
+Two commitments sit underneath that sentence.
+
+1. **Ports and adapters as the load-bearing structure.** The runtime exposes
+   a small set of named ports. Adapters behind each port are pluggable. The
+   domain core does not know which adapter is active. The workflow code, the
+   agent runtime, and the tool authority layer all sit on the domain side
+   of the hexagon. Providers, transports, sandboxes, audit stores, and
+   observability backends sit on the adapter side.
+2. **Contract-first at every port.** Every payload crossing a port is
+   validated against an explicit schema. Contracts are the source of truth
+   for shape, not the implementation. Adapters that violate the contract
+   fail at the boundary, not deep in business logic.
+
+The named ports are:
+
+| Port | Role |
+|---|---|
+| Intake | Inbound business work entering the system. |
+| LLM provider | Model invocations with route catalogue and provider neutrality. |
+| Connector | External-action authority via the Tool Gateway. |
+| Audit / transcript | Two streams: structured decision-trail and full-fidelity transcript. |
+| Projection sink | Read-model derivation for inspection. |
+| Observability sink | Traces, metrics, logs, optional LLM observability. |
+
+The thesis is intentionally narrower than "governed multi-agent workflow
+orchestration". A workflow happens to be the durability shape. Agents happen
+to be the reasoning shape inside that workflow. The architecture being
+proven is the hexagonal boundary discipline, not multi-agent collaboration
+in itself.
+
+## Audit As Eval Substrate
+
+The audit trail is not only a compliance artefact. It is the project's eval
+substrate.
+
+The transcript port stores enough about every captured LLM invocation
+(messages, tool calls, route record, parameters, full response) to replay
+that invocation against an alternate provider or model. The structured
+decision-trail port records what the agent decided, under which policy,
+with which inputs and outputs. The same captured material that proves
+accountability also enables cross-provider model comparison on real
+production traffic.
+
+This collapses two concerns that are normally separate:
+
+- compliance ("who decided what under which policy, on which input, with
+  which output");
+- engineering ("would another provider or model have made a better call
+  on this captured invocation").
+
+Hallucination concerns about cheaper providers become structurally bounded.
+Hallucinations are observable in the transcript, replayable against a
+different model, and comparable as eval evidence. The same data structure
+serves both reviewers.
 
 ## Target Intent
 
-Chorus should be a grounded exemplar for governed AI-assisted operations. It
-should show how an organisation can intake operational work, classify it, route
-it, gather context, propose actions, require approval where risk demands it,
-and keep a replayable audit trail.
+Chorus must read as a reference for ports-and-adapters architecture applied
+to governed agentic systems. The body of evidence the project must produce:
 
-The project should still prove the engineering thesis:
+- a named-port surface with explicit schemas at each port;
+- an LLM provider port that is provider-agnostic by construction;
+- two audit ports - one structured, one full-fidelity - with the
+  replay-as-eval-substrate pattern wired through them;
+- workflows that are replay-stable because every cross-port payload is
+  captured and contract-validated;
+- a small set of real domain use cases that exercise the adapter surface;
+- eval evidence that is invariant-based, not path-enumerated, and that
+  treats replay as a first-class eval mode.
 
-- agents participate inside durable business workflows;
-- agents do not own ambient authority;
-- connector actions are mediated by contracts, grants, modes, idempotency,
-  approval hooks, redaction, and audit;
-- business outcomes are visible through read models and eval evidence;
-- infrastructure deployment is a later phase, not mixed into local domain work.
-
-But the business language must come first. The architecture should serve the
-domain, not replace it.
+The thesis comes first. Architecture controls serve the thesis. Use cases
+exist to exercise the ports.
 
 ## Layering
 
-Use these layers consistently:
-
 | Layer | Meaning |
 |---|---|
-| Chorus | The overall governed workflow exemplar and codebase. |
-| Domain | The real operational problem space selected for the exemplar. |
+| Chorus | The overall ports-and-adapters exemplar and codebase. |
+| Domain | A real operational problem space whose work shape exercises the ports. |
 | Use case | A runnable business workflow inside that domain. |
-| Platform controls | Temporal, Agent Runtime, Tool Gateway, audit, eval, replay, observability, and policy boundaries. |
-| Deployment | Optional later Amazon/Terraform or other hosting work. |
+| Ports | Intake, LLM provider, connector, audit / transcript, projection sink, observability sink. |
+| Adapters | Concrete implementations behind each port. |
 
-Lighthouse is currently a use case, not the product. Support Desk Triage is
-currently a second workflow proof, not a compelling product story. Calendar
-approval is connector evidence, not a standalone domain.
+Deployment is out of scope for this codebase. It will live as a separate
+RIT-level concern in vault, not inside the Chorus repo.
 
 ## Current Drift
 
-The following signals show why development should pause:
+The signals that triggered the reset:
 
-- The continuation cadence is now more work than the individual docs-first
-  artefacts it creates.
-- Terms such as `support`, `ticket`, `case`, and `account` are technically
-  implemented but not grounded in a clear client-facing domain.
-- Phase 2E repeatedly says what not to implement, which makes optional
-  deployment concerns feel interleaved with local POC development.
-- Existing docs contain useful decisions but too much chronological ledger
-  detail for a fresh reviewer.
-- The worktree has broad uncommitted changes across code, tests, docs, ADRs,
-  and vault records.
+- The continuation cadence became more work than the artefacts it produced.
+- Phase 2E production-readiness work was being added before the
+  architectural thesis was clear.
+- Terms such as `support`, `ticket`, `case`, and `account` were technically
+  implemented but not grounded in a chosen domain.
+- The codebase carried a workflow plumbing duplication between Lighthouse
+  and Support Triage that the framing of the project did not yet make
+  uncomfortable.
+- The Tool Gateway dispatched connector calls through a hardcoded match
+  block instead of an adapter registry.
+- Three large files (`projection.py`, `eval/run.py`, `doctor.py`)
+  conflated multiple concerns.
+- LangGraph had been adopted as an agent execution runtime without the
+  ports-and-adapters argument that would have constrained it; that
+  decision will be reversed in a later ADR pass.
 
 ## Reset Decisions
 
-1. Feature development is paused until the domain and roadmap are reset.
-2. The existing code should be preserved as evidence, not discarded.
-3. The support/ticket/case workflow should be reviewed for rename, reframe, or
-   replacement once the domain is chosen.
-4. Phase 2E documentation work should be batched and closed later, not advanced
-   one continuation prompt at a time.
-5. Optional Amazon/Terraform deployment belongs to its own phase after local
-   POC readiness.
-6. The next engineering plan must describe code, contract, docs, test, eval,
-   replay, and UI changes in domain language.
+1. Architectural thesis becomes the gravity centre. All other decisions
+   derive from it.
+2. LangGraph leaves the agent execution path. Reasoning runs through the
+   LLM provider port directly.
+3. The LLM provider port is implemented with the OpenAI Python SDK
+   pointed at any OpenAI-compatible endpoint. Dev route is
+   DeepSeek V4-Flash with thinking-mode for reasoning steps. The canonical
+   demo and eval route is OpenAI gpt-5.4-mini. The route catalogue records
+   provider plus model per call.
+4. Two audit ports replace the single decision-trail concept: a structured
+   decision-trail port for the compliance shape and a full-fidelity
+   transcript port for the replay-eval shape.
+5. Cross-provider replay over captured transcripts is a first-class eval
+   mode, not a research idea.
+6. The domain story shifts to one fleshed-out UK-regulated use case plus
+   two further use cases whose role is to demonstrate adapter reuse across
+   different governance regimes. Use case 1 is UK insurance broking inbound
+   quote qualification. Use cases 2 and 3 (currently proposed: UK legal
+   intake and conflict check; UK wealth management / IFA inbound enquiry)
+   are confirmed in R1.
+7. Phase 2E production-readiness work is parked. Deployment leaves the
+   Chorus repo and is reframed as a future RIT-level project.
+8. Existing code is preserved as evidence and reframed against the
+   ports-and-adapters thesis. Lighthouse and Support Triage are reviewed
+   in that frame; they survive only if they demonstrate adapter reuse for
+   one of the chosen UK-regulated use cases.
 
 ## Non-Goals Of This Reset Package
 
-This package does not select the final domain, rename code, remove existing
+This package does not select use cases 2 and 3, rename code, remove existing
 workflows, introduce deployment resources, or change runtime behaviour. It
-creates the control surface needed to make those decisions deliberately.
+codifies the architectural thesis and the decisions that follow, so the
+runtime work in R1 onwards can be governed by them.
