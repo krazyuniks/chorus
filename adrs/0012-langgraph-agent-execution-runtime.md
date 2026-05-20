@@ -1,10 +1,16 @@
 ---
 type: adr
-status: accepted
+status: superseded
 date: 2026-05-07
 ---
 
 # ADR 0012 - LangGraph inside Agent Runtime
+
+> Superseded by [ADR 0017](0017-langgraph-removed-from-agent-execution.md).
+> The 2026-05-19 transformation reset removed LangGraph from the agent
+> execution path; agent reasoning runs through the LLM provider port
+> directly. The context, decision, and consequences below are retained as
+> historical record.
 
 ## Context
 

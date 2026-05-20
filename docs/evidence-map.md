@@ -57,9 +57,11 @@ by construction.
 | Every invocation records provider and model metadata | `contracts/governance/` (provider catalogue, immutable route versions), `infrastructure/postgres/migrations/005_provider_governance_catalogue.sql` | Pre-reset implementation present; the route catalogue shape is rewritten in R3. |
 | Provider neutrality and the route catalogue are specified | [`transformation/engineering-thesis.md`](transformation/engineering-thesis.md) (LLM provider port section) | Design complete. |
 
-Decision records: [ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md)
-(to be reversed in the post-R2 ADR pass), [ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md).
-The LLM provider port ADR is part of the post-R2 ADR writing pass.
+Decision records: [ADR 0018](../adrs/0018-llm-provider-port.md) (LLM provider
+port), [ADR 0017](../adrs/0017-langgraph-removed-from-agent-execution.md)
+(LangGraph removed from the agent execution path, reverses
+[ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md)),
+[ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md).
 
 ## Connector port
 
@@ -87,8 +89,9 @@ full-fidelity transcript port.
 | The transcript carries enough to replay an invocation | [`transformation/engineering-thesis.md`](transformation/engineering-thesis.md) (transcript port section) | Design complete. The single audit store splits into the decision-trail and transcript ports in R3. |
 | Audit completeness: no LLM invocation or connector call is unattributed | [`transformation/eval-reshape-directions.md`](transformation/eval-reshape-directions.md) (audit completeness invariant) | Design complete; invariant-based eval enforces it in R3 and R4. |
 
-Decision records: [ADR 0005](../adrs/0005-postgres-first-storage.md). The audit
-ports plus replay-eval ADR is part of the post-R2 ADR writing pass.
+Decision records: [ADR 0019](../adrs/0019-audit-ports-and-replay-eval.md)
+(audit ports and replay-eval),
+[ADR 0005](../adrs/0005-postgres-first-storage.md).
 
 ## Projection sink
 
@@ -133,8 +136,9 @@ Decision records: [ADR 0006](../adrs/0006-json-schema-contracts.md).
 | Eval runs over the audit ports, not in-test bookkeeping | `chorus/eval/run.py`, `chorus/eval/fixtures/`, `tests/eval/test_run.py` | Pre-reset implementation present as path-enumeration fixtures. |
 | Eval moves to invariant-based shape plus cross-provider replay | [`transformation/eval-reshape-directions.md`](transformation/eval-reshape-directions.md) | Design complete; implemented in R3 and R4. |
 
-Decision records: [ADR 0007](../adrs/0007-trace-evaluation-harness.md). The audit
-ports plus replay-eval ADR is part of the post-R2 ADR writing pass.
+Decision records: [ADR 0019](../adrs/0019-audit-ports-and-replay-eval.md)
+(audit ports and replay-eval),
+[ADR 0007](../adrs/0007-trace-evaluation-harness.md).
 
 ### Workflow durability
 

@@ -312,10 +312,15 @@ R3 (contract and code terminology refactor) lands the named-port surface in
 code: the contract rewrite around the six ports, the connector adapter
 registry, the audit store split into the decision-trail and transcript ports,
 the removal of LangGraph from the agent execution path, and the decomposition
-of the oversized modules. The post-R2 ADR writing pass records those
-decisions, including the reversal of ADR 0012. R4 wires UC1, UC2, and UC3 for
-local POC readiness with cross-provider replay-eval. The four engineering
-smells that R3 resolves are named in
+of the oversized modules. The ADR writing pass recorded those decisions in
+[ADR 0017](../adrs/0017-langgraph-removed-from-agent-execution.md) (LangGraph
+removal), [ADR 0018](../adrs/0018-llm-provider-port.md) (LLM provider port),
+[ADR 0019](../adrs/0019-audit-ports-and-replay-eval.md) (audit ports and
+replay-eval), and
+[ADR 0020](../adrs/0020-domain-refocus-uk-regulated-use-cases.md) (domain
+refocus). R4 wires UC1, UC2, and UC3 for local POC readiness with
+cross-provider replay-eval. The four engineering smells that R3 resolves are
+named in
 [`transformation/code-refactor-directions.md`](transformation/code-refactor-directions.md).
 
 The pre-reset phase history (Phase 0 through Phase 2E) is preserved in

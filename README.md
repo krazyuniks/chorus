@@ -142,10 +142,13 @@ and which describe the post-R3 shape.
 |---|---|
 | R0.5 - design codification (the ports-and-adapters thesis) | Complete, 2026-05-19. |
 | R1 - product and domain reframing | Complete, 2026-05-20. |
-| R2 - documentation architecture refactor | Complete. |
-| ADR writing pass | Next. LangGraph reversal of ADR 0012, LLM provider port ADR, audit ports plus replay-eval ADR, domain refocus ADR. |
-| R3 - contract and code terminology refactor | Pending. |
+| R2 - documentation architecture refactor | Complete, 2026-05-20. |
+| ADR writing pass | Complete, 2026-05-20. ADRs 0017 (LangGraph removal), 0018 (LLM provider port), 0019 (audit ports plus replay-eval), 0020 (domain refocus). |
+| R3 - contract and code terminology refactor | Next. |
 | R4 - local POC readiness across UC1, UC2, UC3 | Pending. |
+
+Architectural decisions are recorded in [`adrs/`](adrs/). ADRs 0017 to 0020
+record the decisions of the transformation reset.
 
 The pre-reset phase history (Phase 0 through Phase 2E) is preserved in
 [`docs/transformation/phase-2-archive.md`](docs/transformation/phase-2-archive.md).

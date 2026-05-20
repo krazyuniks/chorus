@@ -174,7 +174,9 @@ and the workflow spine stay constant across all three use cases. The intake
 channel adapters, the connector inventory, the approval policy, and the
 regulator-specific audit content vary per use case. R3 and R4 produce the
 evidence for or against that hypothesis; R1 commits to the shape. The full
-mapping is in [`r1-adapter-mapping.md`](r1-adapter-mapping.md).
+mapping is in [`r1-adapter-mapping.md`](r1-adapter-mapping.md). The decision to
+retire Lighthouse and Support Triage in favour of these UK-regulated use cases
+is [ADR 0020](../adrs/0020-domain-refocus-uk-regulated-use-cases.md).
 
 ## The two audit ports and replay as eval substrate
 
@@ -202,6 +204,8 @@ the divergence is observable on real, in-domain invocations, and the same data
 structure that proves accountability proves model quality. The eval reshape is
 described in
 [`transformation/eval-reshape-directions.md`](transformation/eval-reshape-directions.md).
+The two-port audit split and replay-as-eval are recorded in
+[ADR 0019](../adrs/0019-audit-ports-and-replay-eval.md).
 
 ## The LLM provider port
 
@@ -222,6 +226,11 @@ target any other provider the catalogue knows how to address.
 | Dev | Day-to-day reasoning during local development. | DeepSeek V4-Flash with thinking-mode, on an OpenAI-compatible endpoint. |
 | Demo / eval canonical | The canonical demo path and the canonical eval baseline. | OpenAI gpt-5.4-mini. |
 | Replay | Re-targets any captured transcript against any route the catalogue knows. | Configurable via the route catalogue. |
+
+The LLM provider port and its provider-neutral design are recorded in
+[ADR 0018](../adrs/0018-llm-provider-port.md).
+[ADR 0017](../adrs/0017-langgraph-removed-from-agent-execution.md) removed
+LangGraph from the path that reaches this port.
 
 ## In scope and out of scope
 
