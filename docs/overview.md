@@ -1,176 +1,245 @@
 ---
 type: project-doc
-status: design-freeze
+status: active
+date: 2026-05-20
 ---
 
 # Chorus - Overview
 
 ## Purpose
 
-This is the high-level project brief for Chorus. It explains what Chorus is,
-why it exists, how to review it, and where the architecture and decision record
-live.
+This is the project overview for Chorus. It is longer than the
+[`README.md`](../README.md) and explains the architectural thesis, why the
+thesis is shaped the way it is, what each named port does, and what is in and
+out of scope for the repository.
 
-The sole architecture reference is [`architecture.md`](architecture.md). The
-durable decision record is [`../adrs/`](../adrs/).
+The long-form thesis statement is
+[`transformation/engineering-thesis.md`](transformation/engineering-thesis.md).
+The architecture reference is [`architecture.md`](architecture.md). This
+document sits between them.
 
-## What Chorus is
+## Architectural thesis
 
-Chorus is a production-shaped reference implementation and architecture artefact set for governed multi-agent workflows.
+Chorus is a hexagonal, ports-and-adapters exemplar for governed agentic
+systems, with data-contract-first design at every port. Two commitments sit
+underneath that sentence.
 
-It demonstrates how specialised AI agents can participate in a durable business process without becoming an opaque, ungoverned automation blob. The core claim is architectural: agentic systems become credible when orchestration, tool authority, traceability, failure handling, schema evolution, evaluation, governance, and change control are treated as first-class engineering concerns.
+The first is ports and adapters as the load-bearing structure. A small fixed
+set of named ports separates the domain core from anything that talks to the
+outside world or to a swappable subsystem. The domain core does not know which
+adapter is active. The workflow code, the agent reasoning paths, and the tool
+authority logic all live on the domain side of the hexagon. Providers,
+transports, sandboxes, audit stores, and observability backends live on the
+adapter side.
 
-The first running example shipped inside the repo is **Lighthouse**: an inbound-lead concierge for a fictional small business. A customer email arrives; agents intake, research, qualify, draft, validate, and either propose/send or escalate. Lighthouse is the proof scenario. Chorus is the architecture artefact.
+The second is contract-first at every port. Every payload crossing a port is
+validated against an explicit schema before the domain core sees it and before
+any adapter accepts it. Contracts are the source of truth for shape. Adapters
+that violate the contract fail at the boundary, not deep in business logic.
 
-## Who it is for
+## Why ports and adapters for governed agentic systems
 
-- **Architecture reviewers** - people evaluating whether the design has credible boundaries, contracts, operations, and failure handling.
-- **Delivery teams** - engineers and architects looking for a concrete pattern for governed agentic workflows.
-- **Platform and governance teams** - groups defining guardrails for LLM-enabled systems inside controlled enterprise environments.
+The point of the thesis is not that Chorus has a clean architecture. The point
+is that governed agentic systems benefit specifically from this shape.
 
-## What the demo proves
+Agents amplify the cost of every leaky boundary. A provider quirk, a
+transport-level type drift, or a connector that mutates outside its grant is a
+nuisance in an ordinary system. In an agentic system it becomes hard to detect
+and harder to undo, because reasoning sits between input and effect: the model
+can absorb a malformed payload, reason over it, and emit a plausible action
+before anything has flagged that the boundary was crossed in the wrong shape.
 
-The demo is a trace-first vertical slice, not a broad platform showcase. A real email sent to `leads@chorus.local` through Mailpit starts a durable Lighthouse workflow. From there, a reviewer can inspect:
+The hexagonal boundary discipline plus contract-first validation bound that
+cost. A bad payload fails at the port it tried to cross, with a contract
+violation, rather than surfacing later as a wrong decision. A provider change
+is contained inside one adapter. A connector cannot act without a grant, a
+mode, an argument validation, and a verdict. The architecture is meant to do
+work, not to be vocabulary; the thesis constrains every downstream decision,
+and those constraints are listed in
+[`transformation/engineering-thesis.md`](transformation/engineering-thesis.md).
 
-1. **Workflow durability** - Temporal owns the long-running state machine, retries, replay, timeouts, and visible failure branches.
-2. **Governed agent execution** - the agent runtime resolves agent version, prompt, model route, tenant policy, and tool grants before each invocation.
-3. **Tool/action mediation** - external actions pass through an explicit gateway with `read`, `propose`, and `write` modes, argument validation, approval hooks, redaction, and audit events.
-4. **Decision provenance** - every agent step records input summary, prompt hash, model, tool calls, output, justification, cost, duration, and correlation ID.
-5. **Event visibility** - Redpanda carries schema-governed domain events and live progress updates; Redpanda Console shows the stream.
-6. **Operational visibility** - Grafana shows traces, workflow timings, gateway verdicts, projection lag, and agent decisions by correlation ID.
-7. **Evaluation discipline** - the happy-path fixture checks the expected path, final outcome, workflow events, decision-trail completeness, tool verdict evidence, budget, latency, and correlation IDs.
+## The six named ports
 
-Phase 1B added the governance and failure fixtures: low-confidence research, validator rejection, connector failure, retry exhaustion with DLQ evidence, escalation, and forbidden-write downgrade/block checks. Those paths are implemented as evidence fixtures on top of the Phase 1A happy path.
+The hexagon has six named ports. The list is intentionally short.
 
-The 3-minute walkthrough should be possible without opening an editor. The repo must also stand up to asynchronous technical inspection: [`evidence-map.md`](evidence-map.md) links each claim to the supporting code, contracts, tests, docs, dashboards, or ADRs.
+```mermaid
+flowchart TB
+    subgraph ADAPTERS_IN["Intake adapters"]
+      IA["email-channel, web-form-channel,<br/>partner-portal-channel, synthetic-channel"]
+    end
 
-The repo is also an architecture package. A reviewer should be able to inspect `architecture.md`, `governance-guardrails.md`, the ADRs, and the evidence map and see how the Lighthouse implementation maps to enterprise adoption controls.
+    subgraph CORE["Domain core - inside the hexagon"]
+      WF["Workflow spine - durable, Temporal"]
+      AR["Agent reasoning"]
+      TG["Tool Gateway - connector authority"]
+    end
 
-## Phase 2 Direction
+    subgraph ADAPTERS_OUT["Adapters behind the swappable ports"]
+      LLMA["LLM provider: OpenAI-SDK adapter"]
+      CONNA["Connector: Tool Gateway adapter registry"]
+      AUDA["Audit: decision-trail + transcript"]
+      PROJA["Projection: read-only BFF"]
+      OBSA["Observability: OTLP / Prometheus / Loki / Tempo"]
+    end
 
-Phase 2 is in progress. It expands the Phase 1 evidence baseline into a
-governed-platform exemplar while preserving the same authority boundaries.
-Phase 2A is complete: provider/model-governance contracts and Postgres
-catalogue metadata exist, LangGraph runs inside Agent Runtime,
-decision-trail graph metadata is recorded, disabled-provider and degradation
-fallback fixtures are implemented, and read-only provider/graph inspection
-surfaces are available.
+    IA -->|Intake port| CORE
+    CORE -->|LLM provider port| LLMA
+    CORE -->|Connector port| CONNA
+    CORE -->|Audit / transcript ports| AUDA
+    CORE -->|Projection sink port| PROJA
+    CORE -->|Observability sink port| OBSA
+```
 
-Phase 2B is complete. ADR 0013 defines the identity, authority,
-observability, user-journey evidence, and audit boundary before runtime mutation
-controls are added. The docs-first observability/user-journey,
-workload-principal, invocation-authority, human-approval audit lifecycle,
-policy-change governance workflow, and optional LLM observability sidecar
-evaluation are complete. Phase 2C connector expansion and approval hardening is
-complete: ADR 0014 selects a local CalDAV calendar connector candidate, calendar
-argument schemas exist, a local Radicale sandbox plus Tool Gateway-dispatched
-connector paths cover availability lookup and hold proposal, calendar writes
-remain approval-required, local approved apply evidence proves idempotent
-create/retry/compensation, and the BFF exposes safe read-only calendar status
-and audit refs. Phase 2D has selected local Support Desk Triage as the second
-workflow proof, added the safe support intake, support agent IO, local ticket
-argument, workflow-event, and eval enum baseline, and added a local ticket desk
-sandbox behind the Tool Gateway for ticket lookup, duplicate lookup, and
-proposed case updates. A code-defined `support_triage` Temporal workflow,
-focused replay evidence, support eval fixture, and persisted evidence baseline
-now prove workflow events, Agent Runtime decisions, ticket Tool Gateway
-verdicts, and proposed case-update refs join by safe tenant/correlation/workflow
-refs. A safe read-only Support BFF inspection path now exposes those joins by
-tenant/correlation/workflow refs; Support UI routes remain deferred. Phase 2E
-has started with ADR 0016 as the docs-first production-readiness architecture
-pack scope decision before any production-readiness code, and 2E-01 adds the
-production identity and IAM mapping architecture. 2E-02 adds the secrets and
-credential handling architecture for future provider, connector, database,
-signing, identity-provider, observability, and workload identity credentials
-using secret refs and bounded categories only. 2E-03 adds the deployment
-topology architecture for future service topology, environment classes,
-deployment unit boundaries, trust zones, ingress/egress, data-store and
-event-stream placement, managed-versus-self-hosted decisions, and IaC spike
-criteria. 2E-04 adds the backup, restore, and DR architecture for future
-RPO/RTO classes, authoritative store order, backup scope by data class,
-component restore responsibilities, restore dependency order, Temporal
-persistence, application Postgres/audit, event-stream and schema-registry
-handling, projection rebuild rules, telemetry treatment, eval/replay artefact
-handling, secret metadata versus values, configuration/deployment refs, and
-restore drills. 2E-05 adds the retention and audit storage architecture for
-future retention classes, audit-storage ownership, Postgres-first audit
-posture, scaling signals, archive/export criteria, delete/expire/hold
-categories, append-store evaluation triggers, restore/DR interactions, safe
-field rules, and promotion criteria.
+The per-port adapter inventory across UC1, UC2, and UC3 is tabulated in
+[`architecture.md`](architecture.md#the-hexagon-and-the-six-named-ports).
 
-Temporal remains the durable business workflow owner. Tool Gateway remains the
-action authority. LangGraph owns only per-invocation agent execution. The
-shipped commercial provider boundary is a disabled placeholder used for
-evidence; production provider calls, credential entry, production SSO, mutating
-admin controls, production connector writes, cloud resources, secret-manager
-integration, deployment automation, backup automation, restore tooling,
-retention jobs, archive/export jobs, long-retention store implementation,
-hosted observability exporters, reviewer decision paths, policy apply paths,
-and LangGraph durability are not implemented.
+### Intake
 
-Later Phase 2 milestones cover incident/on-call integration, managed
-observability, and production provider or connector hardening architecture. See
-[`phase-2-plan.md`](phase-2-plan.md),
-[`production-identity-iam-mapping.md`](production-identity-iam-mapping.md),
-[`secrets-credential-handling.md`](secrets-credential-handling.md),
-[`deployment-topology-architecture.md`](deployment-topology-architecture.md),
-[`backup-restore-dr-architecture.md`](backup-restore-dr-architecture.md),
-[`retention-audit-storage-architecture.md`](retention-audit-storage-architecture.md),
-[ADR 0011](../adrs/0011-phase-2-governed-platform-expansion.md),
-[ADR 0012](../adrs/0012-langgraph-agent-execution-runtime.md),
-[ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md),
-[ADR 0014](../adrs/0014-connector-expansion-approval-hardening-scope.md),
-[ADR 0015](../adrs/0015-second-workflow-proof-scope.md), and
-[ADR 0016](../adrs/0016-production-readiness-architecture-pack-scope.md).
+The intake port receives inbound business work. Channel adapters sit behind
+it: an email channel, a web form channel, a partner portal channel, and a
+synthetic fixture channel for the local demo. Each channel adapter
+contract-validates its inbound payload and normalises it to a domain-side
+record, with the channel preserved as provenance. Malformed inbound is
+rejected at the adapter boundary before the workflow sees it. Idempotency keys
+are channel-specific and map to the domain's own work identifier.
 
-## How to review Phase 1
+### LLM provider
 
-Start with the README first-time reviewer checklist for commands. For the evidence narrative, use this order:
+The LLM provider port carries model invocations. It is the most consequential
+adapter surface in the project and must be provider-agnostic by construction.
+The adapter is the OpenAI Python SDK pointed at any OpenAI-compatible
+chat-completions endpoint; the SDK is treated as a transport, not as a
+commitment to OpenAI as a provider. The domain core calls the port with
+structured invocation arguments and receives a structured invocation result.
+It never talks to a provider directly.
 
-1. `overview.md` for the scope and the Phase 1A/1B boundary.
-2. `evidence-map.md` for the claim-to-artefact map.
-3. `demo-script.md` for the three-minute Mailpit -> Temporal -> BFF/UI -> Grafana -> audit -> eval walkthrough.
-4. `governance-evidence.md` for the Phase 1B failure and authority fixture package.
-5. `phase-2-plan.md` for the planned post-Phase-1 roadmap.
-6. `runbook.md` for exact local operations and cross-surface correlation queries.
-7. `architecture.md`, `governance-guardrails.md`, and the ADRs for the design rationale.
+### Connector
 
-## Decision record
+The connector port is the system's external-action authority. The Tool Gateway
+is its authority layer: every connector call passes a grant check, a mode
+decision (dry-run versus effect), an argument validation, dispatch to the right
+adapter, audit capture, and a verdict. Connector adapters are local sandbox
+implementations during the local POC. Workflow code cannot reach past this
+port; there is no back channel to a side service.
 
-Architectural decisions are recorded as ADRs under [`../adrs/`](../adrs/). The ADRs explain why the project selected Lighthouse as the evidence slice, Temporal as the orchestration spine, Redpanda for event visibility, explicit Agent Runtime and Tool Gateway boundaries, Postgres-first storage, JSON Schema contracts, trace/eval assurance, Mailpit SMTP intake, Phase 2 governed-platform expansion, LangGraph inside Agent Runtime, the local CalDAV connector expansion scope, the Support Desk Triage second workflow scope, and the production-readiness architecture pack scope.
+### Audit / transcript
 
-The architecture document should reflect accepted decisions, but the ADRs remain the source of record for why material choices were made.
+The audit surface is two ports, not one. A single audit stream cannot serve
+both compliance and engineering without distorting one of them. The structured
+decision-trail port answers the compliance question: who decided what, under
+which policy, on what input, with what output. The full-fidelity transcript
+port answers the engineering question: what exactly did the model see, and
+what did it return. The two ports are described in full below.
 
-## Design-freeze boundaries
+### Projection sink
 
-- Lighthouse remains the only Phase 1 workflow.
-- Phase 1A includes the happy path; Phase 1B adds the visible failure paths needed to prove governance.
-- Mutating admin features stay out of the UI; registry, routing, grants, and audit are read-only there.
-- Connector integrations run real software in sandbox/local mode: Mailpit for email, public APIs for research where suitable, and a Postgres-backed local CRM service.
-- Governance, guardrail, architecture, and evidence documentation are first-class Phase 1 deliverables.
-- Screenshot or screencast packaging remains optional in Phase 1C; the current review path is command-, evidence-map-, and governance-evidence-led.
-- Phase 2 may reopen selected deferrals only through `phase-2-plan.md` milestones and matching ADR/doc updates.
+The projection sink derives read models for inspection. A Postgres projection
+adapter feeds the read-only BFF; a Redpanda event consumer drives the
+derivation. The sink is read-only: the frontend consumes it for inspection and
+demo evidence, with no write path back through it. The convergence invariant
+holds that replaying the same event stream twice produces the same read-model
+state.
 
-## What Chorus is not
+### Observability sink
 
-- Not a SaaS product or hosted service.
-- Not a top-level agent framework replacing Temporal's durable workflow boundary. Phase 2A deliberately adds LangGraph inside Agent Runtime instead.
-- Not a checklist implementation of every interesting agentic-AI primitive.
-- Not a Scylla, Kubernetes, or cloud-infrastructure demo in Phase 1.
-- Not a production CRM/email/payment integration suite. Connectors are sandbox/local implementations behind the same gateway boundary intended for real integrations.
+The observability sink carries traces, metrics, and logs, and optional LLM
+observability. OTLP, Prometheus, Loki, and Tempo adapters sit behind it, plus
+an optional LLM observability sidecar adapter configured per route. Where the
+sidecar is enabled, the transcript port stays authoritative; the sidecar is
+supplementary, never the accountability store.
 
-## Design inputs
+## Use cases
 
-- A recent architecture scan of 2026 agentic workflow systems: durable execution, governed tool/runtime layers, MCP/A2A-style integration boundaries, trace evaluation, and enterprise observability are the relevant direction.
-- A deliberate preference for narrow, inspectable vertical slices over broad framework skeletons.
-- A requirement that architecture, governance, contracts, eval, and operations are documented together.
+Chorus carries one fully modelled use case plus two confirmed use cases. The
+use cases exist to exercise the ports; they are not three independent products.
 
-## Out of scope for Phase 1
+UC1 is UK personal-lines insurance broking inbound quote qualification. A
+broker firm receives inbound consumer enquiries across email, a web form, and
+partner-portal submissions; each enquiry is classified, completed where data
+is missing, screened for risk acceptability, and either accepted for quoting,
+declined, or referred to a senior underwriter. UC1 is FCA-regulated under
+general insurance distribution (ICOBS, PROD 4, Consumer Duty) and is fully
+modelled in [`product-brief.md`](product-brief.md) and
+[`domain-model.md`](domain-model.md).
 
-- Production-grade auth and SSO.
-- Real third-party connectors.
-- Runtime-editable workflow DSLs.
-- Scylla implementation.
-- Full admin UI for every registry and policy mutation.
-- Production AWS deployment.
-- A second business workflow beyond Lighthouse.
+UC2 is UK legal services intake and conflict check for a corporate and
+commercial practice area, SRA-regulated, exercising KYC, beneficial-ownership,
+conflict-of-interest, and AML record-keeping. UC3 is UK independent financial
+advice inbound enquiry, FCA-regulated under COBS 9 suitability, and carries the
+strictest audit shape of the three. Both are confirmed in
+[`r1-use-case-confirmation.md`](r1-use-case-confirmation.md).
+
+The adapter-reuse hypothesis is the centre of the thesis. The six named ports
+and the workflow spine stay constant across all three use cases. The intake
+channel adapters, the connector inventory, the approval policy, and the
+regulator-specific audit content vary per use case. R3 and R4 produce the
+evidence for or against that hypothesis; R1 commits to the shape. The full
+mapping is in [`r1-adapter-mapping.md`](r1-adapter-mapping.md).
+
+## The two audit ports and replay as eval substrate
+
+The structured decision-trail port is what a regulator or a control-framework
+reviewer reads. Its records carry workflow correlation references, agent
+identity and version, a policy snapshot reference, input and output summaries,
+tool calls in summary form, timestamps, and cost. It is structured, queryable,
+and stable.
+
+The full-fidelity transcript port is dense and large and is not queried
+directly for compliance. Its records carry the full message sequence sent to
+the LLM provider, the full tool-call and tool-result sequence, the full
+response body, the route catalogue entry, the model parameters as called, and
+token counts where the provider reports them. Its job is to make the
+invocation replayable.
+
+That replayability is the project's eval substrate, not an incidental
+capability. A captured transcript can be re-routed through the LLM provider
+port against a different provider and model and compared to the original on
+contract validity, decision agreement under the same policy snapshot,
+tool-call divergence, and cost and latency deltas. Cross-provider replay is a
+first-class eval mode. It bounds the standard objection to a provider-agnostic
+architecture - hallucination and quality risk on cheaper providers - because
+the divergence is observable on real, in-domain invocations, and the same data
+structure that proves accountability proves model quality. The eval reshape is
+described in
+[`transformation/eval-reshape-directions.md`](transformation/eval-reshape-directions.md).
+
+## The LLM provider port
+
+Provider-specific code is contained inside the LLM provider adapter and exposed
+only as configuration: base URL, API key, model identifier, and
+provider-specific parameters such as thinking-mode toggles and tool-use schema
+variants.
+
+The port maintains a route catalogue. Every captured invocation records, at
+minimum, the route name, the provider identifier, the model identifier, the
+model parameters used, and the adapter version. The route catalogue plus the
+transcript port together make cross-provider replay possible: without route
+metadata, replay can only target the original provider; with it, replay can
+target any other provider the catalogue knows how to address.
+
+| Route | Purpose | Provider and model |
+|---|---|---|
+| Dev | Day-to-day reasoning during local development. | DeepSeek V4-Flash with thinking-mode, on an OpenAI-compatible endpoint. |
+| Demo / eval canonical | The canonical demo path and the canonical eval baseline. | OpenAI gpt-5.4-mini. |
+| Replay | Re-targets any captured transcript against any route the catalogue knows. | Configurable via the route catalogue. |
+
+## In scope and out of scope
+
+In scope for the Chorus repository: the named-port architecture and its
+contracts; the contract-first discipline; the workflow spine; the three
+UK-regulated use cases; the local sandbox stack and connector substrate;
+invariant-based eval; and cross-provider replay-eval.
+
+Out of scope for the Chorus repository: deployment and hosting, production
+identity and IAM, secrets management, backup and restore, disaster recovery,
+and retention infrastructure. The reset removed deployment from the repository
+and reframed it as a future vault-level Radian IT project delivered against a
+real client engagement. The Chorus repository stays runnable locally without
+any hosted dependency; its job is to be a clear ports-and-adapters reference.
+The parked production-readiness pack that pre-dates the reset is preserved in
+[`transformation/parked-phase-2e/`](transformation/parked-phase-2e/).
+
+Also out of scope: real third-party broker, legal, or IFA platform
+integration (the use cases run on local sandboxes only), production provider
+credentials beyond the local routes, and live customer data. The local demos
+run on synthetic data.

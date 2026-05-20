@@ -1,18 +1,18 @@
 # Chorus - Agent Guide
 
-> For the full system design, read [docs/architecture.md](./docs/architecture.md). For delivery phasing and workstream boundaries, read [docs/implementation-plan.md](./docs/implementation-plan.md). For the Phase 2 planning horizon, read [docs/phase-2-plan.md](./docs/phase-2-plan.md).
+> For the architectural thesis, read [docs/transformation/](./docs/transformation/) and [docs/architecture.md](./docs/architecture.md). For the project overview, read [docs/overview.md](./docs/overview.md). For the reset phases, read [docs/transformation/engineering-reset-roadmap.md](./docs/transformation/engineering-reset-roadmap.md).
 
 ## Authority Order
 
 When a task concerns architecture, runtime behaviour, contracts, governance, or implementation direction, use this order:
 
-1. [docs/architecture.md](./docs/architecture.md)
-2. [docs/transformation/](./docs/transformation/)
-3. [adrs/](./adrs/)
-4. [docs/governance-guardrails.md](./docs/governance-guardrails.md)
-5. [docs/phase-2-plan.md](./docs/phase-2-plan.md)
-6. [docs/implementation-plan.md](./docs/implementation-plan.md)
-7. [docs/evidence-map.md](./docs/evidence-map.md)
+1. [docs/transformation/](./docs/transformation/) - the reset bundle, the architectural authority
+2. [docs/architecture.md](./docs/architecture.md)
+3. [docs/overview.md](./docs/overview.md)
+4. the R1 product and domain artefacts in [docs/](./docs/) (`product-brief.md`, `domain-model.md`, `r1-*.md`)
+5. [adrs/](./adrs/)
+6. [docs/evidence-map.md](./docs/evidence-map.md)
+7. [docs/runbook.md](./docs/runbook.md)
 8. [README.md](./README.md)
 9. This file
 
@@ -20,13 +20,11 @@ Architecture and docs move with code. If behaviour, boundaries, contracts, comma
 
 ## Project Shape
 
-Chorus is a reference implementation of governed multi-agent workflow orchestration for enterprise operational processes. Chorus is the architecture artefact; Lighthouse is the Phase 1 proof scenario.
+Chorus is a hexagonal, ports-and-adapters exemplar for governed agentic systems, with data-contract-first design at every port. Six named ports - intake, LLM provider, connector, audit / transcript, projection sink, observability sink - separate the domain core from the outside world. The thesis is in [docs/transformation/engineering-thesis.md](./docs/transformation/engineering-thesis.md); the architecture reference is [docs/architecture.md](./docs/architecture.md).
 
-Phase 1 implements one evidence-grade vertical slice: an inbound lead email enters through Mailpit, starts a durable Temporal Lighthouse workflow, invokes governed agents, mediates tool actions through a Tool Gateway, persists audit/projection state in Postgres, emits schema-governed events through Redpanda, and exposes progress/evidence through the BFF/UI and eval harness.
+The project is in a transformation reset. R0.5 (the design codification of the thesis), R1 (product and domain reframing), and R2 (documentation architecture refactor) are complete. The next phase is the ADR writing pass (LangGraph reversal of ADR 0012, LLM provider port ADR, audit ports plus replay-eval ADR, domain refocus ADR), then R3 (contract and code terminology refactor) and R4 (local POC readiness across UC1, UC2, UC3). Work from the reset bundle and [docs/transformation/engineering-reset-roadmap.md](./docs/transformation/engineering-reset-roadmap.md); do not resume any pre-reset continuation cadence.
 
-The repo is design-frozen for Phase 1. Phase 0, Phase 1A, Phase 1B, and Phase 1C are implemented: the happy-path Lighthouse slice, governance/failure fixtures, and asynchronous review package are shipped evidence.
-
-Phase 2 is in progress for governed-platform expansion per [ADR 0011](./adrs/0011-phase-2-governed-platform-expansion.md), [ADR 0012](./adrs/0012-langgraph-agent-execution-runtime.md), [ADR 0013](./adrs/0013-identity-authority-observability-boundaries.md), [ADR 0014](./adrs/0014-connector-expansion-approval-hardening-scope.md), [ADR 0015](./adrs/0015-second-workflow-proof-scope.md), [ADR 0016](./adrs/0016-production-readiness-architecture-pack-scope.md), and [docs/phase-2-plan.md](./docs/phase-2-plan.md). Phase 2A is complete: LangGraph now runs inside Agent Runtime, provider/model governance evidence exists, and disabled-provider/degradation fallback fixtures are implemented without production provider calls. Phase 2B is complete: governed identity, observability, approval, policy-change, and optional sidecar boundaries are docs-first. Phase 2C connector expansion and approval hardening is complete: the local CalDAV connector scope, calendar argument schemas, local Radicale sandbox, Tool Gateway-dispatched read/propose connector paths, minimal calendar approval package persistence, approved local idempotency/retry/compensation evidence, and safe read-only BFF calendar status/audit projection are complete. Phase 2D is complete: local Support Desk Triage has safe support/ticket contracts, a local ticket desk sandbox plus Tool Gateway read/propose dispatch baseline, a code-defined `support_triage` Temporal workflow runtime with replay evidence, support eval plus persisted evidence, and a safe read-only Support BFF inspection path. Phase 2E has started docs-first: ADR 0016 scopes production-readiness architecture before production-readiness code, 2E-01 adds the production identity and IAM mapping architecture, 2E-02 adds the secrets and credential handling architecture, 2E-03 adds the deployment topology architecture, 2E-04 adds the backup, restore, and DR architecture, and 2E-05 adds the retention and audit storage architecture. Development is now paused for the transformation reset in [docs/transformation/](./docs/transformation/): the project must refocus on a grounded client-facing domain, ubiquitous language, local POC readiness, and a separate optional deployment phase before further feature work. Do not resume the old one-item Phase 2E continuation cadence. Do not broaden scope into a top-level agent framework replacing Temporal, SaaS product, production customer-data path, production cloud deployment, production SSO, credential entry, credential mutation, production connector writes, mutating admin UI, reviewer decision UI, policy mutation UI, policy apply path, hosted observability exporter, backup automation, restore tooling, retention jobs, archive/export jobs, long-retention store implementation, unrestricted second workflow, or workflow DSL unless the project docs and ADRs explicitly change.
+The runtime code is the pre-reset implementation: a durable Temporal workflow (Lighthouse), an Agent Runtime, a Tool Gateway, Postgres audit and projections, Redpanda events, a read-only BFF and UI, and an OpenTelemetry and Grafana stack. It exercises all six ports but still carries pre-reset names. R3 moves the code onto the named-port surface; the four engineering smells R3 resolves are in [docs/transformation/code-refactor-directions.md](./docs/transformation/code-refactor-directions.md). The pre-reset phase history (Phase 0 through Phase 2E) is preserved in [docs/transformation/phase-2-archive.md](./docs/transformation/phase-2-archive.md). Do not broaden scope into a top-level agent framework replacing Temporal, a SaaS product, a production customer-data path, production deployment, production SSO, credential entry, or a workflow DSL unless the project docs and ADRs explicitly change.
 
 ## How To Run Commands
 
