@@ -30,13 +30,21 @@ R3 is governed by ADRs 0017-0020, the reset bundle in
 - Do not skip hooks. British English, conventional commits, no AI
   attribution.
 - ADRs 0017-0020 are settled. Do not relitigate them.
+- R3 runs the continuation-handoff cadence: each session reads this
+  ledger and the rolling continuation prompt, executes one checkpoint or
+  a bounded slice of one, then updates the ledger and regenerates the
+  continuation prompt at close.
 
 ## Scope and constraints
 
-This ledger is the durable R3 record. The R3 kickoff continuation prompt
-was consumed once it had been ingested; this ledger and the repo commits
-carry R3 from here. The constraints below are lifted from that prompt so
-nothing is lost.
+This ledger is the durable, cumulative R3 record - the R3 backlog. R3
+runs the continuation-handoff cadence: alongside this ledger, a single
+rolling continuation prompt at
+`records/radianit/projects/chorus/next-session-prompt.md` in the vault
+Chorus records frames the next checkpoint and is regenerated at the close
+of each session. The ledger holds durable state; the continuation prompt
+is the thin rolling handoff pointer. The R3 kickoff prompt has been
+consumed; the constraints below are lifted from it so nothing is lost.
 
 - Do not introduce deployment, hosting, identity / IAM, secrets, or other
   Phase 2E concerns; those are parked in `transformation/parked-phase-2e/`.
@@ -186,6 +194,41 @@ the LLM provider port emits. One refinement to the checkpoint set: F
 covers `projection.py` and `doctor.py` only; `eval/run.py`'s
 decomposition is done inside G, because decomposing path-enumeration eval
 is inseparable from the reshape that replaces it.
+
+## R1-deferred items carried into R3
+
+`r1-exit-criteria.md` carried three items explicitly into R3. Tracked
+here so they are resolved before R3 exit:
+
+- **Exact regulatory citations** (ICOBS 2.5.-1R, ICOBS 5, PROD 4,
+  Consumer Duty rules). Verify before any policy snapshot ships in code -
+  checkpoint E (workflow spine and policy snapshot).
+- **Referral inbox adapter shape** - a separate sandbox adapter versus a
+  tagged subscription on the quoting-queue adapter - checkpoint D
+  (connector adapter registry).
+- **Customer-profile store boundary** inside the broker firm - settle
+  when the `sandbox-customer-profile` connector contract is authored -
+  checkpoint D.
+
+## Cross-checkpoint watch items
+
+Surfaced by the 2026-05-21 plan validation:
+
+- **Checkpoint B must keep eval deterministic.** Removing the canned
+  `LocalLighthouseModelAdapter` while the eval reshape is checkpoint G
+  means B must stand up a deterministic recorded / replay route in the
+  route catalogue so `just eval` and `just test` stay green between B and
+  G. Consistent with ADR 0018 (route catalogue) and ADR 0019 (replay);
+  it is not a mock.
+- **Support Triage retirement is distributed.** Each checkpoint that
+  removes support code deletes the matching support tests in the same
+  checkpoint, to stay gate-green. `r3-exit-criteria.md` asserts the clean
+  sweep: no `lighthouse`, `support`, or `ticket` identifiers remain in
+  runtime code or contracts at R3 exit.
+- **The shared spine is proven by one use case in R3.** Design the
+  `WorkflowSpine` and `WorkflowDefinition` (checkpoint E) against the
+  UC2 / UC3 deltas in `r1-adapter-mapping.md`, not only UC1, so the
+  abstraction is not silently UC1-shaped before R4 exercises it.
 
 ## Checkpoints
 
