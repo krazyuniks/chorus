@@ -31,6 +31,35 @@ R3 is governed by ADRs 0017-0020, the reset bundle in
   attribution.
 - ADRs 0017-0020 are settled. Do not relitigate them.
 
+## Scope and constraints
+
+This ledger is the durable R3 record. The R3 kickoff continuation prompt
+was consumed once it had been ingested; this ledger and the repo commits
+carry R3 from here. The constraints below are lifted from that prompt so
+nothing is lost.
+
+- Do not introduce deployment, hosting, identity / IAM, secrets, or other
+  Phase 2E concerns; those are parked in `transformation/parked-phase-2e/`.
+- Do not start R4 (local POC readiness across UC1, UC2, UC3). R3 lands
+  UC1 only; the R4 entry point is prepared at R3 exit.
+- Preserve pre-reset evidence: demote or rename with care rather than
+  deleting evidence outright (see decision 5 - evidence is git history,
+  `phase-2-archive.md`, and the ADRs).
+- Apply `feedback_no_artificial_scoping_questions`: default to the most
+  ambitious shape that validates the ports-and-adapters thesis; surface
+  only genuine design decisions.
+- Documentation moves with the code. As each checkpoint lands, update the
+  docs that describe the changed code: `architecture.md` (per-port detail
+  and implementation-status), `evidence-map.md` (status columns),
+  `runbook.md`, and the `AGENTS.md` stack and component-boundary
+  sections. Retire or rewrite the pre-reset docs flagged in
+  `r2-exit-criteria.md` - `governance-guardrails.md`,
+  `governance-evidence.md`, `demo-script.md`, and `docs/components/` - as
+  the code they describe is refactored.
+- At R3 exit, write `docs/r3-exit-criteria.md` in the shape of
+  `r1-exit-criteria.md` and `r2-exit-criteria.md`, and update the vault
+  Chorus `README.md` and the `project_chorus_reset` agent-memory entry.
+
 ## Green baseline
 
 Recorded 2026-05-20 at commit `9b37338`
@@ -166,7 +195,7 @@ Order is settled by Phase 1 decision 6.
 
 | Checkpoint | Outcome | Status |
 |---|---|---|
-| A | Contract rewrite around the six named ports. | pending |
+| A | Contract rewrite around the six named ports. | pending - specified |
 | B | LLM provider port: LangGraph removed, OpenAI-SDK adapter, route catalogue. | pending |
 | C | Audit ports: decision-trail port and transcript port split. | pending |
 | D | Connector adapter registry replacing the hardcoded match dispatch. | pending |
@@ -176,3 +205,29 @@ Order is settled by Phase 1 decision 6.
 
 Per-checkpoint detail (files, gates run, not-done boundary, next-step
 note) is appended below as each checkpoint lands.
+
+### Checkpoint A - contract structure rewrite
+
+**Outcome.** `contracts/` is reorganised into the six named-port
+directories plus `eval/` (Phase 1 decision 1). Every existing schema is
+relocated by `git mv` into its port home, shape preserved, so runtime
+behaviour is unchanged. `gen.py` and `check.py` move to a recursive,
+port-aware layout; the generated-model tree mirrors the new contract
+tree. All code imports and contract-reference strings are re-pointed.
+
+**Not-done boundary.** A is a structural rewrite only. It does not author
+the new-shape port contracts - the `llm_provider` invocation contracts
+(checkpoint B), the `audit` decision-trail / transcript split (C), the
+`connector` UC1 payloads (D), the `intake` UC1 channel payloads (E), the
+reshaped `eval` fixture (G) - each port's contract content is rewritten
+by that port's checkpoint. A does not retire Support Triage: support and
+ticket schemas relocate shape-preserved alongside everything else;
+Support Triage retirement (decision 4) is executed incrementally by the
+checkpoints that rewrite each affected module - B (runtime support
+paths, `support_agent_io`), D (ticket connector and contracts), E
+(`support.py`, `support_request_intake`), F (`projection.py` support),
+G (eval support). R3 exit is the point at which Support Triage is fully
+retired.
+
+**Gates.** `just contracts-check`, `just lint`, `just test`,
+`just test-replay`, `just eval`.
