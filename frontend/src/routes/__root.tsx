@@ -19,7 +19,6 @@ const NAV: { to: string; label: string }[] = [
   { to: "/grants", label: "Grants" },
   { to: "/routing", label: "Routing" },
   { to: "/providers", label: "Providers" },
-  { to: "/graph-executions", label: "Graph Executions" },
   { to: "/eval", label: "Eval" },
 ];
 

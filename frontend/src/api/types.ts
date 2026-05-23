@@ -57,26 +57,6 @@ export interface DecisionTrailEntry {
   contract_refs?: string[];
 }
 
-export interface GraphExecutionEntry {
-  id: string;
-  workflow_id: string;
-  invocation_id: string;
-  agent_id: string;
-  agent_role: string;
-  execution_engine: string | null;
-  graph_version: string | null;
-  graph_path: string[];
-  graph_path_summary: string | null;
-  provider: string;
-  model: string;
-  route_id: string | null;
-  route_version: number | null;
-  outcome: "proposed" | "answered" | "escalated" | "blocked" | "succeeded" | "failed";
-  fallback_applied: boolean | null;
-  latency_ms: number | null;
-  occurred_at: string;
-  correlation_id: string;
-}
 
 export type ToolVerdict =
   | "allow"

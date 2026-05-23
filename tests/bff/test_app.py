@@ -171,19 +171,21 @@ def seeded_bff(migrated_database_url: str) -> TestClient:
                 Jsonb({"metadata": {"test": True}}),
                 Jsonb(
                     {
-                        "agent_execution.engine": "langgraph",
-                        "agent_execution.graph_version": "lighthouse-agent-runtime-graph-v1",
-                        "agent_execution.graph_path": [
+                        "execution.pipeline_version": "agent-runtime-pipeline-v1",
+                        "execution.step_path": [
                             "prepare_context",
-                            "invoke_model_adapter",
+                            "invoke_llm_provider_port",
                             "normalise_result",
                             "validate_contract",
                             "final_response",
                         ],
-                        "agent_execution.graph_path_summary": (
-                            "prepare_context -> invoke_model_adapter -> normalise_result -> "
+                        "execution.step_path_summary": (
+                            "prepare_context -> invoke_llm_provider_port -> normalise_result -> "
                             "validate_contract -> final_response"
                         ),
+                        "route_catalogue.route_id": "recorded-replay",
+                        "route_catalogue.provider_id": "local-replay",
+                        "route_catalogue.adapter_version": "recorded-replay-v1",
                         "model_route.route_id": str(invocation_id),
                         "model_route.route_version": 1,
                         "model_route.fallback_reason": None,
@@ -601,8 +603,8 @@ def seeded_bff(migrated_database_url: str) -> TestClient:
                 Jsonb({"metadata": {"fixture_ref": "fixture_support_bff"}}),
                 Jsonb(
                     {
-                        "agent_execution.engine": "langgraph",
-                        "agent_execution.graph_version": "support-agent-runtime-graph-v1",
+                        "route_catalogue.route_id": "recorded-replay",
+                        "route_catalogue.provider_id": "local-replay",
                         "model_route.route_id": str(uuid4()),
                         "model_route.route_version": 1,
                     }
@@ -797,7 +799,6 @@ def test_bff_serves_timeline_decisions_tool_verdicts_and_runtime_policy(
     providers = seeded_bff.get("/api/runtime/providers").json()
     provider_models = seeded_bff.get("/api/runtime/provider-models").json()
     route_versions = seeded_bff.get("/api/runtime/route-versions").json()
-    graph = seeded_bff.get(f"/api/workflows/{workflow_id}/graph-executions").json()
     calendar_status = seeded_bff.get(f"/api/workflows/{workflow_id}/calendar/status").json()
 
     assert events[0]["event_type"] == "lead.received"
@@ -815,8 +816,6 @@ def test_bff_serves_timeline_decisions_tool_verdicts_and_runtime_policy(
         "lighthouse-happy-path-v1",
     }
     assert {row["route_version"] for row in route_versions} == {1}
-    assert graph[0]["execution_engine"] == "langgraph"
-    assert graph[0]["graph_path_summary"].endswith("final_response")
     assert calendar_status[0]["projection_status"] == "calendar_hold_created"
     assert calendar_status[0]["tool_name"] == "calendar.create_hold"
     assert calendar_status[0]["latest_verdict"] == "allow"
@@ -851,7 +850,6 @@ def test_bff_serves_support_inspection_without_ticket_status_execution(
     assert support_detail["workflow_events"][0]["step"] == "support_propose"
     assert support_detail["workflow_events"][0]["gateway_verdict"] == "propose"
     assert support_detail["agent_decisions"][0]["agent_role"] == "support_resolution_planner"
-    assert support_detail["agent_decisions"][0]["execution_engine"] == "langgraph"
     assert support_detail["agent_decisions"][0]["contract_refs"] == [
         "contracts/llm_provider/support_agent_io.schema.json"
     ]

@@ -7,17 +7,12 @@ import { DataTable, type DataTableColumn } from "@/components/DataTable";
 import { StatusPill } from "@/components/StatusPill";
 import {
   getWorkflow,
-  listWorkflowGraphExecutions,
   listWorkflowDecisionTrail,
   listWorkflowEvents,
   listWorkflowToolVerdicts,
 } from "@/api/queries";
 import { subscribeProgress } from "@/api/sse";
-import type {
-  DecisionTrailEntry,
-  GraphExecutionEntry,
-  ToolVerdictEntry,
-} from "@/api/types";
+import type { DecisionTrailEntry, ToolVerdictEntry } from "@/api/types";
 import { formatCorrelationId, formatDurationMs, formatTimestamp } from "@/lib/utils";
 
 export const Route = createFileRoute("/workflows/$workflowId")({
@@ -41,11 +36,6 @@ function WorkflowDetail() {
   const { data: decisions = [] } = useQuery({
     queryKey: ["workflow", workflowId, "decisions"],
     queryFn: () => listWorkflowDecisionTrail(workflowId),
-  });
-
-  const { data: graphExecutions = [] } = useQuery({
-    queryKey: ["workflow", workflowId, "graph-executions"],
-    queryFn: () => listWorkflowGraphExecutions(workflowId),
   });
 
   const { data: verdicts = [] } = useQuery({
@@ -141,41 +131,6 @@ function WorkflowDetail() {
     },
   ];
 
-  const graphColumns: DataTableColumn<GraphExecutionEntry>[] = [
-    { key: "agent_id", header: "Agent", mono: true, cell: (r) => r.agent_id },
-    {
-      key: "execution_engine",
-      header: "Engine",
-      cell: (r) => <StatusPill value={r.execution_engine ?? "unknown"} />,
-    },
-    {
-      key: "graph_version",
-      header: "Graph",
-      mono: true,
-      cell: (r) => r.graph_version ?? "—",
-    },
-    {
-      key: "graph_path_summary",
-      header: "Path",
-      mono: true,
-      cell: (r) => r.graph_path_summary ?? (r.graph_path.join(" -> ") || "—"),
-    },
-    { key: "provider", header: "Provider", mono: true, cell: (r) => r.provider },
-    { key: "model", header: "Model", mono: true, cell: (r) => r.model },
-    {
-      key: "outcome",
-      header: "Outcome",
-      cell: (r) => <StatusPill value={r.outcome} />,
-    },
-    {
-      key: "latency_ms",
-      header: "Latency",
-      align: "right",
-      mono: true,
-      cell: (r) => formatDurationMs(r.latency_ms),
-    },
-  ];
-
   if (!run) {
     return (
       <div className="flex h-full flex-col">
@@ -221,15 +176,6 @@ function WorkflowDetail() {
         <DataTable
           rows={decisions}
           columns={decisionColumns}
-          rowKey={(row) => row.id}
-        />
-      </section>
-
-      <section className="border-b border-border">
-        <SectionLabel>Graph executions</SectionLabel>
-        <DataTable
-          rows={graphExecutions}
-          columns={graphColumns}
           rowKey={(row) => row.id}
         />
       </section>

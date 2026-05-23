@@ -1,7 +1,6 @@
 import { apiGet } from "./client";
 import {
   decisionTrail,
-  graphExecutions,
   grants,
   providerModels,
   providers,
@@ -14,7 +13,6 @@ import {
 } from "./fixtures";
 import type {
   DecisionTrailEntry,
-  GraphExecutionEntry,
   GrantEntry,
   ProviderEntry,
   ProviderModelEntry,
@@ -64,22 +62,6 @@ export async function listWorkflowDecisionTrail(
   }
   return apiGet<DecisionTrailEntry[]>(
     `/workflows/${encodeURIComponent(workflowId)}/decision-trail`,
-  );
-}
-
-export async function listGraphExecutions(): Promise<GraphExecutionEntry[]> {
-  if (USE_FIXTURES) return graphExecutions;
-  return apiGet<GraphExecutionEntry[]>("/graph-executions");
-}
-
-export async function listWorkflowGraphExecutions(
-  workflowId: string,
-): Promise<GraphExecutionEntry[]> {
-  if (USE_FIXTURES) {
-    return graphExecutions.filter((entry) => entry.workflow_id === workflowId);
-  }
-  return apiGet<GraphExecutionEntry[]>(
-    `/workflows/${encodeURIComponent(workflowId)}/graph-executions`,
   );
 }
 

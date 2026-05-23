@@ -13,7 +13,7 @@ import psycopg
 from psycopg.types.json import Jsonb
 from temporalio import activity
 
-from chorus.agent_runtime import AgentRuntime, AgentRuntimeStore, default_model_adapter_registry
+from chorus.agent_runtime import AgentRuntime, AgentRuntimeStore, default_route_catalogue
 from chorus.contracts.generated.audit.audit_event import AuditEvent
 from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
 from chorus.observability import current_otel_ids, set_current_span_attributes
@@ -164,7 +164,7 @@ def invoke_agent_runtime_activity(request: AgentInvocationRequest) -> AgentInvoc
     with psycopg.connect(database_url) as conn:
         runtime = AgentRuntime(
             AgentRuntimeStore(conn),
-            default_model_adapter_registry(),
+            default_route_catalogue(),
         )
         return runtime.invoke(request)
 

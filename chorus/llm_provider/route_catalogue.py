@@ -1,0 +1,117 @@
+"""Route catalogue for the LLM provider port (ADR 0018).
+
+The catalogue is the port's route-metadata layer: it pairs a route id (a
+human-named selection like ``dev``, ``demo-eval-canonical``, or
+``recorded-replay``) with the provider, model, parameters, and adapter
+version that should service it.
+
+The Phase 2A provider catalogue and route-version tables retire in favour
+of this in-process registration. The DB tables that still carry the
+historical shape are left for the audit-ports work in checkpoint C to
+re-home and are no longer the call boundary.
+"""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, field
+from typing import Any, cast
+
+from chorus.llm_provider.adapter_openai import OpenAICompatibleAdapter
+from chorus.llm_provider.adapter_replay import RecordedReplayAdapter
+from chorus.llm_provider.port import (
+    InvocationArgs,
+    InvocationResult,
+    LLMProviderAdapter,
+    LLMProviderInvocationError,
+)
+
+
+@dataclass(frozen=True)
+class RouteCatalogueEntry:
+    """One registered route in the LLM provider port catalogue."""
+
+    route_id: str
+    provider_id: str
+    model_id: str
+    adapter: LLMProviderAdapter
+    parameters: dict[str, Any] = field(default_factory=lambda: cast(dict[str, Any], {}))
+
+    @property
+    def adapter_version(self) -> str:
+        return self.adapter.adapter_version
+
+
+class RouteCatalogue:
+    """Resolves route ids to their configured adapters."""
+
+    def __init__(self, entries: list[RouteCatalogueEntry]) -> None:
+        self._entries: dict[str, RouteCatalogueEntry] = {}
+        for entry in entries:
+            if entry.route_id in self._entries:
+                raise ValueError(f"Duplicate route id in catalogue: {entry.route_id!r}")
+            self._entries[entry.route_id] = entry
+
+    @property
+    def route_ids(self) -> tuple[str, ...]:
+        return tuple(sorted(self._entries))
+
+    def get(self, route_id: str) -> RouteCatalogueEntry:
+        entry = self._entries.get(route_id)
+        if entry is None:
+            raise LLMProviderInvocationError(
+                route_id=route_id, reason="route_not_registered", retryable=False
+            )
+        return entry
+
+    def invoke(self, args: InvocationArgs) -> InvocationResult:
+        entry = self.get(args.route_id)
+        return entry.adapter.invoke(args)
+
+
+def default_route_catalogue() -> RouteCatalogue:
+    """Register the three routes required by ADR 0018.
+
+    The ``dev`` and ``demo-eval-canonical`` routes wire OpenAI-compatible
+    endpoints (DeepSeek and OpenAI respectively) and read credentials from
+    environment variables. The ``recorded-replay`` route is the
+    deterministic substrate that keeps ``just eval`` and ``just test`` green
+    between B and G; it produces stable structured outputs for the Phase 1
+    fixtures without reaching any external provider.
+    """
+
+    return RouteCatalogue(
+        [
+            RouteCatalogueEntry(
+                route_id="recorded-replay",
+                provider_id="local-replay",
+                model_id="recorded-replay-v1",
+                adapter=RecordedReplayAdapter(),
+                parameters={},
+            ),
+            RouteCatalogueEntry(
+                route_id="dev",
+                provider_id="deepseek",
+                model_id="deepseek-chat-v4-flash",
+                adapter=OpenAICompatibleAdapter(
+                    base_url=os.environ.get(
+                        "CHORUS_LLM_DEV_BASE_URL", "https://api.deepseek.com/v1"
+                    ),
+                    api_key_env="CHORUS_LLM_DEV_API_KEY",
+                ),
+                parameters={"thinking": True, "temperature": 0.2},
+            ),
+            RouteCatalogueEntry(
+                route_id="demo-eval-canonical",
+                provider_id="openai",
+                model_id="gpt-5.4-mini",
+                adapter=OpenAICompatibleAdapter(
+                    base_url=os.environ.get(
+                        "CHORUS_LLM_CANONICAL_BASE_URL", "https://api.openai.com/v1"
+                    ),
+                    api_key_env="CHORUS_LLM_CANONICAL_API_KEY",
+                ),
+                parameters={"temperature": 0.1},
+            ),
+        ]
+    )

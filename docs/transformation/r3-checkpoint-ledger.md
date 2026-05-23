@@ -286,7 +286,7 @@ Order is settled by Phase 1 decision 6.
 | Checkpoint | Outcome | Status |
 |---|---|---|
 | A | Contract rewrite around the six named ports. | done |
-| B | LLM provider port: LangGraph removed, OpenAI-SDK adapter, route catalogue. | pending |
+| B | LLM provider port: LangGraph removed, OpenAI-SDK adapter, route catalogue. | done |
 | C | Audit ports: decision-trail port and transcript port split. | pending |
 | D | Connector adapter registry replacing the hardcoded match dispatch. | pending |
 | E | Shared workflow spine factored out of the Lighthouse / Support duplication. | pending |
@@ -375,6 +375,72 @@ runtime support is removed here only inside `runtime.py`.
 
 **Gates.** `just contracts-check`, `just lint`, `just test`,
 `just test-replay`, `just eval`.
+
+**Evidence (2026-05-23, Session 1).** New `chorus/llm_provider/`
+package introduces the port surface: `InvocationArgs` /
+`InvocationResult` Pydantic dataclasses, an `LLMProviderAdapter`
+Protocol, a `RouteCatalogue` keyed on route id, and two concrete
+adapters - `OpenAICompatibleAdapter` (thin wrapper over the OpenAI
+Python SDK against any OpenAI-compatible chat-completions endpoint) and
+`RecordedReplayAdapter` (deterministic, replays the pre-reset local
+Lighthouse responses keyed off `task_kind` + input metadata). The
+default catalogue registers three routes: `dev` (DeepSeek V4-Flash,
+`CHORUS_LLM_DEV_API_KEY`), `demo-eval-canonical` (OpenAI gpt-5.4-mini,
+`CHORUS_LLM_CANONICAL_API_KEY`), and `recorded-replay` (the
+deterministic substrate). Domain code never touches `openai` outside the
+adapter (verified by `just lint`'s strict pyright pass).
+
+`chorus/agent_runtime/runtime.py` rewritten: `LangGraphAgentExecutionEngine`,
+the `AgentExecutionGraphState` TypedDict, the `_state_*` graph helpers,
+`ModelAdapterRegistry`, `LocalLighthouseModelAdapter`,
+`CommercialExampleModelAdapter`, `CommercialProviderDisabledError`, and
+all support paths (`_support_contract`, `_support_result_for`,
+`_support_input_refs`, `_support_result_payload`,
+`_support_severity_category`, `_support_case_status_category`,
+`SUPPORT_AGENT_CONTRACT_REF`) all retire. A new
+`SequentialAgentExecutionEngine` runs the five-step pipeline as plain
+Python (`prepare_context`, `invoke_llm_provider_port`,
+`normalise_result`, `validate_contract`, `final_response`) and emits
+`execution.pipeline_version`, `execution.step_path`,
+`route_catalogue.route_id`, `route_catalogue.provider_id`,
+`route_catalogue.model_id`, `route_catalogue.adapter_version` on every
+captured invocation. `AgentRuntimeError.agent_execution_graph_path`
+becomes `execution_step_path`. A `ProviderRouteResolver` maps the
+existing `model_routing_policies.provider` values to the catalogue's
+route ids. `langgraph` leaves `pyproject.toml`; `openai>=1.60.0` joins.
+
+ADR 0017 consequences executed: the `/api/graph-executions` and
+`/api/workflows/{id}/graph-executions` BFF endpoints retire, with
+`GraphExecutionEntryView` and `_graph_execution_view`. The
+projection's `SupportAgentDecisionReadModel` drops `execution_engine`
+and `graph_version`; the supporting SQL selects retire too. The
+frontend `/graph-executions` route, the `GraphExecutionEntry` type,
+`listGraphExecutions` / `listWorkflowGraphExecutions` queries, the
+`graphExecutions` fixture, and the nav entry retire; `routeTree.gen.ts`
+hand-regenerated; the workflow detail page drops its graph executions
+section.
+
+Distributed Support Triage retirement landed B's slice: runtime no
+longer accepts `SupportAgentIO`. The matching tests retire in step:
+`tests/workflows/test_support_workflow.py` deleted,
+`tests/persistence/test_postgres_foundation.py::test_support_eval_persisted_evidence_joins_safe_refs`
+deleted, the LangGraph- and commercial-shaped tests in
+`tests/agent_runtime/test_runtime.py` removed and the file rewritten
+around the new port and pipeline. `tests/bff/test_app.py` and
+`test_app_unit.py` updated to the new metadata shape.
+`chorus/workflows/support.py`, the support agent-IO schema, and the
+support workflow events stay in place per the ledger; they retire in
+later checkpoints (E, F, G).
+
+Gates run on this checkpoint: `just contracts-check` ok, `just lint`
+clean (ruff, ruff format, pyright strict, frontend `tsc --noEmit` all
+clean), `just test` 95 passed / 3 errors (3 = known BFF
+test-isolation baseline; absolute pass count is below the 107 baseline
+because the watch-item-mandated support-test deletions retire
+runtime/support coverage that no longer applies),
+`just test-replay` 6 passed / 13 deselected, `just eval` all
+path-enumeration fixtures pass (the deterministic recorded/replay route
+holds the eval contract per the cross-checkpoint watch item).
 
 ### Checkpoint C - Audit ports
 

@@ -315,19 +315,22 @@ class FakeProjectionStore:
             contract_refs=["contracts/llm_provider/lighthouse_agent_io.schema.json"],
             raw_record={"metadata": {"unit": True}},
             metadata={
-                "agent_execution.engine": "langgraph",
-                "agent_execution.graph_version": "lighthouse-agent-runtime-graph-v1",
-                "agent_execution.graph_path": [
+                "execution.pipeline_version": "agent-runtime-pipeline-v1",
+                "execution.step_path": [
                     "prepare_context",
-                    "invoke_model_adapter",
+                    "invoke_llm_provider_port",
                     "normalise_result",
                     "validate_contract",
                     "final_response",
                 ],
-                "agent_execution.graph_path_summary": (
-                    "prepare_context -> invoke_model_adapter -> normalise_result -> "
+                "execution.step_path_summary": (
+                    "prepare_context -> invoke_llm_provider_port -> normalise_result -> "
                     "validate_contract -> final_response"
                 ),
+                "route_catalogue.route_id": "recorded-replay",
+                "route_catalogue.provider_id": "local-replay",
+                "route_catalogue.model_id": "recorded-replay-v1",
+                "route_catalogue.adapter_version": "recorded-replay-v1",
                 "model_route.route_id": str(uuid4()),
                 "model_route.route_version": 1,
                 "model_route.fallback_reason": None,
@@ -433,8 +436,6 @@ class FakeProjectionStore:
             model="lighthouse-happy-path-v1",
             route_id="route_support_resolution_plan_v1",
             route_version=1,
-            execution_engine="langgraph",
-            graph_version="support-agent-runtime-graph-v1",
             outcome="succeeded",
             cost_amount=Decimal("0.0001"),
             duration_ms=10,
@@ -610,27 +611,18 @@ def test_support_inspection_endpoints_are_safe_read_only_views() -> None:
     assert support_detail["status_write_boundary"][0]["approval_required"] is True
 
 
-def test_provider_and_graph_execution_endpoints_are_read_only_views() -> None:
-    client, store = _client()
+def test_provider_endpoints_are_read_only_views() -> None:
+    client, _ = _client()
 
     providers = client.get("/api/runtime/providers").json()
     provider_models = client.get("/api/runtime/provider-models").json()
     route_versions = client.get("/api/runtime/route-versions").json()
-    graph = client.get(f"/api/workflows/{store.workflow_id}/graph-executions").json()
 
     assert {row["provider_id"] for row in providers} == {"commercial.example", "local"}
     assert providers[0]["catalogue_id"] == "provider-catalogue.phase2a.seed"
     assert provider_models[0]["model_id"] == "lighthouse-happy-path-v1"
     assert route_versions[0]["route_version"] == 1
     assert route_versions[0]["provider_catalogue_id"] == "provider-catalogue.phase2a.seed"
-    assert graph[0]["execution_engine"] == "langgraph"
-    assert graph[0]["graph_path"] == [
-        "prepare_context",
-        "invoke_model_adapter",
-        "normalise_result",
-        "validate_contract",
-        "final_response",
-    ]
 
 
 def test_progress_sse_is_projection_backed() -> None:

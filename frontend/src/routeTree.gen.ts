@@ -13,7 +13,6 @@ import { Route as ToolVerdictsRouteImport } from "./routes/tool-verdicts"
 import { Route as RoutingRouteImport } from "./routes/routing"
 import { Route as RegistryRouteImport } from "./routes/registry"
 import { Route as ProvidersRouteImport } from "./routes/providers"
-import { Route as GraphExecutionsRouteImport } from "./routes/graph-executions"
 import { Route as GrantsRouteImport } from "./routes/grants"
 import { Route as EvalRouteImport } from "./routes/eval"
 import { Route as DecisionTrailRouteImport } from "./routes/decision-trail"
@@ -38,11 +37,6 @@ const RegistryRoute = RegistryRouteImport.update({
 const ProvidersRoute = ProvidersRouteImport.update({
   id: "/providers",
   path: "/providers",
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GraphExecutionsRoute = GraphExecutionsRouteImport.update({
-  id: "/graph-executions",
-  path: "/graph-executions",
   getParentRoute: () => rootRouteImport,
 } as any)
 const GrantsRoute = GrantsRouteImport.update({
@@ -76,7 +70,6 @@ export interface FileRoutesByFullPath {
   "/decision-trail": typeof DecisionTrailRoute
   "/eval": typeof EvalRoute
   "/grants": typeof GrantsRoute
-  "/graph-executions": typeof GraphExecutionsRoute
   "/providers": typeof ProvidersRoute
   "/registry": typeof RegistryRoute
   "/routing": typeof RoutingRoute
@@ -88,7 +81,6 @@ export interface FileRoutesByTo {
   "/decision-trail": typeof DecisionTrailRoute
   "/eval": typeof EvalRoute
   "/grants": typeof GrantsRoute
-  "/graph-executions": typeof GraphExecutionsRoute
   "/providers": typeof ProvidersRoute
   "/registry": typeof RegistryRoute
   "/routing": typeof RoutingRoute
@@ -101,7 +93,6 @@ export interface FileRoutesById {
   "/decision-trail": typeof DecisionTrailRoute
   "/eval": typeof EvalRoute
   "/grants": typeof GrantsRoute
-  "/graph-executions": typeof GraphExecutionsRoute
   "/providers": typeof ProvidersRoute
   "/registry": typeof RegistryRoute
   "/routing": typeof RoutingRoute
@@ -115,7 +106,6 @@ export interface FileRouteTypes {
     | "/decision-trail"
     | "/eval"
     | "/grants"
-    | "/graph-executions"
     | "/providers"
     | "/registry"
     | "/routing"
@@ -127,7 +117,6 @@ export interface FileRouteTypes {
     | "/decision-trail"
     | "/eval"
     | "/grants"
-    | "/graph-executions"
     | "/providers"
     | "/registry"
     | "/routing"
@@ -139,7 +128,6 @@ export interface FileRouteTypes {
     | "/decision-trail"
     | "/eval"
     | "/grants"
-    | "/graph-executions"
     | "/providers"
     | "/registry"
     | "/routing"
@@ -152,7 +140,6 @@ export interface RootRouteChildren {
   DecisionTrailRoute: typeof DecisionTrailRoute
   EvalRoute: typeof EvalRoute
   GrantsRoute: typeof GrantsRoute
-  GraphExecutionsRoute: typeof GraphExecutionsRoute
   ProvidersRoute: typeof ProvidersRoute
   RegistryRoute: typeof RegistryRoute
   RoutingRoute: typeof RoutingRoute
@@ -188,13 +175,6 @@ declare module "@tanstack/react-router" {
       path: "/providers"
       fullPath: "/providers"
       preLoaderRoute: typeof ProvidersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    "/graph-executions": {
-      id: "/graph-executions"
-      path: "/graph-executions"
-      fullPath: "/graph-executions"
-      preLoaderRoute: typeof GraphExecutionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/grants": {
@@ -240,7 +220,6 @@ const rootRouteChildren: RootRouteChildren = {
   DecisionTrailRoute: DecisionTrailRoute,
   EvalRoute: EvalRoute,
   GrantsRoute: GrantsRoute,
-  GraphExecutionsRoute: GraphExecutionsRoute,
   ProvidersRoute: ProvidersRoute,
   RegistryRoute: RegistryRoute,
   RoutingRoute: RoutingRoute,

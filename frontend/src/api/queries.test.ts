@@ -11,7 +11,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getWorkflow,
   listDecisionTrail,
-  listGraphExecutions,
   listGrants,
   listProviderModels,
   listProviders,
@@ -21,7 +20,6 @@ import {
   listToolVerdicts,
   listWorkflowDecisionTrail,
   listWorkflowEvents,
-  listWorkflowGraphExecutions,
   listWorkflowToolVerdicts,
   listWorkflows,
 } from "./queries";
@@ -77,8 +75,6 @@ describe("queries", () => {
     await listDecisionTrail();
     await listToolVerdicts();
     await listWorkflowDecisionTrail("w-1");
-    await listGraphExecutions();
-    await listWorkflowGraphExecutions("w-1");
     await listWorkflowToolVerdicts("w-1");
     await listRegistry();
     await listGrants();
@@ -91,8 +87,6 @@ describe("queries", () => {
       "/api/decision-trail",
       "/api/tool-verdicts",
       "/api/workflows/w-1/decision-trail",
-      "/api/graph-executions",
-      "/api/workflows/w-1/graph-executions",
       "/api/workflows/w-1/tool-verdicts",
       "/api/runtime/registry",
       "/api/runtime/grants",

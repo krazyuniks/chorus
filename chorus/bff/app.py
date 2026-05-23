@@ -9,7 +9,7 @@ import os
 from collections.abc import AsyncIterator, Generator, Iterator
 from contextlib import contextmanager
 from decimal import Decimal
-from typing import Annotated, Any, cast
+from typing import Annotated, Any
 
 import psycopg
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
@@ -132,27 +132,6 @@ class DecisionTrailEntryView(BaseModel):
     contract_refs: list[str]
 
 
-class GraphExecutionEntryView(BaseModel):
-    id: str
-    workflow_id: str
-    invocation_id: str
-    agent_id: str
-    agent_role: str
-    execution_engine: str | None
-    graph_version: str | None
-    graph_path: list[str]
-    graph_path_summary: str | None
-    provider: str
-    model: str
-    route_id: str | None
-    route_version: int | None
-    outcome: str
-    fallback_applied: bool | None
-    latency_ms: int | None
-    occurred_at: str
-    correlation_id: str
-
-
 class ToolVerdictEntryView(BaseModel):
     id: str
     workflow_id: str
@@ -229,8 +208,6 @@ class SupportAgentDecisionSummaryView(BaseModel):
     model: str
     route_id: str | None
     route_version: int | None
-    execution_engine: str | None
-    graph_version: str | None
     outcome: str
     cost_usd: float
     latency_ms: int
@@ -480,25 +457,6 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
     ) -> list[DecisionTrailEntryView]:
         entries = store.list_decision_trail(resolved.tenant_id, limit=limit)
         return [_decision_view(row) for row in entries]
-
-    @app.get("/api/graph-executions", response_model=list[GraphExecutionEntryView])
-    def list_graph_executions(
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
-        limit: Annotated[int, Query(ge=1, le=1_000)] = 500,
-    ) -> list[GraphExecutionEntryView]:
-        entries = store.list_decision_trail(resolved.tenant_id, limit=limit)
-        return [_graph_execution_view(row) for row in entries]
-
-    @app.get(
-        "/api/workflows/{workflow_id}/graph-executions",
-        response_model=list[GraphExecutionEntryView],
-    )
-    def list_workflow_graph_executions(
-        workflow_id: str,
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
-    ) -> list[GraphExecutionEntryView]:
-        entries = store.list_decision_trail(resolved.tenant_id, workflow_id=workflow_id)
-        return [_graph_execution_view(row) for row in entries]
 
     @app.get("/api/tool-verdicts", response_model=list[ToolVerdictEntryView])
     def list_tool_verdicts(
@@ -809,14 +767,6 @@ def _metadata_bool(metadata: dict[str, Any], key: str) -> bool | None:
     return value if isinstance(value, bool) else None
 
 
-def _metadata_list_str(metadata: dict[str, Any], key: str) -> list[str]:
-    value = metadata.get(key)
-    if not isinstance(value, list):
-        return []
-    items = cast(list[object], value)
-    return [item for item in items if isinstance(item, str)]
-
-
 def _decision_view(row: DecisionTrailEntryReadModel) -> DecisionTrailEntryView:
     return DecisionTrailEntryView(
         id=str(row.invocation_id),
@@ -841,29 +791,6 @@ def _decision_view(row: DecisionTrailEntryReadModel) -> DecisionTrailEntryView:
         occurred_at=row.completed_at.isoformat(),
         correlation_id=row.correlation_id,
         contract_refs=row.contract_refs,
-    )
-
-
-def _graph_execution_view(row: DecisionTrailEntryReadModel) -> GraphExecutionEntryView:
-    return GraphExecutionEntryView(
-        id=str(row.invocation_id),
-        workflow_id=row.workflow_id,
-        invocation_id=str(row.invocation_id),
-        agent_id=row.agent_id,
-        agent_role=row.agent_role,
-        execution_engine=_metadata_str(row.metadata, "agent_execution.engine"),
-        graph_version=_metadata_str(row.metadata, "agent_execution.graph_version"),
-        graph_path=_metadata_list_str(row.metadata, "agent_execution.graph_path"),
-        graph_path_summary=_metadata_str(row.metadata, "agent_execution.graph_path_summary"),
-        provider=row.provider,
-        model=row.model,
-        route_id=_metadata_str(row.metadata, "model_route.route_id"),
-        route_version=_metadata_int(row.metadata, "model_route.route_version"),
-        outcome=row.outcome,
-        fallback_applied=_metadata_bool(row.metadata, "provider_fallback.applied"),
-        latency_ms=row.duration_ms,
-        occurred_at=row.completed_at.isoformat(),
-        correlation_id=row.correlation_id,
     )
 
 
@@ -979,8 +906,6 @@ def _support_decision_view(row: SupportAgentDecisionReadModel) -> SupportAgentDe
         model=row.model,
         route_id=row.route_id,
         route_version=row.route_version,
-        execution_engine=row.execution_engine,
-        graph_version=row.graph_version,
         outcome=row.outcome,
         cost_usd=_decimal_to_float(row.cost_amount),
         latency_ms=row.duration_ms,

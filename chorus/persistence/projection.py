@@ -198,8 +198,6 @@ class SupportAgentDecisionReadModel(BaseModel):
     model: str
     route_id: str | None
     route_version: int | None
-    execution_engine: str | None
-    graph_version: str | None
     outcome: str
     cost_amount: Decimal
     duration_ms: int
@@ -1226,8 +1224,6 @@ class ProjectionStore:
                         THEN (metadata ->> 'model_route.route_version')::integer
                     ELSE NULL
                 END AS route_version,
-                metadata ->> 'agent_execution.engine' AS execution_engine,
-                metadata ->> 'agent_execution.graph_version' AS graph_version,
                 outcome,
                 cost_amount,
                 duration_ms,
