@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "e696be1f-bec1-483d-8621-775dc83bbd6e",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_support_001",
+  "workflow_id": "support-triage-cor_support_001",
+  "workflow_type": "support_triage",
+  "agent_role": "support_resolution_planner",
+  "task_kind": "support_resolution_plan",
+  "input_refs": {
+    "request_ref": "req_support_001",
+    "case_ref": "case_existing_001",
+    "account_ref": "acct_demo_001",
+    "product_ref": "prod_core_platform",
+    "redacted_summary_ref": "summary_support_001",
+    "prior_invocation_refs": [
+      "inv_support_classifier_001"
+    ]
+  },
+  "expected_output_contract": "contracts/llm_provider/support_agent_io.schema.json",
+  "result": {
+    "confidence": 0.86,
+    "recommended_next_step": "propose_only",
+    "verdict_category": "propose_case_update",
+    "severity_category": "sev_high",
+    "case_status_category": "pending_internal",
+    "resolution_category": "needs_product_review",
+    "output_refs": {
+      "request_ref": "req_support_001",
+      "case_ref": "case_existing_001",
+      "resolution_plan_ref": "plan_support_001",
+      "response_draft_ref": "response_support_001",
+      "case_update_ref": "caseupd_support_001"
+    },
+    "evidence_refs": [
+      "evidence_support_plan_001"
+    ]
+  }
+}

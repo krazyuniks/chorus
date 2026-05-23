@@ -15,7 +15,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field
 
-from chorus.contracts.generated.tools.email_message_args import EmailMessageArgs
+from chorus.contracts.generated.connector.email_message_args import EmailMessageArgs
 
 
 class ConnectorError(RuntimeError):

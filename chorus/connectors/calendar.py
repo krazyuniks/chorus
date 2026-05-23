@@ -16,14 +16,18 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from chorus.connectors.local import ConnectorError, ConnectorResult, ConnectorTransientError
-from chorus.contracts.generated.tools.calendar_availability_lookup_args import (
+from chorus.contracts.generated.connector.calendar_availability_lookup_args import (
     CalendarAvailabilityLookupArgs,
 )
-from chorus.contracts.generated.tools.calendar_hold_cancellation_args import (
+from chorus.contracts.generated.connector.calendar_hold_cancellation_args import (
     CalendarHoldCancellationArgs,
 )
-from chorus.contracts.generated.tools.calendar_hold_creation_args import CalendarHoldCreationArgs
-from chorus.contracts.generated.tools.calendar_hold_proposal_args import CalendarHoldProposalArgs
+from chorus.contracts.generated.connector.calendar_hold_creation_args import (
+    CalendarHoldCreationArgs,
+)
+from chorus.contracts.generated.connector.calendar_hold_proposal_args import (
+    CalendarHoldProposalArgs,
+)
 
 _DAV_NAMESPACE = "DAV:"
 _CALDAV_NAMESPACE = "urn:ietf:params:xml:ns:caldav"

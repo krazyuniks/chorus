@@ -18,16 +18,16 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field
 
-from chorus.contracts.generated.agents.lighthouse_agent_io import LighthouseAgentIO
-from chorus.contracts.generated.agents.support_agent_io import SupportAgentIO
-from chorus.contracts.generated.events.agent_invocation_record import AgentInvocationRecord
+from chorus.contracts.generated.audit.agent_invocation_record import AgentInvocationRecord
+from chorus.contracts.generated.llm_provider.lighthouse_agent_io import LighthouseAgentIO
+from chorus.contracts.generated.llm_provider.support_agent_io import SupportAgentIO
 from chorus.observability import current_otel_ids
 from chorus.workflows.types import AgentCitation, AgentInvocationRequest, AgentInvocationResponse
 
 LANGGRAPH_EXECUTION_ENGINE = "langgraph"
 LIGHTHOUSE_AGENT_GRAPH_VERSION = "lighthouse-agent-runtime-graph-v1"
-LIGHTHOUSE_AGENT_CONTRACT_REF = "contracts/agents/lighthouse_agent_io.schema.json"
-SUPPORT_AGENT_CONTRACT_REF = "contracts/agents/support_agent_io.schema.json"
+LIGHTHOUSE_AGENT_CONTRACT_REF = "contracts/llm_provider/lighthouse_agent_io.schema.json"
+SUPPORT_AGENT_CONTRACT_REF = "contracts/llm_provider/support_agent_io.schema.json"
 LIGHTHOUSE_AGENT_GRAPH_STEPS = (
     "prepare_context",
     "invoke_model_adapter",
@@ -842,7 +842,7 @@ class AgentRuntime:
                 completed_at=completed_at,
                 contract_refs=[
                     request.expected_output_contract,
-                    "contracts/events/agent_invocation_record.schema.json",
+                    "contracts/audit/agent_invocation_record.schema.json",
                 ],
             ),
             metadata=execution.decision_metadata
@@ -930,7 +930,7 @@ class AgentRuntime:
                 completed_at=completed_at,
                 contract_refs=[
                     request.expected_output_contract,
-                    "contracts/events/agent_invocation_record.schema.json",
+                    "contracts/audit/agent_invocation_record.schema.json",
                 ],
             ),
             metadata=execution.decision_metadata

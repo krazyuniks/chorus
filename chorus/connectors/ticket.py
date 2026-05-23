@@ -12,11 +12,11 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from chorus.connectors.local import ConnectorError, ConnectorResult
-from chorus.contracts.generated.tools.ticket_case_lookup_args import TicketCaseLookupArgs
-from chorus.contracts.generated.tools.ticket_case_update_proposal_args import (
+from chorus.contracts.generated.connector.ticket_case_lookup_args import TicketCaseLookupArgs
+from chorus.contracts.generated.connector.ticket_case_update_proposal_args import (
     TicketCaseUpdateProposalArgs,
 )
-from chorus.contracts.generated.tools.ticket_duplicate_case_lookup_args import (
+from chorus.contracts.generated.connector.ticket_duplicate_case_lookup_args import (
     DuplicateScopeCategory,
     TicketDuplicateCaseLookupArgs,
 )

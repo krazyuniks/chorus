@@ -13,7 +13,7 @@ Captures decision-trail records into Postgres for every invocation.
 
 Owns no connector authority — tool calls go through the Tool Gateway.
 
-Workstream B fixed the Temporal boundary as `lighthouse.invoke_agent_runtime`: it accepts a contract-shaped request and returns output validated against `contracts/agents/lighthouse_agent_io.schema.json`. Phase 1A workstream **C** implemented registry lookup, prompt/model policy resolution, local structured model invocation, generated `AgentInvocationRecord` validation, and decision-trail persistence behind that boundary.
+Workstream B fixed the Temporal boundary as `lighthouse.invoke_agent_runtime`: it accepts a contract-shaped request and returns output validated against `contracts/llm_provider/lighthouse_agent_io.schema.json`. Phase 1A workstream **C** implemented registry lookup, prompt/model policy resolution, local structured model invocation, generated `AgentInvocationRecord` validation, and decision-trail persistence behind that boundary.
 
 Phase 2A pivots this service boundary to use LangGraph as the first-class
 per-invocation agent execution runtime inside Agent Runtime. Temporal still

@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from chorus.connectors.local import ConnectorTransientError, MailpitEmailConnector
-from chorus.contracts.generated.tools.email_message_args import EmailMessageArgs
+from chorus.contracts.generated.connector.email_message_args import EmailMessageArgs
 
 MAILPIT_HTTP_URL = os.environ.get("CHORUS_TEST_MAILPIT_HTTP_URL", "http://localhost:8025")
 MAILPIT_SMTP_HOST = os.environ.get("CHORUS_TEST_MAILPIT_SMTP_HOST", "localhost")

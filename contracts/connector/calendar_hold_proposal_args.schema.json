@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/calendar_hold_proposal_args.schema.json",
+  "title": "CalendarHoldProposalArgs",
+  "description": "Contract-only arguments for a redacted local calendar hold proposal that does not create a CalDAV event.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "calendar_ref",
+    "hold_ref",
+    "slot_ref",
+    "meeting_type",
+    "participant_refs",
+    "summary_category"
+  ],
+  "properties": {
+    "calendar_ref": {
+      "type": "string",
+      "pattern": "^cal_[A-Za-z0-9_-]+$"
+    },
+    "hold_ref": {
+      "type": "string",
+      "pattern": "^hold_[A-Za-z0-9_-]+$"
+    },
+    "slot_ref": {
+      "type": "string",
+      "pattern": "^slot_[A-Za-z0-9_-]+$"
+    },
+    "meeting_type": {
+      "type": "string",
+      "enum": [
+        "lighthouse_follow_up",
+        "discovery_call",
+        "qualification_review"
+      ]
+    },
+    "participant_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {
+        "type": "string",
+        "pattern": "^participant_[A-Za-z0-9_-]+$"
+      }
+    },
+    "summary_category": {
+      "type": "string",
+      "enum": [
+        "lead_follow_up",
+        "proposal_review",
+        "internal_review"
+      ]
+    },
+    "proposal_note_ref": {
+      "type": "string",
+      "pattern": "^note_[A-Za-z0-9_-]+$"
+    }
+  }
+}

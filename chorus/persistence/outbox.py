@@ -10,7 +10,7 @@ from uuid import UUID
 from psycopg import Connection
 from psycopg.rows import dict_row
 
-from chorus.contracts.generated.events.workflow_event import WorkflowEvent
+from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
 
 
 @dataclass(frozen=True)

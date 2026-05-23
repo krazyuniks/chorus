@@ -26,26 +26,30 @@ from chorus.connectors.local import (
     MailpitEmailConnector,
 )
 from chorus.connectors.ticket import LocalTicketDeskConnector
-from chorus.contracts.generated.events.audit_event import AuditEvent
-from chorus.contracts.generated.tools.calendar_availability_lookup_args import (
+from chorus.contracts.generated.audit.audit_event import AuditEvent
+from chorus.contracts.generated.connector.calendar_availability_lookup_args import (
     CalendarAvailabilityLookupArgs,
 )
-from chorus.contracts.generated.tools.calendar_hold_cancellation_args import (
+from chorus.contracts.generated.connector.calendar_hold_cancellation_args import (
     CalendarHoldCancellationArgs,
 )
-from chorus.contracts.generated.tools.calendar_hold_creation_args import CalendarHoldCreationArgs
-from chorus.contracts.generated.tools.calendar_hold_proposal_args import CalendarHoldProposalArgs
-from chorus.contracts.generated.tools.email_message_args import EmailMessageArgs
-from chorus.contracts.generated.tools.gateway_verdict import GatewayVerdict
-from chorus.contracts.generated.tools.ticket_case_lookup_args import TicketCaseLookupArgs
-from chorus.contracts.generated.tools.ticket_case_update_proposal_args import (
+from chorus.contracts.generated.connector.calendar_hold_creation_args import (
+    CalendarHoldCreationArgs,
+)
+from chorus.contracts.generated.connector.calendar_hold_proposal_args import (
+    CalendarHoldProposalArgs,
+)
+from chorus.contracts.generated.connector.email_message_args import EmailMessageArgs
+from chorus.contracts.generated.connector.gateway_verdict import GatewayVerdict
+from chorus.contracts.generated.connector.ticket_case_lookup_args import TicketCaseLookupArgs
+from chorus.contracts.generated.connector.ticket_case_update_proposal_args import (
     TicketCaseUpdateProposalArgs,
 )
-from chorus.contracts.generated.tools.ticket_duplicate_case_lookup_args import (
+from chorus.contracts.generated.connector.ticket_duplicate_case_lookup_args import (
     TicketDuplicateCaseLookupArgs,
 )
-from chorus.contracts.generated.tools.ticket_status_update_args import TicketStatusUpdateArgs
-from chorus.contracts.generated.tools.tool_call import ToolCall
+from chorus.contracts.generated.connector.ticket_status_update_args import TicketStatusUpdateArgs
+from chorus.contracts.generated.connector.tool_call import ToolCall
 from chorus.observability import current_otel_ids
 from chorus.workflows.types import ToolGatewayRequest, ToolGatewayResponse
 

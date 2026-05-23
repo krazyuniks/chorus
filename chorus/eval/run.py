@@ -18,12 +18,12 @@ import psycopg
 from psycopg import Connection
 from psycopg.rows import dict_row
 
+from chorus.contracts.generated.audit.agent_invocation_record import AgentInvocationRecord
+from chorus.contracts.generated.audit.audit_event import AuditEvent
+from chorus.contracts.generated.connector.gateway_verdict import GatewayVerdict
+from chorus.contracts.generated.connector.tool_call import ToolCall
 from chorus.contracts.generated.eval.eval_fixture import EvalFixture, FinalOutcome
-from chorus.contracts.generated.events.agent_invocation_record import AgentInvocationRecord
-from chorus.contracts.generated.events.audit_event import AuditEvent
-from chorus.contracts.generated.events.workflow_event import WorkflowEvent
-from chorus.contracts.generated.tools.gateway_verdict import GatewayVerdict
-from chorus.contracts.generated.tools.tool_call import ToolCall
+from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
 from chorus.persistence.migrate import database_url_from_env
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -755,9 +755,9 @@ def _decision_record(
     started_at = datetime(2026, 4, 29, 10, 1, index, tzinfo=UTC)
     prompt_hash = f"sha256:{str(index) * 64}"
     contract_ref = (
-        "contracts/agents/support_agent_io.schema.json"
+        "contracts/llm_provider/support_agent_io.schema.json"
         if _is_support_fixture(fixture)
-        else "contracts/agents/lighthouse_agent_io.schema.json"
+        else "contracts/llm_provider/lighthouse_agent_io.schema.json"
     )
     return AgentInvocationRecord.model_validate(
         {
@@ -800,7 +800,7 @@ def _decision_record(
             "completed_at": (started_at + timedelta(milliseconds=25)).isoformat(),
             "contract_refs": [
                 contract_ref,
-                "contracts/events/agent_invocation_record.schema.json",
+                "contracts/audit/agent_invocation_record.schema.json",
             ],
         }
     )

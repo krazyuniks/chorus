@@ -285,7 +285,7 @@ Order is settled by Phase 1 decision 6.
 
 | Checkpoint | Outcome | Status |
 |---|---|---|
-| A | Contract rewrite around the six named ports. | pending - specified |
+| A | Contract rewrite around the six named ports. | done |
 | B | LLM provider port: LangGraph removed, OpenAI-SDK adapter, route catalogue. | pending |
 | C | Audit ports: decision-trail port and transcript port split. | pending |
 | D | Connector adapter registry replacing the hardcoded match dispatch. | pending |
@@ -321,6 +321,34 @@ retired.
 
 **Gates.** `just contracts-check`, `just lint`, `just test`,
 `just test-replay`, `just eval`.
+
+**Evidence (2026-05-23, Session 1).** `contracts/` now contains
+`intake/` (with `uc1/`), `llm_provider/`, `connector/`, `audit/`,
+`projection/`, `observability/`, and `eval/`. The 21 schemas relocated
+shape-preserved via `git mv`: lead intake to `intake/uc1/`; support
+request intake to `intake/`; workflow event to `projection/`;
+agent invocation record and audit event to `audit/`; Lighthouse / Support
+agent IO and provider catalogue / model route version to `llm_provider/`;
+tool call, gateway verdict, email and calendar and ticket argument
+schemas to `connector/`; eval fixture stays in `eval/`. Schema `$id`
+URLs and the in-sample `expected_output_contract` / `declared_in` /
+`contract_refs` strings updated to the new paths. `chorus/contracts/gen.py`
+moved to a recursive `**/*.schema.json` glob and the generated tree at
+`chorus/contracts/generated/` mirrors the contract tree; `check.py`
+validates the seven port directories and treats `x-subject` as a
+presence-based check rather than a directory-name check. `chorus/doctor.py`
+updated to walk the new layout and a syntactically-Python-3-illegal
+`except OSError, json.JSONDecodeError:` line inside the doctor schema
+registry helper was corrected in passing. `tests/test_scaffold.py`,
+`tests/test_contracts.py`, and every other contract import re-pointed
+at the new layout; `docs/evidence-map.md` and `contracts/README.md`
+rewritten around the seven ports. Gates run on this checkpoint:
+`just contracts-check` ok (21 schemas, 21 samples, generated models
+current), `just lint` clean (ruff, ruff format, pyright strict, frontend
+`tsc --noEmit` all clean), `just test` 107 passed / 3 errors (the
+known BFF test-isolation baseline), `just test-replay` 7 passed / 15
+deselected, `just eval` all path-enumeration fixtures pass (live
+persisted-evidence steps skip without env vars, baseline behaviour).
 
 ### Checkpoint B - LLM provider port
 

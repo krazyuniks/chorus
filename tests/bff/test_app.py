@@ -13,7 +13,7 @@ from psycopg import sql
 from psycopg.types.json import Jsonb
 
 from chorus.bff import BffSettings, create_app
-from chorus.contracts.generated.events.workflow_event import WorkflowEvent
+from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
 from chorus.persistence import ProjectionStore, apply_migrations
 
 ADMIN_DATABASE_URL = os.environ.get(
@@ -167,7 +167,7 @@ def seeded_bff(migrated_database_url: str) -> TestClient:
                 12,
                 datetime(2026, 4, 29, 12, 0, 1, tzinfo=UTC),
                 datetime(2026, 4, 29, 12, 0, 2, tzinfo=UTC),
-                ["contracts/agents/lighthouse_agent_io.schema.json"],
+                ["contracts/llm_provider/lighthouse_agent_io.schema.json"],
                 Jsonb({"metadata": {"test": True}}),
                 Jsonb(
                     {
@@ -597,7 +597,7 @@ def seeded_bff(migrated_database_url: str) -> TestClient:
                 10,
                 datetime(2026, 4, 29, 12, 1, 1, tzinfo=UTC),
                 datetime(2026, 4, 29, 12, 1, 2, tzinfo=UTC),
-                ["contracts/agents/support_agent_io.schema.json"],
+                ["contracts/llm_provider/support_agent_io.schema.json"],
                 Jsonb({"metadata": {"fixture_ref": "fixture_support_bff"}}),
                 Jsonb(
                     {
@@ -853,7 +853,7 @@ def test_bff_serves_support_inspection_without_ticket_status_execution(
     assert support_detail["agent_decisions"][0]["agent_role"] == "support_resolution_planner"
     assert support_detail["agent_decisions"][0]["execution_engine"] == "langgraph"
     assert support_detail["agent_decisions"][0]["contract_refs"] == [
-        "contracts/agents/support_agent_io.schema.json"
+        "contracts/llm_provider/support_agent_io.schema.json"
     ]
     assert support_detail["ticket_verdicts"][0]["tool_name"] == "ticket.propose_case_update"
     assert support_detail["ticket_verdicts"][0]["verdict"] == "propose"

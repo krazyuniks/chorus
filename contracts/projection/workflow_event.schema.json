@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/projection/workflow_event.schema.json",
+  "x-subject": "chorus.workflow.events.v1-value",
+  "title": "WorkflowEvent",
+  "description": "Schema-governed workflow event emitted through the transactional outbox to Redpanda.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "event_type",
+    "occurred_at",
+    "tenant_id",
+    "correlation_id",
+    "workflow_id",
+    "sequence",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "lead.received",
+        "workflow.started",
+        "workflow.step.started",
+        "workflow.step.completed",
+        "workflow.completed",
+        "workflow.escalated",
+        "workflow.failed"
+      ]
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^cor_[A-Za-z0-9_-]+$"
+    },
+    "workflow_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workflow_type": {
+      "type": "string",
+      "enum": [
+        "lighthouse",
+        "support_triage"
+      ]
+    },
+    "lead_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "subject_ref": {
+      "type": "string",
+      "pattern": "^(lead|req|case)_[A-Za-z0-9_-]+$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "step": {
+      "type": "string",
+      "enum": [
+        "intake",
+        "research_qualification",
+        "draft",
+        "validation",
+        "propose_send",
+        "complete",
+        "escalate",
+        "support_intake",
+        "support_classification",
+        "support_context_lookup",
+        "support_resolution_plan",
+        "support_draft",
+        "support_validation",
+        "support_propose",
+        "support_complete",
+        "support_escalate"
+      ]
+    },
+    "payload": {
+      "type": "object"
+    }
+  }
+}

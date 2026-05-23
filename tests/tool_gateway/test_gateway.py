@@ -18,16 +18,20 @@ from psycopg import sql
 
 from chorus.connectors.calendar import CalendarConnectorSettings, RadicaleCalendarConnector
 from chorus.connectors.local import ConnectorError, ConnectorResult, ConnectorTransientError
-from chorus.contracts.generated.events.audit_event import AuditEvent
-from chorus.contracts.generated.tools.calendar_availability_lookup_args import (
+from chorus.contracts.generated.audit.audit_event import AuditEvent
+from chorus.contracts.generated.connector.calendar_availability_lookup_args import (
     CalendarAvailabilityLookupArgs,
 )
-from chorus.contracts.generated.tools.calendar_hold_cancellation_args import (
+from chorus.contracts.generated.connector.calendar_hold_cancellation_args import (
     CalendarHoldCancellationArgs,
 )
-from chorus.contracts.generated.tools.calendar_hold_creation_args import CalendarHoldCreationArgs
-from chorus.contracts.generated.tools.calendar_hold_proposal_args import CalendarHoldProposalArgs
-from chorus.contracts.generated.tools.gateway_verdict import GatewayVerdict
+from chorus.contracts.generated.connector.calendar_hold_creation_args import (
+    CalendarHoldCreationArgs,
+)
+from chorus.contracts.generated.connector.calendar_hold_proposal_args import (
+    CalendarHoldProposalArgs,
+)
+from chorus.contracts.generated.connector.gateway_verdict import GatewayVerdict
 from chorus.persistence import apply_migrations
 from chorus.tool_gateway import ToolGateway, ToolGatewayStore
 from chorus.tool_gateway.gateway import LocalToolConnector

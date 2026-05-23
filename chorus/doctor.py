@@ -58,9 +58,12 @@ PHASE_0_PATHS = [
     "docs/runbook.md",
     "adrs/README.md",
     "adrs/0011-phase-2-governed-platform-expansion.md",
-    "contracts/events",
-    "contracts/agents",
-    "contracts/tools",
+    "contracts/intake",
+    "contracts/llm_provider",
+    "contracts/connector",
+    "contracts/audit",
+    "contracts/projection",
+    "contracts/observability",
     "contracts/eval",
     "services/bff",
     "services/intake-poller",
@@ -375,29 +378,26 @@ async def _describe_temporal_task_queue(*, task_queue: str) -> int:
 
 
 def _expected_event_subjects() -> dict[str, str | None]:
-    """Map contracts/events/*.schema.json to their declared registry subject.
+    """Map event-stream contract schemas to their declared registry subject.
 
     A schema opts into the strict check by setting ``x-subject`` at top level
-    (string) or ``x-subjects`` (list of strings). Schemas without that
-    declaration are reported informationally and never fail the check;
-    Workstream B owns adding the field when it pins the canonical subject
-    name for each event.
+    (string). Schemas without that declaration are reported informationally
+    and never fail the check. After the R3 contract rewrite, event-stream
+    contracts live under the relevant ports (intake, projection, audit), so
+    we walk ``contracts/**/*.schema.json`` and filter by ``x-subject``.
     """
 
     import json
 
     expected: dict[str, str | None] = {}
-    for path in sorted((ROOT / "contracts" / "events").glob("*.schema.json")):
+    for path in sorted((ROOT / "contracts").rglob("*.schema.json")):
         try:
             data = json.loads(path.read_text())
         except OSError, json.JSONDecodeError:
-            expected[path.name] = None
             continue
         subject = data.get("x-subject")
         if isinstance(subject, str) and subject:
             expected[path.name] = subject
-        else:
-            expected[path.name] = None
     return expected
 
 
@@ -423,22 +423,22 @@ def check_schema_registry() -> int:
 
     expected = _expected_event_subjects()
     if not expected:
-        _skip("no event contracts under contracts/events to verify")
+        _skip("no event-stream contracts declare x-subject under contracts/")
         return 0
 
     failures = 0
-    declared = {name: subj for name, subj in expected.items() if subj}
-    undeclared = [name for name, subj in expected.items() if not subj]
+    declared = expected
 
     if not declared and not registered:
         _skip(
-            "no x-subject declared on event contracts and no subjects registered "
-            "(workstream B has not yet pinned canonical subject names)"
+            "no x-subject declared on event-stream contracts and no subjects "
+            "registered (workstream B has not yet pinned canonical subject names)"
         )
     elif not declared and registered:
         _skip(
             f"{len(registered)} subject(s) registered but no contract declares "
-            "x-subject — declare in contracts/events/*.schema.json to enable strict drift check"
+            "x-subject — declare on an event-stream schema under contracts/ to "
+            "enable the strict drift check"
         )
         for subject in sorted(registered):
             print(f"info  - registry subject: {subject}")
@@ -449,9 +449,6 @@ def check_schema_registry() -> int:
             else:
                 _fail(f"{name}: subject '{subject}' missing from registry")
                 failures += 1
-
-    for name in undeclared:
-        print(f"info  - {name}: no x-subject declared (informational)")
 
     return failures
 

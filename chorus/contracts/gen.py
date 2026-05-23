@@ -9,22 +9,33 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_ROOT = ROOT / "contracts"
 GENERATED_ROOT = ROOT / "chorus" / "contracts" / "generated"
-CATEGORIES = ("events", "agents", "tools", "eval", "governance")
 
 PACKAGE_INIT = '"""Generated Pydantic models for Chorus contract schemas."""\n'
-CATEGORY_INIT = '"""Generated Pydantic models for this contract category."""\n'
+PORT_INIT = '"""Generated Pydantic models for this contract port."""\n'
 
 
 def schema_files() -> list[Path]:
     """Return canonical JSON Schema files in deterministic order."""
-    return sorted(CONTRACT_ROOT.glob("*/*.schema.json"))
+    return sorted(CONTRACT_ROOT.rglob("*.schema.json"))
 
 
 def model_output_path(schema: Path) -> Path:
     """Map a contract schema path to its generated Python module path."""
-    category = schema.parent.name
-    name = schema.name.removesuffix(".schema.json")
-    return GENERATED_ROOT / category / f"{name}.py"
+    rel = schema.relative_to(CONTRACT_ROOT)
+    name = rel.name.removesuffix(".schema.json")
+    return GENERATED_ROOT / rel.parent / f"{name}.py"
+
+
+def _expected_package_files(schemas: list[Path]) -> dict[Path, str]:
+    """Collect every __init__.py path required to host the generated tree."""
+    expected: dict[Path, str] = {GENERATED_ROOT / "__init__.py": PACKAGE_INIT}
+    for schema in schemas:
+        module = model_output_path(schema)
+        directory = module.parent
+        while directory != GENERATED_ROOT:
+            expected.setdefault(directory / "__init__.py", PORT_INIT)
+            directory = directory.parent
+    return expected
 
 
 def _codegen_command(schema: Path, output: Path, *, check: bool) -> list[str]:
@@ -63,12 +74,8 @@ def _codegen_command(schema: Path, output: Path, *, check: bool) -> list[str]:
     return command
 
 
-def _ensure_package_files(*, check: bool) -> list[str]:
-    expected = {GENERATED_ROOT / "__init__.py": PACKAGE_INIT}
-    expected.update(
-        {GENERATED_ROOT / category / "__init__.py": CATEGORY_INIT for category in CATEGORIES}
-    )
-
+def _ensure_package_files(schemas: list[Path], *, check: bool) -> list[str]:
+    expected = _expected_package_files(schemas)
     failures: list[str] = []
     for path, content in expected.items():
         if check:
@@ -91,7 +98,7 @@ def generate_all(*, check: bool = False) -> int:
         print("no JSON Schema files found; generated models are a no-op")
         return 0
 
-    package_failures = _ensure_package_files(check=check)
+    package_failures = _ensure_package_files(schemas, check=check)
     if package_failures:
         for failure in package_failures:
             print(f"fail - {failure}")

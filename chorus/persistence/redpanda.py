@@ -17,7 +17,7 @@ from typing import Any, cast
 import psycopg
 from confluent_kafka import Consumer, KafkaError, KafkaException, Producer
 
-from chorus.contracts.generated.events.workflow_event import WorkflowEvent
+from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
 from chorus.persistence.migrate import database_url_from_env
 from chorus.persistence.outbox import OutboxStore, OutboxWorkflowEvent
 from chorus.persistence.projection import ProjectionStore

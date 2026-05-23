@@ -10,7 +10,7 @@ import pytest
 from confluent_kafka.admin import AdminClient
 from psycopg import sql
 
-from chorus.contracts.generated.events.workflow_event import WorkflowEvent
+from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
 from chorus.persistence import OutboxStore, ProjectionStore, apply_migrations
 from chorus.persistence.redpanda import (
     RedpandaWorkflowEventConsumer,

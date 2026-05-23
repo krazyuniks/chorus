@@ -41,7 +41,7 @@ STEP_SUPPORT_PROPOSE = "support_propose"
 STEP_SUPPORT_COMPLETE = "support_complete"
 STEP_SUPPORT_ESCALATE = "support_escalate"
 
-SUPPORT_AGENT_CONTRACT = "contracts/agents/support_agent_io.schema.json"
+SUPPORT_AGENT_CONTRACT = "contracts/llm_provider/support_agent_io.schema.json"
 
 _ACTIVITY_TIMEOUT = timedelta(seconds=30)
 _ACTIVITY_RETRY = RetryPolicy(maximum_attempts=3)

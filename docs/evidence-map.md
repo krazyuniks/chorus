@@ -40,7 +40,7 @@ contract-validate and normalise it.
 
 | Claim | Artefacts | Status |
 |---|---|---|
-| Inbound work enters through a contract-validated channel adapter | `chorus/workflows/mailpit.py`, `chorus/workflows/intake.py`, `contracts/events/`, `tests/workflows/test_mailpit_intake.py` | Pre-reset implementation present (Mailpit email channel); named-port surface and the UC1 channel adapters pending R3. |
+| Inbound work enters through a contract-validated channel adapter | `chorus/workflows/mailpit.py`, `chorus/workflows/intake.py`, `contracts/intake/`, `tests/workflows/test_mailpit_intake.py` | Pre-reset implementation present (Mailpit email channel); the named-port surface is in place after R3 checkpoint A and the UC1 channel adapters land in R3 checkpoint E. |
 | Channel-specific idempotency maps to one work identifier | `chorus/workflows/mailpit.py` (Message-ID dedupe, stable workflow ID) | Pre-reset implementation present. |
 | UC1 intake shape is fully specified | [`product-brief.md`](product-brief.md), [`domain-model.md`](domain-model.md), [`r1-adapter-mapping.md`](r1-adapter-mapping.md) | Design complete. |
 
@@ -53,8 +53,8 @@ by construction.
 
 | Claim | Artefacts | Status |
 |---|---|---|
-| Reasoning runs behind a provider boundary, not a direct SDK call | `chorus/agent_runtime/runtime.py`, `contracts/agents/`, `tests/agent_runtime/test_runtime.py` | Pre-reset implementation present. The pre-reset code routes reasoning through a LangGraph executor; R3 removes LangGraph and the OpenAI-SDK adapter takes its place. |
-| Every invocation records provider and model metadata | `contracts/governance/` (provider catalogue, immutable route versions), `infrastructure/postgres/migrations/005_provider_governance_catalogue.sql` | Pre-reset implementation present; the route catalogue shape is rewritten in R3. |
+| Reasoning runs behind a provider boundary, not a direct SDK call | `chorus/agent_runtime/runtime.py`, `contracts/llm_provider/` (agent IO envelopes), `tests/agent_runtime/test_runtime.py` | Pre-reset implementation present. The pre-reset code routes reasoning through a LangGraph executor; R3 checkpoint B removes LangGraph and stands up the OpenAI-SDK adapter in its place. |
+| Every invocation records provider and model metadata | `contracts/llm_provider/` (provider catalogue, immutable route versions), `infrastructure/postgres/migrations/005_provider_governance_catalogue.sql` | Pre-reset implementation present; the route catalogue shape is rewritten in R3 checkpoint B. |
 | Provider neutrality and the route catalogue are specified | [`transformation/engineering-thesis.md`](transformation/engineering-thesis.md) (LLM provider port section) | Design complete. |
 
 Decision records: [ADR 0018](../adrs/0018-llm-provider-port.md) (LLM provider
@@ -70,7 +70,7 @@ authority layer.
 
 | Claim | Artefacts | Status |
 |---|---|---|
-| Every connector call passes grant, mode, argument validation, verdict, and audit | `chorus/tool_gateway/gateway.py`, `contracts/tools/`, `tests/tool_gateway/test_gateway.py` | Pre-reset implementation present. |
+| Every connector call passes grant, mode, argument validation, verdict, and audit | `chorus/tool_gateway/gateway.py`, `contracts/connector/`, `tests/tool_gateway/test_gateway.py` | Pre-reset implementation present. |
 | Connectors are real software in sandbox or local mode, not mocks | `chorus/connectors/local.py`, `chorus/connectors/calendar.py`, `chorus/connectors/ticket.py` | Pre-reset implementation present. |
 | Dispatch is an adapter registry, not a hardcoded match block | `chorus/tool_gateway/gateway.py`, [`transformation/code-refactor-directions.md`](transformation/code-refactor-directions.md) (Smell 2) | Pending R3. The pre-reset code uses a hardcoded match block. |
 | UC1 connector inventory is specified | [`r1-adapter-mapping.md`](r1-adapter-mapping.md) | Design complete. |

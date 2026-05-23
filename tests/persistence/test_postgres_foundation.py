@@ -16,7 +16,7 @@ from chorus.agent_runtime import (
     AgentRuntimeStore,
     default_model_adapter_registry,
 )
-from chorus.contracts.generated.events.workflow_event import WorkflowEvent
+from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
 from chorus.persistence import OutboxStore, ProjectionStore, apply_migrations
 from chorus.tool_gateway.gateway import LocalToolConnector, ToolGateway, ToolGatewayStore
 from chorus.workflows.activities import record_retry_exhaustion_dlq

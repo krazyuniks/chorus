@@ -312,7 +312,7 @@ class FakeProjectionStore:
             duration_ms=12,
             started_at=self.now,
             completed_at=self.now,
-            contract_refs=["contracts/agents/lighthouse_agent_io.schema.json"],
+            contract_refs=["contracts/llm_provider/lighthouse_agent_io.schema.json"],
             raw_record={"metadata": {"unit": True}},
             metadata={
                 "agent_execution.engine": "langgraph",
@@ -438,7 +438,7 @@ class FakeProjectionStore:
             outcome="succeeded",
             cost_amount=Decimal("0.0001"),
             duration_ms=10,
-            contract_refs=["contracts/agents/support_agent_io.schema.json"],
+            contract_refs=["contracts/llm_provider/support_agent_io.schema.json"],
             trace_join={},
             occurred_at=self.now,
         )
@@ -595,7 +595,7 @@ def test_support_inspection_endpoints_are_safe_read_only_views() -> None:
     assert support_detail["workflow_events"][0]["step"] == "support_propose"
     assert support_detail["agent_decisions"][0]["agent_role"] == "support_resolution_planner"
     assert support_detail["agent_decisions"][0]["contract_refs"] == [
-        "contracts/agents/support_agent_io.schema.json"
+        "contracts/llm_provider/support_agent_io.schema.json"
     ]
     assert support_detail["ticket_verdicts"][0]["tool_name"] == "ticket.propose_case_update"
     assert support_detail["ticket_verdicts"][0]["reason_category"] == "proposal_mode"

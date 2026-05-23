@@ -521,7 +521,7 @@ class LighthouseWorkflow:
                 agent_role=agent_role,
                 task_kind=task_kind,
                 input=input_payload,
-                expected_output_contract="contracts/agents/lighthouse_agent_io.schema.json",
+                expected_output_contract="contracts/llm_provider/lighthouse_agent_io.schema.json",
             ),
             start_to_close_timeout=_ACTIVITY_TIMEOUT,
             retry_policy=_ACTIVITY_RETRY,

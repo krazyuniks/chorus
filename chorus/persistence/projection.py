@@ -13,7 +13,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field
 
-from chorus.contracts.generated.events.workflow_event import EventType, WorkflowEvent
+from chorus.contracts.generated.projection.workflow_event import EventType, WorkflowEvent
 from chorus.observability import current_otel_ids
 
 WorkflowStatus = Literal["received", "running", "completed", "escalated", "failed"]

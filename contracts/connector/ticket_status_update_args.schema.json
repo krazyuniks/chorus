@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/ticket_status_update_args.schema.json",
+  "title": "TicketStatusUpdateArgs",
+  "description": "Contract-only arguments for a future approval-required local ticket status write.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_ref",
+    "case_ref",
+    "account_ref",
+    "target_status_category",
+    "idempotency_ref",
+    "approval_policy_ref",
+    "update_reason_category"
+  ],
+  "properties": {
+    "request_ref": {
+      "type": "string",
+      "pattern": "^req_[A-Za-z0-9_-]+$"
+    },
+    "case_ref": {
+      "type": "string",
+      "pattern": "^case_[A-Za-z0-9_-]+$"
+    },
+    "account_ref": {
+      "type": "string",
+      "pattern": "^acct_[A-Za-z0-9_-]+$"
+    },
+    "product_ref": {
+      "type": "string",
+      "pattern": "^prod_[A-Za-z0-9_-]+$"
+    },
+    "prior_status_category": {
+      "type": "string",
+      "enum": [
+        "new",
+        "open",
+        "pending_customer",
+        "pending_internal",
+        "resolved",
+        "closed",
+        "escalated"
+      ]
+    },
+    "target_status_category": {
+      "type": "string",
+      "enum": [
+        "open",
+        "pending_customer",
+        "pending_internal",
+        "resolved",
+        "closed",
+        "escalated"
+      ]
+    },
+    "case_update_ref": {
+      "type": "string",
+      "pattern": "^caseupd_[A-Za-z0-9_-]+$"
+    },
+    "idempotency_ref": {
+      "type": "string",
+      "pattern": "^idem_[A-Za-z0-9_-]+$"
+    },
+    "approval_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    },
+    "update_reason_category": {
+      "type": "string",
+      "enum": [
+        "triage_classification",
+        "duplicate_case_found",
+        "resolution_plan_ready",
+        "needs_customer_response",
+        "needs_internal_review",
+        "escalation_required"
+      ]
+    }
+  }
+}

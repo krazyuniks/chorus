@@ -17,7 +17,7 @@ from temporalio.client import Client
 from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
 from temporalio.exceptions import WorkflowAlreadyStartedError
 
-from chorus.contracts.generated.events.lead_intake import LeadIntake
+from chorus.contracts.generated.intake.uc1.lead_intake import LeadIntake
 from chorus.observability import set_current_span_attributes
 from chorus.workflows.lighthouse import LighthouseWorkflow
 from chorus.workflows.types import (

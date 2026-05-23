@@ -31,9 +31,9 @@ from chorus.agent_runtime import (
     TenantPolicy,
     default_model_adapter_registry,
 )
-from chorus.contracts.generated.agents.lighthouse_agent_io import LighthouseAgentIO
-from chorus.contracts.generated.agents.support_agent_io import SupportAgentIO
-from chorus.contracts.generated.events.agent_invocation_record import AgentInvocationRecord
+from chorus.contracts.generated.audit.agent_invocation_record import AgentInvocationRecord
+from chorus.contracts.generated.llm_provider.lighthouse_agent_io import LighthouseAgentIO
+from chorus.contracts.generated.llm_provider.support_agent_io import SupportAgentIO
 from chorus.persistence import apply_migrations
 from chorus.workflows.activities import invoke_agent_runtime_activity
 from chorus.workflows.types import AgentInvocationRequest
@@ -89,7 +89,7 @@ def _request(
         agent_role=role,
         task_kind=task_kind,
         input=input_payload or {"lead_subject": "Need help choosing a CRM automation partner"},
-        expected_output_contract="contracts/agents/lighthouse_agent_io.schema.json",
+        expected_output_contract="contracts/llm_provider/lighthouse_agent_io.schema.json",
     )
 
 
@@ -782,7 +782,7 @@ def test_runtime_validates_support_agent_contract_with_safe_refs() -> None:
     assert record.agent.role == "support_resolution_planner"
     assert [contract.root for contract in record.contract_refs] == [
         SUPPORT_AGENT_CONTRACT_REF,
-        "contracts/events/agent_invocation_record.schema.json",
+        "contracts/audit/agent_invocation_record.schema.json",
     ]
 
 

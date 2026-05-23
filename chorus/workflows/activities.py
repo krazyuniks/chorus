@@ -14,8 +14,8 @@ from psycopg.types.json import Jsonb
 from temporalio import activity
 
 from chorus.agent_runtime import AgentRuntime, AgentRuntimeStore, default_model_adapter_registry
-from chorus.contracts.generated.events.audit_event import AuditEvent
-from chorus.contracts.generated.events.workflow_event import WorkflowEvent
+from chorus.contracts.generated.audit.audit_event import AuditEvent
+from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
 from chorus.observability import current_otel_ids, set_current_span_attributes
 from chorus.persistence import OutboxStore, ProjectionStore
 from chorus.persistence.migrate import database_url_from_env

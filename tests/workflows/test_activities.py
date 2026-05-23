@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from chorus.contracts.generated.events.workflow_event import WorkflowEvent
+from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
 from chorus.workflows.activities import SupportWorkflowEventRecorder, WorkflowEventRecorder
 from chorus.workflows.types import SupportWorkflowEventCommand, WorkflowEventCommand
 

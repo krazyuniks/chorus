@@ -15,7 +15,15 @@ from chorus.contracts.gen import generate_all, schema_files
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_ROOT = ROOT / "contracts"
-REQUIRED_DIRS = ["events", "agents", "tools", "eval", "governance"]
+REQUIRED_DIRS = [
+    "intake",
+    "llm_provider",
+    "connector",
+    "audit",
+    "projection",
+    "observability",
+    "eval",
+]
 
 
 def _contract_name(schema: Path) -> str:
@@ -51,21 +59,21 @@ def _validate_schema(schema_path: Path) -> int:
 
 
 def _validate_event_subject(schema_path: Path) -> int:
-    if schema_path.parent.name != "events":
-        return 0
-
     try:
         schema = _load_json(schema_path)
     except json.JSONDecodeError as exc:
         print(f"fail - invalid JSON in {schema_path.relative_to(ROOT)}: {exc}")
         return 1
 
+    if "x-subject" not in schema:
+        return 0
+
     subject = schema.get("x-subject")
     if isinstance(subject, str) and subject:
         print(f"ok - event subject {schema_path.relative_to(ROOT)} -> {subject}")
         return 0
 
-    print(f"fail - event schema {schema_path.relative_to(ROOT)} missing x-subject")
+    print(f"fail - event schema {schema_path.relative_to(ROOT)} declares an empty x-subject")
     return 1
 
 
