@@ -1,0 +1,5 @@
+{
+  "customer_ref": "cust_demo_001",
+  "enquiry_ref": "enq_demo_001",
+  "lookup_policy_ref": "policy_uc1_customer_profile_lookup_v1"
+}

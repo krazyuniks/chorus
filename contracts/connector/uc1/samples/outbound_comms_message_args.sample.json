@@ -1,0 +1,9 @@
+{
+  "enquiry_ref": "enq_demo_001",
+  "customer_ref": "cust_demo_001",
+  "missing_data_request_ref": "mdr_demo_001",
+  "to_email": "customer@example.com",
+  "subject": "Quick question to finish your quote",
+  "body_text": "Hello, to finish quoting we need your no-claims-discount in writing.",
+  "comms_policy_ref": "policy_uc1_outbound_comms_v1"
+}

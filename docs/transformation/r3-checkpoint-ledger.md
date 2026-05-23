@@ -288,7 +288,7 @@ Order is settled by Phase 1 decision 6.
 | A | Contract rewrite around the six named ports. | done |
 | B | LLM provider port: LangGraph removed, OpenAI-SDK adapter, route catalogue. | done |
 | C | Audit ports: decision-trail port and transcript port split. | done |
-| D | Connector adapter registry replacing the hardcoded match dispatch. | pending |
+| D | Connector adapter registry replacing the hardcoded match dispatch. | done |
 | E | Shared workflow spine factored out of the Lighthouse / Support duplication. | pending |
 | F | `projection.py` and `doctor.py` decomposed along port boundaries. | pending |
 | G | Eval reshape: invariants plus one happy path per use case, `eval replay`. | pending |
@@ -513,3 +513,122 @@ models current), `just lint` clean (ruff, ruff format, pyright strict,
 frontend `tsc --noEmit` all clean), `just test` 96 passed / 3 errors
 (3 = known BFF test-isolation baseline), `just test-replay` 6 passed,
 `just eval` all path-enumeration fixtures pass.
+
+### Checkpoint D - Connector adapter registry
+
+**Outcome.** The Tool Gateway dispatches through a `ConnectorRegistry`
+(Phase 1 decision 3 / ADR 0020). Adapter granularity is one
+`ConnectorAdapter` per connector; each adapter declares its `ToolSpec`s
+(tool name, argument contract, return contract reference) and exposes an
+`invoke(tool_name, mode, context, arguments)` method. The registry
+indexes every declared tool name to its `(adapter, ToolSpec)` pair and
+is built at the activity composition root via `default_registry(conn)`.
+The gateway's `_decide` and `_decide_calendar_approval_apply` resolve
+the tool through the registry, validate arguments against the resolved
+`ToolSpec.argument_contract`, apply the mode, dispatch to the adapter,
+capture audit, and return a verdict. Both the `LocalToolConnector.match`
+dispatch and the parallel `_validate_tool_arguments.match` block are
+removed; new adapters never edit the gateway file.
+
+UC1 connector contracts are authored under `contracts/connector/uc1/`
+(`customer_profile_lookup_args`, `product_catalogue_lookup_args`,
+`outbound_comms_message_args`, `quoting_queue_route_args`,
+`referral_inbox_route_args`, `decline_ledger_route_args`) with samples
+and generated Pydantic models. Six UC1 sandbox adapters land in
+`chorus/connectors/uc1.py` covering the R1 UC1 inventory:
+`sandbox-crm` (quoting queue), `sandbox-referral-inbox`,
+`sandbox-decline-ledger`, `sandbox-outbound-comms` (Mailpit-backed
+missing-data-request send, gated in write mode), `sandbox-customer-profile`
+(read-only profile + vulnerability markers), `sandbox-product-catalogue`
+(read-only target-market data). The R3 surface is intentionally thin:
+adapters compute deterministic refs and route through Mailpit where
+appropriate; broker-firm-side persistence tables are an R4 concern.
+
+Two R1-deferred items are settled inside the new contracts and adapters:
+the **referral inbox** is a separate sandbox adapter (not a tagged
+subscription on the quoting-queue adapter) because `refer` is a routing
+destination with its own downstream consumer; the **customer-profile
+store boundary** is read-only at the connector port (the write path
+lives on the same logical store but is reached only through the firm's
+customer-of-record write surfaces, not this adapter). The connector
+documents both decisions inline.
+
+Distributed Support Triage retirement landed D's slice: the
+`chorus/connectors/ticket.py` connector is deleted; the four ticket
+arg-schemas (`ticket_case_lookup_args`,
+`ticket_duplicate_case_lookup_args`, `ticket_case_update_proposal_args`,
+`ticket_status_update_args`) and their samples and generated models
+retire; the gateway no longer dispatches or validates `ticket.*` tools.
+The matching tests retire in step: the five `test_ticket_*` tests in
+`tests/tool_gateway/test_gateway.py` are deleted and the file's
+`RecordingConnector` / `TransientFailingConnector` /
+`RejectingCalendarConnector` / `CountingConnector` scaffolding is
+rewritten as `_RecordingAdapter` / `_TransientFailingAdapter` /
+`_RejectingCalendarAdapter` / `_CountingRegistry` against the new
+adapter protocol. `tests/test_contracts.py` schema count goes from 22
+to 24 (22 - 4 retired ticket schemas + 6 new UC1 schemas) and now
+validates each UC1 sample.
+
+`chorus/workflows/activities.py`'s `invoke_tool_gateway_activity` builds
+`default_registry(conn)` instead of `LocalToolConnector(conn)`.
+`chorus/connectors/__init__.py` exports the new `ConnectorAdapter`,
+`ConnectorRegistry`, `ConnectorContext`, `ToolSpec` surface plus the
+Lighthouse-era adapters (`MailpitEmailAdapter`, `LegacyCrmAdapter`,
+`LegacyResearchAdapter`) and the `CalendarAdapter`. The Lighthouse-era
+adapters retire in checkpoint E with the Lighthouse workflow; until
+then they wrap the existing connector classes so the workflow runs
+end-to-end through the new dispatch path. The `MailpitEmailConnector`
+public method renames from `propose_response` to `send` to match the
+new adapter contract; `tests/tool_gateway/test_mailpit_connector.py`
+updates to the new call shape.
+
+**Not-done boundary.** D does not retire the Lighthouse workflow or the
+Lighthouse-era email/CRM/research adapters; that is E. D does not stand
+up broker-firm-side persistence for the UC1 adapters (the quoting queue,
+referral inbox, decline ledger, customer-of-record, and product
+catalogue tables) - those land in R4 when UC1 wires end-to-end. The
+support workflow class (`chorus/workflows/support.py`), the support
+agent IO contract, the support intake contract, and the BFF/projection
+support inspection surfaces remain in place; they retire in E.
+
+**Gates.** `just contracts-check`, `just lint`, `just test`,
+`just test-replay`, `just eval`.
+
+**Evidence (2026-05-23, Session 2).** New types module at
+`chorus/connectors/types.py` defines `ConnectorAdapter` Protocol,
+`ToolSpec`, `ConnectorContext`, `ConnectorRegistry`, `ConnectorResult`,
+`ConnectorError`, `ConnectorTransientError`, `ConnectorRegistryError`.
+`chorus/connectors/__init__.py` exposes the registry + the
+`default_registry(conn)` factory wiring all adapters. The six UC1
+contracts under `contracts/connector/uc1/` + samples + generated models
+land at the post-A directory shape (intake and connector are the two
+ports the thesis says carry use-case variation; UC1 sits under both).
+`chorus/connectors/uc1.py` holds the six UC1 adapter implementations.
+`chorus/connectors/local.py` keeps `MailpitEmailConnector`,
+`LocalCrmConnector`, `CompanyResearchConnector` and adds
+`MailpitEmailAdapter`, `LegacyCrmAdapter`, `LegacyResearchAdapter`
+wrappers; `chorus/connectors/calendar.py` keeps
+`RadicaleCalendarConnector` and adds `CalendarAdapter` wrapper.
+
+`chorus/tool_gateway/gateway.py` rewritten: `LocalToolConnector` retires
+along with the dispatch match block; the new `_validate_arguments`
+resolves through the registry. The `ToolGateway` constructor signature
+changes from `(store, connector)` to `(store, registry)`. The
+`apply_approved_calendar_write` path goes through the registry too.
+
+Files deleted in this checkpoint: `chorus/connectors/ticket.py`,
+`contracts/connector/ticket_case_lookup_args.schema.json` (+ sample +
+generated model), `contracts/connector/ticket_duplicate_case_lookup_args.schema.json`
+(+ sample + generated model),
+`contracts/connector/ticket_case_update_proposal_args.schema.json` (+
+sample + generated model), `contracts/connector/ticket_status_update_args.schema.json`
+(+ sample + generated model).
+
+Gates run on this checkpoint: `just contracts-check` ok (24 schemas, 24
+samples, generated models current), `just lint` clean (ruff, ruff
+format, pyright strict, frontend `tsc --noEmit` all clean), `just test`
+90 passed / 1 skipped / 3 errors (3 = known BFF test-isolation
+baseline; pass count is below the 96 post-C bar because the five
+watch-item-mandated ticket tests retire alongside the ticket connector),
+`just test-replay` 6 passed, `just eval` all path-enumeration fixtures
+pass.

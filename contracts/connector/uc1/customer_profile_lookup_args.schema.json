@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc1/customer_profile_lookup_args.schema.json",
+  "title": "CustomerProfileLookupArgs",
+  "description": "Arguments accepted by the UC1 sandbox-customer-profile connector. Reads a customer-of-record entry plus declared vulnerability markers from the broker firm's customer-of-record store; the store boundary is read-only for the connector port, the write path lives on the same logical store but is reached only through the firm's customer-of-record write surfaces, not this adapter.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "customer_ref",
+    "lookup_policy_ref"
+  ],
+  "properties": {
+    "customer_ref": {
+      "type": "string",
+      "pattern": "^cust_[A-Za-z0-9_-]+$",
+      "description": "Broker-firm customer-of-record reference."
+    },
+    "enquiry_ref": {
+      "type": "string",
+      "pattern": "^enq_[A-Za-z0-9_-]+$",
+      "description": "Enquiry the lookup is performed for; correlated into audit."
+    },
+    "lookup_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$",
+      "description": "Policy snapshot reference under which the lookup is authorised."
+    }
+  }
+}

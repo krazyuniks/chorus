@@ -1,11 +1,17 @@
-"""Tool Gateway policy enforcement, connector invocation, and audit writes."""
+"""Tool Gateway policy enforcement, connector invocation, and audit writes.
+
+After R3 checkpoint D the gateway dispatches through the
+`ConnectorRegistry` (ADR 0020 / Phase 1 decision 3). Argument validation
+and dispatch both resolve through the registered `ToolSpec` per tool;
+adding a new connector is a registry registration, not a gateway edit.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
-from typing import Any, Protocol
+from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from psycopg import Connection
@@ -13,42 +19,16 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from chorus.connectors.calendar import RadicaleCalendarConnector
-from chorus.connectors.local import (
-    CompanyResearchArguments,
-    CompanyResearchConnector,
+from chorus.connectors import (
+    ConnectorContext,
     ConnectorError,
+    ConnectorRegistry,
+    ConnectorRegistryError,
     ConnectorResult,
     ConnectorTransientError,
-    CrmCreateLeadArguments,
-    CrmLookupCompanyArguments,
-    LocalCrmConnector,
-    MailpitEmailConnector,
 )
-from chorus.connectors.ticket import LocalTicketDeskConnector
 from chorus.contracts.generated.audit.audit_event import AuditEvent
-from chorus.contracts.generated.connector.calendar_availability_lookup_args import (
-    CalendarAvailabilityLookupArgs,
-)
-from chorus.contracts.generated.connector.calendar_hold_cancellation_args import (
-    CalendarHoldCancellationArgs,
-)
-from chorus.contracts.generated.connector.calendar_hold_creation_args import (
-    CalendarHoldCreationArgs,
-)
-from chorus.contracts.generated.connector.calendar_hold_proposal_args import (
-    CalendarHoldProposalArgs,
-)
-from chorus.contracts.generated.connector.email_message_args import EmailMessageArgs
 from chorus.contracts.generated.connector.gateway_verdict import GatewayVerdict
-from chorus.contracts.generated.connector.ticket_case_lookup_args import TicketCaseLookupArgs
-from chorus.contracts.generated.connector.ticket_case_update_proposal_args import (
-    TicketCaseUpdateProposalArgs,
-)
-from chorus.contracts.generated.connector.ticket_duplicate_case_lookup_args import (
-    TicketDuplicateCaseLookupArgs,
-)
-from chorus.contracts.generated.connector.ticket_status_update_args import TicketStatusUpdateArgs
 from chorus.contracts.generated.connector.tool_call import ToolCall
 from chorus.observability import current_otel_ids
 from chorus.workflows.types import ToolGatewayRequest, ToolGatewayResponse
@@ -61,97 +41,11 @@ _CONNECTOR_FAILURE_CATEGORIES = {
     "caldav_protocol_error",
     "caldav_rejected",
     "caldav_transient_unavailable",
-    "ticket_case_not_found",
 }
 
 
 class ToolGatewayError(RuntimeError):
     """Raised when Tool Gateway policy or connector handling fails unexpectedly."""
-
-
-class ToolConnector(Protocol):
-    def invoke(
-        self,
-        *,
-        tool_name: str,
-        mode: str,
-        tenant_id: str,
-        correlation_id: str,
-        workflow_id: str,
-        arguments: dict[str, Any],
-    ) -> ConnectorResult: ...
-
-
-class LocalToolConnector:
-    """Routes authorised gateway calls to local/sandbox connectors."""
-
-    def __init__(self, conn: Connection[Any], email_connector: MailpitEmailConnector | None = None):
-        self._conn = conn
-        self._email = email_connector or MailpitEmailConnector()
-        self._crm = LocalCrmConnector(conn)
-        self._research = CompanyResearchConnector()
-        self._calendar = RadicaleCalendarConnector()
-        self._tickets = LocalTicketDeskConnector(conn)
-
-    def invoke(
-        self,
-        *,
-        tool_name: str,
-        mode: str,
-        tenant_id: str,
-        correlation_id: str,
-        workflow_id: str,
-        arguments: dict[str, Any],
-    ) -> ConnectorResult:
-        match tool_name:
-            case "email.propose_response" | "email.send_response":
-                parsed = EmailMessageArgs.model_validate(arguments)
-                return self._email.propose_response(
-                    tenant_id=tenant_id,
-                    correlation_id=correlation_id,
-                    workflow_id=workflow_id,
-                    arguments=parsed,
-                    mode=mode,
-                )
-            case "crm.lookup_company":
-                parsed = CrmLookupCompanyArguments.model_validate(arguments)
-                return self._crm.lookup_company(tenant_id=tenant_id, arguments=parsed)
-            case "crm.create_lead":
-                parsed = CrmCreateLeadArguments.model_validate(arguments)
-                return self._crm.create_lead(
-                    tenant_id=tenant_id,
-                    correlation_id=correlation_id,
-                    arguments=parsed,
-                )
-            case "company_research.lookup":
-                parsed = CompanyResearchArguments.model_validate(arguments)
-                return self._research.lookup(parsed)
-            case "calendar.lookup_availability":
-                parsed = CalendarAvailabilityLookupArgs.model_validate(arguments)
-                return self._calendar.lookup_availability(parsed)
-            case "calendar.propose_hold":
-                parsed = CalendarHoldProposalArgs.model_validate(arguments)
-                return self._calendar.propose_hold(parsed)
-            case "calendar.create_hold":
-                parsed = CalendarHoldCreationArgs.model_validate(arguments)
-                return self._calendar.create_hold(parsed)
-            case "calendar.cancel_hold":
-                parsed = CalendarHoldCancellationArgs.model_validate(arguments)
-                return self._calendar.cancel_hold(parsed)
-            case "ticket.lookup_case":
-                parsed = TicketCaseLookupArgs.model_validate(arguments)
-                return self._tickets.lookup_case(tenant_id=tenant_id, arguments=parsed)
-            case "ticket.lookup_duplicates":
-                parsed = TicketDuplicateCaseLookupArgs.model_validate(arguments)
-                return self._tickets.lookup_duplicates(tenant_id=tenant_id, arguments=parsed)
-            case "ticket.propose_case_update":
-                parsed = TicketCaseUpdateProposalArgs.model_validate(arguments)
-                return self._tickets.propose_case_update(
-                    tenant_id=tenant_id,
-                    arguments=parsed,
-                )
-            case _:
-                raise ToolGatewayError(f"Unsupported tool {tool_name!r}")
 
 
 class ToolGrant(BaseModel):
@@ -469,6 +363,7 @@ class ToolGatewayStore:
         response: ToolGatewayResponse | None = None,
         approval_package: ApprovalPackage | None = None,
     ) -> None:
+        del response  # the gateway response lives inside `audit_event.details` already
         details = audit_event.details
         self.set_tenant_context(request.tenant_id)
         with self._conn.transaction():
@@ -626,9 +521,9 @@ class ToolGatewayStore:
 
 
 class ToolGateway:
-    def __init__(self, store: ToolGatewayStore, connector: ToolConnector) -> None:
+    def __init__(self, store: ToolGatewayStore, registry: ConnectorRegistry) -> None:
         self._store = store
-        self._connector = connector
+        self._registry = registry
 
     def invoke(self, request: ToolGatewayRequest) -> ToolGatewayResponse:
         replay = self._store.fetch_idempotent_response(
@@ -641,19 +536,22 @@ class ToolGateway:
 
         now = _now()
         tool_call = _tool_call(request, now)
-        decision = self._decide(request)
+        decision, validated_arguments = self._decide(request)
         connector_result: ConnectorResult | None = None
         connector_output: dict[str, Any] = {}
 
-        if decision.connector_allowed:
+        if decision.connector_allowed and validated_arguments is not None:
             try:
-                connector_result = self._connector.invoke(
+                adapter, _spec = self._registry.resolve(request.tool_name)
+                connector_result = adapter.invoke(
                     tool_name=request.tool_name,
                     mode=decision.enforced_mode,
-                    tenant_id=request.tenant_id,
-                    correlation_id=request.correlation_id,
-                    workflow_id=request.workflow_id,
-                    arguments=decision.rewritten_arguments or request.arguments,
+                    context=ConnectorContext(
+                        tenant_id=request.tenant_id,
+                        correlation_id=request.correlation_id,
+                        workflow_id=request.workflow_id,
+                    ),
+                    arguments=validated_arguments,
                 )
                 connector_output = connector_result.output
             except ConnectorTransientError as exc:
@@ -690,7 +588,7 @@ class ToolGateway:
                 )
                 self._store.commit()
                 raise
-            except (ConnectorError, ValidationError) as exc:
+            except (ConnectorError, ConnectorRegistryError, ValidationError) as exc:
                 failure_category = _connector_failure_category(exc)
                 decision = GatewayDecision(
                     verdict="block",
@@ -787,24 +685,29 @@ class ToolGateway:
         apply_request = replace(request, idempotency_key=apply_idempotency_key)
         now = _now()
         tool_call = _tool_call(apply_request, now)
-        decision, approval_package, failure_category = self._decide_calendar_approval_apply(
-            request=request,
-            approval_id=approval_uuid,
-            now=now,
+        decision, validated_arguments, approval_package, failure_category = (
+            self._decide_calendar_approval_apply(
+                request=request,
+                approval_id=approval_uuid,
+                now=now,
+            )
         )
         connector_result: ConnectorResult | None = None
         connector_output: dict[str, Any] = {}
         connector_failure: dict[str, Any] | None = None
 
-        if decision.connector_allowed:
+        if decision.connector_allowed and validated_arguments is not None:
             try:
-                connector_result = self._connector.invoke(
+                adapter, _spec = self._registry.resolve(request.tool_name)
+                connector_result = adapter.invoke(
                     tool_name=request.tool_name,
                     mode=decision.enforced_mode,
-                    tenant_id=request.tenant_id,
-                    correlation_id=request.correlation_id,
-                    workflow_id=request.workflow_id,
-                    arguments=decision.rewritten_arguments or request.arguments,
+                    context=ConnectorContext(
+                        tenant_id=request.tenant_id,
+                        correlation_id=request.correlation_id,
+                        workflow_id=request.workflow_id,
+                    ),
+                    arguments=validated_arguments,
                 )
                 connector_output = {
                     **connector_result.output,
@@ -858,7 +761,7 @@ class ToolGateway:
                 )
                 self._store.commit()
                 raise
-            except (ConnectorError, ValidationError) as exc:
+            except (ConnectorError, ConnectorRegistryError, ValidationError) as exc:
                 failure_category = _connector_failure_category(exc)
                 decision = GatewayDecision(
                     verdict="block",
@@ -945,15 +848,18 @@ class ToolGateway:
         )
         return response
 
-    def _decide(self, request: ToolGatewayRequest) -> GatewayDecision:
+    def _decide(self, request: ToolGatewayRequest) -> tuple[GatewayDecision, BaseModel | None]:
         try:
-            _validate_tool_arguments(request.tool_name, request.arguments)
-        except (ToolGatewayError, ValidationError) as exc:
-            return GatewayDecision(
-                verdict="block",
-                enforced_mode=request.mode,
-                reason=f"Tool argument schema validation failed: {exc}",
-                grant=None,
+            validated_arguments = self._validate_arguments(request)
+        except (ToolGatewayError, ConnectorRegistryError, ValidationError) as exc:
+            return (
+                GatewayDecision(
+                    verdict="block",
+                    enforced_mode=request.mode,
+                    reason=f"Tool argument schema validation failed: {exc}",
+                    grant=None,
+                ),
+                None,
             )
 
         denied_grant = self._store.fetch_denied_grant(
@@ -963,11 +869,16 @@ class ToolGateway:
             mode=request.mode,
         )
         if denied_grant is not None:
-            return GatewayDecision(
-                verdict="block",
-                enforced_mode=request.mode,
-                reason="Explicit Tool Gateway grant denies the requested agent, tool, and mode.",
-                grant=denied_grant,
+            return (
+                GatewayDecision(
+                    verdict="block",
+                    enforced_mode=request.mode,
+                    reason=(
+                        "Explicit Tool Gateway grant denies the requested agent, tool, and mode."
+                    ),
+                    grant=denied_grant,
+                ),
+                None,
             )
 
         exact_grant = self._store.fetch_grant(
@@ -978,27 +889,36 @@ class ToolGateway:
         )
         if exact_grant is not None:
             if exact_grant.approval_required:
-                return GatewayDecision(
-                    verdict="approval_required",
-                    enforced_mode=request.mode,
-                    reason="Grant exists but requires approval before connector execution.",
-                    grant=exact_grant,
-                    approval_required=True,
+                return (
+                    GatewayDecision(
+                        verdict="approval_required",
+                        enforced_mode=request.mode,
+                        reason="Grant exists but requires approval before connector execution.",
+                        grant=exact_grant,
+                        approval_required=True,
+                    ),
+                    None,
                 )
             if request.mode == "propose":
-                return GatewayDecision(
-                    verdict="propose",
-                    enforced_mode="propose",
-                    reason="Proposal-mode grant accepted; connector captured sandbox proposal.",
+                return (
+                    GatewayDecision(
+                        verdict="propose",
+                        enforced_mode="propose",
+                        reason="Proposal-mode grant accepted; connector captured sandbox proposal.",
+                        grant=exact_grant,
+                        connector_allowed=True,
+                    ),
+                    validated_arguments,
+                )
+            return (
+                GatewayDecision(
+                    verdict="allow",
+                    enforced_mode=request.mode,
+                    reason="Grant accepted for requested tool and mode.",
                     grant=exact_grant,
                     connector_allowed=True,
-                )
-            return GatewayDecision(
-                verdict="allow",
-                enforced_mode=request.mode,
-                reason="Grant accepted for requested tool and mode.",
-                grant=exact_grant,
-                connector_allowed=True,
+                ),
+                validated_arguments,
             )
 
         if request.mode == "write":
@@ -1009,19 +929,25 @@ class ToolGateway:
                 mode="propose",
             )
             if propose_grant is not None:
-                return GatewayDecision(
-                    verdict="propose",
-                    enforced_mode="propose",
-                    reason="Requested write was downgraded to proposal mode by grant policy.",
-                    grant=propose_grant,
-                    connector_allowed=True,
+                return (
+                    GatewayDecision(
+                        verdict="propose",
+                        enforced_mode="propose",
+                        reason="Requested write was downgraded to proposal mode by grant policy.",
+                        grant=propose_grant,
+                        connector_allowed=True,
+                    ),
+                    validated_arguments,
                 )
 
-        return GatewayDecision(
-            verdict="block",
-            enforced_mode=request.mode,
-            reason="No allowed Tool Gateway grant matched the requested agent, tool, and mode.",
-            grant=None,
+        return (
+            GatewayDecision(
+                verdict="block",
+                enforced_mode=request.mode,
+                reason="No allowed Tool Gateway grant matched the requested agent, tool, and mode.",
+                grant=None,
+            ),
+            None,
         )
 
     def _decide_calendar_approval_apply(
@@ -1030,10 +956,15 @@ class ToolGateway:
         request: ToolGatewayRequest,
         approval_id: UUID,
         now: datetime,
-    ) -> tuple[GatewayDecision, ApprovalPackageRecord | None, str | None]:
+    ) -> tuple[
+        GatewayDecision,
+        BaseModel | None,
+        ApprovalPackageRecord | None,
+        str | None,
+    ]:
         try:
-            _validate_tool_arguments(request.tool_name, request.arguments)
-        except ToolGatewayError, ValidationError:
+            validated_arguments = self._validate_arguments(request)
+        except ToolGatewayError, ConnectorRegistryError, ValidationError:
             return (
                 GatewayDecision(
                     verdict="block",
@@ -1041,6 +972,7 @@ class ToolGateway:
                     reason="Tool argument schema validation failed.",
                     grant=None,
                 ),
+                None,
                 None,
                 "contract_validation_failed",
             )
@@ -1057,6 +989,7 @@ class ToolGateway:
                     reason="No local calendar approval package matched the apply request.",
                     grant=None,
                 ),
+                None,
                 None,
                 "approval_package_missing",
             )
@@ -1075,6 +1008,7 @@ class ToolGateway:
                     reason="Explicit Tool Gateway grant denies the approved calendar apply.",
                     grant=denied_grant,
                 ),
+                None,
                 approval_package,
                 "grant_denied",
             )
@@ -1093,6 +1027,7 @@ class ToolGateway:
                     reason="No current Tool Gateway grant matched the approved calendar apply.",
                     grant=None,
                 ),
+                None,
                 approval_package,
                 "grant_missing",
             )
@@ -1106,6 +1041,7 @@ class ToolGateway:
                     ),
                     grant=exact_grant,
                 ),
+                None,
                 approval_package,
                 "grant_state_mismatch",
             )
@@ -1124,6 +1060,7 @@ class ToolGateway:
                     reason="Approved calendar package failed gateway re-check.",
                     grant=exact_grant,
                 ),
+                None,
                 approval_package,
                 mismatch_category,
             )
@@ -1143,9 +1080,17 @@ class ToolGateway:
                 grant=exact_grant,
                 connector_allowed=True,
             ),
+            validated_arguments,
             approval_package,
             None,
         )
+
+    def _validate_arguments(self, request: ToolGatewayRequest) -> BaseModel:
+        try:
+            _adapter, spec = self._registry.resolve(request.tool_name)
+        except ConnectorRegistryError as exc:
+            raise ToolGatewayError(str(exc)) from exc
+        return spec.argument_contract.model_validate(request.arguments)
 
 
 def _now() -> datetime:
@@ -1345,24 +1290,22 @@ def _approval_apply_summary(
 
 
 def _calendar_argument_refs(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-    match tool_name:
-        case "calendar.create_hold":
-            return {
-                "calendar_ref": arguments.get("calendar_ref"),
-                "hold_ref": arguments.get("hold_ref"),
-                "slot_ref": arguments.get("slot_ref"),
-                "event_uid_ref": arguments.get("event_uid_ref"),
-            }
-        case "calendar.cancel_hold":
-            return {
-                "calendar_ref": arguments.get("calendar_ref"),
-                "hold_ref": arguments.get("hold_ref"),
-                "event_uid_ref": arguments.get("event_uid_ref"),
-                "compensation_ref": arguments.get("compensation_ref"),
-                "cancellation_reason_category": arguments.get("cancellation_reason_category"),
-            }
-        case _:
-            return {}
+    if tool_name == "calendar.create_hold":
+        return {
+            "calendar_ref": arguments.get("calendar_ref"),
+            "hold_ref": arguments.get("hold_ref"),
+            "slot_ref": arguments.get("slot_ref"),
+            "event_uid_ref": arguments.get("event_uid_ref"),
+        }
+    if tool_name == "calendar.cancel_hold":
+        return {
+            "calendar_ref": arguments.get("calendar_ref"),
+            "hold_ref": arguments.get("hold_ref"),
+            "event_uid_ref": arguments.get("event_uid_ref"),
+            "compensation_ref": arguments.get("compensation_ref"),
+            "cancellation_reason_category": arguments.get("cancellation_reason_category"),
+        }
+    return {}
 
 
 def _connector_failure_category(exc: BaseException) -> str:
@@ -1373,6 +1316,8 @@ def _connector_failure_category(exc: BaseException) -> str:
         return "transient_connector_error"
     if isinstance(exc, ValidationError):
         return "contract_validation_failed"
+    if isinstance(exc, ConnectorRegistryError):
+        return "connector_not_registered"
     return "connector_rejected"
 
 
@@ -1469,36 +1414,6 @@ def _connector_failure_audit_event(
             "details": details,
         }
     )
-
-
-def _validate_tool_arguments(tool_name: str, arguments: dict[str, Any]) -> None:
-    match tool_name:
-        case "email.propose_response" | "email.send_response":
-            EmailMessageArgs.model_validate(arguments)
-        case "company_research.lookup":
-            CompanyResearchArguments.model_validate(arguments)
-        case "crm.lookup_company":
-            CrmLookupCompanyArguments.model_validate(arguments)
-        case "crm.create_lead":
-            CrmCreateLeadArguments.model_validate(arguments)
-        case "calendar.lookup_availability":
-            CalendarAvailabilityLookupArgs.model_validate(arguments)
-        case "calendar.propose_hold":
-            CalendarHoldProposalArgs.model_validate(arguments)
-        case "calendar.create_hold":
-            CalendarHoldCreationArgs.model_validate(arguments)
-        case "calendar.cancel_hold":
-            CalendarHoldCancellationArgs.model_validate(arguments)
-        case "ticket.lookup_case":
-            TicketCaseLookupArgs.model_validate(arguments)
-        case "ticket.lookup_duplicates":
-            TicketDuplicateCaseLookupArgs.model_validate(arguments)
-        case "ticket.propose_case_update":
-            TicketCaseUpdateProposalArgs.model_validate(arguments)
-        case "ticket.update_status":
-            TicketStatusUpdateArgs.model_validate(arguments)
-        case _:
-            raise ToolGatewayError(f"No argument schema registered for tool {tool_name!r}")
 
 
 def _redact(arguments: dict[str, Any], grant: ToolGrant | None) -> dict[str, Any]:

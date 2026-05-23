@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc1/quoting_queue_route_args.schema.json",
+  "title": "QuotingQueueRouteArgs",
+  "description": "Arguments accepted by the UC1 sandbox-crm connector when an enquiry is routed into the broker firm's standard quoting queue (the `accept` verdict).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enquiry_ref",
+    "customer_ref",
+    "product_family_category",
+    "verdict_ref",
+    "qualification_summary_ref",
+    "routing_policy_ref"
+  ],
+  "properties": {
+    "enquiry_ref": {
+      "type": "string",
+      "pattern": "^enq_[A-Za-z0-9_-]+$"
+    },
+    "customer_ref": {
+      "type": "string",
+      "pattern": "^cust_[A-Za-z0-9_-]+$"
+    },
+    "product_family_category": {
+      "type": "string",
+      "enum": [
+        "motor_private_car",
+        "motor_commercial_vehicle",
+        "home_buildings",
+        "home_contents",
+        "home_combined",
+        "travel_single_trip",
+        "travel_annual_multi_trip",
+        "pet"
+      ]
+    },
+    "qualification_summary_ref": {
+      "type": "string",
+      "pattern": "^qsum_[A-Za-z0-9_-]+$",
+      "description": "Reference to the qualification summary the verdict was based on."
+    },
+    "verdict_ref": {
+      "type": "string",
+      "pattern": "^verdict_[A-Za-z0-9_-]+$",
+      "description": "Qualification verdict reference driving the routing. Idempotency anchor."
+    },
+    "routing_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    }
+  }
+}

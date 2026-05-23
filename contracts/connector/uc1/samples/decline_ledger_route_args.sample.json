@@ -1,0 +1,7 @@
+{
+  "enquiry_ref": "enq_demo_003",
+  "customer_ref": "cust_demo_003",
+  "decline_reason_category": "outside_product_target_market",
+  "verdict_ref": "verdict_demo_decline_001",
+  "routing_policy_ref": "policy_uc1_routing_v1"
+}

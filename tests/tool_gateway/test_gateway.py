@@ -5,7 +5,7 @@ import socket
 import subprocess
 import sys
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import replace
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
@@ -15,9 +15,22 @@ import httpx
 import psycopg
 import pytest
 from psycopg import sql
+from pydantic import BaseModel
 
+from chorus.connectors import (
+    ConnectorAdapter,
+    ConnectorContext,
+    ConnectorError,
+    ConnectorRegistry,
+    ConnectorResult,
+    ConnectorTransientError,
+    ToolSpec,
+    default_registry,
+)
 from chorus.connectors.calendar import CalendarConnectorSettings, RadicaleCalendarConnector
-from chorus.connectors.local import ConnectorError, ConnectorResult, ConnectorTransientError
+from chorus.connectors.local import (
+    CrmCreateLeadArguments,
+)
 from chorus.contracts.generated.audit.audit_event import AuditEvent
 from chorus.contracts.generated.connector.calendar_availability_lookup_args import (
     CalendarAvailabilityLookupArgs,
@@ -31,10 +44,10 @@ from chorus.contracts.generated.connector.calendar_hold_creation_args import (
 from chorus.contracts.generated.connector.calendar_hold_proposal_args import (
     CalendarHoldProposalArgs,
 )
+from chorus.contracts.generated.connector.email_message_args import EmailMessageArgs
 from chorus.contracts.generated.connector.gateway_verdict import GatewayVerdict
 from chorus.persistence import apply_migrations
 from chorus.tool_gateway import ToolGateway, ToolGatewayStore
-from chorus.tool_gateway.gateway import LocalToolConnector
 from chorus.workflows.types import ToolGatewayRequest
 
 ADMIN_DATABASE_URL = os.environ.get(
@@ -75,28 +88,34 @@ def migrated_database_url() -> Iterator[str]:
             admin.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(dbname)))
 
 
-class RecordingConnector:
-    def __init__(self) -> None:
+class _RecordingAdapter:
+    """Connector adapter that records calls and returns a canned output."""
+
+    adapter_id = "test_recording"
+
+    def __init__(self, specs: Sequence[ToolSpec]) -> None:
+        self._specs = tuple(specs)
         self.calls: list[dict[str, object]] = []
+
+    def tool_specs(self) -> Sequence[ToolSpec]:
+        return self._specs
 
     def invoke(
         self,
         *,
         tool_name: str,
         mode: str,
-        tenant_id: str,
-        correlation_id: str,
-        workflow_id: str,
-        arguments: dict[str, object],
+        context: ConnectorContext,
+        arguments: BaseModel,
     ) -> ConnectorResult:
         self.calls.append(
             {
                 "tool_name": tool_name,
                 "mode": mode,
-                "tenant_id": tenant_id,
-                "correlation_id": correlation_id,
-                "workflow_id": workflow_id,
-                "arguments": arguments,
+                "tenant_id": context.tenant_id,
+                "correlation_id": context.correlation_id,
+                "workflow_id": context.workflow_id,
+                "arguments": arguments.model_dump(mode="json"),
             }
         )
         return ConnectorResult(
@@ -105,73 +124,62 @@ class RecordingConnector:
         )
 
 
-class TransientFailingConnector:
-    def __init__(self) -> None:
+class _TransientFailingAdapter:
+    """Adapter that always raises a transient failure for the registered tools."""
+
+    adapter_id = "test_transient_failing"
+
+    def __init__(self, specs: Sequence[ToolSpec]) -> None:
+        self._specs = tuple(specs)
         self.calls = 0
+
+    def tool_specs(self) -> Sequence[ToolSpec]:
+        return self._specs
 
     def invoke(
         self,
         *,
         tool_name: str,
         mode: str,
-        tenant_id: str,
-        correlation_id: str,
-        workflow_id: str,
-        arguments: dict[str, object],
+        context: ConnectorContext,
+        arguments: BaseModel,
     ) -> ConnectorResult:
+        del tool_name, mode, context, arguments
         self.calls += 1
         raise ConnectorTransientError("fixture transient connector failure")
 
 
-class CountingConnector:
-    def __init__(self, delegate: LocalToolConnector) -> None:
-        self._delegate = delegate
-        self.calls: list[dict[str, object]] = []
+class _RejectingCalendarAdapter:
+    """Calendar adapter that rejects only `calendar.cancel_hold`."""
 
-    def invoke(
-        self,
-        *,
-        tool_name: str,
-        mode: str,
-        tenant_id: str,
-        correlation_id: str,
-        workflow_id: str,
-        arguments: dict[str, object],
-    ) -> ConnectorResult:
-        self.calls.append(
-            {
-                "tool_name": tool_name,
-                "mode": mode,
-                "tenant_id": tenant_id,
-                "correlation_id": correlation_id,
-                "workflow_id": workflow_id,
-                "arguments": arguments,
-            }
-        )
-        return self._delegate.invoke(
-            tool_name=tool_name,
-            mode=mode,
-            tenant_id=tenant_id,
-            correlation_id=correlation_id,
-            workflow_id=workflow_id,
-            arguments=arguments,
-        )
+    adapter_id = "test_rejecting_calendar"
 
-
-class RejectingCalendarConnector:
     def __init__(self) -> None:
         self.calls = 0
 
+    def tool_specs(self) -> Sequence[ToolSpec]:
+        return (
+            ToolSpec(
+                tool_name="calendar.create_hold",
+                argument_contract=CalendarHoldCreationArgs,
+                return_contract_ref="test.calendar.create_hold",
+            ),
+            ToolSpec(
+                tool_name="calendar.cancel_hold",
+                argument_contract=CalendarHoldCancellationArgs,
+                return_contract_ref="test.calendar.cancel_hold",
+            ),
+        )
+
     def invoke(
         self,
         *,
         tool_name: str,
         mode: str,
-        tenant_id: str,
-        correlation_id: str,
-        workflow_id: str,
-        arguments: dict[str, object],
+        context: ConnectorContext,
+        arguments: BaseModel,
     ) -> ConnectorResult:
+        del context, arguments
         self.calls += 1
         if tool_name == "calendar.cancel_hold":
             raise ConnectorError("caldav_rejected")
@@ -179,6 +187,139 @@ class RejectingCalendarConnector:
             connector_invocation_id=uuid4(),
             output={"connector": "rejecting-calendar", "tool_name": tool_name, "mode": mode},
         )
+
+
+class _CountingRegistry(ConnectorRegistry):
+    """Test registry that counts every adapter.invoke routed through it."""
+
+    def __init__(self, inner: ConnectorRegistry) -> None:
+        super().__init__()
+        self._inner = inner
+        self.calls: list[dict[str, object]] = []
+
+    def resolve(self, tool_name: str) -> tuple[ConnectorAdapter, ToolSpec]:
+        adapter, spec = self._inner.resolve(tool_name)
+        return _CountingAdapter(adapter, self.calls), spec
+
+
+class _CountingAdapter:
+    def __init__(self, inner: ConnectorAdapter, calls: list[dict[str, object]]) -> None:
+        self._inner = inner
+        self._calls = calls
+
+    @property
+    def adapter_id(self) -> str:
+        return self._inner.adapter_id
+
+    def tool_specs(self) -> Sequence[ToolSpec]:
+        return self._inner.tool_specs()
+
+    def invoke(
+        self,
+        *,
+        tool_name: str,
+        mode: str,
+        context: ConnectorContext,
+        arguments: BaseModel,
+    ) -> ConnectorResult:
+        self._calls.append(
+            {
+                "tool_name": tool_name,
+                "mode": mode,
+                "tenant_id": context.tenant_id,
+                "correlation_id": context.correlation_id,
+                "workflow_id": context.workflow_id,
+                "arguments": arguments.model_dump(mode="json"),
+            }
+        )
+        return self._inner.invoke(
+            tool_name=tool_name, mode=mode, context=context, arguments=arguments
+        )
+
+
+def _email_recording_registry() -> tuple[ConnectorRegistry, _RecordingAdapter]:
+    adapter = _RecordingAdapter(
+        (
+            ToolSpec(
+                tool_name="email.propose_response",
+                argument_contract=EmailMessageArgs,
+                return_contract_ref="test.email.propose_response",
+            ),
+            ToolSpec(
+                tool_name="email.send_response",
+                argument_contract=EmailMessageArgs,
+                return_contract_ref="test.email.send_response",
+            ),
+        )
+    )
+    registry = ConnectorRegistry()
+    registry.register(adapter)
+    return registry, adapter
+
+
+def _crm_recording_registry() -> tuple[ConnectorRegistry, _RecordingAdapter]:
+    adapter = _RecordingAdapter(
+        (
+            ToolSpec(
+                tool_name="crm.create_lead",
+                argument_contract=CrmCreateLeadArguments,
+                return_contract_ref="test.crm.create_lead",
+            ),
+        )
+    )
+    registry = ConnectorRegistry()
+    registry.register(adapter)
+    return registry, adapter
+
+
+def _calendar_recording_registry() -> tuple[ConnectorRegistry, _RecordingAdapter]:
+    adapter = _RecordingAdapter(
+        (
+            ToolSpec(
+                tool_name="calendar.create_hold",
+                argument_contract=CalendarHoldCreationArgs,
+                return_contract_ref="test.calendar.create_hold",
+            ),
+            ToolSpec(
+                tool_name="calendar.cancel_hold",
+                argument_contract=CalendarHoldCancellationArgs,
+                return_contract_ref="test.calendar.cancel_hold",
+            ),
+        )
+    )
+    registry = ConnectorRegistry()
+    registry.register(adapter)
+    return registry, adapter
+
+
+def _calendar_transient_registry() -> tuple[ConnectorRegistry, _TransientFailingAdapter]:
+    adapter = _TransientFailingAdapter(
+        (
+            ToolSpec(
+                tool_name="calendar.create_hold",
+                argument_contract=CalendarHoldCreationArgs,
+                return_contract_ref="test.calendar.create_hold",
+            ),
+        )
+    )
+    registry = ConnectorRegistry()
+    registry.register(adapter)
+    return registry, adapter
+
+
+def _email_transient_registry() -> tuple[ConnectorRegistry, _TransientFailingAdapter]:
+    adapter = _TransientFailingAdapter(
+        (
+            ToolSpec(
+                tool_name="email.propose_response",
+                argument_contract=EmailMessageArgs,
+                return_contract_ref="test.email.propose_response",
+            ),
+        )
+    )
+    registry = ConnectorRegistry()
+    registry.register(adapter)
+    return registry, adapter
 
 
 def _request(
@@ -320,105 +461,6 @@ def _calendar_cancel_request() -> ToolGatewayRequest:
     )
 
 
-def _ticket_case_lookup_request() -> ToolGatewayRequest:
-    workflow_id = f"support-triage-gateway-{uuid4().hex}"
-    return ToolGatewayRequest(
-        tenant_id="tenant_demo",
-        correlation_id=f"cor_tool_gateway_{uuid4().hex}",
-        workflow_id=workflow_id,
-        invocation_id=str(uuid4()),
-        agent_id="support.context_researcher",
-        tool_name="ticket.lookup_case",
-        mode="read",
-        idempotency_key=f"{workflow_id}:ticket.lookup_case:read",
-        arguments={
-            "case_ref": "case_existing_001",
-            "request_ref": "req_support_001",
-            "account_ref": "acct_demo_001",
-            "product_ref": "prod_core_platform",
-            "lookup_policy_ref": "policy_ticket_lookup_read",
-            "include_history_category": "bounded_recent_status_refs",
-        },
-    )
-
-
-def _ticket_duplicate_lookup_request() -> ToolGatewayRequest:
-    workflow_id = f"support-triage-gateway-{uuid4().hex}"
-    return ToolGatewayRequest(
-        tenant_id="tenant_demo",
-        correlation_id=f"cor_tool_gateway_{uuid4().hex}",
-        workflow_id=workflow_id,
-        invocation_id=str(uuid4()),
-        agent_id="support.context_researcher",
-        tool_name="ticket.lookup_duplicates",
-        mode="read",
-        idempotency_key=f"{workflow_id}:ticket.lookup_duplicates:read",
-        arguments={
-            "request_ref": "req_support_001",
-            "account_ref": "acct_demo_001",
-            "product_ref": "prod_core_platform",
-            "case_ref": "case_existing_001",
-            "severity_category": "sev_high",
-            "status_categories": ["new", "open", "pending_internal"],
-            "duplicate_scope_category": "same_account_product_open",
-            "lookup_policy_ref": "policy_ticket_duplicate_read",
-        },
-    )
-
-
-def _ticket_case_update_proposal_request() -> ToolGatewayRequest:
-    workflow_id = f"support-triage-gateway-{uuid4().hex}"
-    return ToolGatewayRequest(
-        tenant_id="tenant_demo",
-        correlation_id=f"cor_tool_gateway_{uuid4().hex}",
-        workflow_id=workflow_id,
-        invocation_id=str(uuid4()),
-        agent_id="support.resolution_planner",
-        tool_name="ticket.propose_case_update",
-        mode="propose",
-        idempotency_key=f"{workflow_id}:ticket.propose_case_update:propose",
-        arguments={
-            "request_ref": "req_support_001",
-            "case_ref": "case_existing_001",
-            "account_ref": "acct_demo_001",
-            "product_ref": "prod_core_platform",
-            "severity_category": "sev_high",
-            "target_status_category": "pending_internal",
-            "resolution_plan_ref": "plan_support_001",
-            "response_draft_ref": "response_support_001",
-            "case_update_ref": "caseupd_support_001",
-            "update_reason_category": "resolution_plan_ready",
-            "policy_ref": "policy_ticket_update_propose",
-        },
-    )
-
-
-def _ticket_status_update_request() -> ToolGatewayRequest:
-    workflow_id = f"support-triage-gateway-{uuid4().hex}"
-    return ToolGatewayRequest(
-        tenant_id="tenant_demo",
-        correlation_id=f"cor_tool_gateway_{uuid4().hex}",
-        workflow_id=workflow_id,
-        invocation_id=str(uuid4()),
-        agent_id="support.resolution_planner",
-        tool_name="ticket.update_status",
-        mode="write",
-        idempotency_key=f"{workflow_id}:ticket.update_status:write",
-        arguments={
-            "request_ref": "req_support_001",
-            "case_ref": "case_existing_001",
-            "account_ref": "acct_demo_001",
-            "product_ref": "prod_core_platform",
-            "prior_status_category": "open",
-            "target_status_category": "pending_internal",
-            "case_update_ref": "caseupd_support_001",
-            "idempotency_ref": "idem_ticket_status_001",
-            "approval_policy_ref": "policy_ticket_write_approval",
-            "update_reason_category": "resolution_plan_ready",
-        },
-    )
-
-
 def _approve_package(
     conn: psycopg.Connection[object],
     *,
@@ -499,11 +541,11 @@ def radicale_base_url(tmp_path: Path) -> Iterator[str]:
 def test_proposal_grant_invokes_connector_and_persists_redacted_audit(
     migrated_database_url: str,
 ) -> None:
-    connector = RecordingConnector()
+    registry, recording = _email_recording_registry()
     request = _request()
 
     with psycopg.connect(migrated_database_url) as conn:
-        response = ToolGateway(ToolGatewayStore(conn), connector).invoke(request)
+        response = ToolGateway(ToolGatewayStore(conn), registry).invoke(request)
 
         row = conn.execute(
             """
@@ -521,7 +563,7 @@ def test_proposal_grant_invokes_connector_and_persists_redacted_audit(
         "tool_name": "email.propose_response",
         "mode": "propose",
     }
-    assert len(connector.calls) == 1
+    assert len(recording.calls) == 1
     assert row is not None
     assert row[0:2] == ("propose", "propose")
     assert row[2]["body_text"] == "[redacted]"
@@ -535,11 +577,11 @@ def test_proposal_grant_invokes_connector_and_persists_redacted_audit(
 def test_transient_connector_failure_is_audited_without_idempotent_response(
     migrated_database_url: str,
 ) -> None:
-    connector = TransientFailingConnector()
+    registry, transient = _email_transient_registry()
     request = _request(idempotency_key=f"transient-failure-{uuid4().hex}")
 
     with psycopg.connect(migrated_database_url) as conn:
-        gateway = ToolGateway(ToolGatewayStore(conn), connector)
+        gateway = ToolGateway(ToolGatewayStore(conn), registry)
 
         with pytest.raises(ConnectorTransientError):
             gateway.invoke(request)
@@ -556,7 +598,7 @@ def test_transient_connector_failure_is_audited_without_idempotent_response(
         with pytest.raises(ConnectorTransientError):
             gateway.invoke(request)
 
-    assert connector.calls == 2
+    assert transient.calls == 2
     assert row is not None
     assert row[0] == "block"
     assert "transient" in row[1]
@@ -573,39 +615,39 @@ def test_transient_connector_failure_is_audited_without_idempotent_response(
 def test_idempotency_returns_persisted_response_without_second_connector_call(
     migrated_database_url: str,
 ) -> None:
-    connector = RecordingConnector()
+    registry, recording = _email_recording_registry()
     request = _request(idempotency_key=f"idempotency-{uuid4().hex}")
 
     with psycopg.connect(migrated_database_url) as conn:
-        gateway = ToolGateway(ToolGatewayStore(conn), connector)
+        gateway = ToolGateway(ToolGatewayStore(conn), registry)
         first = gateway.invoke(request)
         second = gateway.invoke(request)
 
     assert first == second
-    assert len(connector.calls) == 1
+    assert len(recording.calls) == 1
 
 
 def test_write_request_downgrades_to_proposal_when_only_propose_grant_exists(
     migrated_database_url: str,
 ) -> None:
-    connector = RecordingConnector()
+    registry, recording = _email_recording_registry()
     request = _request(tool_name="email.send_response", mode="write")
 
     with psycopg.connect(migrated_database_url) as conn:
-        response = ToolGateway(ToolGatewayStore(conn), connector).invoke(request)
+        response = ToolGateway(ToolGatewayStore(conn), registry).invoke(request)
 
     assert response.verdict == "propose"
     assert response.enforced_mode == "propose"
     assert "downgraded" in response.reason
-    assert connector.calls[0]["mode"] == "propose"
+    assert recording.calls[0]["mode"] == "propose"
 
 
 def test_missing_grant_blocks_without_connector_call(migrated_database_url: str) -> None:
-    connector = RecordingConnector()
+    registry, recording = _email_recording_registry()
     request = _request(agent_id="lighthouse.validator")
 
     with psycopg.connect(migrated_database_url) as conn:
-        response = ToolGateway(ToolGatewayStore(conn), connector).invoke(request)
+        response = ToolGateway(ToolGatewayStore(conn), registry).invoke(request)
 
         row = conn.execute(
             """
@@ -618,7 +660,7 @@ def test_missing_grant_blocks_without_connector_call(migrated_database_url: str)
 
     assert response.verdict == "block"
     assert response.connector_invocation_id is None
-    assert connector.calls == []
+    assert recording.calls == []
     assert row is not None
     assert row[0] == "block"
     assert "No allowed Tool Gateway grant" in row[1]
@@ -627,7 +669,7 @@ def test_missing_grant_blocks_without_connector_call(migrated_database_url: str)
 def test_seeded_denied_write_grant_blocks_before_downgrade(
     migrated_database_url: str,
 ) -> None:
-    connector = RecordingConnector()
+    registry, recording = _email_recording_registry()
     request = _request(
         tenant_id="tenant_demo_alt",
         tool_name="email.send_response",
@@ -635,7 +677,7 @@ def test_seeded_denied_write_grant_blocks_before_downgrade(
     )
 
     with psycopg.connect(migrated_database_url) as conn:
-        response = ToolGateway(ToolGatewayStore(conn), connector).invoke(request)
+        response = ToolGateway(ToolGatewayStore(conn), registry).invoke(request)
 
         row = conn.execute(
             """
@@ -649,7 +691,7 @@ def test_seeded_denied_write_grant_blocks_before_downgrade(
     assert response.verdict == "block"
     assert response.enforced_mode == "write"
     assert response.connector_invocation_id is None
-    assert connector.calls == []
+    assert recording.calls == []
     assert row is not None
     assert row[0:2] == ("block", "write")
     assert "explicit" in row[2].lower()
@@ -663,17 +705,17 @@ def test_seeded_denied_write_grant_blocks_before_downgrade(
 
 
 def test_approval_required_grant_does_not_invoke_connector(migrated_database_url: str) -> None:
-    connector = RecordingConnector()
+    registry, recording = _crm_recording_registry()
     request = _crm_create_request(mode="write")
 
     with psycopg.connect(migrated_database_url) as conn:
-        response = ToolGateway(ToolGatewayStore(conn), connector).invoke(request)
+        response = ToolGateway(ToolGatewayStore(conn), registry).invoke(request)
         approval_count = conn.execute("SELECT count(*) FROM approval_packages").fetchone()
 
     assert response.verdict == "approval_required"
     assert response.enforced_mode == "write"
     assert response.connector_invocation_id is None
-    assert connector.calls == []
+    assert recording.calls == []
     assert approval_count == (0,)
 
 
@@ -686,7 +728,7 @@ def test_calendar_availability_dispatches_to_local_caldav_connector(
     request = _calendar_availability_request()
 
     with psycopg.connect(migrated_database_url) as conn:
-        response = ToolGateway(ToolGatewayStore(conn), LocalToolConnector(conn)).invoke(request)
+        response = ToolGateway(ToolGatewayStore(conn), default_registry(conn)).invoke(request)
 
     assert response.verdict == "allow"
     assert response.enforced_mode == "read"
@@ -705,7 +747,7 @@ def test_calendar_hold_proposal_dispatches_without_creating_event(
     request = _calendar_proposal_request()
 
     with psycopg.connect(migrated_database_url) as conn:
-        response = ToolGateway(ToolGatewayStore(conn), LocalToolConnector(conn)).invoke(request)
+        response = ToolGateway(ToolGatewayStore(conn), default_registry(conn)).invoke(request)
 
     assert response.verdict == "propose"
     assert response.enforced_mode == "propose"
@@ -722,128 +764,14 @@ def test_calendar_hold_proposal_dispatches_without_creating_event(
     }
 
 
-def test_ticket_case_lookup_dispatches_to_local_ticket_connector(
-    migrated_database_url: str,
-) -> None:
-    request = _ticket_case_lookup_request()
-
-    with psycopg.connect(migrated_database_url) as conn:
-        response = ToolGateway(ToolGatewayStore(conn), LocalToolConnector(conn)).invoke(request)
-
-    assert response.verdict == "allow"
-    assert response.enforced_mode == "read"
-    assert response.output["connector"] == "local_ticket_desk.postgres"
-    assert response.output["lookup_status"] == "case_found"
-    assert response.output["case"]["case_ref"] == "case_existing_001"
-    assert response.output["case"]["account_ref"] == "acct_demo_001"
-    assert response.output["case"]["product_ref"] == "prod_core_platform"
-    assert response.output["case"]["severity_category"] == "sev_high"
-    assert response.output["case"]["status_category"] == "open"
-    assert response.output["case"]["recent_status_refs"] == [
-        "status_open_001",
-        "status_triaged_001",
-    ]
-
-
-def test_ticket_duplicate_lookup_dispatches_with_safe_refs_only(
-    migrated_database_url: str,
-) -> None:
-    request = _ticket_duplicate_lookup_request()
-
-    with psycopg.connect(migrated_database_url) as conn:
-        response = ToolGateway(ToolGatewayStore(conn), LocalToolConnector(conn)).invoke(request)
-
-    assert response.verdict == "allow"
-    assert response.enforced_mode == "read"
-    assert response.output["connector"] == "local_ticket_desk.postgres"
-    assert response.output["duplicate_status"] == "duplicates_found"
-    assert response.output["duplicate_case_refs"] == ["case_duplicate_001"]
-    assert response.output["duplicate_count"] == 1
-
-
-def test_ticket_case_update_proposal_persists_without_mutating_case_status(
-    migrated_database_url: str,
-) -> None:
-    request = _ticket_case_update_proposal_request()
-
-    with psycopg.connect(migrated_database_url) as conn:
-        response = ToolGateway(ToolGatewayStore(conn), LocalToolConnector(conn)).invoke(request)
-        case_status = conn.execute(
-            """
-            SELECT status_category
-            FROM local_ticket_cases
-            WHERE tenant_id = %s AND case_ref = %s
-            """,
-            (request.tenant_id, request.arguments["case_ref"]),
-        ).fetchone()
-        proposal = conn.execute(
-            """
-            SELECT case_update_ref, proposal_status, target_status_category, metadata
-            FROM local_ticket_case_update_proposals
-            WHERE tenant_id = %s AND case_update_ref = %s
-            """,
-            (request.tenant_id, request.arguments["case_update_ref"]),
-        ).fetchone()
-
-    assert response.verdict == "propose"
-    assert response.enforced_mode == "propose"
-    assert response.output["connector"] == "local_ticket_desk.postgres"
-    assert response.output["proposal_status"] == "proposed"
-    assert response.output["case_status_mutated"] is False
-    assert response.output["case_update_ref"] == "caseupd_support_001"
-    assert response.output["target_status_category"] == "pending_internal"
-    assert case_status == ("open",)
-    assert proposal is not None
-    assert proposal[0:3] == ("caseupd_support_001", "proposed", "pending_internal")
-    assert proposal[3]["case_status_mutated"] is False
-
-
-def test_ticket_status_update_requires_approval_before_connector_execution(
-    migrated_database_url: str,
-) -> None:
-    connector = RecordingConnector()
-    request = _ticket_status_update_request()
-
-    with psycopg.connect(migrated_database_url) as conn:
-        response = ToolGateway(ToolGatewayStore(conn), connector).invoke(request)
-
-    assert response.verdict == "approval_required"
-    assert response.enforced_mode == "write"
-    assert response.connector_invocation_id is None
-    assert response.output == {}
-    assert connector.calls == []
-
-
-def test_ticket_argument_validation_blocks_before_connector_execution(
-    migrated_database_url: str,
-) -> None:
-    connector = RecordingConnector()
-    request = replace(
-        _ticket_case_lookup_request(),
-        arguments={
-            "request_ref": "req_support_001",
-            "account_ref": "acct_demo_001",
-            "lookup_policy_ref": "policy_ticket_lookup_read",
-        },
-    )
-
-    with psycopg.connect(migrated_database_url) as conn:
-        response = ToolGateway(ToolGatewayStore(conn), connector).invoke(request)
-
-    assert response.verdict == "block"
-    assert response.connector_invocation_id is None
-    assert "schema validation failed" in response.reason
-    assert connector.calls == []
-
-
 def test_calendar_write_grant_requires_approval_before_connector_execution(
     migrated_database_url: str,
 ) -> None:
-    connector = RecordingConnector()
+    registry, recording = _calendar_recording_registry()
     request = _calendar_create_request()
 
     with psycopg.connect(migrated_database_url) as conn:
-        response = ToolGateway(ToolGatewayStore(conn), connector).invoke(request)
+        response = ToolGateway(ToolGatewayStore(conn), registry).invoke(request)
         package = conn.execute(
             """
             SELECT
@@ -891,7 +819,7 @@ def test_calendar_write_grant_requires_approval_before_connector_execution(
     assert response.connector_invocation_id is None
     assert response.output["approval_state"] == "requested"
     assert response.output["requested_action"] == "calendar.create_hold.write"
-    assert connector.calls == []
+    assert recording.calls == []
     assert package is not None
     assert str(package[0]) == response.output["approval_id"]
     assert package[1:16] == (
@@ -940,11 +868,11 @@ def test_calendar_write_grant_requires_approval_before_connector_execution(
 def test_calendar_approval_package_is_idempotent_for_replayed_request(
     migrated_database_url: str,
 ) -> None:
-    connector = RecordingConnector()
+    registry, recording = _calendar_recording_registry()
     request = _calendar_create_request()
 
     with psycopg.connect(migrated_database_url) as conn:
-        gateway = ToolGateway(ToolGatewayStore(conn), connector)
+        gateway = ToolGateway(ToolGatewayStore(conn), registry)
         first = gateway.invoke(request)
         second = gateway.invoke(request)
         package_count = conn.execute(
@@ -960,17 +888,17 @@ def test_calendar_approval_package_is_idempotent_for_replayed_request(
     assert first.verdict == "approval_required"
     assert first.output["approval_id"] == second.output["approval_id"]
     assert package_count == (1,)
-    assert connector.calls == []
+    assert recording.calls == []
 
 
 def test_calendar_cancel_write_creates_requested_approval_package(
     migrated_database_url: str,
 ) -> None:
-    connector = RecordingConnector()
+    registry, recording = _calendar_recording_registry()
     request = _calendar_cancel_request()
 
     with psycopg.connect(migrated_database_url) as conn:
-        response = ToolGateway(ToolGatewayStore(conn), connector).invoke(request)
+        response = ToolGateway(ToolGatewayStore(conn), registry).invoke(request)
         package = conn.execute(
             """
             SELECT requested_action, tool_name, approval_state, redaction_summary
@@ -984,7 +912,7 @@ def test_calendar_cancel_write_creates_requested_approval_package(
     assert response.enforced_mode == "write"
     assert response.connector_invocation_id is None
     assert response.output["requested_action"] == "calendar.cancel_hold.write"
-    assert connector.calls == []
+    assert recording.calls == []
     redaction_policy_ref = "tool_grant:12000000-0000-4000-8000-000000000012:redaction_policy"
     assert package == (
         "calendar.cancel_hold.write",
@@ -1007,16 +935,15 @@ def test_approved_calendar_create_apply_creates_one_event_through_gateway(
     request = _calendar_create_request()
 
     with psycopg.connect(migrated_database_url) as conn:
-        approval_response = ToolGateway(ToolGatewayStore(conn), RecordingConnector()).invoke(
-            request
-        )
+        approval_registry, _approval_recording = _calendar_recording_registry()
+        approval_response = ToolGateway(ToolGatewayStore(conn), approval_registry).invoke(request)
         _approve_package(
             conn,
             tenant_id=request.tenant_id,
             approval_id=approval_response.output["approval_id"],
         )
-        connector = CountingConnector(LocalToolConnector(conn))
-        gateway = ToolGateway(ToolGatewayStore(conn), connector)
+        counting = _CountingRegistry(default_registry(conn))
+        gateway = ToolGateway(ToolGatewayStore(conn), counting)
 
         first = gateway.apply_approved_calendar_write(
             request,
@@ -1058,8 +985,8 @@ def test_approved_calendar_create_apply_creates_one_event_through_gateway(
     assert first.output["event_status"] == "created"
     assert first.output["calendar_apply_status"] == "applied"
     assert first.output["approval_id"] == approval_response.output["approval_id"]
-    assert len(connector.calls) == 1
-    assert connector.calls[0]["tool_name"] == "calendar.create_hold"
+    assert len(counting.calls) == 1
+    assert counting.calls[0]["tool_name"] == "calendar.create_hold"
     assert availability.output["slots"][0]["starts_at"] == "2026-05-18T10:30:00+00:00"
     assert audit is not None
     assert audit[0]["approval_id"] == approval_response.output["approval_id"]
@@ -1074,18 +1001,18 @@ def test_approved_calendar_create_apply_creates_one_event_through_gateway(
 def test_approved_calendar_apply_rechecks_expiry_before_connector_execution(
     migrated_database_url: str,
 ) -> None:
-    connector = RecordingConnector()
+    registry, recording = _calendar_recording_registry()
     request = _calendar_create_request()
 
     with psycopg.connect(migrated_database_url) as conn:
-        approval_response = ToolGateway(ToolGatewayStore(conn), connector).invoke(request)
+        approval_response = ToolGateway(ToolGatewayStore(conn), registry).invoke(request)
         _approve_package(
             conn,
             tenant_id=request.tenant_id,
             approval_id=approval_response.output["approval_id"],
             expired=True,
         )
-        response = ToolGateway(ToolGatewayStore(conn), connector).apply_approved_calendar_write(
+        response = ToolGateway(ToolGatewayStore(conn), registry).apply_approved_calendar_write(
             request,
             approval_id=approval_response.output["approval_id"],
         )
@@ -1093,17 +1020,17 @@ def test_approved_calendar_apply_rechecks_expiry_before_connector_execution(
     assert response.verdict == "block"
     assert response.connector_invocation_id is None
     assert response.output["failure_category"] == "approval_expired"
-    assert connector.calls == []
+    assert recording.calls == []
 
 
 def test_approved_calendar_apply_transient_failure_is_retry_classified(
     migrated_database_url: str,
 ) -> None:
-    connector = TransientFailingConnector()
+    registry, transient = _calendar_transient_registry()
     request = _calendar_create_request()
 
     with psycopg.connect(migrated_database_url) as conn:
-        gateway = ToolGateway(ToolGatewayStore(conn), connector)
+        gateway = ToolGateway(ToolGatewayStore(conn), registry)
         approval_response = gateway.invoke(request)
         _approve_package(
             conn,
@@ -1133,7 +1060,7 @@ def test_approved_calendar_apply_transient_failure_is_retry_classified(
             (request.tenant_id,),
         ).fetchall()
 
-    assert connector.calls == 2
+    assert transient.calls == 2
     assert len(failures) == 2
     first_failure = AuditEvent.model_validate(failures[0][0])
     assert "gateway_response" not in first_failure.details
@@ -1160,8 +1087,8 @@ def test_approved_calendar_cancel_compensates_through_gateway(
     )
 
     with psycopg.connect(migrated_database_url) as conn:
-        connector = CountingConnector(LocalToolConnector(conn))
-        gateway = ToolGateway(ToolGatewayStore(conn), connector)
+        counting = _CountingRegistry(default_registry(conn))
+        gateway = ToolGateway(ToolGatewayStore(conn), counting)
         create_approval = gateway.invoke(create_request)
         _approve_package(
             conn,
@@ -1187,7 +1114,7 @@ def test_approved_calendar_cancel_compensates_through_gateway(
     assert cancelled.verdict == "allow"
     assert cancelled.output["cancellation_status"] == "cancelled"
     assert cancelled.output["compensation_category"] == "compensation_completed"
-    assert [call["tool_name"] for call in connector.calls] == [
+    assert [call["tool_name"] for call in counting.calls] == [
         "calendar.create_hold",
         "calendar.cancel_hold",
     ]
@@ -1196,11 +1123,13 @@ def test_approved_calendar_cancel_compensates_through_gateway(
 def test_calendar_compensation_failure_blocks_with_escalation_category(
     migrated_database_url: str,
 ) -> None:
-    connector = RejectingCalendarConnector()
+    rejecting = _RejectingCalendarAdapter()
+    registry = ConnectorRegistry()
+    registry.register(rejecting)
     request = _calendar_cancel_request()
 
     with psycopg.connect(migrated_database_url) as conn:
-        gateway = ToolGateway(ToolGatewayStore(conn), connector)
+        gateway = ToolGateway(ToolGatewayStore(conn), registry)
         approval_response = gateway.invoke(request)
         _approve_package(
             conn,
@@ -1224,7 +1153,7 @@ def test_calendar_compensation_failure_blocks_with_escalation_category(
     assert response.verdict == "block"
     assert response.output["compensation_category"] == "compensation_failed"
     assert response.output["escalation_category"] == "calendar_compensation_failed"
-    assert connector.calls == 1
+    assert rejecting.calls == 1
     assert audit is not None
     assert audit[0]["connector_failure"]["classification"] == "non_retryable"
     assert audit[0]["connector_failure"]["failure_category"] == "caldav_rejected"

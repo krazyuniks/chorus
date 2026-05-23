@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc1/decline_ledger_route_args.schema.json",
+  "title": "DeclineLedgerRouteArgs",
+  "description": "Arguments accepted by the UC1 sandbox-decline-ledger connector when the broker firm declines to quote an enquiry (the `decline` verdict).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enquiry_ref",
+    "customer_ref",
+    "decline_reason_category",
+    "verdict_ref",
+    "routing_policy_ref"
+  ],
+  "properties": {
+    "enquiry_ref": {
+      "type": "string",
+      "pattern": "^enq_[A-Za-z0-9_-]+$"
+    },
+    "customer_ref": {
+      "type": "string",
+      "pattern": "^cust_[A-Za-z0-9_-]+$"
+    },
+    "decline_reason_category": {
+      "type": "string",
+      "enum": [
+        "no_appetite_for_risk",
+        "sanctions_or_pep_hit",
+        "fraud_marker_present",
+        "kyc_failure",
+        "duplicate_active_enquiry",
+        "customer_unreachable_after_attempts",
+        "outside_product_target_market"
+      ]
+    },
+    "verdict_ref": {
+      "type": "string",
+      "pattern": "^verdict_[A-Za-z0-9_-]+$"
+    },
+    "routing_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    }
+  }
+}

@@ -14,12 +14,13 @@ from psycopg.types.json import Jsonb
 from temporalio import activity
 
 from chorus.agent_runtime import AgentRuntime, AgentRuntimeStore, default_route_catalogue
+from chorus.connectors import default_registry
 from chorus.contracts.generated.audit.audit_event import AuditEvent
 from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
 from chorus.observability import current_otel_ids, set_current_span_attributes
 from chorus.persistence import OutboxStore, ProjectionStore
 from chorus.persistence.migrate import database_url_from_env
-from chorus.tool_gateway.gateway import LocalToolConnector, ToolGateway, ToolGatewayStore
+from chorus.tool_gateway.gateway import ToolGateway, ToolGatewayStore
 from chorus.workflows.lighthouse import (
     ACTIVITY_INVOKE_AGENT_RUNTIME,
     ACTIVITY_INVOKE_TOOL_GATEWAY,
@@ -180,7 +181,7 @@ def invoke_tool_gateway_activity(request: ToolGatewayRequest) -> ToolGatewayResp
     )
     database_url = os.environ.get("CHORUS_DATABASE_URL", database_url_from_env())
     with psycopg.connect(database_url) as conn:
-        gateway = ToolGateway(ToolGatewayStore(conn), LocalToolConnector(conn))
+        gateway = ToolGateway(ToolGatewayStore(conn), default_registry(conn))
         return gateway.invoke(request)
 
 

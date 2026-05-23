@@ -1,0 +1,8 @@
+{
+  "enquiry_ref": "enq_demo_002",
+  "customer_ref": "cust_demo_002",
+  "referral_destination_category": "specialist_broker_panel",
+  "referral_reason_category": "complex_risk_outside_appetite",
+  "verdict_ref": "verdict_demo_refer_001",
+  "routing_policy_ref": "policy_uc1_routing_v1"
+}

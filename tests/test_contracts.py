@@ -19,14 +19,24 @@ from chorus.contracts.generated.connector.calendar_hold_proposal_args import (
     CalendarHoldProposalArgs,
 )
 from chorus.contracts.generated.connector.gateway_verdict import GatewayVerdict
-from chorus.contracts.generated.connector.ticket_case_lookup_args import TicketCaseLookupArgs
-from chorus.contracts.generated.connector.ticket_case_update_proposal_args import (
-    TicketCaseUpdateProposalArgs,
+from chorus.contracts.generated.connector.uc1.customer_profile_lookup_args import (
+    CustomerProfileLookupArgs,
 )
-from chorus.contracts.generated.connector.ticket_duplicate_case_lookup_args import (
-    TicketDuplicateCaseLookupArgs,
+from chorus.contracts.generated.connector.uc1.decline_ledger_route_args import (
+    DeclineLedgerRouteArgs,
 )
-from chorus.contracts.generated.connector.ticket_status_update_args import TicketStatusUpdateArgs
+from chorus.contracts.generated.connector.uc1.outbound_comms_message_args import (
+    OutboundCommsMessageArgs,
+)
+from chorus.contracts.generated.connector.uc1.product_catalogue_lookup_args import (
+    ProductCatalogueLookupArgs,
+)
+from chorus.contracts.generated.connector.uc1.quoting_queue_route_args import (
+    QuotingQueueRouteArgs,
+)
+from chorus.contracts.generated.connector.uc1.referral_inbox_route_args import (
+    ReferralInboxRouteArgs,
+)
 from chorus.contracts.generated.intake.support_request_intake import SupportRequestIntake
 from chorus.contracts.generated.intake.uc1.lead_intake import LeadIntake
 from chorus.contracts.generated.llm_provider.model_route_version import ModelRouteVersion
@@ -43,7 +53,7 @@ def test_contract_gate_passes() -> None:
 def test_contract_schemas_have_samples_and_generated_models() -> None:
     schemas = schema_files()
 
-    assert len(schemas) == 22
+    assert len(schemas) == 24
     for schema in schemas:
         name = schema.name.removesuffix(".schema.json")
         assert (schema.parent / "samples" / f"{name}.sample.json").exists()
@@ -75,17 +85,23 @@ def test_generated_models_validate_representative_samples() -> None:
     )
     support_intake_sample = _sample("contracts/intake/samples/support_request_intake.sample.json")
     support_agent_sample = _sample("contracts/llm_provider/samples/support_agent_io.sample.json")
-    ticket_case_lookup_sample = _sample(
-        "contracts/connector/samples/ticket_case_lookup_args.sample.json"
+    customer_profile_sample = _sample(
+        "contracts/connector/uc1/samples/customer_profile_lookup_args.sample.json"
     )
-    ticket_duplicate_lookup_sample = _sample(
-        "contracts/connector/samples/ticket_duplicate_case_lookup_args.sample.json"
+    product_catalogue_sample = _sample(
+        "contracts/connector/uc1/samples/product_catalogue_lookup_args.sample.json"
     )
-    ticket_case_update_sample = _sample(
-        "contracts/connector/samples/ticket_case_update_proposal_args.sample.json"
+    outbound_comms_sample = _sample(
+        "contracts/connector/uc1/samples/outbound_comms_message_args.sample.json"
     )
-    ticket_status_update_sample = _sample(
-        "contracts/connector/samples/ticket_status_update_args.sample.json"
+    quoting_queue_sample = _sample(
+        "contracts/connector/uc1/samples/quoting_queue_route_args.sample.json"
+    )
+    referral_inbox_sample = _sample(
+        "contracts/connector/uc1/samples/referral_inbox_route_args.sample.json"
+    )
+    decline_ledger_sample = _sample(
+        "contracts/connector/uc1/samples/decline_ledger_route_args.sample.json"
     )
 
     assert LeadIntake.model_validate(lead_sample).correlation_id == "cor_lead_acme_001"
@@ -119,22 +135,31 @@ def test_generated_models_validate_representative_samples() -> None:
     support_agent = SupportAgentIO.model_validate(support_agent_sample)
     assert support_agent.workflow_type == "support_triage"
     assert support_agent.result.verdict_category.value == "propose_case_update"
-    assert TicketCaseLookupArgs.model_validate(ticket_case_lookup_sample).case_ref == (
-        "case_existing_001"
+    assert (
+        CustomerProfileLookupArgs.model_validate(customer_profile_sample).customer_ref
+        == "cust_demo_001"
     )
     assert (
-        TicketDuplicateCaseLookupArgs.model_validate(
-            ticket_duplicate_lookup_sample
-        ).duplicate_scope_category.value
-        == "same_account_product_open"
+        ProductCatalogueLookupArgs.model_validate(
+            product_catalogue_sample
+        ).product_family_category.value
+        == "motor_private_car"
     )
     assert (
-        TicketCaseUpdateProposalArgs.model_validate(
-            ticket_case_update_sample
-        ).target_status_category.value
-        == "pending_internal"
+        OutboundCommsMessageArgs.model_validate(outbound_comms_sample).missing_data_request_ref
+        == "mdr_demo_001"
     )
     assert (
-        TicketStatusUpdateArgs.model_validate(ticket_status_update_sample).approval_policy_ref
-        == "policy_ticket_write_approval"
+        QuotingQueueRouteArgs.model_validate(quoting_queue_sample).product_family_category.value
+        == "motor_private_car"
+    )
+    assert (
+        ReferralInboxRouteArgs.model_validate(
+            referral_inbox_sample
+        ).referral_destination_category.value
+        == "specialist_broker_panel"
+    )
+    assert (
+        DeclineLedgerRouteArgs.model_validate(decline_ledger_sample).decline_reason_category.value
+        == "outside_product_target_market"
     )

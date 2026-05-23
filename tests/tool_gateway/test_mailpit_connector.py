@@ -8,7 +8,8 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from chorus.connectors.local import ConnectorTransientError, MailpitEmailConnector
+from chorus.connectors.local import MailpitEmailConnector
+from chorus.connectors.types import ConnectorContext, ConnectorTransientError
 from chorus.contracts.generated.connector.email_message_args import EmailMessageArgs
 
 MAILPIT_HTTP_URL = os.environ.get("CHORUS_TEST_MAILPIT_HTTP_URL", "http://localhost:8025")
@@ -26,10 +27,12 @@ def test_mailpit_email_connector_captures_outbound_proposal() -> None:
     result = MailpitEmailConnector(
         smtp_host=MAILPIT_SMTP_HOST,
         smtp_port=MAILPIT_SMTP_PORT,
-    ).propose_response(
-        tenant_id="tenant_demo",
-        correlation_id=f"cor_mailpit_connector_{uuid4().hex}",
-        workflow_id=f"lighthouse-mailpit-{uuid4().hex}",
+    ).send(
+        context=ConnectorContext(
+            tenant_id="tenant_demo",
+            correlation_id=f"cor_mailpit_connector_{uuid4().hex}",
+            workflow_id=f"lighthouse-mailpit-{uuid4().hex}",
+        ),
         arguments=EmailMessageArgs.model_validate(
             {
                 "to": recipient,
@@ -46,10 +49,12 @@ def test_mailpit_email_connector_captures_outbound_proposal() -> None:
 
 def test_mailpit_email_connector_fixture_marker_raises_transient_error() -> None:
     with pytest.raises(ConnectorTransientError):
-        MailpitEmailConnector(smtp_host="127.0.0.1", smtp_port=9).propose_response(
-            tenant_id="tenant_demo",
-            correlation_id=f"cor_mailpit_connector_{uuid4().hex}",
-            workflow_id=f"lighthouse-mailpit-{uuid4().hex}",
+        MailpitEmailConnector(smtp_host="127.0.0.1", smtp_port=9).send(
+            context=ConnectorContext(
+                tenant_id="tenant_demo",
+                correlation_id=f"cor_mailpit_connector_{uuid4().hex}",
+                workflow_id=f"lighthouse-mailpit-{uuid4().hex}",
+            ),
             arguments=EmailMessageArgs.model_validate(
                 {
                     "to": "lead@example.com",

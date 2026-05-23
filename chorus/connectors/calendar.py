@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -15,7 +16,13 @@ from xml.etree import ElementTree
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
-from chorus.connectors.local import ConnectorError, ConnectorResult, ConnectorTransientError
+from chorus.connectors.types import (
+    ConnectorContext,
+    ConnectorError,
+    ConnectorResult,
+    ConnectorTransientError,
+    ToolSpec,
+)
 from chorus.contracts.generated.connector.calendar_availability_lookup_args import (
     CalendarAvailabilityLookupArgs,
 )
@@ -251,6 +258,78 @@ class RadicaleCalendarConnector:
     @staticmethod
     def _event_path(calendar_ref: str, event_uid_ref: str) -> str:
         return f"/{quote(calendar_ref, safe='')}/{quote(event_uid_ref, safe='')}.ics"
+
+
+class CalendarAdapter:
+    """Connector adapter wrapping the local Radicale CalDAV connector."""
+
+    adapter_id = "radicale_calendar"
+
+    def __init__(self, connector: RadicaleCalendarConnector | None = None) -> None:
+        self._connector = connector or RadicaleCalendarConnector()
+
+    def tool_specs(self) -> Sequence[ToolSpec]:
+        return (
+            ToolSpec(
+                tool_name="calendar.lookup_availability",
+                argument_contract=CalendarAvailabilityLookupArgs,
+                return_contract_ref=(
+                    "contracts/connector/calendar_availability_lookup_args.schema.json"
+                ),
+            ),
+            ToolSpec(
+                tool_name="calendar.propose_hold",
+                argument_contract=CalendarHoldProposalArgs,
+                return_contract_ref=("contracts/connector/calendar_hold_proposal_args.schema.json"),
+            ),
+            ToolSpec(
+                tool_name="calendar.create_hold",
+                argument_contract=CalendarHoldCreationArgs,
+                return_contract_ref=("contracts/connector/calendar_hold_creation_args.schema.json"),
+            ),
+            ToolSpec(
+                tool_name="calendar.cancel_hold",
+                argument_contract=CalendarHoldCancellationArgs,
+                return_contract_ref=(
+                    "contracts/connector/calendar_hold_cancellation_args.schema.json"
+                ),
+            ),
+        )
+
+    def invoke(
+        self,
+        *,
+        tool_name: str,
+        mode: str,
+        context: ConnectorContext,
+        arguments: BaseModel,
+    ) -> ConnectorResult:
+        del mode, context
+        if tool_name == "calendar.lookup_availability":
+            if not isinstance(arguments, CalendarAvailabilityLookupArgs):
+                raise TypeError(
+                    f"CalendarAdapter expected CalendarAvailabilityLookupArgs for {tool_name!r}"
+                )
+            return self._connector.lookup_availability(arguments)
+        if tool_name == "calendar.propose_hold":
+            if not isinstance(arguments, CalendarHoldProposalArgs):
+                raise TypeError(
+                    f"CalendarAdapter expected CalendarHoldProposalArgs for {tool_name!r}"
+                )
+            return self._connector.propose_hold(arguments)
+        if tool_name == "calendar.create_hold":
+            if not isinstance(arguments, CalendarHoldCreationArgs):
+                raise TypeError(
+                    f"CalendarAdapter expected CalendarHoldCreationArgs for {tool_name!r}"
+                )
+            return self._connector.create_hold(arguments)
+        if tool_name == "calendar.cancel_hold":
+            if not isinstance(arguments, CalendarHoldCancellationArgs):
+                raise TypeError(
+                    f"CalendarAdapter expected CalendarHoldCancellationArgs for {tool_name!r}"
+                )
+            return self._connector.cancel_hold(arguments)
+        raise ConnectorError(f"CalendarAdapter received unsupported tool {tool_name!r}")
 
 
 def _calendar_collection_body(calendar_ref: str) -> str:

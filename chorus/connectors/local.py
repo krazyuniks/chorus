@@ -1,13 +1,22 @@
-"""Local connector substrate for Phase 1A Tool Gateway evidence."""
+"""Local sandbox connectors and adapters for Lighthouse-era tools.
+
+These adapters keep the pre-reset Lighthouse-shaped tool surface alive
+through R3 so the existing workflow and tests can run while the
+ports-and-adapters refactor lands. Lighthouse retires in R3 checkpoint E
+and the Lighthouse-shaped adapters here (`LegacyCrmAdapter`,
+`LegacyResearchAdapter`, and `MailpitEmailAdapter`'s
+`email.propose_response` / `email.send_response` tools) retire with it,
+replaced by the UC1 sandbox adapters in `chorus.connectors.uc1`.
+"""
 
 from __future__ import annotations
 
 import os
 import smtplib
-from dataclasses import dataclass
+from collections.abc import Sequence
 from email.message import EmailMessage
 from typing import Any, cast
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import httpx
 from psycopg import Connection
@@ -15,15 +24,14 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field
 
+from chorus.connectors.types import (
+    ConnectorContext,
+    ConnectorError,
+    ConnectorResult,
+    ConnectorTransientError,
+    ToolSpec,
+)
 from chorus.contracts.generated.connector.email_message_args import EmailMessageArgs
-
-
-class ConnectorError(RuntimeError):
-    """Raised when a local connector cannot complete an authorised action."""
-
-
-class ConnectorTransientError(ConnectorError):
-    """Raised when a local connector has a retryable fixture-scoped failure."""
 
 
 class CompanyResearchArguments(BaseModel):
@@ -46,12 +54,6 @@ class CrmCreateLeadArguments(BaseModel):
     lead_summary: str = Field(min_length=1, max_length=1000)
 
 
-@dataclass(frozen=True)
-class ConnectorResult:
-    connector_invocation_id: UUID
-    output: dict[str, Any]
-
-
 class MailpitEmailConnector:
     """Outbound email connector captured by the local Mailpit SMTP server."""
 
@@ -66,12 +68,10 @@ class MailpitEmailConnector:
         self._smtp_port = smtp_port or int(os.environ.get("CHORUS_MAILPIT_SMTP_PORT", "1025"))
         self._sender = sender
 
-    def propose_response(
+    def send(
         self,
         *,
-        tenant_id: str,
-        correlation_id: str,
-        workflow_id: str,
+        context: ConnectorContext,
         arguments: EmailMessageArgs,
         mode: str,
     ) -> ConnectorResult:
@@ -85,9 +85,9 @@ class MailpitEmailConnector:
         message["From"] = self._sender
         message["To"] = arguments.to
         message["Subject"] = arguments.subject
-        message["X-Chorus-Tenant-Id"] = tenant_id
-        message["X-Chorus-Correlation-Id"] = correlation_id
-        message["X-Chorus-Workflow-Id"] = workflow_id
+        message["X-Chorus-Tenant-Id"] = context.tenant_id
+        message["X-Chorus-Correlation-Id"] = context.correlation_id
+        message["X-Chorus-Workflow-Id"] = context.workflow_id
         message["X-Chorus-Connector-Invocation-Id"] = str(connector_invocation_id)
         message["X-Chorus-Tool-Mode"] = mode
         message.set_content(arguments.body_text)
@@ -238,6 +238,143 @@ class CompanyResearchConnector:
                 "matches": matches,
             },
         )
+
+
+class MailpitEmailAdapter:
+    """Lighthouse-era email adapter; serves `email.propose_response` / `send_response`.
+
+    Retires in R3 checkpoint E together with the Lighthouse workflow; UC1
+    replaces it with `chorus.connectors.uc1.SandboxOutboundCommsAdapter`.
+    """
+
+    adapter_id = "mailpit_email"
+
+    def __init__(self, connector: MailpitEmailConnector | None = None) -> None:
+        self._connector = connector or MailpitEmailConnector()
+
+    def tool_specs(self) -> Sequence[ToolSpec]:
+        return (
+            ToolSpec(
+                tool_name="email.propose_response",
+                argument_contract=EmailMessageArgs,
+                return_contract_ref=("contracts/connector/email_message_args.schema.json"),
+            ),
+            ToolSpec(
+                tool_name="email.send_response",
+                argument_contract=EmailMessageArgs,
+                return_contract_ref=("contracts/connector/email_message_args.schema.json"),
+            ),
+        )
+
+    def invoke(
+        self,
+        *,
+        tool_name: str,
+        mode: str,
+        context: ConnectorContext,
+        arguments: BaseModel,
+    ) -> ConnectorResult:
+        if not isinstance(arguments, EmailMessageArgs):
+            raise TypeError(
+                f"MailpitEmailAdapter expected EmailMessageArgs for {tool_name!r}, "
+                f"got {type(arguments).__name__}"
+            )
+        return self._connector.send(context=context, arguments=arguments, mode=mode)
+
+
+class LegacyCrmAdapter:
+    """Lighthouse-era CRM adapter; serves `crm.lookup_company` and `crm.create_lead`.
+
+    Retires in R3 checkpoint E with the Lighthouse workflow. UC1's
+    quoting queue, referral inbox, and decline ledger replace it.
+    """
+
+    adapter_id = "legacy_local_crm"
+
+    def __init__(self, conn: Connection[Any]) -> None:
+        self._connector = LocalCrmConnector(conn)
+
+    def tool_specs(self) -> Sequence[ToolSpec]:
+        return (
+            ToolSpec(
+                tool_name="crm.lookup_company",
+                argument_contract=CrmLookupCompanyArguments,
+                return_contract_ref="legacy.local_crm.lookup_company",
+            ),
+            ToolSpec(
+                tool_name="crm.create_lead",
+                argument_contract=CrmCreateLeadArguments,
+                return_contract_ref="legacy.local_crm.create_lead",
+            ),
+        )
+
+    def invoke(
+        self,
+        *,
+        tool_name: str,
+        mode: str,
+        context: ConnectorContext,
+        arguments: BaseModel,
+    ) -> ConnectorResult:
+        del mode
+        if tool_name == "crm.lookup_company":
+            if not isinstance(arguments, CrmLookupCompanyArguments):
+                raise TypeError(
+                    "LegacyCrmAdapter expected CrmLookupCompanyArguments for "
+                    f"{tool_name!r}, got {type(arguments).__name__}"
+                )
+            return self._connector.lookup_company(tenant_id=context.tenant_id, arguments=arguments)
+        if tool_name == "crm.create_lead":
+            if not isinstance(arguments, CrmCreateLeadArguments):
+                raise TypeError(
+                    "LegacyCrmAdapter expected CrmCreateLeadArguments for "
+                    f"{tool_name!r}, got {type(arguments).__name__}"
+                )
+            return self._connector.create_lead(
+                tenant_id=context.tenant_id,
+                correlation_id=context.correlation_id,
+                arguments=arguments,
+            )
+        raise ConnectorError(f"LegacyCrmAdapter received unsupported tool {tool_name!r}")
+
+
+class LegacyResearchAdapter:
+    """Lighthouse-era research adapter; serves `company_research.lookup`.
+
+    Retires in R3 checkpoint E with the Lighthouse workflow. UC1 reasoning
+    steps (classification, context gathering, qualification) run through
+    the LLM provider port directly; no replacement connector is added.
+    """
+
+    adapter_id = "legacy_company_research"
+
+    def __init__(self, *, api_key: str | None = None) -> None:
+        self._connector = CompanyResearchConnector(api_key=api_key)
+
+    def tool_specs(self) -> Sequence[ToolSpec]:
+        return (
+            ToolSpec(
+                tool_name="company_research.lookup",
+                argument_contract=CompanyResearchArguments,
+                return_contract_ref="legacy.companies_house.lookup",
+            ),
+        )
+
+    def invoke(
+        self,
+        *,
+        tool_name: str,
+        mode: str,
+        context: ConnectorContext,
+        arguments: BaseModel,
+    ) -> ConnectorResult:
+        del mode, context
+        if not isinstance(arguments, CompanyResearchArguments):
+            raise TypeError(
+                "LegacyResearchAdapter expected CompanyResearchArguments for "
+                f"{tool_name!r}, got {type(arguments).__name__}"
+            )
+        return self._connector.lookup(arguments)
 
 
 def _is_connector_failure_fixture(arguments: EmailMessageArgs) -> bool:

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc1/product_catalogue_lookup_args.schema.json",
+  "title": "ProductCatalogueLookupArgs",
+  "description": "Arguments accepted by the UC1 sandbox-product-catalogue connector. Returns product target-market and eligibility data for a single product family; read-only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "product_family_category",
+    "lookup_policy_ref"
+  ],
+  "properties": {
+    "product_family_category": {
+      "type": "string",
+      "enum": [
+        "motor_private_car",
+        "motor_commercial_vehicle",
+        "home_buildings",
+        "home_contents",
+        "home_combined",
+        "travel_single_trip",
+        "travel_annual_multi_trip",
+        "pet"
+      ],
+      "description": "UC1 personal-lines product family the catalogue lookup targets."
+    },
+    "enquiry_ref": {
+      "type": "string",
+      "pattern": "^enq_[A-Za-z0-9_-]+$",
+      "description": "Enquiry the lookup is performed for; correlated into audit."
+    },
+    "lookup_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    }
+  }
+}

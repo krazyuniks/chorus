@@ -1,8 +1,0 @@
-{
-  "case_ref": "case_existing_001",
-  "request_ref": "req_support_001",
-  "account_ref": "acct_demo_001",
-  "product_ref": "prod_core_platform",
-  "lookup_policy_ref": "policy_ticket_lookup_read",
-  "include_history_category": "bounded_recent_status_refs"
-}

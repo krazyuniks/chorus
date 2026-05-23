@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc1/outbound_comms_message_args.schema.json",
+  "title": "OutboundCommsMessageArgs",
+  "description": "Arguments accepted by the UC1 sandbox-outbound-comms connector. Used by both the propose-mode missing-data-request draft and the approval-gated write-mode send; the gateway flips mode after the adviser approval gate clears.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enquiry_ref",
+    "customer_ref",
+    "missing_data_request_ref",
+    "to_email",
+    "subject",
+    "body_text",
+    "comms_policy_ref"
+  ],
+  "properties": {
+    "enquiry_ref": {
+      "type": "string",
+      "pattern": "^enq_[A-Za-z0-9_-]+$"
+    },
+    "customer_ref": {
+      "type": "string",
+      "pattern": "^cust_[A-Za-z0-9_-]+$"
+    },
+    "missing_data_request_ref": {
+      "type": "string",
+      "pattern": "^mdr_[A-Za-z0-9_-]+$",
+      "description": "Missing-data-request ref the message fulfils. Idempotency anchor on send."
+    },
+    "to_email": {
+      "type": "string",
+      "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+    },
+    "subject": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "body_text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000
+    },
+    "comms_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    }
+  }
+}

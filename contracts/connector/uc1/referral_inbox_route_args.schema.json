@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc1/referral_inbox_route_args.schema.json",
+  "title": "ReferralInboxRouteArgs",
+  "description": "Arguments accepted by the UC1 sandbox-referral-inbox connector when an enquiry is routed to a specialist or partner-channel destination outside the broker firm's standard quoting queue (the `refer` verdict).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enquiry_ref",
+    "customer_ref",
+    "referral_destination_category",
+    "referral_reason_category",
+    "verdict_ref",
+    "routing_policy_ref"
+  ],
+  "properties": {
+    "enquiry_ref": {
+      "type": "string",
+      "pattern": "^enq_[A-Za-z0-9_-]+$"
+    },
+    "customer_ref": {
+      "type": "string",
+      "pattern": "^cust_[A-Za-z0-9_-]+$"
+    },
+    "referral_destination_category": {
+      "type": "string",
+      "enum": [
+        "specialist_broker_panel",
+        "managing_general_agent",
+        "subscription_market",
+        "partner_intermediary",
+        "internal_complex_risk_desk"
+      ],
+      "description": "Destination class; partner identifiers stay inside the destination."
+    },
+    "referral_reason_category": {
+      "type": "string",
+      "enum": [
+        "customer_outside_target_market",
+        "complex_risk_outside_appetite",
+        "capacity_constraint",
+        "regulatory_restriction",
+        "customer_vulnerability_handoff",
+        "partner_owns_relationship"
+      ]
+    },
+    "verdict_ref": {
+      "type": "string",
+      "pattern": "^verdict_[A-Za-z0-9_-]+$"
+    },
+    "routing_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    }
+  }
+}

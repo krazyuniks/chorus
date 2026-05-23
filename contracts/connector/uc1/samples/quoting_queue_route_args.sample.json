@@ -1,0 +1,8 @@
+{
+  "enquiry_ref": "enq_demo_001",
+  "customer_ref": "cust_demo_001",
+  "product_family_category": "motor_private_car",
+  "qualification_summary_ref": "qsum_demo_001",
+  "verdict_ref": "verdict_demo_accept_001",
+  "routing_policy_ref": "policy_uc1_routing_v1"
+}
