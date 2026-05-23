@@ -30,10 +30,15 @@ R3 is governed by ADRs 0017-0020, the reset bundle in
 - Do not skip hooks. British English, conventional commits, no AI
   attribution.
 - ADRs 0017-0020 are settled. Do not relitigate them.
-- R3 runs the continuation-handoff cadence: each session reads this
-  ledger and the rolling continuation prompt, executes one checkpoint or
-  a bounded slice of one, then updates the ledger and regenerates the
-  continuation prompt at close.
+- R3 executes as three sessions (with Session 2b as a fallback only if
+  checkpoint E overflows) grouping the checkpoints; see the Session plan
+  below. Each checkpoint within a session lands its own commit and
+  updates this ledger's status row inline; the rolling continuation
+  prompt is regenerated only at session end, framing the next session's
+  grouping.
+- Each session must end gate-green relative to the baseline.
+  Intermediate states between checkpoints inside a session do not need to
+  be gate-green.
 
 ## Scope and constraints
 
@@ -41,8 +46,8 @@ This ledger is the durable, cumulative R3 record - the R3 backlog. R3
 runs the continuation-handoff cadence: alongside this ledger, a single
 rolling continuation prompt at
 `records/radianit/projects/chorus/next-session-prompt.md` in the vault
-Chorus records frames the next checkpoint and is regenerated at the close
-of each session. The ledger holds durable state; the continuation prompt
+Chorus records frames the next session's grouping of checkpoints and is
+regenerated at the close of each session. The ledger holds durable state; the continuation prompt
 is the thin rolling handoff pointer. The R3 kickoff prompt has been
 consumed; the constraints below are lifted from it so nothing is lost.
 
@@ -230,6 +235,48 @@ Surfaced by the 2026-05-21 plan validation:
   UC2 / UC3 deltas in `r1-adapter-mapping.md`, not only UC1, so the
   abstraction is not silently UC1-shaped before R4 exercises it.
 
+## Session plan
+
+R3 executes as three sessions, grouping the checkpoints by what couples
+engineering-wise. Session 2b is a fallback only if checkpoint E
+overflows; it is not a pre-planned split.
+
+### Session 1 - Contracts + LLM port + audit split (A, B, C)
+
+The ports-surface session. After Session 1: contracts in their final
+six-port shape; the LLM provider port runs behind a thin OpenAI-SDK
+adapter with the route catalogue (including a deterministic recorded /
+replay route so eval stays green between B and G); the audit surface is
+split into the decision-trail port and the transcript port. B emits
+transcripts that C records; both need A's contract surface, so the three
+cluster.
+
+### Session 2 - Connector authority + workflow + UC1 + Support retirement (D, E)
+
+The runtime-behaviour session. After Session 2: the Tool Gateway
+dispatches through the ConnectorRegistry, UC1 runs end-to-end on the
+shared `WorkflowSpine`, and Support Triage is fully retired (touching
+`runtime.py`, `projection.py`, `gateway.py`, the worker, the support
+test surface, and the woven support paths). E is the largest single
+piece in R3.
+
+### Session 2b (fallback) - if E overflows
+
+E is the biggest single move. If it gets unwieldy mid-session, Session 2
+lands D and a clean checkpoint, and E moves to Session 2b. Contingency,
+not pre-planned.
+
+### Session 3 - Decompose + eval reshape + finish (F, G, exit)
+
+The cleanup session. F decomposes `projection.py` and `doctor.py` along
+port boundaries; G reshapes `eval/run.py` into invariant assertions plus
+one happy path per use case and adds the `eval replay` subcommand,
+retiring the path-enumeration fixtures. The session closes by writing
+`r3-exit-criteria.md`, updating the moved docs (`architecture.md`,
+`evidence-map.md`, `runbook.md`, `AGENTS.md`), and retiring the stale
+pre-reset docs (`governance-guardrails.md`, `governance-evidence.md`,
+`demo-script.md`, `docs/components/`).
+
 ## Checkpoints
 
 The checkpoint set derives from the four smells in
@@ -271,6 +318,55 @@ paths, `support_agent_io`), D (ticket connector and contracts), E
 (`support.py`, `support_request_intake`), F (`projection.py` support),
 G (eval support). R3 exit is the point at which Support Triage is fully
 retired.
+
+**Gates.** `just contracts-check`, `just lint`, `just test`,
+`just test-replay`, `just eval`.
+
+### Checkpoint B - LLM provider port
+
+**Outcome.** LangGraph is removed from the agent execution path (ADR
+0017). The LLM provider port runs behind a thin OpenAI-SDK adapter
+against any OpenAI-compatible chat-completions endpoint (ADR 0018). The
+adapter is configured per route via base URL, API key, model, and
+provider-specific parameters such as thinking-mode toggles. The route
+catalogue records provider, model, parameters, and adapter version on
+every captured invocation. Three routes register at startup: dev
+(DeepSeek V4-Flash with thinking-mode), demo / eval canonical (OpenAI
+gpt-5.4-mini), and a deterministic recorded / replay route that re-runs
+captured transcripts so `just eval` and `just test` stay green between B
+and G (cross-checkpoint watch item). Domain code calls the port with
+structured invocation arguments and receives a structured invocation
+result; no provider SDK is reachable outside the adapter. The
+`runtime.py` support branches are dropped together with the LangGraph
+rewrite.
+
+**Not-done boundary.** B does not split the audit store - that is C. B
+does not change the workflow spine or the connector registry. The
+standalone `chorus/workflows/support.py` class stays until E; its
+runtime support is removed here only inside `runtime.py`.
+
+**Gates.** `just contracts-check`, `just lint`, `just test`,
+`just test-replay`, `just eval`.
+
+### Checkpoint C - Audit ports
+
+**Outcome.** The single Postgres audit store splits into the structured
+decision-trail port and the full-fidelity transcript port (ADR 0019).
+Decision-trail records carry workflow correlation refs, agent identity
+and version, a policy snapshot reference, input / output summaries, tool
+calls in summary form, timestamps, and cost. Transcript records carry
+the full message and tool-call history, the route catalogue entry,
+model parameters as called, provider-side metadata, and token counts -
+enough to replay any captured invocation against an alternate provider
+through the LLM provider port. A new forward migration creates the
+transcript table and any renames needed on the decision-trail table.
+`runtime.py` writes both records on every invocation; the gateway's
+tool-action audit moves under the audit ports' contracts.
+
+**Not-done boundary.** C does not implement the `eval replay`
+subcommand - that is G. C only delivers the data shape and writes that
+make replay possible. Support-related audit branches are dropped only
+together with their callers in B / E / F / G.
 
 **Gates.** `just contracts-check`, `just lint`, `just test`,
 `just test-replay`, `just eval`.
