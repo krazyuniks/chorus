@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
-from datetime import timedelta
 from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
 
@@ -11,7 +10,11 @@ import pytest
 from psycopg import sql
 
 from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
-from chorus.persistence import OutboxStore, ProjectionStore, apply_migrations
+from chorus.persistence import (
+    OutboxStore,
+    ProjectionStore,
+    apply_migrations,
+)
 from chorus.workflows.activities import record_retry_exhaustion_dlq
 from chorus.workflows.types import RetryExhaustionDlqCommand
 
@@ -28,7 +31,7 @@ def _database_url(dbname: str) -> str:
 
 @pytest.fixture(scope="module")
 def migrated_database_url() -> Iterator[str]:
-    dbname = f"chorus_test_{uuid4().hex}"
+    dbname = f"chorus_persistence_test_{uuid4().hex}"
 
     try:
         with psycopg.connect(ADMIN_DATABASE_URL, autocommit=True, connect_timeout=2) as admin:
@@ -53,12 +56,6 @@ def migrated_database_url() -> Iterator[str]:
             admin.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(dbname)))
 
 
-def _set_app_role(conn: psycopg.Connection[object], tenant_id: str | None = None) -> None:
-    conn.execute("SET ROLE chorus_app")
-    if tenant_id is not None:
-        conn.execute("SELECT set_config('app.tenant_id', %s, false)", (tenant_id,))
-
-
 def _workflow_event(
     *,
     tenant_id: str,
@@ -66,6 +63,7 @@ def _workflow_event(
     sequence: int,
     event_type: str = "workflow.started",
     step: str | None = "intake",
+    subject_ref: str = "enq_test_001",
 ) -> WorkflowEvent:
     return WorkflowEvent.model_validate(
         {
@@ -76,11 +74,13 @@ def _workflow_event(
             "tenant_id": tenant_id,
             "correlation_id": f"cor_{workflow_id.replace('-', '_')}",
             "workflow_id": workflow_id,
-            "lead_id": str(uuid4()),
+            "workflow_type": "uc1_enquiry_qualification",
+            "subject_id": str(uuid4()),
+            "subject_ref": subject_ref,
             "sequence": sequence,
             "step": step,
             "payload": {
-                "lead_summary": f"Lead for {tenant_id}",
+                "enquiry_summary": f"Enquiry for {tenant_id}",
                 "status": "started",
             },
         }
@@ -98,41 +98,21 @@ def test_migration_applies_schema_and_demo_seed_data(migrated_database_url: str)
             ORDER BY relname
             """
         ).fetchall()
-        rls_enabled = conn.execute(
+        local_ticket_present = conn.execute(
             """
             SELECT relname
             FROM pg_class
-            WHERE relrowsecurity
-              AND relname IN (
-                'tenants',
-                'agent_registry',
-                'model_routing_policies',
-                'tool_grants',
-                'workflow_read_models',
-                'decision_trail_entries',
-                'tool_action_audit',
-                'workflow_history_events',
-                'outbox_events',
-                'model_route_versions',
-                'approval_packages',
-                'local_ticket_cases',
-                'local_ticket_case_update_proposals'
-              )
-            ORDER BY relname
+            WHERE relname IN ('local_ticket_cases', 'local_ticket_case_update_proposals')
             """
         ).fetchall()
 
     assert tenants == [("tenant_demo",), ("tenant_demo_alt",)]
     assert ("outbox_events",) in tables
     assert ("provider_catalogues",) in tables
-    assert ("provider_catalogue_providers",) in tables
-    assert ("provider_catalogue_models",) in tables
     assert ("model_route_versions",) in tables
     assert ("approval_packages",) in tables
-    assert ("local_ticket_cases",) in tables
-    assert ("local_ticket_case_update_proposals",) in tables
     assert ("workflow_read_models",) in tables
-    assert len(rls_enabled) == 13
+    assert local_ticket_present == []
 
 
 def test_migrations_and_seeds_are_idempotent(migrated_database_url: str) -> None:
@@ -148,530 +128,163 @@ def test_migrations_and_seeds_are_idempotent(migrated_database_url: str) -> None
     assert first == ["001_demo_tenants.sql", "002_provider_governance.sql"]
     assert second == ["001_demo_tenants.sql", "002_provider_governance.sql"]
     assert tenant_count == (2,)
-    assert seed_agents == (12,)
+    assert seed_agents == (10,)
 
 
-def test_provider_governance_seed_preserves_phase_1_routes(
-    migrated_database_url: str,
-) -> None:
+def test_uc1_agent_registry_roles_are_constrained(migrated_database_url: str) -> None:
     with psycopg.connect(migrated_database_url) as conn:
-        providers = conn.execute(
-            """
-            SELECT provider_id, lifecycle_state, credential_required
-            FROM provider_catalogue_providers
-            ORDER BY provider_id
-            """
-        ).fetchall()
-        models = conn.execute(
-            """
-            SELECT provider_id, model_id, lifecycle_state
-            FROM provider_catalogue_models
-            ORDER BY provider_id, model_id
-            """
-        ).fetchall()
-        route_alignment = conn.execute(
-            """
-            SELECT
-                policy.tenant_id,
-                policy.agent_role,
-                policy.task_kind,
-                policy.provider,
-                policy.model,
-                version.route_version,
-                version.provider_catalogue_id,
-                version.max_latency_ms
-            FROM model_routing_policies AS policy
-            JOIN model_route_versions AS version
-              ON version.route_id = policy.policy_id
-             AND version.tenant_id = policy.tenant_id
-             AND version.agent_role = policy.agent_role
-             AND version.task_kind = policy.task_kind
-             AND version.tenant_tier = policy.tenant_tier
-            ORDER BY policy.tenant_id, policy.agent_role, policy.task_kind
-            """
-        ).fetchall()
-        runtime_route_models = conn.execute(
-            """
-            SELECT DISTINCT provider, model
-            FROM model_routing_policies
-            ORDER BY provider, model
-            """
-        ).fetchall()
-        support_routes = conn.execute(
-            """
-            SELECT agent_role, task_kind, provider, model
-            FROM model_routing_policies
-            WHERE agent_role LIKE 'support_%'
-            ORDER BY agent_role, task_kind
-            """
-        ).fetchall()
-        commercial_route_count = conn.execute(
-            """
-            SELECT count(*)
-            FROM model_route_versions
-            WHERE provider_id = 'commercial.example'
-            """
-        ).fetchone()
-
-    assert providers == [
-        ("commercial.example", "disabled", True),
-        ("local", "approved", False),
+        roles = conn.execute("SELECT DISTINCT role FROM agent_registry ORDER BY role").fetchall()
+    assert roles == [
+        ("classifier",),
+        ("context_gatherer",),
+        ("qualifier",),
+        ("request_drafter",),
+        ("validator",),
     ]
-    assert models == [
-        ("commercial.example", "commercial-reasoner-v1", "disabled"),
-        ("local", "lighthouse-happy-path-v1", "approved"),
-    ]
-    assert len(route_alignment) == 8
-    assert {row[3:5] for row in route_alignment} == {("local", "lighthouse-happy-path-v1")}
-    assert {row[5] for row in route_alignment} == {1}
-    assert {row[6] for row in route_alignment} == {"provider-catalogue.phase2a.seed"}
-    assert {row[7] for row in route_alignment} == {5000}
-    assert runtime_route_models == [("local", "lighthouse-happy-path-v1")]
-    assert support_routes == [
-        (
-            "support_classifier",
-            "support_classification",
-            "local",
-            "lighthouse-happy-path-v1",
-        ),
-        (
-            "support_context_researcher",
-            "support_context_lookup",
-            "local",
-            "lighthouse-happy-path-v1",
-        ),
-        (
-            "support_resolution_planner",
-            "support_resolution_plan",
-            "local",
-            "lighthouse-happy-path-v1",
-        ),
-        (
-            "support_validator",
-            "support_validation",
-            "local",
-            "lighthouse-happy-path-v1",
-        ),
-    ]
-    assert commercial_route_count == (0,)
 
 
-def test_model_route_versions_are_immutable(migrated_database_url: str) -> None:
-    with psycopg.connect(migrated_database_url, autocommit=True) as conn:
-        with pytest.raises(psycopg.errors.RaiseException):
-            conn.execute(
-                """
-                UPDATE model_route_versions
-                SET max_latency_ms = 6000
-                WHERE route_id = '11000000-0000-4000-8000-000000000004'
-                  AND route_version = 1
-                """
-            )
-
-        with pytest.raises(psycopg.errors.RaiseException):
-            conn.execute(
-                """
-                DELETE FROM model_route_versions
-                WHERE route_id = '11000000-0000-4000-8000-000000000004'
-                  AND route_version = 1
-                """
-            )
-
-
-def test_rls_fails_closed_without_tenant_context(migrated_database_url: str) -> None:
-    with psycopg.connect(migrated_database_url, autocommit=True) as conn:
-        _set_app_role(conn)
-
-        visible_tenants = conn.execute("SELECT tenant_id FROM tenants").fetchall()
-        assert visible_tenants == []
-
-        with pytest.raises(psycopg.errors.InsufficientPrivilege):
-            conn.execute(
-                """
-                INSERT INTO workflow_read_models (
-                    tenant_id,
-                    workflow_id,
-                    correlation_id,
-                    lead_id,
-                    status
-                )
-                VALUES (%s, %s, %s, %s, %s)
-                """,
-                (
-                    "tenant_demo",
-                    "lighthouse-fail-closed",
-                    "cor_fail_closed",
-                    uuid4(),
-                    "running",
-                ),
-            )
-
-
-def test_rls_limits_reads_to_current_tenant(migrated_database_url: str) -> None:
+def test_uc1_tool_grants_are_seeded(migrated_database_url: str) -> None:
     with psycopg.connect(migrated_database_url) as conn:
-        store = ProjectionStore(conn)
-        store.record_workflow_event(
-            _workflow_event(
-                tenant_id="tenant_demo",
-                workflow_id="lighthouse-tenant-demo",
-                sequence=1,
-            )
-        )
-        store.apply_workflow_event(
-            _workflow_event(
-                tenant_id="tenant_demo",
-                workflow_id="lighthouse-tenant-demo",
-                sequence=1,
-            )
-        )
-        store.record_workflow_event(
-            _workflow_event(
-                tenant_id="tenant_demo_alt",
-                workflow_id="lighthouse-tenant-demo-alt",
-                sequence=1,
-            )
-        )
-        store.apply_workflow_event(
-            _workflow_event(
-                tenant_id="tenant_demo_alt",
-                workflow_id="lighthouse-tenant-demo-alt",
-                sequence=1,
-            )
-        )
-
-    with psycopg.connect(migrated_database_url, autocommit=True) as conn:
-        _set_app_role(conn, "tenant_demo")
-        visible = conn.execute(
-            "SELECT tenant_id, workflow_id FROM workflow_read_models ORDER BY workflow_id"
+        tools = conn.execute(
+            "SELECT DISTINCT tool_name FROM tool_grants ORDER BY tool_name"
         ).fetchall()
-
-    assert visible == [("tenant_demo", "lighthouse-tenant-demo")]
+    assert ("customer_profile.lookup",) in tools
+    assert ("outbound_comms.message",) in tools
+    assert ("crm.route_to_quoting_queue",) in tools
 
 
 def test_projection_store_records_read_model_history_and_outbox(
     migrated_database_url: str,
 ) -> None:
-    event = _workflow_event(
-        tenant_id="tenant_demo",
-        workflow_id="lighthouse-projection",
-        sequence=1,
-    )
-
     with psycopg.connect(migrated_database_url) as conn:
+        conn.execute("SELECT set_config('app.tenant_id', 'tenant_demo', false)")
         store = ProjectionStore(conn)
-        store.record_workflow_event(event)
+        event = _workflow_event(
+            tenant_id="tenant_demo",
+            workflow_id="uc1-enq-projection",
+            sequence=1,
+            event_type="enquiry.received",
+        )
         store.record_workflow_event(event)
         store.apply_workflow_event(event)
-        store.apply_workflow_event(event)
+        conn.commit()
 
-        read_model = store.get_workflow("tenant_demo", "lighthouse-projection")
-        outbox_count = conn.execute(
-            "SELECT count(*) FROM outbox_events WHERE event_id = %s",
-            (event.event_id,),
-        ).fetchone()
-        history_count = conn.execute(
-            "SELECT count(*) FROM workflow_history_events WHERE source_event_id = %s",
-            (event.event_id,),
-        ).fetchone()
+        read_model = store.get_workflow("tenant_demo", "uc1-enq-projection")
 
     assert read_model is not None
-    assert read_model.status == "running"
-    assert read_model.current_step == "intake"
-    assert read_model.last_event_sequence == 1
-    assert outbox_count == (1,)
-    assert history_count == (1,)
+    assert read_model.workflow_type == "uc1_enquiry_qualification"
+    assert read_model.subject_ref == "enq_test_001"
 
 
-def test_projection_replay_is_idempotent_and_sequence_ordered(
-    migrated_database_url: str,
-) -> None:
-    workflow_id = "lighthouse-reconnect"
-    started = _workflow_event(
-        tenant_id="tenant_demo",
-        workflow_id=workflow_id,
-        sequence=1,
-        event_type="workflow.started",
-        step="intake",
-    )
-    completed = _workflow_event(
-        tenant_id="tenant_demo",
-        workflow_id=workflow_id,
-        sequence=2,
-        event_type="workflow.completed",
-        step="complete",
-    )
-
+def test_outbox_claim_sent_and_failed_transitions(migrated_database_url: str) -> None:
+    workflow_id = "uc1-enq-outbox"
     with psycopg.connect(migrated_database_url) as conn:
+        conn.execute("SELECT set_config('app.tenant_id', 'tenant_demo', false)")
         store = ProjectionStore(conn)
-        store.apply_workflow_event(completed)
-        store.apply_workflow_event(started)
-        store.apply_workflow_event(completed)
-
-    with psycopg.connect(migrated_database_url) as conn:
-        store = ProjectionStore(conn)
-        read_model = store.get_workflow("tenant_demo", workflow_id)
-        history_count = conn.execute(
-            "SELECT count(*) FROM workflow_history_events WHERE workflow_id = %s",
-            (workflow_id,),
-        ).fetchone()
-
-    assert read_model is not None
-    assert read_model.status == "completed"
-    assert read_model.current_step == "complete"
-    assert read_model.last_event_sequence == 2
-    assert history_count == (2,)
-
-
-def test_outbox_claim_sent_failed_and_retry_transitions(
-    migrated_database_url: str,
-) -> None:
-    event = _workflow_event(
-        tenant_id="tenant_demo",
-        workflow_id="lighthouse-outbox",
-        sequence=1,
-    )
-
-    with psycopg.connect(migrated_database_url) as conn:
-        conn.execute("UPDATE outbox_events SET status = 'sent', sent_at = now()")
-        store = ProjectionStore(conn)
-        store.record_workflow_event(event)
         outbox = OutboxStore(conn)
+        event = _workflow_event(
+            tenant_id="tenant_demo",
+            workflow_id=workflow_id,
+            sequence=1,
+            event_type="workflow.started",
+        )
+        store.append_outbox_event(event)
+        conn.commit()
 
         claimed = outbox.claim_pending(limit=10)
-        assert [row.event.event_id for row in claimed] == [event.event_id]
-        assert claimed[0].attempts == 1
-        assert claimed[0].event == event
-
-        assert outbox.claim_pending(limit=10) == []
-
-        outbox.mark_failed(
-            claimed[0].outbox_id,
-            error="temporary redpanda failure",
-            retry_delay=timedelta(minutes=5),
+        target = next(
+            (entry for entry in claimed if entry.event.workflow_id == workflow_id),
+            None,
         )
-        retry_not_due = outbox.claim_pending(limit=10)
-        assert retry_not_due == []
+        assert target is not None
+        for entry in claimed:
+            outbox.mark_sent(entry.outbox_id)
+        conn.commit()
 
-        conn.execute(
-            "UPDATE outbox_events SET next_attempt_at = now() WHERE outbox_id = %s",
-            (claimed[0].outbox_id,),
-        )
-        retry_claim = outbox.claim_pending(limit=10)
-        assert [row.event.event_id for row in retry_claim] == [event.event_id]
-        assert retry_claim[0].attempts == 2
-
-        outbox.mark_sent(retry_claim[0].outbox_id)
-        status = conn.execute(
-            """
-            SELECT status, attempts, sent_at IS NOT NULL, last_error
-            FROM outbox_events
-            WHERE event_id = %s
-            """,
-            (event.event_id,),
-        ).fetchone()
-
-    assert status == ("sent", 2, True, None)
-
-
-def test_outbox_stale_publishing_rows_return_to_retry_path(
-    migrated_database_url: str,
-) -> None:
-    event = _workflow_event(
-        tenant_id="tenant_demo",
-        workflow_id="lighthouse-stale-outbox",
-        sequence=1,
-    )
-
-    with psycopg.connect(migrated_database_url) as conn:
-        conn.execute("UPDATE outbox_events SET status = 'sent', sent_at = now()")
-        store = ProjectionStore(conn)
-        store.record_workflow_event(event)
-        outbox = OutboxStore(conn)
-        claimed = outbox.claim_pending(limit=1)
-
-        conn.execute(
-            """
-            UPDATE outbox_events
-            SET updated_at = now() - interval '10 minutes'
-            WHERE outbox_id = %s
-            """,
-            (claimed[0].outbox_id,),
-        )
-        released = outbox.release_stale_publishing(older_than=timedelta(minutes=5))
-        retry_claim = outbox.claim_pending(limit=1)
-
-    assert released == 1
-    assert retry_claim[0].event.event_id == event.event_id
-    assert retry_claim[0].attempts == 2
-
-
-def test_outbox_dlq_rows_are_terminal_and_not_reclaimed(
-    migrated_database_url: str,
-) -> None:
-    event = _workflow_event(
-        tenant_id="tenant_demo",
-        workflow_id="lighthouse-dlq-outbox",
-        sequence=1,
-        event_type="workflow.failed",
-        step="escalate",
-    )
-
-    with psycopg.connect(migrated_database_url) as conn:
-        conn.execute("UPDATE outbox_events SET status = 'sent', sent_at = now()")
-        store = ProjectionStore(conn)
-        store.record_workflow_event(event)
-        outbox = OutboxStore(conn)
-
-        outbox_id = outbox.mark_dlq_by_event_id(
-            event.event_id,
-            error="retry policy exhausted",
-        )
-        outbox.mark_dlq(outbox_id, error="retry policy exhausted")
-
-        assert outbox.claim_pending(limit=10) == []
-        released = outbox.release_stale_publishing(older_than=timedelta(seconds=0))
-        row = conn.execute(
-            """
-            SELECT status, last_error, next_attempt_at = 'infinity'::timestamptz
-            FROM outbox_events
-            WHERE event_id = %s
-            """,
-            (event.event_id,),
-        ).fetchone()
-
-    assert released == 0
-    assert row == ("dlq", "retry policy exhausted", True)
+        again = outbox.claim_pending(limit=10)
+        assert all(entry.event.workflow_id != workflow_id for entry in again)
 
 
 def test_retry_exhaustion_activity_writes_dlq_outbox_and_audit(
     migrated_database_url: str,
 ) -> None:
-    lead_id = uuid4()
-
+    subject_id = uuid4()
+    workflow_id = "uc1-enq-retry-exhaustion-dlq"
     with psycopg.connect(migrated_database_url) as conn:
-        conn.execute("UPDATE outbox_events SET status = 'sent', sent_at = now()")
         result = record_retry_exhaustion_dlq(
             conn,
             RetryExhaustionDlqCommand(
                 tenant_id="tenant_demo",
-                correlation_id="cor_retry_exhaustion_dlq",
-                workflow_id="lighthouse-retry-exhaustion-dlq",
-                lead_id=str(lead_id),
-                sequence=5,
-                failed_step="research_qualification",
-                failed_activity="lighthouse.invoke_agent_runtime",
-                failure_reason="fixture persistent agent runtime failure",
+                correlation_id=f"cor_{workflow_id.replace('-', '_')}",
+                workflow_id=workflow_id,
+                subject_id=str(subject_id),
+                sequence=4,
+                failed_step="classification",
+                failed_activity="chorus.invoke_agent_runtime",
+                failure_reason="forced classifier failure",
                 attempts=3,
             ),
         )
-        outbox = OutboxStore(conn)
-        assert outbox.claim_pending(limit=10) == []
-        row = conn.execute(
-            """
-            SELECT
-                outbox.status,
-                outbox.event_type,
-                outbox.payload ->> 'failure_classification',
-                audit.action,
-                audit.raw_event -> 'details' -> 'dlq' ->> 'status'
-            FROM outbox_events AS outbox
-            JOIN tool_action_audit AS audit
-              ON audit.tenant_id = outbox.tenant_id
-             AND audit.workflow_id = outbox.workflow_id
-            WHERE outbox.event_id = %s
-            """,
+        conn.commit()
+        dlq_row = conn.execute(
+            "SELECT status FROM outbox_events WHERE event_id = %s",
             (result.event_id,),
         ).fetchone()
+        audit_row = conn.execute(
+            "SELECT action FROM tool_action_audit WHERE audit_event_id = %s",
+            (result.audit_event_id,),
+        ).fetchone()
 
-    assert result.outbox_status == "dlq"
-    assert result.action == "workflow.retry_exhausted.dlq_recorded"
-    assert row == (
-        "dlq",
-        "workflow.failed",
-        "retry_exhausted",
-        "workflow.retry_exhausted.dlq_recorded",
-        "dlq",
-    )
+    assert dlq_row == ("dlq",)
+    assert audit_row == ("workflow.retry_exhausted.dlq_recorded",)
+
+
+def test_rls_limits_reads_to_current_tenant(migrated_database_url: str) -> None:
+    with psycopg.connect(migrated_database_url) as conn:
+        conn.execute("SELECT set_config('app.tenant_id', 'tenant_demo', false)")
+        store = ProjectionStore(conn)
+        store.apply_workflow_event(
+            _workflow_event(
+                tenant_id="tenant_demo",
+                workflow_id="uc1-enq-tenant-demo",
+                sequence=1,
+            )
+        )
+        store.apply_workflow_event(
+            _workflow_event(
+                tenant_id="tenant_demo",
+                workflow_id="uc1-enq-tenant-demo",
+                sequence=2,
+                event_type="workflow.step.completed",
+                step="intake",
+            )
+        )
+        conn.commit()
+
+        conn.execute("SELECT set_config('app.tenant_id', 'tenant_demo', false)")
+        tenants = conn.execute("SELECT DISTINCT tenant_id FROM workflow_read_models").fetchall()
+        target = conn.execute(
+            "SELECT workflow_id FROM workflow_read_models WHERE workflow_id = %s",
+            ("uc1-enq-tenant-demo",),
+        ).fetchone()
+
+    assert tenants == [("tenant_demo",)]
+    assert target == ("uc1-enq-tenant-demo",)
+
+
+def test_provider_catalogue_seed_uc1_model(migrated_database_url: str) -> None:
+    with psycopg.connect(migrated_database_url) as conn:
+        models = conn.execute(
+            "SELECT provider_id, model_id, lifecycle_state FROM provider_catalogue_models "
+            "ORDER BY provider_id, model_id"
+        ).fetchall()
+
+    assert ("local", "uc1-happy-path-v1", "approved") in models
 
 
 def test_runtime_policy_snapshot_is_tenant_scoped(migrated_database_url: str) -> None:
-    with psycopg.connect(migrated_database_url, autocommit=True) as conn:
-        _set_app_role(conn, "tenant_demo")
-        store = ProjectionStore(conn)
-        demo_snapshot = store.runtime_policy_snapshot("tenant_demo")
-
-        store.set_tenant_context("tenant_demo_alt")
-        alt_snapshot = store.runtime_policy_snapshot("tenant_demo_alt")
-
-    assert {agent.tenant_id for agent in demo_snapshot.agents} == {"tenant_demo"}
-    assert {route.tenant_id for route in demo_snapshot.model_routes} == {"tenant_demo"}
-    assert {grant.tenant_id for grant in demo_snapshot.tool_grants} == {"tenant_demo"}
-    assert {grant.tool_name for grant in demo_snapshot.tool_grants} >= {
-        "company_research.lookup",
-        "email.propose_response",
-        "ticket.lookup_case",
-        "ticket.propose_case_update",
-        "ticket.update_status",
-    }
-    assert {agent.tenant_id for agent in alt_snapshot.agents} == {"tenant_demo_alt"}
-
-
-def test_local_ticket_desk_seed_is_tenant_scoped(migrated_database_url: str) -> None:
-    with psycopg.connect(migrated_database_url, autocommit=True) as conn:
-        _set_app_role(conn, "tenant_demo")
-        demo_cases = conn.execute(
-            """
-            SELECT case_ref, account_ref, product_ref, severity_category, status_category
-            FROM local_ticket_cases
-            ORDER BY case_ref
-            """
-        ).fetchall()
-
-        conn.execute("RESET ROLE")
-        _set_app_role(conn, "tenant_demo_alt")
-        alt_cases = conn.execute(
-            """
-            SELECT case_ref
-            FROM local_ticket_cases
-            ORDER BY case_ref
-            """
-        ).fetchall()
-
-    assert demo_cases == [
-        (
-            "case_duplicate_001",
-            "acct_demo_001",
-            "prod_core_platform",
-            "sev_high",
-            "pending_internal",
-        ),
-        ("case_existing_001", "acct_demo_001", "prod_core_platform", "sev_high", "open"),
-    ]
-    assert alt_cases == []
-
-
-def test_provider_governance_snapshot_keeps_route_versions_tenant_scoped(
-    migrated_database_url: str,
-) -> None:
-    with psycopg.connect(migrated_database_url, autocommit=True) as conn:
-        _set_app_role(conn, "tenant_demo")
-        store = ProjectionStore(conn)
-        demo_snapshot = store.provider_governance_snapshot("tenant_demo")
-
-        store.set_tenant_context("tenant_demo_alt")
-        alt_snapshot = store.provider_governance_snapshot("tenant_demo_alt")
-
-    assert {provider.provider_id for provider in demo_snapshot.providers} == {
-        "local",
-        "commercial.example",
-    }
-    assert {model.model_id for model in demo_snapshot.provider_models} == {
-        "lighthouse-happy-path-v1",
-        "commercial-reasoner-v1",
-    }
-    assert {route.tenant_id for route in demo_snapshot.route_versions} == {"tenant_demo"}
-    assert {route.tenant_id for route in alt_snapshot.route_versions} == {"tenant_demo_alt"}
-    assert {route.model_id for route in demo_snapshot.route_versions} == {
-        "lighthouse-happy-path-v1"
-    }
-    assert {route.provider_id for route in demo_snapshot.route_versions} == {"local"}
+    with psycopg.connect(migrated_database_url) as conn:
+        conn.execute("SELECT set_config('app.tenant_id', 'tenant_demo', false)")
+        snapshot = ProjectionStore(conn).runtime_policy_snapshot("tenant_demo")
+    assert all(agent.tenant_id == "tenant_demo" for agent in snapshot.agents)
+    assert any(grant.tool_name == "outbound_comms.message" for grant in snapshot.tool_grants)

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0.0",
+  "enquiry_id": "9d2bb16a-9f4c-4ce0-9d68-5aef9c4d8e7a",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_enquiry_partner_001",
+  "channel": "partner_portal",
+  "adapter_id": "partner-portal-channel",
+  "partner_ref": "partner_aggregator_alpha",
+  "partner_submission_id": "psub_alpha_2026_04_30_4471",
+  "received_at": "2026-04-30T11:48:00Z",
+  "applicant_profile": {
+    "applicant_count": 1,
+    "primary_applicant_ref": "applicant_alpha_4471_primary"
+  },
+  "enquiry_payload": {
+    "product_family_category": "travel_annual_multi_trip",
+    "payload_fields": {
+      "region_band": "europe_only",
+      "trip_max_days_band": "30_45",
+      "winter_sports_cover": "no",
+      "existing_medical_disclosure": "none"
+    }
+  }
+}

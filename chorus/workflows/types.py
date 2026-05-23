@@ -1,4 +1,4 @@
-"""Contract-shaped dataclasses shared by Lighthouse workflows and activities.
+"""Contract-shaped dataclasses shared by use-case workflows and activities.
 
 The Temporal workflow imports only these small dataclasses plus the Temporal
 workflow API. Generated Pydantic contract models are used inside activities,
@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 WorkflowOutcome = Literal["completed", "escalated", "failed"]
-SupportWorkflowOutcome = Literal["completed", "escalated", "failed"]
 
 
 def _empty_citations() -> list[AgentCitation]:
@@ -19,33 +18,60 @@ def _empty_citations() -> list[AgentCitation]:
 
 
 @dataclass(frozen=True)
-class LeadSender:
+class WorkflowCorrelation:
+    """Correlation context the spine carries through every primitive."""
+
+    tenant_id: str
+    correlation_id: str
+    workflow_id: str
+    workflow_type: str
+    subject_id: str
+    subject_ref: str
+
+
+@dataclass(frozen=True)
+class EnquirySender:
+    """Email-channel sender details preserved from intake into the workflow."""
+
     display_name: str
     email: str
 
 
 @dataclass(frozen=True)
-class LeadAttachmentSummary:
+class EnquiryAttachmentSummary:
+    """Bounded attachment metadata preserved from intake into the workflow."""
+
     filename: str
     content_type: str
     size_bytes: int
 
 
 @dataclass(frozen=True)
-class LighthouseWorkflowInput:
+class Uc1EnquiryIntake:
+    """UC1 enquiry intake input.
+
+    The R3 surface carries the email-channel shape because mailpit is the
+    only working channel locally. Web-form and partner-portal channel
+    contracts exist alongside (see `contracts/intake/uc1/`); their adapter
+    paths land in R4. The workflow itself runs the same spine regardless of
+    channel.
+    """
+
     schema_version: str
-    lead_id: str
+    enquiry_id: str
     tenant_id: str
     correlation_id: str
-    source: str
+    channel: str
+    adapter_id: str
     message_id: str
     received_at: str
-    sender: LeadSender
-    recipients: list[str]
+    from_address: EnquirySender
+    to_recipients: list[str]
     subject: str
     body_text: str
     message_headers: dict[str, list[str]]
-    attachments_summary: list[LeadAttachmentSummary]
+    attachments_summary: list[EnquiryAttachmentSummary]
+    enquiry_ref: str
 
 
 @dataclass(frozen=True)
@@ -53,7 +79,9 @@ class WorkflowEventCommand:
     tenant_id: str
     correlation_id: str
     workflow_id: str
-    lead_id: str
+    workflow_type: str
+    subject_id: str
+    subject_ref: str
     sequence: int
     event_type: str
     step: str | None
@@ -69,26 +97,11 @@ class WorkflowEventResult:
 
 
 @dataclass(frozen=True)
-class SupportWorkflowEventCommand:
-    tenant_id: str
-    correlation_id: str
-    workflow_id: str
-    workflow_type: str
-    request_ref: str
-    subject_ref: str
-    subject_id: str
-    sequence: int
-    event_type: str
-    step: str | None
-    payload: dict[str, Any]
-
-
-@dataclass(frozen=True)
 class AgentInvocationRequest:
     tenant_id: str
     correlation_id: str
     workflow_id: str
-    lead_id: str
+    subject_id: str
     agent_role: str
     task_kind: str
     input: dict[str, Any]
@@ -142,7 +155,7 @@ class ToolFailureCompensationCommand:
     tenant_id: str
     correlation_id: str
     workflow_id: str
-    lead_id: str
+    subject_id: str
     invocation_id: str
     agent_id: str
     tool_name: str
@@ -165,7 +178,7 @@ class RetryExhaustionDlqCommand:
     tenant_id: str
     correlation_id: str
     workflow_id: str
-    lead_id: str
+    subject_id: str
     sequence: int
     failed_step: str
     failed_activity: str
@@ -186,44 +199,12 @@ class RetryExhaustionDlqResult:
 
 
 @dataclass(frozen=True)
-class LighthouseWorkflowResult:
+class Uc1WorkflowResult:
     workflow_id: str
     tenant_id: str
     correlation_id: str
-    lead_id: str
+    enquiry_id: str
     outcome: WorkflowOutcome
-    path: list[str]
-    final_summary: str
-    escalation_reason: str | None = None
-
-
-@dataclass(frozen=True)
-class SupportWorkflowInput:
-    schema_version: str
-    request_ref: str
-    tenant_id: str
-    correlation_id: str
-    source_ref: str
-    received_at: str
-    intake_channel_category: str
-    account_ref: str
-    product_ref: str
-    case_ref: str | None
-    severity_hint_category: str
-    request_status_category: str
-    redacted_summary_ref: str
-    attachment_refs: list[str]
-    idempotency_ref: str
-    routing_policy_ref: str | None = None
-
-
-@dataclass(frozen=True)
-class SupportWorkflowResult:
-    workflow_id: str
-    tenant_id: str
-    correlation_id: str
-    request_ref: str
-    outcome: SupportWorkflowOutcome
     path: list[str]
     final_summary: str
     escalation_reason: str | None = None
@@ -234,9 +215,9 @@ class MailpitPollConfig:
     mailpit_base_url: str = "http://localhost:8025"
     temporal_target_host: str = "localhost:7233"
     temporal_namespace: str = "default"
-    task_queue: str = "lighthouse"
+    task_queue: str = "chorus-uc1"
     tenant_id: str = "tenant_demo"
-    recipient: str = "leads@chorus.local"
+    recipient: str = "enquiries@broker-firm.local"
     page_size: int = 50
 
 

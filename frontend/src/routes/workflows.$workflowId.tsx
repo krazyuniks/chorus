@@ -153,8 +153,8 @@ function WorkflowDetail() {
       />
 
       <section className="grid grid-cols-2 gap-x-6 gap-y-1 border-b border-border-muted px-4 py-2 text-xs">
-        <Field label="Subject" value={run.lead_subject ?? "—"} />
-        <Field label="From" mono value={run.lead_from ?? "—"} />
+        <Field label="Subject" value={run.subject_summary ?? "—"} />
+        <Field label="From" mono value={run.subject_from ?? "—"} />
         <Field label="Step" mono value={run.current_step ?? "—"} />
         <Field label="Started" mono value={formatTimestamp(run.started_at)} />
         <Field label="Closed" mono value={formatTimestamp(run.closed_at)} />

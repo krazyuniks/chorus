@@ -45,7 +45,7 @@ function RootComponent() {
       <TopBar
         logo={
           <span className="mono text-xs">
-            chorus<span className="text-text-muted">/lighthouse</span>
+            chorus<span className="text-text-muted">/uc1</span>
           </span>
         }
         actions={

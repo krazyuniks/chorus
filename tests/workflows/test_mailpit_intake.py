@@ -8,18 +8,18 @@ from chorus.workflows.mailpit import (
     parse_mailpit_message,
     workflow_id_for_message_id,
 )
-from chorus.workflows.types import LighthouseWorkflowInput, MailpitPollConfig
+from chorus.workflows.types import MailpitPollConfig, Uc1EnquiryIntake
 
 
 class FakeWorkflowStarter:
     def __init__(self, existing: set[str] | None = None) -> None:
         self.existing = existing or set()
-        self.started: list[tuple[LighthouseWorkflowInput, str]] = []
+        self.started: list[tuple[Uc1EnquiryIntake, str]] = []
 
-    async def start_lighthouse(self, lead: LighthouseWorkflowInput, workflow_id: str) -> bool:
+    async def start_uc1(self, intake: Uc1EnquiryIntake, workflow_id: str) -> bool:
         if workflow_id in self.existing:
             return False
-        self.started.append((lead, workflow_id))
+        self.started.append((intake, workflow_id))
         self.existing.add(workflow_id)
         return True
 
@@ -28,15 +28,19 @@ def _message_detail(
     *,
     message_id: str,
     to: list[dict[str, str]] | None = None,
-    subject: str = "Need help choosing a CRM automation partner",
+    subject: str = "Motor cover enquiry: 2018 hatchback, new driver",
 ) -> dict[str, object]:
     return {
         "ID": message_id.strip("<>").replace("@", "-"),
         "MessageID": message_id,
         "From": {"Name": "Alex Morgan", "Address": "alex.morgan@example.test"},
-        "To": to or [{"Address": "leads@chorus.local"}],
+        "To": to or [{"Address": "enquiries@broker-firm.local"}],
         "Subject": subject,
-        "Text": "Hello, we are looking for help qualifying new inbound enquiries.",
+        "Text": (
+            "Hello, I am looking for motor cover for my 2018 hatchback. "
+            "I passed my test six months ago and would like a quote on third-party "
+            "fire and theft. Postcode SE15."
+        ),
         "Headers": {
             "Message-ID": [message_id],
             "Date": ["Wed, 29 Apr 2026 10:00:00 +0000"],
@@ -47,29 +51,32 @@ def _message_detail(
     }
 
 
-def test_parse_mailpit_message_builds_lead_intake_contract_shape() -> None:
-    lead = parse_mailpit_message(
-        _message_detail(message_id="<lead-acme-001@example.test>"),
+def test_parse_mailpit_message_builds_uc1_email_channel_intake() -> None:
+    intake = parse_mailpit_message(
+        _message_detail(message_id="<enquiry-motor-001@example.test>"),
         tenant_id="tenant_demo",
     )
 
-    assert lead is not None
-    assert lead.schema_version == "1.0.0"
-    assert lead.tenant_id == "tenant_demo"
-    assert lead.correlation_id.startswith("cor_")
-    assert lead.sender.email == "alex.morgan@example.test"
-    assert lead.recipients == ["leads@chorus.local"]
-    assert lead.attachments_summary[0].filename == "brief.txt"
+    assert intake is not None
+    assert intake.schema_version == "1.0.0"
+    assert intake.tenant_id == "tenant_demo"
+    assert intake.correlation_id.startswith("cor_")
+    assert intake.from_address.email == "alex.morgan@example.test"
+    assert intake.to_recipients == ["enquiries@broker-firm.local"]
+    assert intake.attachments_summary[0].filename == "brief.txt"
+    assert intake.channel == "email"
+    assert intake.adapter_id == "email-channel"
+    assert intake.enquiry_ref.startswith("enq_")
 
 
 @pytest.mark.asyncio
 async def test_mailpit_poll_dedupes_by_message_id_and_starts_one_workflow() -> None:
     details = {
-        "/api/v1/message/msg-1": _message_detail(message_id="<lead-acme-001@example.test>"),
-        "/api/v1/message/msg-2": _message_detail(message_id="<lead-acme-001@example.test>"),
+        "/api/v1/message/msg-1": _message_detail(message_id="<enquiry-motor-001@example.test>"),
+        "/api/v1/message/msg-2": _message_detail(message_id="<enquiry-motor-001@example.test>"),
         "/api/v1/message/msg-3": _message_detail(
-            message_id="<lead-other-001@example.test>",
-            to=[{"Address": "other@chorus.local"}],
+            message_id="<enquiry-other-001@example.test>",
+            to=[{"Address": "other@broker-firm.local"}],
         ),
     }
 
@@ -92,13 +99,13 @@ async def test_mailpit_poll_dedupes_by_message_id_and_starts_one_workflow() -> N
             client=client,
         ).poll_once()
 
-    expected_workflow_id = workflow_id_for_message_id("<lead-acme-001@example.test>")
+    expected_workflow_id = workflow_id_for_message_id("<enquiry-motor-001@example.test>")
     assert result.started_workflow_ids == [expected_workflow_id]
-    assert result.duplicate_message_ids == ["<lead-acme-001@example.test>"]
-    assert result.ignored_message_ids == ["<lead-other-001@example.test>"]
+    assert result.duplicate_message_ids == ["<enquiry-motor-001@example.test>"]
+    assert result.ignored_message_ids == ["<enquiry-other-001@example.test>"]
     assert result.parsed_message_ids == [
-        "<lead-acme-001@example.test>",
-        "<lead-acme-001@example.test>",
+        "<enquiry-motor-001@example.test>",
+        "<enquiry-motor-001@example.test>",
     ]
     assert len(starter.started) == 1
-    assert starter.started[0][0].subject == "Need help choosing a CRM automation partner"
+    assert starter.started[0][0].subject == "Motor cover enquiry: 2018 hatchback, new driver"

@@ -56,10 +56,10 @@
         "agent_role": {
           "type": "string",
           "enum": [
-            "intake",
-            "researcher",
+            "classifier",
+            "context_gatherer",
             "qualifier",
-            "drafter",
+            "request_drafter",
             "validator"
           ]
         },
@@ -167,8 +167,7 @@
       "additionalProperties": false,
       "required": [
         "eval_required",
-        "eval_fixture_refs",
-        "change_ref"
+        "eval_fixture_refs"
       ],
       "properties": {
         "eval_required": {
@@ -180,10 +179,6 @@
             "type": "string",
             "minLength": 1
           }
-        },
-        "change_ref": {
-          "type": "string",
-          "minLength": 1
         },
         "approved_by": {
           "type": "string",

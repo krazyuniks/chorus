@@ -3,8 +3,8 @@ from __future__ import annotations
 from uuid import uuid4
 
 from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
-from chorus.workflows.activities import SupportWorkflowEventRecorder, WorkflowEventRecorder
-from chorus.workflows.types import SupportWorkflowEventCommand, WorkflowEventCommand
+from chorus.workflows.activities import WorkflowEventRecorder
+from chorus.workflows.types import WorkflowEventCommand
 
 
 class FakeWorkflowEventSink:
@@ -18,70 +18,36 @@ class FakeWorkflowEventSink:
 def test_workflow_event_recorder_uses_projection_store_interface() -> None:
     sink = FakeWorkflowEventSink()
     recorder = WorkflowEventRecorder(lambda: sink)
+    subject_id = str(uuid4())
 
     result = recorder.record(
         WorkflowEventCommand(
             tenant_id="tenant_demo",
             correlation_id="cor_event_recorder",
-            workflow_id="lighthouse-event-recorder",
-            lead_id=str(uuid4()),
+            workflow_id="uc1-enq-event-recorder",
+            workflow_type="uc1_enquiry_qualification",
+            subject_id=subject_id,
+            subject_ref="enq_motor_private_001",
             sequence=3,
             event_type="workflow.step.completed",
-            step="draft",
-            payload={"lead_summary": "Need help", "draft_summary": "Drafted"},
+            step="missing_data_request_draft",
+            payload={
+                "enquiry_summary": "Motor cover enquiry",
+                "draft_summary": "Drafted missing-data request",
+            },
         )
     )
 
     assert result.sequence == 3
     assert result.event_type == "workflow.step.completed"
-    assert result.step == "draft"
+    assert result.step == "missing_data_request_draft"
     assert len(sink.events) == 1
 
     event = sink.events[0]
     assert event.schema_version == "1.0.0"
     assert event.tenant_id == "tenant_demo"
-    assert event.workflow_id == "lighthouse-event-recorder"
-    assert event.payload["draft_summary"] == "Drafted"
-
-
-def test_support_workflow_event_recorder_uses_safe_subject_refs() -> None:
-    sink = FakeWorkflowEventSink()
-    recorder = SupportWorkflowEventRecorder(lambda: sink)
-    subject_id = str(uuid4())
-
-    result = recorder.record(
-        SupportWorkflowEventCommand(
-            tenant_id="tenant_demo",
-            correlation_id="cor_support_event_recorder",
-            workflow_id="support-event-recorder",
-            workflow_type="support_triage",
-            request_ref="req_support_001",
-            subject_ref="req_support_001",
-            subject_id=subject_id,
-            sequence=2,
-            event_type="workflow.step.completed",
-            step="support_intake",
-            payload={
-                "workflow_type": "support_triage",
-                "request_ref": "req_support_001",
-                "case_ref": "case_existing_001",
-                "severity_category": "sev_high",
-            },
-        )
-    )
-
-    assert result.sequence == 2
-    assert result.event_type == "workflow.step.completed"
-    assert result.step == "support_intake"
-    assert len(sink.events) == 1
-
-    event = sink.events[0]
-    assert event.workflow_type == "support_triage"
-    assert str(event.lead_id) == subject_id
-    assert event.subject_ref == "req_support_001"
-    assert event.payload == {
-        "workflow_type": "support_triage",
-        "request_ref": "req_support_001",
-        "case_ref": "case_existing_001",
-        "severity_category": "sev_high",
-    }
+    assert event.workflow_id == "uc1-enq-event-recorder"
+    assert event.workflow_type.value == "uc1_enquiry_qualification"
+    assert str(event.subject_id) == subject_id
+    assert event.subject_ref == "enq_motor_private_001"
+    assert event.payload["draft_summary"] == "Drafted missing-data request"

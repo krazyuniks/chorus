@@ -4,13 +4,15 @@
   "event_type": "workflow.step.completed",
   "occurred_at": "2026-04-29T10:00:30Z",
   "tenant_id": "tenant_demo",
-  "correlation_id": "cor_lead_acme_001",
-  "workflow_id": "lighthouse-cor_lead_acme_001",
-  "lead_id": "8ac7c0fa-f2d6-47b4-b34d-2f9cddf8a5a1",
+  "correlation_id": "cor_enquiry_email_001",
+  "workflow_id": "uc1-enq-cor_enquiry_email_001",
+  "workflow_type": "uc1_enquiry_qualification",
+  "subject_id": "8ac7c0fa-f2d6-47b4-b34d-2f9cddf8a5a1",
+  "subject_ref": "enq_motor_private_001",
   "sequence": 3,
-  "step": "research_qualification",
+  "step": "classification",
   "payload": {
-    "status": "qualified",
-    "confidence": 0.82
+    "product_family_category": "motor_private_car",
+    "confidence": 0.86
   }
 }

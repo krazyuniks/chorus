@@ -1,11 +1,11 @@
-"""Governed Agent Runtime boundary for Lighthouse."""
+"""Governed Agent Runtime boundary for use-case workflows."""
 
 from __future__ import annotations
 
 from chorus.agent_runtime.runtime import (
     EXECUTION_PIPELINE_VERSION,
     EXECUTION_STEPS,
-    LIGHTHOUSE_AGENT_CONTRACT_REF,
+    UC1_AGENT_CONTRACT_REF,
     AgentExecutionResult,
     AgentOutputContract,
     AgentRuntime,
@@ -28,7 +28,7 @@ from chorus.agent_runtime.runtime import (
 __all__ = [
     "EXECUTION_PIPELINE_VERSION",
     "EXECUTION_STEPS",
-    "LIGHTHOUSE_AGENT_CONTRACT_REF",
+    "UC1_AGENT_CONTRACT_REF",
     "AgentExecutionResult",
     "AgentOutputContract",
     "AgentRuntime",

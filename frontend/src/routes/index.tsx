@@ -54,15 +54,15 @@ function WorkflowsList() {
       width: "8rem",
     },
     {
-      key: "lead_subject",
+      key: "subject_summary",
       header: "Subject",
-      cell: (row) => row.lead_subject ?? "—",
+      cell: (row) => row.subject_summary ?? "—",
     },
     {
-      key: "lead_from",
+      key: "subject_from",
       header: "From",
       mono: true,
-      cell: (row) => row.lead_from ?? "—",
+      cell: (row) => row.subject_from ?? "—",
     },
     {
       key: "started_at",

@@ -225,8 +225,7 @@
             "additionalProperties": false,
             "required": [
               "owner",
-              "declared_in",
-              "change_ref"
+              "declared_in"
             ],
             "properties": {
               "owner": {
@@ -234,10 +233,6 @@
                 "minLength": 1
               },
               "declared_in": {
-                "type": "string",
-                "minLength": 1
-              },
-              "change_ref": {
                 "type": "string",
                 "minLength": 1
               },

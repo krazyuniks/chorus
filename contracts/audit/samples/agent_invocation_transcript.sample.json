@@ -3,8 +3,8 @@
   "transcript_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
   "invocation_id": "11111111-2222-4333-8444-555555555555",
   "tenant_id": "tenant_demo",
-  "correlation_id": "cor_lighthouse_transcript_001",
-  "workflow_id": "lighthouse-demo-workflow-001",
+  "correlation_id": "cor_uc1_transcript_001",
+  "workflow_id": "uc1-enq-demo-workflow-001",
   "route_catalogue": {
     "route_id": "recorded-replay",
     "provider_id": "local-replay",
@@ -17,11 +17,11 @@
   "messages": [
     {
       "role": "user",
-      "content": "{\"lead_subject\": \"Need help choosing a CRM automation partner\"}"
+      "content": "{\"enquiry_subject\": \"Motor cover enquiry: 2018 hatchback, new driver\"}"
     },
     {
       "role": "assistant",
-      "content": "Drafted a concise response proposing a discovery call and pilot outline."
+      "content": "Drafted a focused missing-data request scoped to the cover requested."
     }
   ],
   "tool_calls": [],

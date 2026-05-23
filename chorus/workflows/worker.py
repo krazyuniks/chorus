@@ -1,4 +1,4 @@
-"""Run the Lighthouse Temporal worker."""
+"""Run the Chorus UC1 Temporal worker."""
 
 from __future__ import annotations
 
@@ -17,12 +17,10 @@ from chorus.workflows.activities import (
     invoke_tool_gateway_activity,
     poll_mailpit_activity,
     record_retry_exhaustion_dlq_activity,
-    record_support_workflow_event_activity,
     record_tool_failure_compensation_activity,
     record_workflow_event_activity,
 )
-from chorus.workflows.lighthouse import LighthouseWorkflow
-from chorus.workflows.support import SupportTriageWorkflow
+from chorus.workflows.uc1 import Uc1EnquiryQualificationWorkflow
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -34,7 +32,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--namespace", default=os.environ.get("TEMPORAL_NAMESPACE", "default"))
     parser.add_argument(
         "--task-queue",
-        default=os.environ.get("LIGHTHOUSE_TASK_QUEUE", "lighthouse"),
+        default=os.environ.get("CHORUS_TASK_QUEUE", "chorus-uc1"),
     )
     return parser
 
@@ -54,10 +52,9 @@ async def _run(target_host: str, namespace: str, task_queue: str) -> None:
         worker = Worker(
             client,
             task_queue=task_queue,
-            workflows=[LighthouseWorkflow, SupportTriageWorkflow],
+            workflows=[Uc1EnquiryQualificationWorkflow],
             activities=[
                 record_workflow_event_activity,
-                record_support_workflow_event_activity,
                 invoke_agent_runtime_activity,
                 invoke_tool_gateway_activity,
                 record_tool_failure_compensation_activity,

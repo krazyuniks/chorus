@@ -29,7 +29,7 @@
     "meeting_type": {
       "type": "string",
       "enum": [
-        "lighthouse_follow_up",
+        "enquiry_follow_up",
         "discovery_call",
         "qualification_review"
       ]
@@ -46,7 +46,7 @@
     "summary_category": {
       "type": "string",
       "enum": [
-        "lead_follow_up",
+        "enquiry_follow_up",
         "proposal_review",
         "internal_review"
       ]

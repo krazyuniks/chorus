@@ -65,16 +65,11 @@
         "role": {
           "type": "string",
           "enum": [
-            "intake",
-            "researcher",
+            "classifier",
+            "context_gatherer",
             "qualifier",
-            "drafter",
-            "validator",
-            "support_classifier",
-            "support_context_researcher",
-            "support_resolution_planner",
-            "support_drafter",
-            "support_validator"
+            "request_drafter",
+            "validator"
           ]
         },
         "version": {

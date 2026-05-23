@@ -1,4 +1,4 @@
-"""Projection and read-model access for the Phase 1A persistence slice."""
+"""Projection and read-model access for the workflow persistence slice."""
 
 from __future__ import annotations
 
@@ -26,11 +26,13 @@ class WorkflowRunReadModel(BaseModel):
 
     tenant_id: str
     workflow_id: str
+    workflow_type: str
     correlation_id: str
-    lead_id: UUID
+    subject_id: UUID
+    subject_ref: str | None
     status: WorkflowStatus
     current_step: str | None
-    lead_summary: str
+    subject_summary: str
     last_event_id: UUID | None
     last_event_sequence: int
     started_at: datetime | None
@@ -153,156 +155,6 @@ class CalendarProjectionReadModel(BaseModel):
     updated_at: datetime
 
 
-class SupportWorkflowEventReadModel(BaseModel):
-    """Safe support workflow event summary for read-only inspection."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    tenant_id: str
-    source_event_id: UUID
-    workflow_id: str
-    correlation_id: str
-    workflow_type: str
-    request_ref: str | None
-    event_type: str
-    sequence: int
-    step: str | None
-    case_ref: str | None
-    account_ref: str | None
-    product_ref: str | None
-    severity_category: str | None
-    case_status_category: str | None
-    verdict_category: str | None
-    gateway_verdict: str | None
-    enforced_mode: str | None
-    case_update_ref: str | None
-    outcome: str | None
-    trace_join: dict[str, Any]
-    occurred_at: datetime
-
-
-class SupportAgentDecisionReadModel(BaseModel):
-    """Safe support Agent Runtime decision summary for read-only inspection."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    tenant_id: str
-    invocation_id: UUID
-    workflow_id: str
-    correlation_id: str
-    agent_id: str
-    agent_role: str
-    agent_version: str
-    task_kind: str
-    provider: str
-    model: str
-    route_id: str | None
-    route_version: int | None
-    outcome: str
-    cost_amount: Decimal
-    duration_ms: int
-    contract_refs: list[str]
-    trace_join: dict[str, Any]
-    occurred_at: datetime
-
-
-class SupportTicketVerdictReadModel(BaseModel):
-    """Safe support ticket Tool Gateway verdict summary."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    tenant_id: str
-    audit_event_id: UUID
-    workflow_id: str
-    correlation_id: str
-    invocation_id: UUID | None
-    tool_call_id: UUID | None
-    verdict_id: UUID | None
-    agent_id: str
-    tool_name: str
-    requested_mode: str | None
-    enforced_mode: str | None
-    verdict: str
-    reason_category: str
-    idempotency_key_ref: str | None
-    connector_invocation_id: UUID | None
-    output_refs: dict[str, Any]
-    trace_join: dict[str, Any]
-    occurred_at: datetime
-
-
-class SupportCaseUpdateProposalReadModel(BaseModel):
-    """Safe proposed support case-update ref persisted by the local ticket desk."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    tenant_id: str
-    case_update_ref: str
-    workflow_id: str
-    correlation_id: str
-    source_audit_event_id: UUID
-    connector_invocation_id: UUID
-    request_ref: str
-    case_ref: str
-    account_ref: str
-    product_ref: str
-    severity_category: str
-    target_status_category: str
-    update_reason_category: str
-    proposal_status: str
-    policy_ref: str | None
-    case_status_mutated: bool
-    trace_join: dict[str, Any]
-    updated_at: datetime
-
-
-class SupportStatusWriteBoundaryReadModel(BaseModel):
-    """Safe summary proving ticket status writes remain approval-required."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    grant_ref: str
-    agent_id: str
-    agent_version: str
-    tool_name: str
-    mode: str
-    allowed: bool
-    approval_required: bool
-
-
-class SupportInspectionReadModel(BaseModel):
-    """Aggregated read-only support_triage evidence for one workflow."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    tenant_id: str
-    workflow_id: str
-    correlation_id: str
-    workflow_type: str
-    request_refs: list[str]
-    case_refs: list[str]
-    account_refs: list[str]
-    product_refs: list[str]
-    proposed_case_update_refs: list[str]
-    latest_event_sequence: int | None
-    workflow_events: list[SupportWorkflowEventReadModel]
-    agent_decisions: list[SupportAgentDecisionReadModel]
-    ticket_verdicts: list[SupportTicketVerdictReadModel]
-    proposed_case_updates: list[SupportCaseUpdateProposalReadModel]
-    status_write_boundary: list[SupportStatusWriteBoundaryReadModel]
-    updated_at: datetime
-
-
-class _SupportWorkflowRef(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    tenant_id: str
-    workflow_id: str
-    correlation_id: str
-    latest_event_sequence: int | None
-    updated_at: datetime
-
-
 class AgentRegistryEntry(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -422,7 +274,7 @@ class RuntimePolicySnapshot(BaseModel):
 
 
 class ProviderGovernanceSnapshot(BaseModel):
-    """Read-only Phase 2A provider catalogue and route-version state."""
+    """Read-only provider catalogue and route-version state."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -435,7 +287,7 @@ class ProviderGovernanceSnapshot(BaseModel):
 
 def _status_for(event: WorkflowEvent) -> WorkflowStatus:
     match event.event_type:
-        case EventType.LEAD_RECEIVED:
+        case EventType.ENQUIRY_RECEIVED:
             return "received"
         case EventType.WORKFLOW_COMPLETED:
             return "completed"
@@ -449,7 +301,7 @@ def _status_for(event: WorkflowEvent) -> WorkflowStatus:
 
 def _current_step_for(event: WorkflowEvent) -> str | None:
     if event.step is not None:
-        return event.step.value
+        return event.step
     if event.event_type == EventType.WORKFLOW_COMPLETED:
         return "complete"
     if event.event_type == EventType.WORKFLOW_ESCALATED:
@@ -457,10 +309,10 @@ def _current_step_for(event: WorkflowEvent) -> str | None:
     return None
 
 
-def _lead_summary_for(event: WorkflowEvent) -> str:
-    lead_summary = event.payload.get("lead_summary")
-    if isinstance(lead_summary, str):
-        return lead_summary
+def _subject_summary_for(event: WorkflowEvent) -> str:
+    enquiry_summary = event.payload.get("enquiry_summary")
+    if isinstance(enquiry_summary, str):
+        return enquiry_summary
 
     subject = event.payload.get("subject")
     if isinstance(subject, str):
@@ -477,9 +329,12 @@ def _metadata_for(event: WorkflowEvent) -> dict[str, Any]:
     message_id = event.payload.get("message_id")
     if isinstance(message_id, str):
         metadata["message_id"] = message_id
-    source = event.payload.get("source")
-    if isinstance(source, str):
-        metadata["source"] = source
+    channel = event.payload.get("channel")
+    if isinstance(channel, str):
+        metadata["channel"] = channel
+    adapter_id = event.payload.get("adapter_id")
+    if isinstance(adapter_id, str):
+        metadata["adapter_id"] = adapter_id
     return metadata
 
 
@@ -500,10 +355,6 @@ def _fetch_models[TModel: BaseModel](
         rows = cur.fetchall()
 
     return [model_type.model_validate(row) for row in rows]
-
-
-def _unique_strings(values: Sequence[str | None]) -> list[str]:
-    return sorted({value for value in values if value})
 
 
 class ProjectionStore:
@@ -532,7 +383,9 @@ class ProjectionStore:
                 tenant_id,
                 correlation_id,
                 workflow_id,
-                lead_id,
+                workflow_type,
+                subject_id,
+                subject_ref,
                 sequence,
                 step,
                 payload,
@@ -542,6 +395,8 @@ class ProjectionStore:
             )
             VALUES (
                 'workflow_event',
+                %s,
+                %s,
                 %s,
                 %s,
                 %s,
@@ -567,9 +422,11 @@ class ProjectionStore:
                 event.tenant_id,
                 event.correlation_id,
                 event.workflow_id,
-                event.lead_id,
+                event.workflow_type.value,
+                event.subject_id,
+                event.subject_ref,
                 event.sequence,
-                event.step.value if event.step is not None else None,
+                event.step,
                 Jsonb(event.payload),
                 event.correlation_id,
                 Jsonb(
@@ -577,6 +434,7 @@ class ProjectionStore:
                         "correlation_id": event.correlation_id,
                         "workflow_id": event.workflow_id,
                         "tenant_id": event.tenant_id,
+                        "workflow_type": event.workflow_type.value,
                     }
                 ),
                 Jsonb(current_otel_ids()),
@@ -589,7 +447,7 @@ class ProjectionStore:
         status = _status_for(event)
         current_step = _current_step_for(event)
         completed_at = _completed_at_for(status, event.occurred_at)
-        lead_summary = _lead_summary_for(event)
+        subject_summary = _subject_summary_for(event)
         metadata = _metadata_for(event)
 
         self._conn.execute(
@@ -620,16 +478,20 @@ class ProjectionStore:
                 event.occurred_at,
             ),
         )
+        if event.subject_id is None:
+            return
         self._conn.execute(
             """
             INSERT INTO workflow_read_models (
                 tenant_id,
                 workflow_id,
+                workflow_type,
                 correlation_id,
-                lead_id,
+                subject_id,
+                subject_ref,
                 status,
                 current_step,
-                lead_summary,
+                subject_summary,
                 last_event_id,
                 last_event_sequence,
                 started_at,
@@ -637,14 +499,14 @@ class ProjectionStore:
                 updated_at,
                 metadata
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), %s)
             ON CONFLICT (tenant_id, workflow_id) DO UPDATE
             SET
                 status = EXCLUDED.status,
                 current_step = COALESCE(EXCLUDED.current_step, workflow_read_models.current_step),
-                lead_summary = COALESCE(
-                    NULLIF(EXCLUDED.lead_summary, ''),
-                    workflow_read_models.lead_summary
+                subject_summary = COALESCE(
+                    NULLIF(EXCLUDED.subject_summary, ''),
+                    workflow_read_models.subject_summary
                 ),
                 last_event_id = EXCLUDED.last_event_id,
                 last_event_sequence = EXCLUDED.last_event_sequence,
@@ -657,11 +519,13 @@ class ProjectionStore:
             (
                 event.tenant_id,
                 event.workflow_id,
+                event.workflow_type.value,
                 event.correlation_id,
-                event.lead_id,
+                event.subject_id,
+                event.subject_ref,
                 status,
                 current_step,
-                lead_summary,
+                subject_summary,
                 event.event_id,
                 event.sequence,
                 event.occurred_at if event.event_type == EventType.WORKFLOW_STARTED else None,
@@ -671,13 +535,7 @@ class ProjectionStore:
         )
 
     def record_workflow_event(self, event: WorkflowEvent) -> None:
-        """Persist a workflow event to the transactional outbox.
-
-        Activities use this interface after service-owned state changes.
-        Read models are updated by the Redpanda projection worker consuming
-        the relayed event stream, so replay and reconnect semantics stay
-        aligned with the architecture evidence path.
-        """
+        """Persist a workflow event to the transactional outbox."""
 
         with self._conn.transaction():
             self.append_outbox_event(event)
@@ -690,11 +548,13 @@ class ProjectionStore:
             SELECT
                 tenant_id,
                 workflow_id,
+                workflow_type,
                 correlation_id,
-                lead_id,
+                subject_id,
+                subject_ref,
                 status,
                 current_step,
-                lead_summary,
+                subject_summary,
                 last_event_id,
                 last_event_sequence,
                 started_at,
@@ -717,11 +577,13 @@ class ProjectionStore:
             SELECT
                 tenant_id,
                 workflow_id,
+                workflow_type,
                 correlation_id,
-                lead_id,
+                subject_id,
+                subject_ref,
                 status,
                 current_step,
-                lead_summary,
+                subject_summary,
                 last_event_id,
                 last_event_sequence,
                 started_at,
@@ -1100,309 +962,6 @@ class ProjectionStore:
             """,
             (tenant_id, workflow_id, workflow_id, limit),
         )
-
-    def list_support_inspections(
-        self,
-        tenant_id: str,
-        *,
-        workflow_id: str | None = None,
-        correlation_id: str | None = None,
-        limit: int = 100,
-    ) -> list[SupportInspectionReadModel]:
-        workflow_refs = _fetch_models(
-            self._conn,
-            _SupportWorkflowRef,
-            """
-            SELECT
-                tenant_id,
-                workflow_id,
-                correlation_id,
-                max(sequence) AS latest_event_sequence,
-                max(created_at) AS updated_at
-            FROM outbox_events
-            WHERE tenant_id = %s
-              AND (
-                payload ->> 'workflow_type' = 'support_triage'
-                OR step LIKE 'support_%%'
-              )
-              AND (%s::text IS NULL OR workflow_id = %s)
-              AND (%s::text IS NULL OR correlation_id = %s)
-            GROUP BY tenant_id, workflow_id, correlation_id
-            ORDER BY max(created_at) DESC, workflow_id
-            LIMIT %s
-            """,
-            (tenant_id, workflow_id, workflow_id, correlation_id, correlation_id, limit),
-        )
-        if not workflow_refs:
-            return []
-
-        workflow_ids = [row.workflow_id for row in workflow_refs]
-        inspections: dict[str, SupportInspectionReadModel] = {
-            row.workflow_id: SupportInspectionReadModel(
-                tenant_id=row.tenant_id,
-                workflow_id=row.workflow_id,
-                correlation_id=row.correlation_id,
-                workflow_type="support_triage",
-                request_refs=[],
-                case_refs=[],
-                account_refs=[],
-                product_refs=[],
-                proposed_case_update_refs=[],
-                latest_event_sequence=row.latest_event_sequence,
-                workflow_events=[],
-                agent_decisions=[],
-                ticket_verdicts=[],
-                proposed_case_updates=[],
-                status_write_boundary=[],
-                updated_at=row.updated_at,
-            )
-            for row in workflow_refs
-        }
-
-        for event in _fetch_models(
-            self._conn,
-            SupportWorkflowEventReadModel,
-            """
-            SELECT
-                tenant_id,
-                event_id AS source_event_id,
-                workflow_id,
-                correlation_id,
-                COALESCE(payload ->> 'workflow_type', 'support_triage') AS workflow_type,
-                payload ->> 'request_ref' AS request_ref,
-                event_type,
-                sequence,
-                step,
-                payload ->> 'case_ref' AS case_ref,
-                payload ->> 'account_ref' AS account_ref,
-                payload ->> 'product_ref' AS product_ref,
-                payload ->> 'severity_category' AS severity_category,
-                payload ->> 'case_status_category' AS case_status_category,
-                payload ->> 'verdict_category' AS verdict_category,
-                payload ->> 'gateway_verdict' AS gateway_verdict,
-                payload ->> 'enforced_mode' AS enforced_mode,
-                payload ->> 'case_update_ref' AS case_update_ref,
-                payload ->> 'outcome' AS outcome,
-                jsonb_strip_nulls(
-                    jsonb_build_object(
-                        'otel_trace_id', metadata ->> 'otel.trace_id',
-                        'otel_span_id', metadata ->> 'otel.span_id'
-                    )
-                ) AS trace_join,
-                occurred_at
-            FROM outbox_events
-            WHERE tenant_id = %s
-              AND workflow_id = ANY(%s::text[])
-              AND (
-                payload ->> 'workflow_type' = 'support_triage'
-                OR step LIKE 'support_%%'
-              )
-            ORDER BY workflow_id, sequence ASC, occurred_at ASC
-            """,
-            (tenant_id, workflow_ids),
-        ):
-            inspections[event.workflow_id].workflow_events.append(event)
-
-        for decision in _fetch_models(
-            self._conn,
-            SupportAgentDecisionReadModel,
-            """
-            SELECT
-                tenant_id,
-                invocation_id,
-                workflow_id,
-                correlation_id,
-                agent_id,
-                agent_role,
-                agent_version,
-                task_kind,
-                provider,
-                model,
-                metadata ->> 'model_route.route_id' AS route_id,
-                CASE
-                    WHEN metadata ? 'model_route.route_version'
-                        THEN (metadata ->> 'model_route.route_version')::integer
-                    ELSE NULL
-                END AS route_version,
-                outcome,
-                cost_amount,
-                duration_ms,
-                contract_refs,
-                jsonb_strip_nulls(
-                    jsonb_build_object(
-                        'otel_trace_id', metadata ->> 'otel.trace_id',
-                        'otel_span_id', metadata ->> 'otel.span_id'
-                    )
-                ) AS trace_join,
-                completed_at AS occurred_at
-            FROM decision_trail_entries
-            WHERE tenant_id = %s
-              AND workflow_id = ANY(%s::text[])
-              AND agent_role LIKE 'support_%%'
-            ORDER BY workflow_id, started_at ASC, invocation_id ASC
-            """,
-            (tenant_id, workflow_ids),
-        ):
-            inspections[decision.workflow_id].agent_decisions.append(decision)
-
-        for verdict in _fetch_models(
-            self._conn,
-            SupportTicketVerdictReadModel,
-            """
-            SELECT
-                a.tenant_id,
-                a.audit_event_id,
-                a.workflow_id,
-                a.correlation_id,
-                a.invocation_id,
-                a.tool_call_id,
-                a.verdict_id,
-                a.actor_id AS agent_id,
-                a.tool_name,
-                a.requested_mode,
-                a.enforced_mode,
-                a.verdict,
-                CASE
-                    WHEN a.verdict = 'approval_required' THEN 'approval_required'
-                    WHEN a.verdict = 'allow' THEN 'grant_allowed'
-                    WHEN a.verdict = 'propose' THEN 'proposal_mode'
-                    WHEN a.verdict = 'block' THEN 'blocked'
-                    WHEN a.verdict = 'rewrite' THEN 'rewritten'
-                    ELSE 'recorded'
-                END AS reason_category,
-                a.idempotency_key AS idempotency_key_ref,
-                a.connector_invocation_id,
-                jsonb_strip_nulls(
-                    jsonb_build_object(
-                        'request_ref', gateway_output.output ->> 'request_ref',
-                        'case_ref', gateway_output.output ->> 'case_ref',
-                        'account_ref', gateway_output.output ->> 'account_ref',
-                        'product_ref', gateway_output.output ->> 'product_ref',
-                        'severity_category', gateway_output.output ->> 'severity_category',
-                        'case_status_category', gateway_output.output ->> 'case_status_category',
-                        'target_status_category',
-                            gateway_output.output ->> 'target_status_category',
-                        'lookup_status', gateway_output.output ->> 'lookup_status',
-                        'duplicate_status', gateway_output.output ->> 'duplicate_status',
-                        'duplicate_case_refs', gateway_output.output -> 'duplicate_case_refs',
-                        'duplicate_count', gateway_output.output -> 'duplicate_count',
-                        'case_update_ref', gateway_output.output ->> 'case_update_ref',
-                        'proposal_status', gateway_output.output ->> 'proposal_status',
-                        'update_reason_category',
-                            gateway_output.output ->> 'update_reason_category',
-                        'policy_ref', gateway_output.output ->> 'policy_ref',
-                        'case_status_mutated', gateway_output.output -> 'case_status_mutated'
-                    )
-                ) AS output_refs,
-                jsonb_strip_nulls(
-                    jsonb_build_object(
-                        'otel_trace_id', a.metadata ->> 'otel.trace_id',
-                        'otel_span_id', a.metadata ->> 'otel.span_id'
-                    )
-                ) AS trace_join,
-                a.occurred_at
-            FROM tool_action_audit a
-            CROSS JOIN LATERAL (
-                SELECT COALESCE(
-                    a.raw_event -> 'details' -> 'gateway_response' -> 'output',
-                    '{}'::jsonb
-                ) AS output
-            ) gateway_output
-            WHERE a.tenant_id = %s
-              AND a.workflow_id = ANY(%s::text[])
-              AND a.tool_name LIKE 'ticket.%%'
-            ORDER BY a.workflow_id, a.occurred_at ASC, a.audit_event_id ASC
-            """,
-            (tenant_id, workflow_ids),
-        ):
-            inspections[verdict.workflow_id].ticket_verdicts.append(verdict)
-
-        for proposal in _fetch_models(
-            self._conn,
-            SupportCaseUpdateProposalReadModel,
-            """
-            SELECT DISTINCT ON (p.tenant_id, p.case_update_ref, a.workflow_id)
-                p.tenant_id,
-                p.case_update_ref,
-                a.workflow_id,
-                a.correlation_id,
-                a.audit_event_id AS source_audit_event_id,
-                p.connector_invocation_id,
-                p.request_ref,
-                p.case_ref,
-                p.account_ref,
-                p.product_ref,
-                p.severity_category,
-                p.target_status_category,
-                p.update_reason_category,
-                p.proposal_status,
-                p.policy_ref,
-                COALESCE((p.metadata ->> 'case_status_mutated')::boolean, false)
-                    AS case_status_mutated,
-                jsonb_strip_nulls(
-                    jsonb_build_object(
-                        'otel_trace_id', a.metadata ->> 'otel.trace_id',
-                        'otel_span_id', a.metadata ->> 'otel.span_id'
-                    )
-                ) AS trace_join,
-                p.updated_at
-            FROM local_ticket_case_update_proposals p
-            JOIN tool_action_audit a
-              ON a.tenant_id = p.tenant_id
-             AND a.tool_name = 'ticket.propose_case_update'
-             AND a.workflow_id = ANY(%s::text[])
-             AND a.raw_event -> 'details' -> 'gateway_response' -> 'output'
-                ->> 'case_update_ref' = p.case_update_ref
-            WHERE p.tenant_id = %s
-            ORDER BY p.tenant_id, p.case_update_ref, a.workflow_id, a.occurred_at DESC
-            """,
-            (workflow_ids, tenant_id),
-        ):
-            inspections[proposal.workflow_id].proposed_case_updates.append(proposal)
-
-        status_write_boundary = _fetch_models(
-            self._conn,
-            SupportStatusWriteBoundaryReadModel,
-            """
-            SELECT
-                'tool_grant:' || grant_id::text AS grant_ref,
-                agent_id,
-                agent_version,
-                tool_name,
-                mode,
-                allowed,
-                approval_required
-            FROM tool_grants
-            WHERE tenant_id = %s
-              AND tool_name = 'ticket.update_status'
-              AND mode = 'write'
-            ORDER BY agent_id, agent_version
-            """,
-            (tenant_id,),
-        )
-        for inspection in inspections.values():
-            inspection.status_write_boundary = list(status_write_boundary)
-            inspection.request_refs = _unique_strings(
-                [event.request_ref for event in inspection.workflow_events]
-                + [proposal.request_ref for proposal in inspection.proposed_case_updates]
-            )
-            inspection.case_refs = _unique_strings(
-                [event.case_ref for event in inspection.workflow_events]
-                + [proposal.case_ref for proposal in inspection.proposed_case_updates]
-            )
-            inspection.account_refs = _unique_strings(
-                [event.account_ref for event in inspection.workflow_events]
-                + [proposal.account_ref for proposal in inspection.proposed_case_updates]
-            )
-            inspection.product_refs = _unique_strings(
-                [event.product_ref for event in inspection.workflow_events]
-                + [proposal.product_ref for proposal in inspection.proposed_case_updates]
-            )
-            inspection.proposed_case_update_refs = _unique_strings(
-                [proposal.case_update_ref for proposal in inspection.proposed_case_updates]
-            )
-
-        return [inspections[row.workflow_id] for row in workflow_refs]
 
     def runtime_policy_snapshot(self, tenant_id: str) -> RuntimePolicySnapshot:
         agents = _fetch_models(

@@ -289,7 +289,7 @@ Order is settled by Phase 1 decision 6.
 | B | LLM provider port: LangGraph removed, OpenAI-SDK adapter, route catalogue. | done |
 | C | Audit ports: decision-trail port and transcript port split. | done |
 | D | Connector adapter registry replacing the hardcoded match dispatch. | done |
-| E | Shared workflow spine factored out of the Lighthouse / Support duplication. | pending |
+| E | Shared workflow spine factored out of the Lighthouse / Support duplication. | done |
 | F | `projection.py` and `doctor.py` decomposed along port boundaries. | pending |
 | G | Eval reshape: invariants plus one happy path per use case, `eval replay`. | pending |
 
@@ -632,3 +632,168 @@ baseline; pass count is below the 96 post-C bar because the five
 watch-item-mandated ticket tests retire alongside the ticket connector),
 `just test-replay` 6 passed, `just eval` all path-enumeration fixtures
 pass.
+
+### Checkpoint E - Workflow spine + UC1 + Support retirement
+
+**Outcome.** The shared `WorkflowSpine`, `WorkflowDefinition`, and
+`WorkflowStepDefinition` primitives are factored out into
+`chorus/workflows/spine.py`. The UC1 enquiry-qualification workflow
+runs on the spine in `chorus/workflows/uc1.py` with UC1 ubiquitous
+language (`enquiry`, `customer`, `classification`, `qualification`,
+`missing_data_request_draft`, `missing_data_request_validation`,
+`missing_data_request_send`). The Lighthouse workflow class, the
+Lighthouse-era email / CRM / company-research adapters, and the
+Support Triage workflow retire fully. The calendar adapter stays in
+`chorus/connectors/calendar.py` for the UC2 / UC3 approval-required
+write surfaces.
+
+**Watch-item discharge.** The spine takes `WorkflowCorrelation`
+(tenant + correlation + workflow_id + subject_id + subject_ref +
+workflow_type) and exposes `emit`, `step`, `agent_call`,
+`connector_call`, `compensate_tool_failure`,
+`record_retry_exhaustion_dlq`, and `advance_sequence` primitives over
+generic activity names (`chorus.record_workflow_event`,
+`chorus.invoke_agent_runtime`, `chorus.invoke_tool_gateway`,
+`chorus.record_tool_failure_compensation`,
+`chorus.record_retry_exhaustion_dlq`). `WorkflowStepKind` covers the
+five settled kinds: intake, agent, connector, approval_gate, terminal.
+The spine is shaped against UC2 / UC3 deltas from `r1-adapter-mapping.md`:
+approval policies are first-class (UC2 / UC3 add multiple gates),
+agent / connector steps both carry their specs declaratively, the
+workflow's step taxonomy lives in its `WorkflowDefinition` rather than
+on the projection contract.
+
+**R1-deferred items.** Exact ICOBS 2.5.-1R / ICOBS 5 / PROD 4 / Consumer
+Duty regulatory citations remain pending the policy-snapshot work; the
+spine surfaces `ApprovalPolicy` but does not yet ship a policy snapshot
+in code. R3 exit will record verification against the FCA Handbook
+before any policy snapshot ships, per the R1 carry-over list.
+
+**Distributed Support Triage retirement landed in E's slice.**
+`chorus/workflows/support.py` deleted; `support_request_intake.schema.json`
++ sample + generated model deleted; `support_agent_io.schema.json` +
+sample + generated model deleted; `chorus/workflows/lighthouse.py`
+deleted; `chorus/contracts/generated/llm_provider/lighthouse_agent_io.py`
+and `chorus/contracts/generated/intake/uc1/lead_intake.py` deleted;
+the `SupportXxxReadModel` family (workflow event, agent decision,
+ticket verdict, case-update proposal, status-write boundary,
+inspection) retires from `chorus/persistence/projection.py` and the
+BFF; the BFF `/api/support/inspections` and
+`/api/workflows/{id}/support/inspection` routes retire; the support
+event types, support steps, `subject_ref` regex woven for `req`/`case`,
+and `workflow_type` enum lose their support entries on
+`contracts/projection/workflow_event.schema.json`; the
+`SupportTriageWorkflow` retires from the Temporal worker; the support
+activities and `record_support_workflow_event_activity` retire from
+`chorus/workflows/activities.py`; the support test fixtures
+(`tests/workflows/fixtures/support_triage_happy_history.json`,
+`chorus/eval/fixtures/support_triage_happy_path.json`) retire; the
+support and ticket tool grants retire from the seed data; the
+Lighthouse history fixtures
+(`tests/workflows/fixtures/lighthouse_*_history.json` and
+`chorus/eval/fixtures/lighthouse_*.json`) retire alongside the
+workflow they exercised; the four `scripts/generate_*_history.py`
+generators retire too.
+
+**Lighthouse-era adapter retirement.** `MailpitEmailAdapter`,
+`LegacyCrmAdapter`, `LegacyResearchAdapter`, and the underlying
+`MailpitEmailConnector` / `LocalCrmConnector` / `CompanyResearchConnector`
+retire from `chorus/connectors/local.py` (now a stub) and from the
+`default_registry`. UC1's `sandbox-outbound-comms`,
+`sandbox-customer-profile`, `sandbox-product-catalogue`, `sandbox-crm`,
+`sandbox-referral-inbox`, `sandbox-decline-ledger` are the
+authoritative connector inventory alongside the calendar adapter.
+
+**Contracts.** Three new UC1 intake channel schemas under
+`contracts/intake/uc1/`: `email_channel_enquiry`, `web_form_channel_enquiry`,
+`partner_portal_channel_enquiry`, with samples and generated models;
+`lead_intake.schema.json` retires. `lighthouse_agent_io.schema.json`
+renames to `uc1_agent_io.schema.json` with the UC1 agent_role enum
+(`classifier`, `context_gatherer`, `qualifier`, `request_drafter`,
+`validator`) and task_kind enum (`enquiry_classification`,
+`context_gathering`, `enquiry_qualification`,
+`missing_data_request_draft`, `missing_data_request_validation`).
+`workflow_event.schema.json` rewrites: `lead_id` -> `subject_id`,
+new `subject_ref` field with the UC1 `^enq_` shape, `workflow_type`
+moves to a required enum (single-value `uc1_enquiry_qualification`
+for R3; UC2 / UC3 widen it in R4), `step` becomes a free string so
+the workflow's step taxonomy owns the enumeration, support workflow
+types / steps / event types retire, `lead.received` renames to
+`enquiry.received`. `agent_invocation_record.schema.json` `role` enum
+moves to the UC1 roles. `tool_call.schema.json` `tool_name` enum
+moves to the UC1 connector inventory plus calendar tools. The
+calendar contracts' `meeting_type` / `summary_category` retire
+`lighthouse_follow_up` and `lead_follow_up` for `enquiry_follow_up`.
+Every sample updates to the new shape. `model_route_version.schema.json`
+agent_role enum moves to the UC1 roles; the `change_ref` requirement
+on promotion / audit objects relaxes to optional. Total schema count
+stays at 24.
+
+**DB migration.** New forward migration
+`infrastructure/postgres/migrations/011_uc1_workflow_spine_support_retire.sql`:
+drops `local_ticket_cases` and `local_ticket_case_update_proposals`;
+deletes the seeded support agents and Lighthouse-era / ticket tool
+grants; rewrites the `agent_registry` / `model_routing_policies` /
+`decision_trail_entries` / `model_route_versions` `agent_role` CHECK
+constraints to the UC1 role allowlist; rewrites the `tool_grants` /
+`tool_action_audit` `tool_name` CHECK constraints to the UC1 tool
+allowlist plus calendar tools; renames `workflow_read_models.lead_id`
+-> `subject_id`, `lead_summary` -> `subject_summary`, adds
+`subject_ref` and `workflow_type` columns; renames
+`outbox_events.lead_id` -> `subject_id`, adds `subject_ref` and
+`workflow_type`; relaxes the Lighthouse-shaped `step` CHECK
+constraints and rewrites the `event_type` CHECK constraints to the
+new enum. The Phase 2D support migrations 007, 008, 009 stay applied
+on existing databases (per Phase 1 decision 5: applied migrations are
+never edited) and their schema objects are dropped or relaxed by 011.
+
+**Seed data.** `001_demo_tenants.sql` rewrites for UC1 (UC1 agents
+across both tenants, UC1 model_routing_policies, UC1 tool_grants for
+customer_profile.lookup / product_catalogue.lookup /
+crm.route_to_quoting_queue / referral_inbox.route /
+decline_ledger.route / outbound_comms.message and the calendar
+tools; `outbound_comms.message:write` is approval-required and
+`tenant_demo_alt`'s write grant is the forbidden-write scenario).
+`002_provider_governance.sql` renames the catalogue id from
+`provider-catalogue.phase2a.seed` to `provider-catalogue.local.seed`
+and the local model from `lighthouse-happy-path-v1` to
+`uc1-happy-path-v1`.
+
+**Frontend.** `WorkflowRunSummary` renames `lead_id`/`lead_subject`/
+`lead_from` to `subject_id`/`subject_summary`/`subject_from` and adds
+`subject_ref`. `fixtures.ts`, the workflow detail route, the workflow
+index route, and the `__root.tsx` brand chip update. Test fixtures
+move from lighthouse-era to UC1.
+
+**Tests.** `tests/workflows/test_lighthouse_workflow.py` retires and
+is replaced by `tests/workflows/test_uc1_workflow.py` exercising the
+UC1 workflow live against `WorkflowEnvironment.start_time_skipping()`
+plus an inline run-and-replay replay test (replaces the
+JSON-fixture-driven replay path until G ships captured-transcript
+replay). `tests/workflows/test_mailpit_intake.py` and
+`tests/workflows/test_activities.py` move to the UC1 shape.
+`tests/tool_gateway/test_mailpit_connector.py` retires together with
+the Mailpit connector. `tests/bff/test_app.py` and
+`tests/bff/test_app_unit.py` rewrite around the UC1 read-model shape
+with no support routes. `tests/persistence/test_postgres_foundation.py`
+rewrites for UC1 with no support seeds. `tests/tool_gateway/test_gateway.py`
+rewrites around UC1 tools, exercising propose dispatch, missing-grant
+block, approval-required write, transient failure, and idempotency.
+`tests/agent_runtime/test_runtime.py` renames Lighthouse identifiers
+to UC1 (`Uc1AgentIO`, `uc1.request_drafter`, `uc1-happy-path-v1`,
+`missing_data_request_draft` task kind, `request_drafter` agent role).
+`tests/eval/test_run.py` and `chorus/eval/run.py` slim down to a
+minimal UC1 happy-path offline evaluator with the live persisted-
+evidence checks deferred to G's eval reshape. `tests/test_contracts.py`
+keeps the schema count at 24 and validates the UC1 channel + UC1
+agent IO samples in place of the lighthouse + support ones.
+
+Gates run on this checkpoint: `just contracts-check` ok (24 schemas,
+24 samples, generated models current), `just lint` clean (ruff,
+ruff format, pyright strict, frontend `tsc --noEmit` all clean),
+`just test` 47 passed (no errors, no skips; the pre-existing
+post-D BFF test-isolation defect is no longer present because the
+support seed paths that caused it are deleted), `just test-replay`
+2 passed (the new inline-replay tests on the UC1 workflow), `just eval`
+the UC1 happy-path fixture passes offline (live persisted-evidence
+checks are flagged skip until G).

@@ -1,8 +1,8 @@
--- Phase 2A provider catalogue and route-version seed data.
+-- Provider catalogue and route-version seed data.
 --
--- This mirrors the contract samples and the existing Phase 1 local route seeds.
--- It does not change model_routing_policies, so lighthouse-happy-path-v1 stays
--- the runnable local route until later runtime work moves to route versions.
+-- Mirrors the contract samples and the model_routing_policies seeded in
+-- 001_demo_tenants.sql. The local route stays the runnable structured
+-- boundary for UC1 until later runtime work moves to route versions.
 
 INSERT INTO provider_catalogues (
     catalogue_id,
@@ -10,7 +10,7 @@ INSERT INTO provider_catalogues (
     effective_from
 )
 VALUES (
-    'provider-catalogue.phase2a.seed',
+    'provider-catalogue.local.seed',
     '1.0.0',
     '2026-05-03T00:00:00Z'
 )
@@ -31,7 +31,7 @@ INSERT INTO provider_catalogue_providers (
 )
 VALUES
     (
-        'provider-catalogue.phase2a.seed',
+        'provider-catalogue.local.seed',
         'local',
         'Local structured boundary',
         'local',
@@ -41,10 +41,10 @@ VALUES
         'allow',
         '{"mode": "local_only", "allowed_regions": [], "stores_customer_content": false}'::jsonb,
         '{"default_timeout_ms": 1000, "max_retries": 0, "rate_limit_policy": "local-process-boundary"}'::jsonb,
-        '{"owner": "agent-runtime", "declared_in": "infrastructure/postgres/seeds/002_provider_governance.sql", "change_ref": "2A-02", "notes": "Default runnable path for Lighthouse Phase 1 evidence."}'::jsonb
+        '{"owner": "agent-runtime", "declared_in": "infrastructure/postgres/seeds/002_provider_governance.sql", "notes": "Default runnable path for UC1 evidence."}'::jsonb
     ),
     (
-        'provider-catalogue.phase2a.seed',
+        'provider-catalogue.local.seed',
         'commercial.example',
         'Commercial provider placeholder',
         'commercial',
@@ -54,7 +54,7 @@ VALUES
         'disable_provider',
         '{"mode": "external_api", "allowed_regions": ["vendor-managed"], "stores_customer_content": true}'::jsonb,
         '{"default_timeout_ms": 30000, "max_retries": 2, "rate_limit_policy": "provider-documented-quota"}'::jsonb,
-        '{"owner": "agent-runtime", "declared_in": "infrastructure/postgres/seeds/002_provider_governance.sql", "change_ref": "2A-02", "notes": "Disabled placeholder only; no provider adapter is enabled by this seed."}'::jsonb
+        '{"owner": "agent-runtime", "declared_in": "infrastructure/postgres/seeds/002_provider_governance.sql", "notes": "Disabled placeholder only; no provider adapter is enabled by this seed."}'::jsonb
     )
 ON CONFLICT (catalogue_id, provider_id) DO UPDATE
 SET
@@ -82,23 +82,33 @@ INSERT INTO provider_catalogue_models (
 )
 VALUES
     (
-        'provider-catalogue.phase2a.seed',
+        'provider-catalogue.local.seed',
         'local',
-        'lighthouse-happy-path-v1',
-        'Lighthouse local structured model',
+        'uc1-happy-path-v1',
+        'UC1 local structured model',
         'approved',
-        ARRAY['company_research', 'lead_qualification', 'response_draft', 'response_validation']::text[],
+        ARRAY[
+            'enquiry_classification',
+            'context_gathering',
+            'enquiry_qualification',
+            'missing_data_request_draft',
+            'missing_data_request_validation'
+        ]::text[],
         true,
         8192,
         '{"currency": "USD", "input_usd_per_1m_tokens": 0, "output_usd_per_1m_tokens": 0}'::jsonb
     ),
     (
-        'provider-catalogue.phase2a.seed',
+        'provider-catalogue.local.seed',
         'commercial.example',
         'commercial-reasoner-v1',
         'Commercial reasoning model placeholder',
         'disabled',
-        ARRAY['lead_qualification', 'response_draft', 'response_validation']::text[],
+        ARRAY[
+            'enquiry_qualification',
+            'missing_data_request_draft',
+            'missing_data_request_validation'
+        ]::text[],
         true,
         128000,
         '{"currency": "USD", "input_usd_per_1m_tokens": 3, "output_usd_per_1m_tokens": 15}'::jsonb
@@ -140,7 +150,7 @@ SELECT
     agent_role,
     task_kind,
     tenant_tier,
-    'provider-catalogue.phase2a.seed',
+    'provider-catalogue.local.seed',
     provider,
     model,
     parameters,
@@ -148,10 +158,10 @@ SELECT
     5000,
     '{"mode": "escalate", "fallback_reasons": ["provider_error", "timeout", "rate_limited", "budget_exceeded"]}'::jsonb,
     true,
-    ARRAY['chorus/eval/fixtures/lighthouse_happy_path.json']::text[],
-    '{"change_ref": "2A-02", "approved_by": "architecture-docs"}'::jsonb
+    ARRAY[]::text[],
+    '{"approved_by": "architecture-docs"}'::jsonb
 FROM model_routing_policies
 WHERE provider = 'local'
-  AND model = 'lighthouse-happy-path-v1'
-  AND agent_role IN ('researcher', 'qualifier', 'drafter', 'validator')
+  AND model = 'uc1-happy-path-v1'
+  AND agent_role IN ('classifier', 'context_gatherer', 'qualifier', 'request_drafter', 'validator')
 ON CONFLICT (route_id, route_version) DO NOTHING;

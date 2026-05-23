@@ -9,7 +9,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 
 class EventType(StrEnum):
-    LEAD_RECEIVED = "lead.received"
+    ENQUIRY_RECEIVED = "enquiry.received"
     WORKFLOW_STARTED = "workflow.started"
     WORKFLOW_STEP_STARTED = "workflow.step.started"
     WORKFLOW_STEP_COMPLETED = "workflow.step.completed"
@@ -19,27 +19,7 @@ class EventType(StrEnum):
 
 
 class WorkflowType(StrEnum):
-    LIGHTHOUSE = "lighthouse"
-    SUPPORT_TRIAGE = "support_triage"
-
-
-class Step(StrEnum):
-    INTAKE = "intake"
-    RESEARCH_QUALIFICATION = "research_qualification"
-    DRAFT = "draft"
-    VALIDATION = "validation"
-    PROPOSE_SEND = "propose_send"
-    COMPLETE = "complete"
-    ESCALATE = "escalate"
-    SUPPORT_INTAKE = "support_intake"
-    SUPPORT_CLASSIFICATION = "support_classification"
-    SUPPORT_CONTEXT_LOOKUP = "support_context_lookup"
-    SUPPORT_RESOLUTION_PLAN = "support_resolution_plan"
-    SUPPORT_DRAFT = "support_draft"
-    SUPPORT_VALIDATION = "support_validation"
-    SUPPORT_PROPOSE = "support_propose"
-    SUPPORT_COMPLETE = "support_complete"
-    SUPPORT_ESCALATE = "support_escalate"
+    UC1_ENQUIRY_QUALIFICATION = "uc1_enquiry_qualification"
 
 
 class WorkflowEvent(BaseModel):
@@ -53,9 +33,23 @@ class WorkflowEvent(BaseModel):
     tenant_id: Annotated[str, Field(min_length=1)]
     correlation_id: Annotated[str, Field(pattern="^cor_[A-Za-z0-9_-]+$")]
     workflow_id: Annotated[str, Field(min_length=1)]
-    workflow_type: WorkflowType | None = None
-    lead_id: UUID | None = None
-    subject_ref: Annotated[str | None, Field(pattern="^(lead|req|case)_[A-Za-z0-9_-]+$")] = None
+    workflow_type: WorkflowType
+    subject_id: Annotated[
+        UUID | None, Field(description="The subject the workflow operates on (UC1: enquiry id).")
+    ] = None
+    subject_ref: Annotated[
+        str | None,
+        Field(
+            description="Subject reference in the use case's ubiquitous language.",
+            pattern="^enq_[A-Za-z0-9_-]+$",
+        ),
+    ] = None
     sequence: Annotated[int, Field(ge=1)]
-    step: Step | None = None
+    step: Annotated[
+        str | None,
+        Field(
+            description="Workflow step identifier declared by the use case's WorkflowDefinition.",
+            min_length=1,
+        ),
+    ] = None
     payload: dict[str, Any]

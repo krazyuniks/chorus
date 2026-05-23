@@ -53,10 +53,10 @@ describe("queries", () => {
   });
 
   it("getWorkflow URL-encodes the workflow id", async () => {
-    fetchSpy.mockResolvedValueOnce(json({ workflow_id: "lighthouse/abc" }));
-    await getWorkflow("lighthouse/abc");
+    fetchSpy.mockResolvedValueOnce(json({ workflow_id: "uc1/abc" }));
+    await getWorkflow("uc1/abc");
     expect(fetchSpy).toHaveBeenCalledWith(
-      "/api/workflows/lighthouse%2Fabc",
+      "/api/workflows/uc1%2Fabc",
       expect.anything(),
     );
   });

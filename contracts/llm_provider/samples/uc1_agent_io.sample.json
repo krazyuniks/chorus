@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "1f2c0c1b-90b4-4f3e-8d31-8e9c0a13c1d6",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_enquiry_email_001",
+  "workflow_id": "uc1-enq-cor_enquiry_email_001",
+  "agent_role": "classifier",
+  "task_kind": "enquiry_classification",
+  "input": {
+    "enquiry_id": "8ac7c0fa-f2d6-47b4-b34d-2f9cddf8a5a1",
+    "channel": "email",
+    "subject": "Motor cover enquiry: 2018 hatchback, new driver",
+    "body_text": "Hello,\n\nI am looking for motor cover for my 2018 hatchback. I passed my test six months ago and would like a quote on third-party fire and theft. Postcode SE15.\n\nThanks,\nAlex"
+  },
+  "expected_output_contract": "contracts/llm_provider/uc1_agent_io.schema.json",
+  "result": {
+    "summary": "Personal-lines motor enquiry; standard private car cover; new driver context.",
+    "confidence": 0.86,
+    "structured_data": {
+      "product_family_category": "motor_private_car",
+      "demanded_cover_shape": "third_party_fire_and_theft",
+      "applicant_profile_summary": "primary applicant, recently passed driving test"
+    },
+    "recommended_next_step": "continue",
+    "rationale": "Subject and body align cleanly with motor private car; demanded cover is explicit in the body.",
+    "citations": []
+  }
+}

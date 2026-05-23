@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "catalogue_id": "provider-catalogue.phase2a.seed",
+  "catalogue_id": "provider-catalogue.local.seed",
   "effective_from": "2026-05-03T00:00:00Z",
   "providers": [
     {
@@ -20,14 +20,15 @@
       },
       "supported_models": [
         {
-          "model_id": "lighthouse-happy-path-v1",
-          "display_name": "Lighthouse local structured model",
+          "model_id": "uc1-happy-path-v1",
+          "display_name": "UC1 local structured model",
           "lifecycle_state": "approved",
           "supported_task_kinds": [
-            "company_research",
-            "lead_qualification",
-            "response_draft",
-            "response_validation"
+            "enquiry_classification",
+            "context_gathering",
+            "enquiry_qualification",
+            "missing_data_request_draft",
+            "missing_data_request_validation"
           ],
           "supports_structured_output": true,
           "context_window_tokens": 8192,
@@ -46,8 +47,7 @@
       "audit": {
         "owner": "agent-runtime",
         "declared_in": "contracts/llm_provider/provider_catalogue.schema.json",
-        "change_ref": "2A-01",
-        "notes": "Default runnable path for Lighthouse Phase 1 evidence."
+        "notes": "Default runnable path for UC1 evidence."
       }
     },
     {
@@ -75,9 +75,9 @@
           "display_name": "Commercial reasoning model placeholder",
           "lifecycle_state": "disabled",
           "supported_task_kinds": [
-            "lead_qualification",
-            "response_draft",
-            "response_validation"
+            "enquiry_qualification",
+            "missing_data_request_draft",
+            "missing_data_request_validation"
           ],
           "supports_structured_output": true,
           "context_window_tokens": 128000,
@@ -96,8 +96,7 @@
       "audit": {
         "owner": "agent-runtime",
         "declared_in": "contracts/llm_provider/provider_catalogue.schema.json",
-        "change_ref": "2A-01",
-        "notes": "Contract placeholder only; no Phase 2A adapter is enabled by this sample."
+        "notes": "Contract placeholder only; no adapter is enabled by this sample."
       }
     }
   ]

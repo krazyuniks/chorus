@@ -1,4 +1,10 @@
-"""Mailpit HTTP intake parsing and workflow-start dedupe."""
+"""Mailpit HTTP intake parsing and workflow-start dedupe for the UC1 email channel.
+
+Mailpit is the local sandbox realisation of UC1's `email-channel` intake
+adapter. Inbound messages are validated against
+`contracts/intake/uc1/email_channel_enquiry.schema.json` and started as
+`Uc1EnquiryQualificationWorkflow` runs.
+"""
 
 from __future__ import annotations
 
@@ -17,16 +23,16 @@ from temporalio.client import Client
 from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
 from temporalio.exceptions import WorkflowAlreadyStartedError
 
-from chorus.contracts.generated.intake.uc1.lead_intake import LeadIntake
+from chorus.contracts.generated.intake.uc1.email_channel_enquiry import EmailChannelEnquiry
 from chorus.observability import set_current_span_attributes
-from chorus.workflows.lighthouse import LighthouseWorkflow
 from chorus.workflows.types import (
-    LeadAttachmentSummary,
-    LeadSender,
-    LighthouseWorkflowInput,
+    EnquiryAttachmentSummary,
+    EnquirySender,
     MailpitPollConfig,
     MailpitPollResult,
+    Uc1EnquiryIntake,
 )
+from chorus.workflows.uc1 import Uc1EnquiryQualificationWorkflow
 
 _RECIPIENT_ADAPTER: TypeAdapter[list[str]] = TypeAdapter(list[str])
 _MESSAGE_ID_HEADER = "message-id"
@@ -34,8 +40,8 @@ _DATE_HEADER = "date"
 
 
 class WorkflowStarter(Protocol):
-    async def start_lighthouse(self, lead: LighthouseWorkflowInput, workflow_id: str) -> bool:
-        """Start a Lighthouse workflow.
+    async def start_uc1(self, intake: Uc1EnquiryIntake, workflow_id: str) -> bool:
+        """Start a UC1 enquiry-qualification workflow.
 
         Returns True when a new workflow was started and False when the
         Message-ID-derived workflow already exists.
@@ -59,16 +65,16 @@ class TemporalWorkflowStarter:
         client = await Client.connect(target_host, namespace=namespace)
         return cls(client, task_queue)
 
-    async def start_lighthouse(self, lead: LighthouseWorkflowInput, workflow_id: str) -> bool:
+    async def start_uc1(self, intake: Uc1EnquiryIntake, workflow_id: str) -> bool:
         set_current_span_attributes(
-            tenant_id=lead.tenant_id,
-            correlation_id=lead.correlation_id,
+            tenant_id=intake.tenant_id,
+            correlation_id=intake.correlation_id,
             workflow_id=workflow_id,
         )
         try:
             await self._client.start_workflow(
-                LighthouseWorkflow.run,
-                lead,
+                Uc1EnquiryQualificationWorkflow.run,
+                intake,
                 id=workflow_id,
                 task_queue=self._task_queue,
                 id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
@@ -118,26 +124,26 @@ class MailpitPoller:
 
         for ref in message_refs:
             detail = await _get_json(client, f"/api/v1/message/{ref}")
-            lead = parse_mailpit_message(detail, tenant_id=self._config.tenant_id)
-            if lead is None:
+            intake = parse_mailpit_message(detail, tenant_id=self._config.tenant_id)
+            if intake is None:
                 ignored_message_ids.append(ref)
                 continue
-            lead_recipients = {recipient.lower() for recipient in lead.recipients}
-            if self._config.recipient.lower() not in lead_recipients:
-                ignored_message_ids.append(lead.message_id)
+            recipients = {recipient.lower() for recipient in intake.to_recipients}
+            if self._config.recipient.lower() not in recipients:
+                ignored_message_ids.append(intake.message_id)
                 continue
-            parsed_message_ids.append(lead.message_id)
-            if lead.message_id in seen_message_ids:
-                duplicate_message_ids.append(lead.message_id)
+            parsed_message_ids.append(intake.message_id)
+            if intake.message_id in seen_message_ids:
+                duplicate_message_ids.append(intake.message_id)
                 continue
-            seen_message_ids.add(lead.message_id)
+            seen_message_ids.add(intake.message_id)
 
-            workflow_id = workflow_id_for_message_id(lead.message_id)
-            started = await self._starter.start_lighthouse(lead, workflow_id)
+            workflow_id = workflow_id_for_message_id(intake.message_id)
+            started = await self._starter.start_uc1(intake, workflow_id)
             if started:
                 started_workflow_ids.append(workflow_id)
             else:
-                duplicate_message_ids.append(lead.message_id)
+                duplicate_message_ids.append(intake.message_id)
 
         return MailpitPollResult(
             started_workflow_ids=started_workflow_ids,
@@ -182,7 +188,7 @@ def parse_mailpit_message(
     detail: Mapping[str, Any],
     *,
     tenant_id: str,
-) -> LighthouseWorkflowInput | None:
+) -> Uc1EnquiryIntake | None:
     headers = _headers(detail)
     message_id = _first_string(detail, "MessageID", "MessageId", "Message-ID", "message_id")
     if message_id is None:
@@ -199,73 +205,88 @@ def parse_mailpit_message(
     if subject is None or body_text is None or sender_email is None or not recipients:
         return None
 
-    lead_id = str(uuid5(NAMESPACE_URL, f"chorus:lighthouse:lead:{tenant_id}:{message_id}"))
+    enquiry_id = str(uuid5(NAMESPACE_URL, f"chorus:uc1:enquiry:{tenant_id}:{message_id}"))
     correlation_id = correlation_id_for_message_id(message_id)
-    contract = LeadIntake.model_validate(
+    enquiry_ref = enquiry_ref_for_message_id(message_id)
+    contract = EmailChannelEnquiry.model_validate(
         {
             "schema_version": "1.0.0",
-            "lead_id": lead_id,
+            "enquiry_id": enquiry_id,
             "tenant_id": tenant_id,
             "correlation_id": correlation_id,
-            "source": "mailpit_smtp",
+            "channel": "email",
+            "adapter_id": "email-channel",
             "message_id": message_id,
             "received_at": received_at,
-            "sender": {"display_name": sender_name or "", "email": sender_email},
-            "recipients": recipients,
+            "from_address": {"display_name": sender_name or "", "email": sender_email},
+            "to_recipients": recipients,
             "subject": subject,
             "body_text": body_text,
             "message_headers": headers,
             "attachments_summary": _attachments(detail),
         }
     )
-    return lead_input_from_contract(contract)
+    return uc1_intake_from_contract(contract, enquiry_ref=enquiry_ref)
 
 
-def lead_input_from_contract(contract: LeadIntake) -> LighthouseWorkflowInput:
-    return LighthouseWorkflowInput(
+def uc1_intake_from_contract(
+    contract: EmailChannelEnquiry,
+    *,
+    enquiry_ref: str,
+) -> Uc1EnquiryIntake:
+    return Uc1EnquiryIntake(
         schema_version=contract.schema_version,
-        lead_id=str(contract.lead_id),
+        enquiry_id=str(contract.enquiry_id),
         tenant_id=contract.tenant_id,
         correlation_id=contract.correlation_id,
-        source=contract.source,
+        channel=contract.channel,
+        adapter_id=contract.adapter_id,
         message_id=contract.message_id,
         received_at=contract.received_at.isoformat(),
-        sender=LeadSender(
-            display_name=contract.sender.display_name,
-            email=contract.sender.email,
+        from_address=EnquirySender(
+            display_name=contract.from_address.display_name,
+            email=contract.from_address.email,
         ),
-        recipients=_RECIPIENT_ADAPTER.validate_python(
-            [recipient.root for recipient in contract.recipients]
+        to_recipients=_RECIPIENT_ADAPTER.validate_python(
+            [recipient.root for recipient in contract.to_recipients]
         ),
         subject=contract.subject,
         body_text=contract.body_text,
         message_headers={key: list(values) for key, values in contract.message_headers.items()},
         attachments_summary=[
-            LeadAttachmentSummary(
+            EnquiryAttachmentSummary(
                 filename=attachment.filename,
                 content_type=attachment.content_type,
                 size_bytes=attachment.size_bytes,
             )
             for attachment in contract.attachments_summary
         ],
+        enquiry_ref=enquiry_ref,
     )
 
 
-def lead_input_to_contract_dict(lead: LighthouseWorkflowInput) -> dict[str, object]:
-    payload = asdict(lead)
-    payload["sender"] = asdict(lead.sender)
-    payload["attachments_summary"] = [asdict(attachment) for attachment in lead.attachments_summary]
+def uc1_intake_to_contract_dict(intake: Uc1EnquiryIntake) -> dict[str, object]:
+    payload = asdict(intake)
+    payload["from_address"] = asdict(intake.from_address)
+    payload["attachments_summary"] = [
+        asdict(attachment) for attachment in intake.attachments_summary
+    ]
     return payload
 
 
 def workflow_id_for_message_id(message_id: str) -> str:
     digest = hashlib.sha256(message_id.encode("utf-8")).hexdigest()[:24]
-    return f"lighthouse-{digest}"
+    return f"uc1-enq-{digest}"
 
 
 def correlation_id_for_message_id(message_id: str) -> str:
     digest = hashlib.sha256(message_id.encode("utf-8")).hexdigest()[:24]
     return f"cor_{digest}"
+
+
+def enquiry_ref_for_message_id(message_id: str) -> str:
+    digest = hashlib.sha256(message_id.encode("utf-8")).hexdigest()[:24]
+    return f"enq_{digest}"
 
 
 def _headers(detail: Mapping[str, Any]) -> dict[str, list[str]]:

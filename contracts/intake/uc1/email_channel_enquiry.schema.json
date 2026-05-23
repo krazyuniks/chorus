@@ -1,21 +1,22 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://chorus.local/contracts/intake/uc1/lead_intake.schema.json",
-  "x-subject": "chorus.lead-intake.v1-value",
-  "title": "LeadIntake",
-  "description": "Parsed inbound lead email payload created from Mailpit SMTP intake before a Lighthouse workflow starts.",
+  "$id": "https://chorus.local/contracts/intake/uc1/email_channel_enquiry.schema.json",
+  "x-subject": "chorus.uc1.email-channel-enquiry.v1-value",
+  "title": "EmailChannelEnquiry",
+  "description": "Inbound enquiry payload produced by the UC1 `email-channel` intake adapter from a broker firm's enquiries mailbox. Validated at the intake port before the UC1 enquiry-qualification workflow accepts the enquiry. The mailpit SMTP path is the local-sandbox realisation of this adapter.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
-    "lead_id",
+    "enquiry_id",
     "tenant_id",
     "correlation_id",
-    "source",
+    "channel",
+    "adapter_id",
     "message_id",
     "received_at",
-    "sender",
-    "recipients",
+    "from_address",
+    "to_recipients",
     "subject",
     "body_text",
     "message_headers",
@@ -26,7 +27,7 @@
       "type": "string",
       "const": "1.0.0"
     },
-    "lead_id": {
+    "enquiry_id": {
       "type": "string",
       "format": "uuid"
     },
@@ -38,19 +39,24 @@
       "type": "string",
       "pattern": "^cor_[A-Za-z0-9_-]+$"
     },
-    "source": {
+    "channel": {
       "type": "string",
-      "const": "mailpit_smtp"
+      "const": "email"
+    },
+    "adapter_id": {
+      "type": "string",
+      "const": "email-channel"
     },
     "message_id": {
       "type": "string",
-      "minLength": 3
+      "minLength": 3,
+      "description": "Email Message-ID header value; channel idempotency key."
     },
     "received_at": {
       "type": "string",
       "format": "date-time"
     },
-    "sender": {
+    "from_address": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -67,7 +73,7 @@
         }
       }
     },
-    "recipients": {
+    "to_recipients": {
       "type": "array",
       "minItems": 1,
       "items": {

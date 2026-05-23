@@ -37,11 +37,16 @@ from chorus.contracts.generated.connector.uc1.quoting_queue_route_args import (
 from chorus.contracts.generated.connector.uc1.referral_inbox_route_args import (
     ReferralInboxRouteArgs,
 )
-from chorus.contracts.generated.intake.support_request_intake import SupportRequestIntake
-from chorus.contracts.generated.intake.uc1.lead_intake import LeadIntake
+from chorus.contracts.generated.intake.uc1.email_channel_enquiry import EmailChannelEnquiry
+from chorus.contracts.generated.intake.uc1.partner_portal_channel_enquiry import (
+    PartnerPortalChannelEnquiry,
+)
+from chorus.contracts.generated.intake.uc1.web_form_channel_enquiry import (
+    WebFormChannelEnquiry,
+)
 from chorus.contracts.generated.llm_provider.model_route_version import ModelRouteVersion
 from chorus.contracts.generated.llm_provider.provider_catalogue import ProviderCatalogue
-from chorus.contracts.generated.llm_provider.support_agent_io import SupportAgentIO
+from chorus.contracts.generated.llm_provider.uc1_agent_io import Uc1AgentIO
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -65,7 +70,11 @@ def _sample(rel: str) -> Any:
 
 
 def test_generated_models_validate_representative_samples() -> None:
-    lead_sample = _sample("contracts/intake/uc1/samples/lead_intake.sample.json")
+    email_intake_sample = _sample("contracts/intake/uc1/samples/email_channel_enquiry.sample.json")
+    web_form_sample = _sample("contracts/intake/uc1/samples/web_form_channel_enquiry.sample.json")
+    partner_portal_sample = _sample(
+        "contracts/intake/uc1/samples/partner_portal_channel_enquiry.sample.json"
+    )
     verdict_sample = _sample("contracts/connector/samples/gateway_verdict.sample.json")
     provider_catalogue_sample = _sample(
         "contracts/llm_provider/samples/provider_catalogue.sample.json"
@@ -83,8 +92,7 @@ def test_generated_models_validate_representative_samples() -> None:
     hold_cancellation_sample = _sample(
         "contracts/connector/samples/calendar_hold_cancellation_args.sample.json"
     )
-    support_intake_sample = _sample("contracts/intake/samples/support_request_intake.sample.json")
-    support_agent_sample = _sample("contracts/llm_provider/samples/support_agent_io.sample.json")
+    uc1_agent_sample = _sample("contracts/llm_provider/samples/uc1_agent_io.sample.json")
     customer_profile_sample = _sample(
         "contracts/connector/uc1/samples/customer_profile_lookup_args.sample.json"
     )
@@ -104,7 +112,18 @@ def test_generated_models_validate_representative_samples() -> None:
         "contracts/connector/uc1/samples/decline_ledger_route_args.sample.json"
     )
 
-    assert LeadIntake.model_validate(lead_sample).correlation_id == "cor_lead_acme_001"
+    email_intake = EmailChannelEnquiry.model_validate(email_intake_sample)
+    assert email_intake.channel == "email"
+    assert email_intake.adapter_id == "email-channel"
+
+    web_form = WebFormChannelEnquiry.model_validate(web_form_sample)
+    assert web_form.channel == "web_form"
+    assert web_form.form_submission_id.startswith("wfsub_")
+
+    partner_portal = PartnerPortalChannelEnquiry.model_validate(partner_portal_sample)
+    assert partner_portal.channel == "partner_portal"
+    assert partner_portal.partner_submission_id.startswith("psub_")
+
     assert GatewayVerdict.model_validate(verdict_sample).verdict.value == "allow"
     catalogue = ProviderCatalogue.model_validate(provider_catalogue_sample)
     route_version = ModelRouteVersion.model_validate(route_version_sample)
@@ -115,7 +134,7 @@ def test_generated_models_validate_representative_samples() -> None:
     assert route_version.selected_model.provider_id == "local"
     assert (
         CalendarAvailabilityLookupArgs.model_validate(availability_sample).calendar_ref
-        == "cal_lighthouse_local_followup"
+        == "cal_uc1_local_followup"
     )
     assert CalendarHoldProposalArgs.model_validate(hold_proposal_sample).slot_ref.startswith(
         "slot_"
@@ -129,12 +148,9 @@ def test_generated_models_validate_representative_samples() -> None:
         ).cancellation_reason_category.value
         == "workflow_compensation"
     )
-    assert SupportRequestIntake.model_validate(support_intake_sample).request_ref == (
-        "req_support_001"
-    )
-    support_agent = SupportAgentIO.model_validate(support_agent_sample)
-    assert support_agent.workflow_type == "support_triage"
-    assert support_agent.result.verdict_category.value == "propose_case_update"
+    uc1_agent = Uc1AgentIO.model_validate(uc1_agent_sample)
+    assert uc1_agent.agent_role.value == "classifier"
+    assert uc1_agent.task_kind.value == "enquiry_classification"
     assert (
         CustomerProfileLookupArgs.model_validate(customer_profile_sample).customer_ref
         == "cust_demo_001"

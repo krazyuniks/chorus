@@ -26,7 +26,7 @@ from chorus.contracts.generated.audit.agent_invocation_record import AgentInvoca
 from chorus.contracts.generated.audit.agent_invocation_transcript import (
     AgentInvocationTranscript,
 )
-from chorus.contracts.generated.llm_provider.lighthouse_agent_io import LighthouseAgentIO
+from chorus.contracts.generated.llm_provider.uc1_agent_io import Uc1AgentIO
 from chorus.llm_provider import (
     InvocationArgs,
     InvocationMessage,
@@ -40,7 +40,7 @@ from chorus.observability import current_otel_ids
 from chorus.workflows.types import AgentCitation, AgentInvocationRequest, AgentInvocationResponse
 
 EXECUTION_PIPELINE_VERSION = "agent-runtime-pipeline-v1"
-LIGHTHOUSE_AGENT_CONTRACT_REF = "contracts/llm_provider/lighthouse_agent_io.schema.json"
+UC1_AGENT_CONTRACT_REF = "contracts/llm_provider/uc1_agent_io.schema.json"
 EXECUTION_STEPS = (
     "prepare_context",
     "invoke_llm_provider_port",
@@ -49,7 +49,7 @@ EXECUTION_STEPS = (
     "final_response",
 )
 
-type AgentOutputContract = LighthouseAgentIO
+type AgentOutputContract = Uc1AgentIO
 
 
 class AgentRuntimeError(RuntimeError):
@@ -931,8 +931,8 @@ def _agent_output_contract(
     invocation_id: UUID,
     result: InvocationResult,
 ) -> AgentOutputContract:
-    if request.expected_output_contract == LIGHTHOUSE_AGENT_CONTRACT_REF:
-        return _lighthouse_contract(
+    if request.expected_output_contract == UC1_AGENT_CONTRACT_REF:
+        return _uc1_contract(
             request=request,
             invocation_id=invocation_id,
             result=result,
@@ -942,13 +942,13 @@ def _agent_output_contract(
     )
 
 
-def _lighthouse_contract(
+def _uc1_contract(
     *,
     request: AgentInvocationRequest,
     invocation_id: UUID,
     result: InvocationResult,
-) -> LighthouseAgentIO:
-    return LighthouseAgentIO.model_validate(
+) -> Uc1AgentIO:
+    return Uc1AgentIO.model_validate(
         {
             "schema_version": "1.0.0",
             "task_id": str(invocation_id),
@@ -1218,7 +1218,7 @@ def _route_selection_metadata(
 __all__ = [
     "EXECUTION_PIPELINE_VERSION",
     "EXECUTION_STEPS",
-    "LIGHTHOUSE_AGENT_CONTRACT_REF",
+    "UC1_AGENT_CONTRACT_REF",
     "AgentExecutionResult",
     "AgentOutputContract",
     "AgentRuntime",

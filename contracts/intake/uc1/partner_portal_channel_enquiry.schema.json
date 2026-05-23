@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/intake/uc1/partner_portal_channel_enquiry.schema.json",
+  "x-subject": "chorus.uc1.partner-portal-channel-enquiry.v1-value",
+  "title": "PartnerPortalChannelEnquiry",
+  "description": "Inbound enquiry payload produced by the UC1 `partner-portal-channel` intake adapter from a warm partner-channel handoff (aggregator handoff, partner-embedded broker site). Validated at the intake port before the UC1 enquiry-qualification workflow accepts the enquiry. The partner_submission_id supplied by the partner is the channel idempotency key.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "enquiry_id",
+    "tenant_id",
+    "correlation_id",
+    "channel",
+    "adapter_id",
+    "partner_ref",
+    "partner_submission_id",
+    "received_at",
+    "applicant_profile",
+    "enquiry_payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "enquiry_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^cor_[A-Za-z0-9_-]+$"
+    },
+    "channel": {
+      "type": "string",
+      "const": "partner_portal"
+    },
+    "adapter_id": {
+      "type": "string",
+      "const": "partner-portal-channel"
+    },
+    "partner_ref": {
+      "type": "string",
+      "pattern": "^partner_[A-Za-z0-9_-]+$",
+      "description": "Identifier of the partner channel the submission arrived from."
+    },
+    "partner_submission_id": {
+      "type": "string",
+      "pattern": "^psub_[A-Za-z0-9_-]+$",
+      "description": "Partner-supplied submission identifier; channel idempotency key."
+    },
+    "received_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "applicant_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "applicant_count",
+        "primary_applicant_ref"
+      ],
+      "properties": {
+        "applicant_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "primary_applicant_ref": {
+          "type": "string",
+          "pattern": "^applicant_[A-Za-z0-9_-]+$"
+        },
+        "additional_applicant_refs": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "string",
+            "pattern": "^applicant_[A-Za-z0-9_-]+$"
+          }
+        }
+      }
+    },
+    "enquiry_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "product_family_category",
+        "payload_fields"
+      ],
+      "properties": {
+        "product_family_category": {
+          "type": "string",
+          "enum": [
+            "motor_private_car",
+            "motor_commercial_vehicle",
+            "home_buildings",
+            "home_contents",
+            "home_combined",
+            "travel_single_trip",
+            "travel_annual_multi_trip",
+            "pet"
+          ]
+        },
+        "payload_fields": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Structured product-family-specific field values supplied by the partner."
+        }
+      }
+    }
+  }
+}

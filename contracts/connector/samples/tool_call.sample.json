@@ -3,14 +3,15 @@
   "tool_call_id": "5a54d79a-d311-4c80-b981-20b216552bf8",
   "invocation_id": "17cbf78d-3260-47fb-9095-7729d806b721",
   "tenant_id": "tenant_demo",
-  "correlation_id": "cor_lead_acme_001",
-  "agent_id": "lighthouse-qualifier",
-  "tool_name": "company_research.lookup",
+  "correlation_id": "cor_enquiry_email_001",
+  "agent_id": "uc1.context_gatherer",
+  "tool_name": "customer_profile.lookup",
   "mode": "read",
-  "idempotency_key": "tenant_demo:cor_lead_acme_001:company_research.lookup:acme-field-services",
+  "idempotency_key": "tenant_demo:cor_enquiry_email_001:customer_profile.lookup:cust_demo_001",
   "arguments": {
-    "company_name": "Acme Field Services",
-    "country": "GB"
+    "customer_ref": "cust_demo_001",
+    "enquiry_ref": "enq_motor_private_001",
+    "lookup_policy_ref": "policy_uc1_customer_profile_local_v1"
   },
   "requested_at": "2026-04-29T10:00:20Z"
 }

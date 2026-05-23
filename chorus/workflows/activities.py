@@ -1,4 +1,9 @@
-"""Temporal activities for Lighthouse workflow boundaries."""
+"""Temporal activities for the UC1 enquiry-qualification workflow.
+
+Activity names are workflow-agnostic (`chorus.*`) since they are reused across
+every use case on the shared spine. Activities own the IO, persistence, event
+IDs, and timestamps that the workflow itself cannot perform deterministically.
+"""
 
 from __future__ import annotations
 
@@ -21,7 +26,8 @@ from chorus.observability import current_otel_ids, set_current_span_attributes
 from chorus.persistence import OutboxStore, ProjectionStore
 from chorus.persistence.migrate import database_url_from_env
 from chorus.tool_gateway.gateway import ToolGateway, ToolGatewayStore
-from chorus.workflows.lighthouse import (
+from chorus.workflows.mailpit import MailpitPoller, TemporalWorkflowStarter
+from chorus.workflows.spine import (
     ACTIVITY_INVOKE_AGENT_RUNTIME,
     ACTIVITY_INVOKE_TOOL_GATEWAY,
     ACTIVITY_RECORD_RETRY_EXHAUSTION_DLQ,
@@ -29,8 +35,6 @@ from chorus.workflows.lighthouse import (
     ACTIVITY_RECORD_WORKFLOW_EVENT,
     EVENT_WORKFLOW_FAILED,
 )
-from chorus.workflows.mailpit import MailpitPoller, TemporalWorkflowStarter
-from chorus.workflows.support import ACTIVITY_RECORD_SUPPORT_WORKFLOW_EVENT, SUPPORT_WORKFLOW_TYPE
 from chorus.workflows.types import (
     AgentInvocationRequest,
     AgentInvocationResponse,
@@ -38,7 +42,6 @@ from chorus.workflows.types import (
     MailpitPollResult,
     RetryExhaustionDlqCommand,
     RetryExhaustionDlqResult,
-    SupportWorkflowEventCommand,
     ToolFailureCompensationCommand,
     ToolFailureCompensationResult,
     ToolGatewayRequest,
@@ -46,6 +49,8 @@ from chorus.workflows.types import (
     WorkflowEventCommand,
     WorkflowEventResult,
 )
+
+ACTIVITY_POLL_MAILPIT = "chorus.poll_mailpit"
 
 
 class WorkflowEventSink(Protocol):
@@ -70,37 +75,8 @@ class WorkflowEventRecorder:
                 "tenant_id": command.tenant_id,
                 "correlation_id": command.correlation_id,
                 "workflow_id": command.workflow_id,
-                "lead_id": command.lead_id,
-                "sequence": command.sequence,
-                "step": command.step,
-                "payload": command.payload,
-            }
-        )
-        self._sink_factory().record_workflow_event(event)
-        return WorkflowEventResult(
-            event_id=str(event.event_id),
-            sequence=event.sequence,
-            event_type=event.event_type.value,
-            step=event.step.value if event.step is not None else None,
-        )
-
-
-class SupportWorkflowEventRecorder:
-    def __init__(self, sink_factory: Callable[[], WorkflowEventSink]) -> None:
-        self._sink_factory = sink_factory
-
-    def record(self, command: SupportWorkflowEventCommand) -> WorkflowEventResult:
-        event = WorkflowEvent.model_validate(
-            {
-                "schema_version": "1.0.0",
-                "event_id": str(uuid4()),
-                "event_type": command.event_type,
-                "occurred_at": _now().isoformat(),
-                "tenant_id": command.tenant_id,
-                "correlation_id": command.correlation_id,
-                "workflow_id": command.workflow_id,
-                "workflow_type": SUPPORT_WORKFLOW_TYPE,
-                "lead_id": command.subject_id,
+                "workflow_type": command.workflow_type,
+                "subject_id": command.subject_id,
                 "subject_ref": command.subject_ref,
                 "sequence": command.sequence,
                 "step": command.step,
@@ -112,7 +88,7 @@ class SupportWorkflowEventRecorder:
             event_id=str(event.event_id),
             sequence=event.sequence,
             event_type=event.event_type.value,
-            step=event.step.value if event.step is not None else None,
+            step=event.step if event.step is not None else None,
         )
 
 
@@ -140,21 +116,9 @@ def record_workflow_event_activity(command: WorkflowEventCommand) -> WorkflowEve
     return WorkflowEventRecorder(_postgres_sink_factory).record(command)
 
 
-@activity.defn(name=ACTIVITY_RECORD_SUPPORT_WORKFLOW_EVENT)
-def record_support_workflow_event_activity(
-    command: SupportWorkflowEventCommand,
-) -> WorkflowEventResult:
-    set_current_span_attributes(
-        tenant_id=command.tenant_id,
-        correlation_id=command.correlation_id,
-        workflow_id=command.workflow_id,
-    )
-    return SupportWorkflowEventRecorder(_postgres_sink_factory).record(command)
-
-
 @activity.defn(name=ACTIVITY_INVOKE_AGENT_RUNTIME)
 def invoke_agent_runtime_activity(request: AgentInvocationRequest) -> AgentInvocationResponse:
-    """Stable Agent Runtime activity boundary implemented by Workstream C."""
+    """Stable Agent Runtime activity boundary."""
 
     set_current_span_attributes(
         tenant_id=request.tenant_id,
@@ -172,7 +136,7 @@ def invoke_agent_runtime_activity(request: AgentInvocationRequest) -> AgentInvoc
 
 @activity.defn(name=ACTIVITY_INVOKE_TOOL_GATEWAY)
 def invoke_tool_gateway_activity(request: ToolGatewayRequest) -> ToolGatewayResponse:
-    """Stable Tool Gateway activity boundary implemented by Workstream D."""
+    """Stable Tool Gateway activity boundary."""
 
     set_current_span_attributes(
         tenant_id=request.tenant_id,
@@ -213,7 +177,7 @@ def record_retry_exhaustion_dlq_activity(
         return record_retry_exhaustion_dlq(conn, command)
 
 
-@activity.defn(name="lighthouse.poll_mailpit")
+@activity.defn(name=ACTIVITY_POLL_MAILPIT)
 async def poll_mailpit_activity(config: MailpitPollConfig) -> MailpitPollResult:
     set_current_span_attributes(tenant_id=config.tenant_id)
     starter = await TemporalWorkflowStarter.connect(
@@ -244,7 +208,7 @@ def _record_tool_failure_compensation(
     audit_event_id = uuid5(
         NAMESPACE_URL,
         (
-            "chorus:lighthouse:connector-failure-compensation:"
+            "chorus:uc1:connector-failure-compensation:"
             f"{command.tenant_id}:{command.workflow_id}:{command.idempotency_key}"
         ),
     )
@@ -256,7 +220,7 @@ def _record_tool_failure_compensation(
             "tenant_id": command.tenant_id,
             "correlation_id": command.correlation_id,
             "workflow_id": command.workflow_id,
-            "actor": {"type": "system", "id": "lighthouse.workflow"},
+            "actor": {"type": "system", "id": "uc1.workflow"},
             "category": "connector",
             "action": action,
             "verdict": "recorded",
@@ -271,7 +235,7 @@ def _record_tool_failure_compensation(
                 "compensation": {
                     "status": "escalated",
                     "reason": command.failure_reason,
-                    "lead_id": command.lead_id,
+                    "subject_id": command.subject_id,
                 },
             },
         }
@@ -354,7 +318,7 @@ def record_retry_exhaustion_dlq(
                 uuid5(
                     NAMESPACE_URL,
                     (
-                        "chorus:lighthouse:retry-exhaustion-event:"
+                        "chorus:uc1:retry-exhaustion-event:"
                         f"{command.tenant_id}:{command.workflow_id}:{command.sequence}"
                     ),
                 )
@@ -364,11 +328,12 @@ def record_retry_exhaustion_dlq(
             "tenant_id": command.tenant_id,
             "correlation_id": command.correlation_id,
             "workflow_id": command.workflow_id,
-            "lead_id": command.lead_id,
+            "workflow_type": "uc1_enquiry_qualification",
+            "subject_id": command.subject_id,
             "sequence": command.sequence,
             "step": command.failed_step,
             "payload": {
-                "lead_summary": "retry exhaustion DLQ marker",
+                "enquiry_summary": "retry exhaustion DLQ marker",
                 "outcome": "failed",
                 "failure_classification": "retry_exhausted",
                 "failed_activity": command.failed_activity,
@@ -382,7 +347,7 @@ def record_retry_exhaustion_dlq(
     audit_event_id = uuid5(
         NAMESPACE_URL,
         (
-            "chorus:lighthouse:retry-exhaustion-dlq:"
+            "chorus:uc1:retry-exhaustion-dlq:"
             f"{command.tenant_id}:{command.workflow_id}:{command.sequence}"
         ),
     )
@@ -394,7 +359,7 @@ def record_retry_exhaustion_dlq(
             "tenant_id": command.tenant_id,
             "correlation_id": command.correlation_id,
             "workflow_id": command.workflow_id,
-            "actor": {"type": "system", "id": "lighthouse.workflow"},
+            "actor": {"type": "system", "id": "uc1.workflow"},
             "category": "workflow",
             "action": action,
             "verdict": "recorded",

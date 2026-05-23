@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/intake/uc1/web_form_channel_enquiry.schema.json",
+  "x-subject": "chorus.uc1.web-form-channel-enquiry.v1-value",
+  "title": "WebFormChannelEnquiry",
+  "description": "Inbound enquiry payload produced by the UC1 `web-form-channel` intake adapter from the broker firm's own structured web enquiry form. Validated at the intake port before the UC1 enquiry-qualification workflow accepts the enquiry. The form_version is preserved as provenance; the channel idempotency key is the form_submission_id minted by the adapter.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "enquiry_id",
+    "tenant_id",
+    "correlation_id",
+    "channel",
+    "adapter_id",
+    "form_submission_id",
+    "received_at",
+    "form_version",
+    "fields",
+    "consent_flags"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "enquiry_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^cor_[A-Za-z0-9_-]+$"
+    },
+    "channel": {
+      "type": "string",
+      "const": "web_form"
+    },
+    "adapter_id": {
+      "type": "string",
+      "const": "web-form-channel"
+    },
+    "form_submission_id": {
+      "type": "string",
+      "pattern": "^wfsub_[A-Za-z0-9_-]+$",
+      "description": "Adapter-minted submission identifier; channel idempotency key."
+    },
+    "received_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "form_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the form definition the submission was made against."
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Structured form field values keyed by field name."
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 10000,
+      "description": "Free-text notes the customer added to the form."
+    },
+    "consent_flags": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contact_consent"
+      ],
+      "properties": {
+        "contact_consent": {
+          "type": "boolean"
+        },
+        "marketing_consent": {
+          "type": "boolean"
+        }
+      }
+    },
+    "source_referrer": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Optional source referrer (search, partner site embed, etc.)."
+    }
+  }
+}

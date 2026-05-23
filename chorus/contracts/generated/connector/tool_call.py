@@ -9,19 +9,16 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 
 class ToolName(StrEnum):
-    COMPANY_RESEARCH_LOOKUP = "company_research.lookup"
-    CRM_LOOKUP_COMPANY = "crm.lookup_company"
-    CRM_CREATE_LEAD = "crm.create_lead"
     CALENDAR_LOOKUP_AVAILABILITY = "calendar.lookup_availability"
     CALENDAR_PROPOSE_HOLD = "calendar.propose_hold"
     CALENDAR_CREATE_HOLD = "calendar.create_hold"
     CALENDAR_CANCEL_HOLD = "calendar.cancel_hold"
-    TICKET_LOOKUP_CASE = "ticket.lookup_case"
-    TICKET_LOOKUP_DUPLICATES = "ticket.lookup_duplicates"
-    TICKET_PROPOSE_CASE_UPDATE = "ticket.propose_case_update"
-    TICKET_UPDATE_STATUS = "ticket.update_status"
-    EMAIL_PROPOSE_RESPONSE = "email.propose_response"
-    EMAIL_SEND_RESPONSE = "email.send_response"
+    CRM_ROUTE_TO_QUOTING_QUEUE = "crm.route_to_quoting_queue"
+    REFERRAL_INBOX_ROUTE = "referral_inbox.route"
+    DECLINE_LEDGER_ROUTE = "decline_ledger.route"
+    OUTBOUND_COMMS_MESSAGE = "outbound_comms.message"
+    CUSTOMER_PROFILE_LOOKUP = "customer_profile.lookup"
+    PRODUCT_CATALOGUE_LOOKUP = "product_catalogue.lookup"
 
 
 class Mode(StrEnum):

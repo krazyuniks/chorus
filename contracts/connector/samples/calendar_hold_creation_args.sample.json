@@ -1,16 +1,16 @@
 {
-  "calendar_ref": "cal_lighthouse_local_followup",
-  "hold_ref": "hold_lighthouse_demo_001",
-  "slot_ref": "slot_lighthouse_demo_20260519_0930",
-  "event_uid_ref": "evt_hold_lighthouse_demo_001",
+  "calendar_ref": "cal_uc1_local_followup",
+  "hold_ref": "hold_uc1_demo_001",
+  "slot_ref": "slot_uc1_demo_20260519_0930",
+  "event_uid_ref": "evt_hold_uc1_demo_001",
   "starts_at": "2026-05-19T09:30:00Z",
   "ends_at": "2026-05-19T10:00:00Z",
-  "meeting_type": "lighthouse_follow_up",
+  "meeting_type": "enquiry_follow_up",
   "participant_refs": [
-    "participant_lighthouse_owner",
-    "participant_demo_lead"
+    "participant_uc1_owner",
+    "participant_demo_enquiry"
   ],
-  "summary_category": "lead_follow_up",
+  "summary_category": "enquiry_follow_up",
   "busy_status": "tentative",
   "visibility": "busy_only"
 }

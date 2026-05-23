@@ -1,12 +1,12 @@
 {
-  "calendar_ref": "cal_lighthouse_local_followup",
-  "hold_ref": "hold_lighthouse_demo_001",
-  "slot_ref": "slot_lighthouse_demo_20260519_0930",
-  "meeting_type": "lighthouse_follow_up",
+  "calendar_ref": "cal_uc1_local_followup",
+  "hold_ref": "hold_uc1_demo_001",
+  "slot_ref": "slot_uc1_demo_20260519_0930",
+  "meeting_type": "enquiry_follow_up",
   "participant_refs": [
-    "participant_lighthouse_owner",
-    "participant_demo_lead"
+    "participant_uc1_owner",
+    "participant_demo_enquiry"
   ],
-  "summary_category": "lead_follow_up",
-  "proposal_note_ref": "note_lighthouse_followup_template"
+  "summary_category": "enquiry_follow_up",
+  "proposal_note_ref": "note_uc1_followup_template"
 }

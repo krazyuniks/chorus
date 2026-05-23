@@ -15,9 +15,10 @@ export interface WorkflowRunSummary {
   closed_at: string | null;
   updated_at: string;
   correlation_id: string;
-  lead_id: string;
-  lead_subject: string | null;
-  lead_from: string | null;
+  subject_id: string;
+  subject_ref: string | null;
+  subject_summary: string | null;
+  subject_from: string | null;
   metadata: Record<string, unknown>;
 }
 

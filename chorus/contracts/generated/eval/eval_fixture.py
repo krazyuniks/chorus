@@ -15,8 +15,7 @@ class Phase(StrEnum):
 
 
 class WorkflowType(StrEnum):
-    LIGHTHOUSE = "lighthouse"
-    SUPPORT_TRIAGE = "support_triage"
+    UC1_ENQUIRY_QUALIFICATION = "uc1_enquiry_qualification"
 
 
 class Input(BaseModel):
@@ -24,10 +23,7 @@ class Input(BaseModel):
         extra="forbid",
     )
     email_fixture_path: Annotated[str | None, Field(min_length=1)] = None
-    support_request_ref: Annotated[str | None, Field(pattern="^req_[A-Za-z0-9_-]+$")] = None
-    support_request_fixture_ref: Annotated[
-        str | None, Field(pattern="^fixture_[A-Za-z0-9_-]+$")
-    ] = None
+    enquiry_fixture_ref: Annotated[str | None, Field(pattern="^fixture_[A-Za-z0-9_-]+$")] = None
     tenant_id: Annotated[str, Field(min_length=1)]
 
 

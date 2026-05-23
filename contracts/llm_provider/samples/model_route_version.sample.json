@@ -5,14 +5,14 @@
   "lifecycle_state": "approved",
   "route_key": {
     "tenant_id": "tenant_demo",
-    "agent_role": "drafter",
-    "task_kind": "response_draft",
+    "agent_role": "request_drafter",
+    "task_kind": "missing_data_request_draft",
     "tenant_tier": "demo"
   },
   "selected_model": {
-    "provider_catalogue_id": "provider-catalogue.phase2a.seed",
+    "provider_catalogue_id": "provider-catalogue.local.seed",
     "provider_id": "local",
-    "model_id": "lighthouse-happy-path-v1",
+    "model_id": "uc1-happy-path-v1",
     "parameters": {
       "temperature": 0.3
     }
@@ -32,10 +32,7 @@
   },
   "promotion": {
     "eval_required": true,
-    "eval_fixture_refs": [
-      "chorus/eval/fixtures/lighthouse_happy_path.json"
-    ],
-    "change_ref": "2A-01",
+    "eval_fixture_refs": [],
     "approved_by": "architecture-docs"
   }
 }

@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "enquiry_id": "8ac7c0fa-f2d6-47b4-b34d-2f9cddf8a5a1",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_enquiry_email_001",
+  "channel": "email",
+  "adapter_id": "email-channel",
+  "message_id": "<enquiry-motor-001@example.test>",
+  "received_at": "2026-04-29T10:00:05Z",
+  "from_address": {
+    "display_name": "Alex Morgan",
+    "email": "alex.morgan@example.test"
+  },
+  "to_recipients": [
+    "enquiries@broker-firm.local"
+  ],
+  "subject": "Motor cover enquiry: 2018 hatchback, new driver",
+  "body_text": "Hello,\n\nI am looking for motor cover for my 2018 hatchback. I passed my test six months ago and would like a quote on third-party fire and theft. Postcode SE15.\n\nThanks,\nAlex",
+  "message_headers": {
+    "From": [
+      "Alex Morgan <alex.morgan@example.test>"
+    ],
+    "To": [
+      "enquiries@broker-firm.local"
+    ],
+    "Message-ID": [
+      "<enquiry-motor-001@example.test>"
+    ]
+  },
+  "attachments_summary": []
+}

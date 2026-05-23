@@ -14,9 +14,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--mailpit-base-url", default="http://localhost:8025")
     parser.add_argument("--temporal-target-host", default="localhost:7233")
     parser.add_argument("--temporal-namespace", default="default")
-    parser.add_argument("--task-queue", default="lighthouse")
+    parser.add_argument("--task-queue", default="chorus-uc1")
     parser.add_argument("--tenant-id", default="tenant_demo")
-    parser.add_argument("--recipient", default="leads@chorus.local")
+    parser.add_argument("--recipient", default="enquiries@broker-firm.local")
     parser.add_argument("--page-size", type=int, default=50)
     return parser
 

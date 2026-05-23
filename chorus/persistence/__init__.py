@@ -1,4 +1,4 @@
-"""Postgres persistence and projection helpers for the Phase 1A storage slice."""
+"""Postgres persistence and projection helpers."""
 
 from __future__ import annotations
 
@@ -24,12 +24,6 @@ if TYPE_CHECKING:
         ProviderCatalogueProvider,
         ProviderGovernanceSnapshot,
         RuntimePolicySnapshot,
-        SupportAgentDecisionReadModel,
-        SupportCaseUpdateProposalReadModel,
-        SupportInspectionReadModel,
-        SupportStatusWriteBoundaryReadModel,
-        SupportTicketVerdictReadModel,
-        SupportWorkflowEventReadModel,
         ToolActionAuditReadModel,
         ToolGrant,
         WorkflowHistoryEventReadModel,
@@ -52,12 +46,6 @@ __all__ = [
     "ProviderCatalogueProvider",
     "ProviderGovernanceSnapshot",
     "RuntimePolicySnapshot",
-    "SupportAgentDecisionReadModel",
-    "SupportCaseUpdateProposalReadModel",
-    "SupportInspectionReadModel",
-    "SupportStatusWriteBoundaryReadModel",
-    "SupportTicketVerdictReadModel",
-    "SupportWorkflowEventReadModel",
     "ToolActionAuditReadModel",
     "ToolGrant",
     "WorkflowHistoryEventReadModel",
@@ -86,12 +74,6 @@ def __getattr__(name: str) -> Any:
         "ProviderCatalogueProvider",
         "ProviderGovernanceSnapshot",
         "RuntimePolicySnapshot",
-        "SupportAgentDecisionReadModel",
-        "SupportCaseUpdateProposalReadModel",
-        "SupportInspectionReadModel",
-        "SupportStatusWriteBoundaryReadModel",
-        "SupportTicketVerdictReadModel",
-        "SupportWorkflowEventReadModel",
         "ToolActionAuditReadModel",
         "ToolGrant",
         "WorkflowHistoryEventReadModel",

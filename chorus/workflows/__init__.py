@@ -1,19 +1,19 @@
-"""Temporal workflow implementations for Chorus local evidence slices."""
+"""Temporal workflow implementations for Chorus use cases."""
 
-from chorus.workflows.lighthouse import LighthouseWorkflow
-from chorus.workflows.support import SupportTriageWorkflow
 from chorus.workflows.types import (
-    LighthouseWorkflowInput,
-    LighthouseWorkflowResult,
-    SupportWorkflowInput,
-    SupportWorkflowResult,
+    Uc1EnquiryIntake,
+    Uc1WorkflowResult,
+)
+from chorus.workflows.uc1 import (
+    UC1_ENQUIRY_QUALIFICATION_DEFINITION,
+    UC1_WORKFLOW_TYPE,
+    Uc1EnquiryQualificationWorkflow,
 )
 
 __all__ = [
-    "LighthouseWorkflow",
-    "LighthouseWorkflowInput",
-    "LighthouseWorkflowResult",
-    "SupportTriageWorkflow",
-    "SupportWorkflowInput",
-    "SupportWorkflowResult",
+    "UC1_ENQUIRY_QUALIFICATION_DEFINITION",
+    "UC1_WORKFLOW_TYPE",
+    "Uc1EnquiryIntake",
+    "Uc1EnquiryQualificationWorkflow",
+    "Uc1WorkflowResult",
 ]

@@ -3,7 +3,7 @@
   "$id": "https://chorus.local/contracts/projection/workflow_event.schema.json",
   "x-subject": "chorus.workflow.events.v1-value",
   "title": "WorkflowEvent",
-  "description": "Schema-governed workflow event emitted through the transactional outbox to Redpanda.",
+  "description": "Schema-governed workflow event emitted through the transactional outbox to Redpanda. The shape is use-case-agnostic: `workflow_type` names the use-case workflow on the spine, `step` carries the workflow's typed-step identifier, and the rest is correlation / sequencing / payload data shared across every use case.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,6 +14,7 @@
     "tenant_id",
     "correlation_id",
     "workflow_id",
+    "workflow_type",
     "sequence",
     "payload"
   ],
@@ -29,7 +30,7 @@
     "event_type": {
       "type": "string",
       "enum": [
-        "lead.received",
+        "enquiry.received",
         "workflow.started",
         "workflow.step.started",
         "workflow.step.completed",
@@ -57,17 +58,18 @@
     "workflow_type": {
       "type": "string",
       "enum": [
-        "lighthouse",
-        "support_triage"
+        "uc1_enquiry_qualification"
       ]
     },
-    "lead_id": {
+    "subject_id": {
       "type": "string",
-      "format": "uuid"
+      "format": "uuid",
+      "description": "The subject the workflow operates on (UC1: enquiry id)."
     },
     "subject_ref": {
       "type": "string",
-      "pattern": "^(lead|req|case)_[A-Za-z0-9_-]+$"
+      "pattern": "^enq_[A-Za-z0-9_-]+$",
+      "description": "Subject reference in the use case's ubiquitous language."
     },
     "sequence": {
       "type": "integer",
@@ -75,24 +77,8 @@
     },
     "step": {
       "type": "string",
-      "enum": [
-        "intake",
-        "research_qualification",
-        "draft",
-        "validation",
-        "propose_send",
-        "complete",
-        "escalate",
-        "support_intake",
-        "support_classification",
-        "support_context_lookup",
-        "support_resolution_plan",
-        "support_draft",
-        "support_validation",
-        "support_propose",
-        "support_complete",
-        "support_escalate"
-      ]
+      "minLength": 1,
+      "description": "Workflow step identifier declared by the use case's WorkflowDefinition."
     },
     "payload": {
       "type": "object"

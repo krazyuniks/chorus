@@ -31,7 +31,7 @@ from chorus.contracts.generated.audit.agent_invocation_record import AgentInvoca
 from chorus.contracts.generated.audit.agent_invocation_transcript import (
     AgentInvocationTranscript,
 )
-from chorus.contracts.generated.llm_provider.lighthouse_agent_io import LighthouseAgentIO
+from chorus.contracts.generated.llm_provider.uc1_agent_io import Uc1AgentIO
 from chorus.llm_provider import (
     InvocationArgs,
     InvocationResult,
@@ -82,44 +82,44 @@ def migrated_database_url() -> Iterator[str]:
 
 
 def _request(
-    task_kind: str = "response_draft",
-    role: str = "drafter",
+    task_kind: str = "missing_data_request_draft",
+    role: str = "request_drafter",
     input_payload: dict[str, Any] | None = None,
 ) -> AgentInvocationRequest:
     return AgentInvocationRequest(
         tenant_id="tenant_demo",
         correlation_id=f"cor_agent_runtime_{uuid4().hex}",
-        workflow_id=f"lighthouse-agent-runtime-{uuid4().hex}",
-        lead_id=str(uuid4()),
+        workflow_id=f"uc1-agent-runtime-{uuid4().hex}",
+        subject_id=str(uuid4()),
         agent_role=role,
         task_kind=task_kind,
-        input=input_payload or {"lead_subject": "Need help choosing a CRM automation partner"},
-        expected_output_contract="contracts/llm_provider/lighthouse_agent_io.schema.json",
+        input=input_payload or {"enquiry_subject": "Motor cover enquiry"},
+        expected_output_contract="contracts/llm_provider/uc1_agent_io.schema.json",
     )
 
 
 def _resolution(
     *,
     provider: str = "local",
-    model: str = "lighthouse-happy-path-v1",
+    model: str = "uc1-happy-path-v1",
     fallback_policy: dict[str, Any] | None = None,
 ) -> RuntimeResolution:
     return RuntimeResolution(
         tenant=TenantPolicy(tenant_id="tenant_demo", tenant_tier="demo", status="active"),
         agent=ResolvedAgent(
-            agent_id="lighthouse.drafter",
-            role="drafter",
+            agent_id="uc1.request_drafter",
+            role="request_drafter",
             version="v1",
             lifecycle_state="approved",
             owner="agent-runtime",
-            prompt_reference="prompts/lighthouse/drafter/v1.md",
+            prompt_reference="prompts/uc1/request-drafter/v1.md",
             prompt_hash="sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-            capability_tags=["lighthouse", "drafting"],
+            capability_tags=["uc1", "drafting"],
         ),
         model_route=ResolvedModelRoute(
             provider=provider,
             model=model,
-            task_kind="response_draft",
+            task_kind="missing_data_request_draft",
             parameters={"temperature": 0.3},
             budget_cap_usd=Decimal("0.01"),
             fallback_policy=fallback_policy or {"on_provider_error": "escalate"},
@@ -189,7 +189,7 @@ def _fallback_route_policy() -> dict[str, Any]:
         "fallback_reasons": ["provider_error", "fixture_outage", "budget_exceeded"],
         "fallback_route": {
             "provider": "local",
-            "model": "lighthouse-happy-path-v1",
+            "model": "uc1-happy-path-v1",
             "parameters": {"temperature": 0.3},
         },
     }
@@ -224,7 +224,7 @@ def test_sequential_engine_runs_pipeline_through_route_catalogue() -> None:
         "validate_contract",
         "final_response",
     )
-    assert isinstance(execution.contract, LighthouseAgentIO)
+    assert isinstance(execution.contract, Uc1AgentIO)
     assert execution.decision_metadata["execution.pipeline_version"] == EXECUTION_PIPELINE_VERSION
     assert execution.decision_metadata["route_catalogue.route_id"] == "recorded-replay"
     assert execution.decision_metadata["route_catalogue.provider_id"] == "local-replay"
@@ -293,7 +293,7 @@ def test_runtime_records_provider_failure_then_invokes_policy_fallback() -> None
             RouteCatalogueEntry(
                 route_id="recorded-replay",
                 provider_id="local",
-                model_id="lighthouse-happy-path-v1",
+                model_id="uc1-happy-path-v1",
                 adapter=RecordedReplayAdapter(),
             ),
             RouteCatalogueEntry(
@@ -335,7 +335,7 @@ def test_runtime_records_provider_budget_exceeded_then_invokes_policy_fallback()
             RouteCatalogueEntry(
                 route_id="recorded-replay",
                 provider_id="local",
-                model_id="lighthouse-happy-path-v1",
+                model_id="uc1-happy-path-v1",
                 adapter=RecordedReplayAdapter(),
             ),
             RouteCatalogueEntry(
@@ -374,7 +374,7 @@ def test_default_route_catalogue_registers_three_routes() -> None:
     assert replay.adapter_version.startswith("recorded-replay")
 
 
-def test_runtime_validates_lighthouse_contract_for_response_draft(
+def test_runtime_validates_uc1_contract_for_missing_data_request_draft(
     migrated_database_url: str,
 ) -> None:
     """Integration: AgentRuntime invokes through the resolved model route in Postgres."""
@@ -416,10 +416,10 @@ def test_policy_resolution_uses_registry_prompt_and_model_route(
         resolution = store.resolve(_request())
 
     assert resolution.tenant.tenant_id == "tenant_demo"
-    assert resolution.agent.role == "drafter"
+    assert resolution.agent.role == "request_drafter"
     assert resolution.agent.lifecycle_state == "approved"
     assert resolution.model_route.provider == "local"
-    assert resolution.model_route.model == "lighthouse-happy-path-v1"
+    assert resolution.model_route.model == "uc1-happy-path-v1"
 
 
 def test_activity_integration_invokes_runtime_boundary(
@@ -443,8 +443,8 @@ def test_activity_integration_invokes_runtime_boundary(
     assert row[0] == "succeeded"
 
 
-def test_lighthouse_agent_contract_round_trip_through_runtime() -> None:
-    """The LighthouseAgentIO contract is produced and JSON-serialisable end-to-end."""
+def test_uc1_agent_contract_round_trip_through_runtime() -> None:
+    """The Uc1AgentIO contract is produced and JSON-serialisable end-to-end."""
 
     store = RecordingRuntimeStore(_resolution())
     runtime = AgentRuntime(store, _replay_catalogue())
@@ -452,5 +452,5 @@ def test_lighthouse_agent_contract_round_trip_through_runtime() -> None:
     runtime.invoke(_request())
 
     payload = json.loads(store.records[0].model_dump_json())
-    assert payload["agent"]["role"] == "drafter"
+    assert payload["agent"]["role"] == "request_drafter"
     assert payload["model_route"]["provider"] == "local"

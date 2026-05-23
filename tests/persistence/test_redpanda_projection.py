@@ -75,12 +75,14 @@ def _workflow_event(*, topic_token: str) -> WorkflowEvent:
             "occurred_at": "2026-04-29T12:00:00Z",
             "tenant_id": "tenant_demo",
             "correlation_id": f"cor_{topic_token}",
-            "workflow_id": f"lighthouse-{topic_token}",
-            "lead_id": str(uuid4()),
+            "workflow_id": f"uc1-enq-{topic_token}",
+            "workflow_type": "uc1_enquiry_qualification",
+            "subject_id": str(uuid4()),
+            "subject_ref": f"enq_redpanda_{topic_token[:12]}",
             "sequence": 1,
             "step": "intake",
             "payload": {
-                "lead_summary": "Redpanda projection fixture",
+                "enquiry_summary": "Redpanda projection fixture",
                 "status": "started",
             },
         }
@@ -148,6 +150,6 @@ def test_outbox_event_relays_through_redpanda_and_projects_idempotently(
     assert read_model is not None
     assert read_model.status == "running"
     assert read_model.current_step == "intake"
-    assert read_model.lead_summary == "Redpanda projection fixture"
+    assert read_model.subject_summary == "Redpanda projection fixture"
     assert status == ("sent", 1, True)
     assert history_count == (1,)

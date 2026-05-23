@@ -38,8 +38,7 @@
     "workflow_type": {
       "type": "string",
       "enum": [
-        "lighthouse",
-        "support_triage"
+        "uc1_enquiry_qualification"
       ]
     },
     "input": {
@@ -53,11 +52,7 @@
           "type": "string",
           "minLength": 1
         },
-        "support_request_ref": {
-          "type": "string",
-          "pattern": "^req_[A-Za-z0-9_-]+$"
-        },
-        "support_request_fixture_ref": {
+        "enquiry_fixture_ref": {
           "type": "string",
           "pattern": "^fixture_[A-Za-z0-9_-]+$"
         },

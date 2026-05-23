@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 
 class MeetingType(StrEnum):
-    LIGHTHOUSE_FOLLOW_UP = "lighthouse_follow_up"
+    ENQUIRY_FOLLOW_UP = "enquiry_follow_up"
     DISCOVERY_CALL = "discovery_call"
     QUALIFICATION_REVIEW = "qualification_review"
 
@@ -18,7 +18,7 @@ class ParticipantRef(RootModel[str]):
 
 
 class SummaryCategory(StrEnum):
-    LEAD_FOLLOW_UP = "lead_follow_up"
+    ENQUIRY_FOLLOW_UP = "enquiry_follow_up"
     PROPOSAL_REVIEW = "proposal_review"
     INTERNAL_REVIEW = "internal_review"
 

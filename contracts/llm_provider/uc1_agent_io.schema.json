@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://chorus.local/contracts/llm_provider/lighthouse_agent_io.schema.json",
-  "title": "LighthouseAgentIO",
-  "description": "Structured request and result envelope for Lighthouse agent tasks.",
+  "$id": "https://chorus.local/contracts/llm_provider/uc1_agent_io.schema.json",
+  "title": "Uc1AgentIO",
+  "description": "Structured request and result envelope for UC1 enquiry-qualification agent tasks dispatched through the LLM provider port.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -41,21 +41,21 @@
     "agent_role": {
       "type": "string",
       "enum": [
-        "intake",
-        "researcher",
+        "classifier",
+        "context_gatherer",
         "qualifier",
-        "drafter",
+        "request_drafter",
         "validator"
       ]
     },
     "task_kind": {
       "type": "string",
       "enum": [
-        "intake_classification",
-        "company_research",
-        "lead_qualification",
-        "response_draft",
-        "response_validation"
+        "enquiry_classification",
+        "context_gathering",
+        "enquiry_qualification",
+        "missing_data_request_draft",
+        "missing_data_request_validation"
       ]
     },
     "input": {
@@ -93,7 +93,7 @@
           "type": "string",
           "enum": [
             "continue",
-            "deeper_research",
+            "deeper_context",
             "redraft",
             "propose",
             "send",

@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "enquiry_id": "5c1ab9be-3f1e-4ad6-a3ba-2f9a3d6f1ad2",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_enquiry_webform_001",
+  "channel": "web_form",
+  "adapter_id": "web-form-channel",
+  "form_submission_id": "wfsub_home_combined_001",
+  "received_at": "2026-04-30T09:12:44Z",
+  "form_version": "broker-firm-home-v3",
+  "fields": {
+    "product_family": "home_combined",
+    "postcode": "SE15",
+    "property_type": "terraced",
+    "rebuild_value_band": "260000_320000",
+    "contents_value_band": "30000_45000",
+    "claims_history_5y": "none"
+  },
+  "notes": "Moving in next month, would like cover from 2026-05-15. Joint application with partner.",
+  "consent_flags": {
+    "contact_consent": true,
+    "marketing_consent": false
+  },
+  "source_referrer": "https://aggregator.example/compare/home"
+}

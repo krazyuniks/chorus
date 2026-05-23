@@ -17,10 +17,10 @@ class LifecycleState(StrEnum):
 
 
 class AgentRole(StrEnum):
-    INTAKE = "intake"
-    RESEARCHER = "researcher"
+    CLASSIFIER = "classifier"
+    CONTEXT_GATHERER = "context_gatherer"
     QUALIFIER = "qualifier"
-    DRAFTER = "drafter"
+    REQUEST_DRAFTER = "request_drafter"
     VALIDATOR = "validator"
 
 
@@ -93,7 +93,6 @@ class Promotion(BaseModel):
     )
     eval_required: bool
     eval_fixture_refs: list[EvalFixtureRef]
-    change_ref: Annotated[str, Field(min_length=1)]
     approved_by: Annotated[str | None, Field(min_length=1)] = None
 
 

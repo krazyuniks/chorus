@@ -9,16 +9,11 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, RootModel
 
 
 class Role(StrEnum):
-    INTAKE = "intake"
-    RESEARCHER = "researcher"
+    CLASSIFIER = "classifier"
+    CONTEXT_GATHERER = "context_gatherer"
     QUALIFIER = "qualifier"
-    DRAFTER = "drafter"
+    REQUEST_DRAFTER = "request_drafter"
     VALIDATOR = "validator"
-    SUPPORT_CLASSIFIER = "support_classifier"
-    SUPPORT_CONTEXT_RESEARCHER = "support_context_researcher"
-    SUPPORT_RESOLUTION_PLANNER = "support_resolution_planner"
-    SUPPORT_DRAFTER = "support_drafter"
-    SUPPORT_VALIDATOR = "support_validator"
 
 
 class LifecycleState(StrEnum):

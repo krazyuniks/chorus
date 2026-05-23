@@ -99,7 +99,6 @@ class Audit(BaseModel):
     )
     owner: Annotated[str, Field(min_length=1)]
     declared_in: Annotated[str, Field(min_length=1)]
-    change_ref: Annotated[str, Field(min_length=1)]
     notes: str | None = None
 
 

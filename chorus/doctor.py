@@ -1,7 +1,7 @@
 """Readiness checks for the Chorus local runtime and planning contract.
 
 Doctor is the single command a reviewer or contributor runs to verify the
-project layout and the local stack are ready for the Lighthouse slice.
+project layout and the local stack are ready for the UC1 enquiry-qualification slice.
 
 Two modes:
 
@@ -131,7 +131,8 @@ WORKSTREAM_A_PATHS = [
 ]
 
 WORKSTREAM_B_PATHS = [
-    "chorus/workflows/lighthouse.py",
+    "chorus/workflows/spine.py",
+    "chorus/workflows/uc1.py",
     "chorus/workflows/activities.py",
     "chorus/workflows/mailpit.py",
     "chorus/workflows/intake.py",
@@ -140,9 +141,8 @@ WORKSTREAM_B_PATHS = [
     "services/intake-poller/Dockerfile",
     "services/intake-poller/pyproject.toml",
     "tests/workflows/test_activities.py",
-    "tests/workflows/test_lighthouse_workflow.py",
+    "tests/workflows/test_uc1_workflow.py",
     "tests/workflows/test_mailpit_intake.py",
-    "tests/workflows/fixtures/lighthouse_happy_history.json",
 ]
 
 WORKSTREAM_E_PATHS = [
@@ -344,7 +344,7 @@ def check_temporal() -> int:
         _ok(f"temporal UI reachable on localhost:{ui_port}")
     else:
         _skip(f"temporal UI not reachable on localhost:{ui_port}")
-    task_queue = os.environ.get("LIGHTHOUSE_TASK_QUEUE", "lighthouse")
+    task_queue = os.environ.get("CHORUS_TASK_QUEUE", "chorus-uc1")
     try:
         pollers = asyncio.run(_describe_temporal_task_queue(task_queue=task_queue))
     except Exception as exc:
