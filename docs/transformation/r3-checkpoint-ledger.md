@@ -287,7 +287,7 @@ Order is settled by Phase 1 decision 6.
 |---|---|---|
 | A | Contract rewrite around the six named ports. | done |
 | B | LLM provider port: LangGraph removed, OpenAI-SDK adapter, route catalogue. | done |
-| C | Audit ports: decision-trail port and transcript port split. | pending |
+| C | Audit ports: decision-trail port and transcript port split. | done |
 | D | Connector adapter registry replacing the hardcoded match dispatch. | pending |
 | E | Shared workflow spine factored out of the Lighthouse / Support duplication. | pending |
 | F | `projection.py` and `doctor.py` decomposed along port boundaries. | pending |
@@ -464,3 +464,52 @@ together with their callers in B / E / F / G.
 
 **Gates.** `just contracts-check`, `just lint`, `just test`,
 `just test-replay`, `just eval`.
+
+**Evidence (2026-05-23, Session 1).** New contract authored at
+`contracts/audit/agent_invocation_transcript.schema.json` plus its
+sample under `samples/`, generated to
+`chorus/contracts/generated/audit/agent_invocation_transcript.py`.
+Records the route catalogue entry (route id, provider id, model id,
+adapter version, parameters as called), the full message history sent
+and received, tool calls, the optional provider response body, token
+usage, provider metadata, and timestamps - the surface ADR 0019 calls
+out as "enough to replay any captured invocation against an alternate
+provider through the LLM provider port". The decision-trail port
+contract (`agent_invocation_record`) stays shape-preserved; it already
+carries the compliance fields (correlation refs, agent identity and
+version, prompt reference, input / output summaries, tool-call summary
+ids, timestamps, cost).
+
+New forward migration
+`infrastructure/postgres/migrations/010_audit_transcript_port.sql`
+creates `agent_invocation_transcripts` (tenant-scoped RLS, primary key
+on `(tenant_id, transcript_id)`, unique constraint on
+`(tenant_id, invocation_id)` so a transcript anchors one-to-one on the
+decision-trail entry, indexes on `(tenant_id, workflow_id, started_at)`
+and `(tenant_id, route_id, completed_at)` for the replay surfaces G
+will add).
+
+`chorus/agent_runtime/runtime.py` extended: `RuntimePolicyStore`
+Protocol gains a `record_transcript(AgentInvocationTranscript)` method,
+`AgentRuntimeStore` implements it as a Postgres INSERT,
+`AgentExecutionResult` carries the `request_messages` the engine sent
+to the port, and `AgentRuntime.invoke` plus `_invoke_fallback` call
+`record_transcript` alongside `record_decision` on every successful
+invocation (success path and successful fallback). The transcript is
+built by `_transcript_record` from the execution result and the route
+catalogue entry. `ProviderInvocationError` carries `request_messages`
+and `route_entry` attributes so future iterations can attach a
+transcript to LLM-call failures too.
+
+`tests/agent_runtime/test_runtime.py` updated:
+`RecordingRuntimeStore` records transcripts as well as decisions; a new
+`test_runtime_records_decision_trail_and_transcript_on_every_invocation`
+asserts the two records are paired on the same `invocation_id` and the
+transcript carries the route catalogue surface. `tests/test_contracts.py`
+schema count adjusted from 21 to 22.
+
+Gates: `just contracts-check` ok (22 schemas, 22 samples, generated
+models current), `just lint` clean (ruff, ruff format, pyright strict,
+frontend `tsc --noEmit` all clean), `just test` 96 passed / 3 errors
+(3 = known BFF test-isolation baseline), `just test-replay` 6 passed,
+`just eval` all path-enumeration fixtures pass.

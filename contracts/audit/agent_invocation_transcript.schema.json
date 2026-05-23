@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/audit/agent_invocation_transcript.schema.json",
+  "x-subject": "chorus.agent-invocation-transcripts.v1-value",
+  "title": "AgentInvocationTranscript",
+  "description": "Full-fidelity transcript port record (ADR 0019). Carries the full message history, tool-call sequence, route catalogue entry, model parameters as called, provider-side metadata, and token counts - enough to replay the invocation against an alternate provider through the LLM provider port.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "transcript_id",
+    "invocation_id",
+    "tenant_id",
+    "correlation_id",
+    "workflow_id",
+    "route_catalogue",
+    "messages",
+    "tool_calls",
+    "token_usage",
+    "started_at",
+    "completed_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "transcript_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "invocation_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Matches AgentInvocationRecord.invocation_id; the decision-trail anchor."
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^cor_[A-Za-z0-9_-]+$"
+    },
+    "workflow_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "route_catalogue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route_id",
+        "provider_id",
+        "model_id",
+        "adapter_version"
+      ],
+      "properties": {
+        "route_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "adapter_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parameters": {
+          "type": "object"
+        }
+      }
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "content"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "system",
+              "user",
+              "assistant",
+              "tool"
+            ]
+          },
+          "content": {
+            "type": "string"
+          },
+          "tool_call_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "tool_calls": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "response_body": {
+      "type": "object",
+      "description": "Provider-side response body; optional for the recorded/replay route."
+    },
+    "token_usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prompt_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completion_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "provider_metadata": {
+      "type": "object",
+      "description": "Provider-specific metadata (response id, model echoed, latency)."
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

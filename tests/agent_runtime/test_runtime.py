@@ -28,6 +28,9 @@ from chorus.agent_runtime import (
     default_route_catalogue,
 )
 from chorus.contracts.generated.audit.agent_invocation_record import AgentInvocationRecord
+from chorus.contracts.generated.audit.agent_invocation_transcript import (
+    AgentInvocationTranscript,
+)
 from chorus.contracts.generated.llm_provider.lighthouse_agent_io import LighthouseAgentIO
 from chorus.llm_provider import (
     InvocationArgs,
@@ -129,6 +132,7 @@ class RecordingRuntimeStore:
         self._resolution = resolution
         self.records: list[AgentInvocationRecord] = []
         self.metadata: list[dict[str, Any]] = []
+        self.transcripts: list[AgentInvocationTranscript] = []
 
     def resolve(self, request: AgentInvocationRequest) -> RuntimeResolution:
         _ = request
@@ -142,6 +146,9 @@ class RecordingRuntimeStore:
     ) -> None:
         self.records.append(record)
         self.metadata.append(metadata or {})
+
+    def record_transcript(self, record: AgentInvocationTranscript) -> None:
+        self.transcripts.append(record)
 
 
 @dataclass
@@ -253,6 +260,26 @@ def test_runtime_invokes_recorded_replay_route_and_records_decision_trail() -> N
     assert metadata["route_catalogue.route_id"] == "recorded-replay"
     assert metadata["model_route.provider"] == "local"
     assert metadata["model_route.cost_amount_usd"] == "0.000000"
+
+
+def test_runtime_records_decision_trail_and_transcript_on_every_invocation() -> None:
+    """Per ADR 0019, every invocation writes both audit-port records."""
+
+    store = RecordingRuntimeStore(_resolution())
+    runtime = AgentRuntime(store, _replay_catalogue())
+
+    runtime.invoke(_request())
+
+    assert len(store.records) == 1
+    assert len(store.transcripts) == 1
+    decision, transcript = store.records[0], store.transcripts[0]
+    assert str(transcript.invocation_id) == str(decision.invocation_id)
+    assert transcript.tenant_id == decision.tenant_id
+    assert transcript.route_catalogue.route_id == "recorded-replay"
+    assert transcript.route_catalogue.provider_id == "local-replay"
+    assert transcript.route_catalogue.adapter_version == "recorded-replay-v1"
+    assert any(message.role.value == "user" for message in transcript.messages)
+    assert any(message.role.value == "assistant" for message in transcript.messages)
 
 
 def test_runtime_records_provider_failure_then_invokes_policy_fallback() -> None:

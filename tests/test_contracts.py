@@ -43,7 +43,7 @@ def test_contract_gate_passes() -> None:
 def test_contract_schemas_have_samples_and_generated_models() -> None:
     schemas = schema_files()
 
-    assert len(schemas) == 21
+    assert len(schemas) == 22
     for schema in schemas:
         name = schema.name.removesuffix(".schema.json")
         assert (schema.parent / "samples" / f"{name}.sample.json").exists()

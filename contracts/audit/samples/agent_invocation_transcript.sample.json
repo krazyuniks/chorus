@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0.0",
+  "transcript_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  "invocation_id": "11111111-2222-4333-8444-555555555555",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_lighthouse_transcript_001",
+  "workflow_id": "lighthouse-demo-workflow-001",
+  "route_catalogue": {
+    "route_id": "recorded-replay",
+    "provider_id": "local-replay",
+    "model_id": "recorded-replay-v1",
+    "adapter_version": "recorded-replay-v1",
+    "parameters": {
+      "temperature": 0.3
+    }
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "{\"lead_subject\": \"Need help choosing a CRM automation partner\"}"
+    },
+    {
+      "role": "assistant",
+      "content": "Drafted a concise response proposing a discovery call and pilot outline."
+    }
+  ],
+  "tool_calls": [],
+  "token_usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0
+  },
+  "provider_metadata": {
+    "adapter": "recorded-replay-v1"
+  },
+  "started_at": "2026-05-23T12:00:00Z",
+  "completed_at": "2026-05-23T12:00:00.250Z"
+}

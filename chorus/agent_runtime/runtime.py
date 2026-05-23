@@ -23,6 +23,9 @@ from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field
 
 from chorus.contracts.generated.audit.agent_invocation_record import AgentInvocationRecord
+from chorus.contracts.generated.audit.agent_invocation_transcript import (
+    AgentInvocationTranscript,
+)
 from chorus.contracts.generated.llm_provider.lighthouse_agent_io import LighthouseAgentIO
 from chorus.llm_provider import (
     InvocationArgs,
@@ -73,6 +76,8 @@ class ProviderInvocationError(AgentRuntimeError):
         self.model = model
         self.fallback_reason = reason
         self.retryable = retryable
+        self.request_messages: tuple[InvocationMessage, ...] = ()
+        self.route_entry: RouteCatalogueEntry | None = None
         super().__init__(message or f"Provider {provider!r} model {model!r} failed: {reason}")
 
     @property
@@ -171,6 +176,7 @@ class AgentExecutionResult:
     step_path: tuple[str, ...]
     route_entry: RouteCatalogueEntry
     decision_metadata: dict[str, Any]
+    request_messages: tuple[InvocationMessage, ...]
 
 
 @dataclass(frozen=True)
@@ -215,14 +221,15 @@ class SequentialAgentExecutionEngine:
         step_path.append("prepare_context")
         input_summary = _summarise_mapping(request.input)
         route_entry = self._route_resolver.resolve(resolution.model_route, self._route_catalogue)
+        args = self._build_invocation_args(
+            request=request,
+            resolution=resolution,
+            route_entry=route_entry,
+        )
 
         step_path.append("invoke_llm_provider_port")
         try:
-            invocation_result = self._invoke_port(
-                request=request,
-                resolution=resolution,
-                route_entry=route_entry,
-            )
+            invocation_result = self._route_catalogue.invoke(args)
         except LLMProviderInvocationError as exc:
             failure = ProviderInvocationError(
                 provider=resolution.model_route.provider,
@@ -232,6 +239,8 @@ class SequentialAgentExecutionEngine:
                 message=str(exc),
             )
             failure.execution_step_path = tuple(step_path)
+            failure.request_messages = args.messages
+            failure.route_entry = route_entry
             raise failure from exc
         except AgentRuntimeError as exc:
             exc.execution_step_path = tuple(step_path)
@@ -262,16 +271,17 @@ class SequentialAgentExecutionEngine:
             step_path=tuple(step_path),
             route_entry=route_entry,
             decision_metadata=_execution_metadata(route_entry, tuple(step_path)),
+            request_messages=args.messages,
         )
 
-    def _invoke_port(
+    def _build_invocation_args(
         self,
         *,
         request: AgentInvocationRequest,
         resolution: RuntimeResolution,
         route_entry: RouteCatalogueEntry,
-    ) -> InvocationResult:
-        args = InvocationArgs(
+    ) -> InvocationArgs:
+        return InvocationArgs(
             route_id=route_entry.route_id,
             messages=(
                 InvocationMessage(
@@ -291,7 +301,6 @@ class SequentialAgentExecutionEngine:
                 },
             },
         )
-        return self._route_catalogue.invoke(args)
 
 
 class RouteResolver(Protocol):
@@ -339,6 +348,8 @@ class RuntimePolicyStore(Protocol):
         *,
         metadata: dict[str, Any] | None = None,
     ) -> None: ...
+
+    def record_transcript(self, record: AgentInvocationTranscript) -> None: ...
 
 
 class AgentRuntimeStore:
@@ -448,6 +459,61 @@ class AgentRuntimeStore:
                     [contract_ref.root for contract_ref in record.contract_refs],
                     Jsonb(raw_record),
                     Jsonb(decision_metadata),
+                ),
+            )
+
+    def record_transcript(self, record: AgentInvocationTranscript) -> None:
+        raw_record = record.model_dump(mode="json")
+        route = record.route_catalogue
+        self.set_tenant_context(record.tenant_id)
+        with self._conn.transaction():
+            self._conn.execute(
+                """
+                INSERT INTO agent_invocation_transcripts (
+                    tenant_id,
+                    transcript_id,
+                    invocation_id,
+                    correlation_id,
+                    workflow_id,
+                    route_id,
+                    provider_id,
+                    model_id,
+                    adapter_version,
+                    parameters,
+                    messages,
+                    tool_calls,
+                    response_body,
+                    token_usage,
+                    provider_metadata,
+                    started_at,
+                    completed_at,
+                    raw_record
+                )
+                VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s
+                )
+                ON CONFLICT (tenant_id, invocation_id) DO NOTHING
+                """,
+                (
+                    record.tenant_id,
+                    record.transcript_id,
+                    record.invocation_id,
+                    record.correlation_id,
+                    record.workflow_id,
+                    route.route_id,
+                    route.provider_id,
+                    route.model_id,
+                    route.adapter_version,
+                    Jsonb(_as_jsonable(route.parameters)),
+                    Jsonb([message.model_dump(mode="json") for message in record.messages]),
+                    Jsonb([_as_jsonable(call) for call in record.tool_calls]),
+                    Jsonb(_as_jsonable(record.response_body)) if record.response_body else None,
+                    Jsonb(record.token_usage.model_dump(mode="json")),
+                    Jsonb(_as_jsonable(record.provider_metadata) or {}),
+                    record.started_at,
+                    record.completed_at,
+                    Jsonb(raw_record),
                 ),
             )
 
@@ -640,6 +706,17 @@ class AgentRuntime:
                 duration_ms=duration_ms,
             ),
         )
+        self._store.record_transcript(
+            _transcript_record(
+                execution=execution,
+                invocation_id=invocation_id,
+                tenant_id=request.tenant_id,
+                correlation_id=request.correlation_id,
+                workflow_id=request.workflow_id,
+                started_at=started_at,
+                completed_at=completed_at,
+            )
+        )
         return execution.response
 
     def _invoke_fallback(
@@ -725,7 +802,76 @@ class AgentRuntime:
             )
             | _provider_fallback_metadata(fallback, applied=True),
         )
+        self._store.record_transcript(
+            _transcript_record(
+                execution=execution,
+                invocation_id=invocation_id,
+                tenant_id=request.tenant_id,
+                correlation_id=request.correlation_id,
+                workflow_id=request.workflow_id,
+                started_at=started_at,
+                completed_at=completed_at,
+            )
+        )
         return execution.response
+
+
+def _transcript_record(
+    *,
+    execution: AgentExecutionResult,
+    invocation_id: UUID,
+    tenant_id: str,
+    correlation_id: str,
+    workflow_id: str,
+    started_at: datetime,
+    completed_at: datetime,
+) -> AgentInvocationTranscript:
+    result = execution.invocation_result
+    route_entry = execution.route_entry
+    request_messages = [
+        {"role": message.role, "content": message.content}
+        | ({"tool_call_id": message.tool_call_id} if message.tool_call_id else {})
+        | ({"name": message.name} if message.name else {})
+        for message in execution.request_messages
+    ]
+    response_messages = [
+        {"role": message.role, "content": message.content} for message in result.raw_messages
+    ]
+    if not response_messages:
+        response_messages = [
+            {"role": "assistant", "content": result.summary or ""},
+        ]
+    return AgentInvocationTranscript.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "transcript_id": str(uuid4()),
+            "invocation_id": str(invocation_id),
+            "tenant_id": tenant_id,
+            "correlation_id": correlation_id,
+            "workflow_id": workflow_id,
+            "route_catalogue": {
+                "route_id": route_entry.route_id,
+                "provider_id": route_entry.provider_id,
+                "model_id": route_entry.model_id,
+                "adapter_version": route_entry.adapter_version,
+                "parameters": route_entry.parameters,
+            },
+            "messages": request_messages + response_messages,
+            "tool_calls": [_as_jsonable(call) for call in result.tool_calls],
+            "token_usage": result.token_usage,
+            "provider_metadata": _as_jsonable(result.provider_metadata) or None,
+            "started_at": started_at.isoformat(),
+            "completed_at": completed_at.isoformat(),
+        }
+    )
+
+
+def _as_jsonable(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(k): _as_jsonable(v) for k, v in cast(dict[Any, Any], value).items()}
+    if isinstance(value, list | tuple):
+        return [_as_jsonable(item) for item in cast(list[Any] | tuple[Any, ...], value)]
+    return value
 
 
 def _decision_record(
