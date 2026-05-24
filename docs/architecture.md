@@ -243,7 +243,7 @@ proves accountability proves model quality. The full eval reshape is in
 | Aspect | Detail |
 |---|---|
 | Role | Derives read models for inspection. |
-| Adapter contract shape | Domain event schemas on the event stream; per-use-case read-model schemas. The shared `workflow_event` contract carries the declared UC1, UC2, and UC3 workflow families and safe root-subject refs. |
+| Adapter contract shape | Domain event schemas on the event stream; per-use-case read-model schemas. The shared `workflow_event` contract carries the declared UC1, UC2, and UC3 workflow families, safe root-subject refs, and a use-case-neutral `subject_summary` payload field for read-model display. |
 | Adapter inventory | A Postgres projection adapter feeding the read-only BFF; a Redpanda event consumer that drives the derivation. |
 | Invariants | Replaying the same event stream twice produces the same read-model state. The sink is read-only; there is no write path back through it. |
 

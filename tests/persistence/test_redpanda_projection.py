@@ -82,7 +82,7 @@ def _workflow_event(*, topic_token: str) -> WorkflowEvent:
             "sequence": 1,
             "step": "intake",
             "payload": {
-                "enquiry_summary": "Redpanda projection fixture",
+                "subject_summary": "Redpanda projection fixture",
                 "status": "started",
             },
         }

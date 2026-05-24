@@ -176,7 +176,7 @@ class BffFixture:
             started_at=self.now,
             completed_at=self.now,
             updated_at=self.now,
-            metadata={"sender": "enquiry@example.com"},
+            metadata={"subject_from": "enquiry@example.com", "sender": "enquiry@example.com"},
         )
 
     def event(self) -> WorkflowHistoryEventReadModel:
@@ -189,7 +189,7 @@ class BffFixture:
             event_type="enquiry.received",
             sequence=1,
             step="intake",
-            payload={"enquiry_summary": "Motor cover enquiry"},
+            payload={"subject_summary": "Motor cover enquiry"},
             occurred_at=self.now,
             created_at=self.now,
         )

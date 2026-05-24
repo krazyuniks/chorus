@@ -81,7 +81,9 @@ def seeded_bff(migrated_database_url: str) -> TestClient:
                 "sequence": 1,
                 "step": "intake",
                 "payload": {
-                    "enquiry_summary": "BFF projection enquiry",
+                    "subject_summary": "BFF projection enquiry",
+                    "subject_from": "enquiry@example.com",
+                    "source_message_id": "<bff-projection@example.test>",
                     "sender": "enquiry@example.com",
                 },
             }

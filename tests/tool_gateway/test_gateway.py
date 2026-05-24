@@ -165,6 +165,7 @@ def _build_request(
         workflow_type="uc1_enquiry_qualification",
         subject_id=str(subject_id),
         subject_ref=f"enq_gateway_{subject_id.hex[:12]}",
+        subject_summary="Motor cover gateway request",
     )
 
 
@@ -263,6 +264,7 @@ class _InMemoryGatewayStore:
         self.grant = _ApprovalGrant()
         self.approval_package: Any | None = None
         self.approval_record: _InMemoryApprovalRecord | None = None
+        self.audit_events: list[Any] = []
 
     def fetch_idempotent_response(self, **_: Any) -> None:
         return None
@@ -295,6 +297,9 @@ class _InMemoryGatewayStore:
         return None
 
     def record_audit(self, **kwargs: Any) -> None:
+        audit_event = kwargs.get("audit_event")
+        if audit_event is not None:
+            self.audit_events.append(audit_event)
         approval_package = kwargs.get("approval_package")
         if approval_package is not None:
             self.approval_package = approval_package
@@ -334,6 +339,12 @@ def test_approval_package_creation_uses_generic_safe_authority_refs() -> None:
     assert package.policy_version_refs["sla_policy_ref"] == (
         "approval_sla.outbound_comms_message_write.local.v1"
     )
+    assert store.audit_events[-1].details["subject"] == {
+        "workflow_type": "uc2_legal_services_intake_conflict_check",
+        "subject_id": request.subject_id,
+        "subject_ref": "legal_intake_gateway_001",
+        "subject_summary": "Motor cover gateway request",
+    }
     assert package.metadata["scope"] == "generic_connector_write"
     assert package.metadata["subject_refs"]["subject_ref"] == "legal_intake_gateway_001"
     assert package.metadata["action_refs"] == {

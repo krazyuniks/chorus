@@ -1463,6 +1463,7 @@ def _audit_event(
     extra_details: dict[str, Any] | None = None,
 ) -> AuditEvent:
     details: dict[str, Any] = {
+        "subject": _subject_context_for_request(request),
         "tool_call": tool_call.model_dump(mode="json"),
         "gateway_verdict": verdict.model_dump(mode="json"),
         "gateway_response": response.__dict__,
@@ -1499,6 +1500,7 @@ def _connector_failure_audit_event(
     extra_details: dict[str, Any] | None = None,
 ) -> AuditEvent:
     details: dict[str, Any] = {
+        "subject": _subject_context_for_request(request),
         "tool_call": tool_call.model_dump(mode="json"),
         "gateway_verdict": verdict.model_dump(mode="json"),
         "connector_failure": _connector_failure_details(
@@ -1524,6 +1526,17 @@ def _connector_failure_audit_event(
             "details": details,
         }
     )
+
+
+def _subject_context_for_request(request: ToolGatewayRequest) -> dict[str, str]:
+    subject: dict[str, str] = {"workflow_type": request.workflow_type}
+    if request.subject_id is not None:
+        subject["subject_id"] = request.subject_id
+    if request.subject_ref is not None:
+        subject["subject_ref"] = request.subject_ref
+    if request.subject_summary is not None:
+        subject["subject_summary"] = request.subject_summary
+    return subject
 
 
 def _redact(arguments: dict[str, Any], grant: ToolGrant | None) -> dict[str, Any]:

@@ -128,7 +128,11 @@ def _current_step_for(event: WorkflowEvent) -> str | None:
     return None
 
 
-def _subject_summary_for(event: WorkflowEvent) -> str:
+def subject_summary_for_event(event: WorkflowEvent) -> str:
+    subject_summary = event.payload.get("subject_summary")
+    if isinstance(subject_summary, str):
+        return subject_summary
+
     enquiry_summary = event.payload.get("enquiry_summary")
     if isinstance(enquiry_summary, str):
         return enquiry_summary
@@ -140,14 +144,22 @@ def _subject_summary_for(event: WorkflowEvent) -> str:
     return ""
 
 
-def _metadata_for(event: WorkflowEvent) -> dict[str, Any]:
+def metadata_for_event(event: WorkflowEvent) -> dict[str, Any]:
     metadata: dict[str, Any] = {"last_event_type": event.event_type.value}
+    subject_from = event.payload.get("subject_from")
+    if isinstance(subject_from, str):
+        metadata["subject_from"] = subject_from
     sender = event.payload.get("sender")
     if isinstance(sender, str):
         metadata["sender"] = sender
+        metadata.setdefault("subject_from", sender)
+    source_message_id = event.payload.get("source_message_id")
+    if isinstance(source_message_id, str):
+        metadata["source_message_id"] = source_message_id
     message_id = event.payload.get("message_id")
     if isinstance(message_id, str):
         metadata["message_id"] = message_id
+        metadata.setdefault("source_message_id", message_id)
     channel = event.payload.get("channel")
     if isinstance(channel, str):
         metadata["channel"] = channel
@@ -253,8 +265,8 @@ class ProjectionStore:
         status = _status_for(event)
         current_step = _current_step_for(event)
         completed_at = _completed_at_for(status, event.occurred_at)
-        subject_summary = _subject_summary_for(event)
-        metadata = _metadata_for(event)
+        subject_summary = subject_summary_for_event(event)
+        metadata = metadata_for_event(event)
 
         self._conn.execute(
             """

@@ -205,6 +205,12 @@ def _record_tool_failure_compensation(
 ) -> ToolFailureCompensationResult:
     occurred_at = _now()
     action = "connector.failure.compensated"
+    subject_context = _subject_context(
+        workflow_type=command.workflow_type,
+        subject_id=command.subject_id,
+        subject_ref=command.subject_ref,
+        subject_summary=command.subject_summary,
+    )
     audit_event_id = uuid5(
         NAMESPACE_URL,
         (
@@ -226,6 +232,7 @@ def _record_tool_failure_compensation(
             "action": action,
             "verdict": "recorded",
             "details": {
+                "subject": subject_context,
                 "failed_tool_action": {
                     "invocation_id": command.invocation_id,
                     "agent_id": command.agent_id,
@@ -238,6 +245,7 @@ def _record_tool_failure_compensation(
                     "reason": command.failure_reason,
                     "subject_id": command.subject_id,
                     "subject_ref": command.subject_ref,
+                    "subject_summary": command.subject_summary,
                     "workflow_type": command.workflow_type,
                 },
             },
@@ -314,6 +322,12 @@ def record_retry_exhaustion_dlq(
 ) -> RetryExhaustionDlqResult:
     occurred_at = _now()
     action = "workflow.retry_exhausted.dlq_recorded"
+    subject_context = _subject_context(
+        workflow_type=command.workflow_type,
+        subject_id=command.subject_id,
+        subject_ref=command.subject_ref,
+        subject_summary=command.subject_summary,
+    )
     event = WorkflowEvent.model_validate(
         {
             "schema_version": "1.0.0",
@@ -338,7 +352,8 @@ def record_retry_exhaustion_dlq(
             "sequence": command.sequence,
             "step": command.failed_step,
             "payload": {
-                "enquiry_summary": "retry exhaustion DLQ marker",
+                "subject_summary": command.subject_summary or "retry exhaustion DLQ marker",
+                "dlq_summary": "retry exhaustion DLQ marker",
                 "outcome": "failed",
                 "failure_classification": "retry_exhausted",
                 "failed_activity": command.failed_activity,
@@ -371,6 +386,7 @@ def record_retry_exhaustion_dlq(
             "action": action,
             "verdict": "recorded",
             "details": {
+                "subject": subject_context,
                 "retry_exhaustion": {
                     "failed_activity": command.failed_activity,
                     "failed_step": command.failed_step,
@@ -378,6 +394,7 @@ def record_retry_exhaustion_dlq(
                     "reason": command.failure_reason,
                     "subject_id": command.subject_id,
                     "subject_ref": command.subject_ref,
+                    "subject_summary": command.subject_summary,
                     "workflow_type": command.workflow_type,
                 },
                 "dlq": {
@@ -464,6 +481,23 @@ def record_retry_exhaustion_dlq(
         reason=command.failure_reason,
         sequence=command.sequence,
     )
+
+
+def _subject_context(
+    *,
+    workflow_type: str,
+    subject_id: str,
+    subject_ref: str,
+    subject_summary: str | None,
+) -> dict[str, str]:
+    context = {
+        "workflow_type": workflow_type,
+        "subject_id": subject_id,
+        "subject_ref": subject_ref,
+    }
+    if subject_summary is not None:
+        context["subject_summary"] = subject_summary
+    return context
 
 
 def _redact_tool_arguments(arguments: dict[str, object]) -> dict[str, object]:

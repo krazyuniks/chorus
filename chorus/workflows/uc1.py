@@ -154,6 +154,7 @@ class Uc1EnquiryQualificationWorkflow:
             workflow_actor_id=UC1_WORKFLOW_ACTOR_ID,
             subject_id=intake.enquiry_id,
             subject_ref=intake.enquiry_ref,
+            subject_summary=intake.subject,
         )
         spine = WorkflowSpine(correlation)
 
@@ -161,10 +162,12 @@ class Uc1EnquiryQualificationWorkflow:
             EVENT_ENQUIRY_RECEIVED,
             STEP_INTAKE,
             {
-                "enquiry_summary": intake.subject,
+                "subject_summary": intake.subject,
                 "subject": intake.subject,
                 "channel": intake.channel,
                 "adapter_id": intake.adapter_id,
+                "subject_from": intake.from_address.email,
+                "source_message_id": intake.message_id,
                 "sender": intake.from_address.email,
                 "message_id": intake.message_id,
                 "enquiry_ref": intake.enquiry_ref,
@@ -173,12 +176,11 @@ class Uc1EnquiryQualificationWorkflow:
         await spine.emit(
             EVENT_WORKFLOW_STARTED,
             STEP_INTAKE,
-            {"enquiry_summary": intake.subject, "enquiry_ref": intake.enquiry_ref},
+            {"enquiry_ref": intake.enquiry_ref},
         )
         await spine.step(
             STEP_INTAKE,
             {
-                "enquiry_summary": intake.subject,
                 "channel": intake.channel,
                 "body_chars": len(intake.body_text),
             },

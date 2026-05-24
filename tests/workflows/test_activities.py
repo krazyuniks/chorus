@@ -32,7 +32,7 @@ def test_workflow_event_recorder_uses_projection_store_interface() -> None:
             event_type="workflow.step.completed",
             step="missing_data_request_draft",
             payload={
-                "enquiry_summary": "Motor cover enquiry",
+                "subject_summary": "Motor cover enquiry",
                 "draft_summary": "Drafted missing-data request",
             },
         )
@@ -50,4 +50,5 @@ def test_workflow_event_recorder_uses_projection_store_interface() -> None:
     assert event.workflow_type.value == "uc1_enquiry_qualification"
     assert str(event.subject_id) == subject_id
     assert event.subject_ref == "enq_motor_private_001"
+    assert event.payload["subject_summary"] == "Motor cover enquiry"
     assert event.payload["draft_summary"] == "Drafted missing-data request"

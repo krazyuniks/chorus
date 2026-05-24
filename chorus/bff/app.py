@@ -588,7 +588,9 @@ def _sse_payload(event_id: str, event: ProgressEvent) -> str:
 
 
 def _workflow_view(row: WorkflowRunReadModel) -> WorkflowRunSummary:
-    subject_from = row.metadata.get("sender")
+    subject_from = row.metadata.get("subject_from")
+    if not isinstance(subject_from, str):
+        subject_from = row.metadata.get("sender")
     return WorkflowRunSummary(
         workflow_id=row.workflow_id,
         run_id=None,

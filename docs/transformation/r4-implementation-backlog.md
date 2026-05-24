@@ -140,7 +140,7 @@ channel runnable status are separate claims.
   activity-owned DLQ/outbox paths.
 - [x] Generalise Tool Gateway approval package creation and apply semantics
   beyond the current calendar-shaped path.
-- [ ] Introduce use-case-neutral subject summary vocabulary across projection,
+- [x] Introduce use-case-neutral subject summary vocabulary across projection,
   DLQ, and audit payloads.
 - [ ] Refactor eval into common invariants plus per-use-case conduct invariant
   modules.
@@ -453,6 +453,53 @@ channel runnable status are separate claims.
   slice did not change contracts, runtime use-case breadth, connector
   adapters, eval, or UI behaviour.
 
+### 2026-05-24 - Subject Summary Vocabulary Generalisation
+
+- Scope: fourth P1 multi-use-case foundation slice for neutral root-subject
+  summary vocabulary across projection, retry-DLQ, and audit payloads.
+- Files changed: shared workflow DTOs and spine payload enrichment,
+  UC1 workflow event payloads, activity-owned retry-DLQ / compensation audit
+  payloads, Tool Gateway audit payloads, projection helper vocabulary,
+  BFF source-summary fallback, eval scenario projection payloads, projection
+  contract sample / description, focused tests, architecture / observability
+  docs, and this backlog handoff.
+- Behaviour changed:
+  - `WorkflowCorrelation` now carries safe `subject_summary`; `WorkflowSpine`
+    injects it into emitted workflow-event payloads unless a caller already
+    supplied one;
+  - active UC1 workflow events use `subject_summary`, `subject_from`, and
+    `source_message_id`, while projection fallback still accepts legacy
+    `enquiry_summary`, `sender`, and `message_id` for old rows and current UI
+    compatibility;
+  - retry-exhaustion DLQ events now separate the root `subject_summary` from
+    the DLQ marker as `dlq_summary`;
+  - workflow retry-DLQ, connector-failure compensation, and Tool Gateway audit
+    events carry a generic `subject` context with workflow type, subject refs,
+    and safe subject summary;
+  - offline eval scenario projection events now use `subject_summary` without
+    changing fixture schema breadth or adding UC2 / UC3 runtime paths.
+- Gates run:
+  - `uv run pytest tests/workflows/test_activities.py tests/workflows/test_uc1_workflow.py tests/tool_gateway/test_gateway.py tests/bff/test_app_unit.py -rs`
+    - 12 passed and 6 skipped; skipped cases were DB-backed Tool Gateway
+    tests because local Postgres on `localhost:5432` rejected the configured
+    `chorus` user.
+  - `uv run pytest tests/persistence/test_postgres_foundation.py -rs` -
+    1 passed and 14 skipped; skipped cases were DB-backed persistence tests
+    because local Postgres rejected the configured `chorus` user.
+  - `uv run pytest tests/eval/test_run.py -rs` - green, 5 passed.
+  - `just eval` - green for the two current UC1 offline eval fixtures.
+  - `just test-replay` - green, 2 passed and 5 deselected.
+  - `just contracts-check` - green after the projection contract sample /
+    description update.
+  - `just lint` - green after promoting projection payload helpers from
+    private helpers to module-level names used by focused tests.
+  - `git diff --check` - green.
+- Skipped gates: live `just db-migrate`, Redpanda projection integration,
+  full `just test`, frontend e2e, and other live-stack gates were not run; the
+  local Postgres credential failure blocked DB-backed verification, and this
+  slice did not implement runtime use-case breadth, connector adapters,
+  provider routes, replay comparator code, or business-specific UI breadth.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -500,13 +547,15 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: continue P1 multi-use-case foundation in Strategy order by introducing use-case-neutral subject summary vocabulary across projection, DLQ, and audit payloads.
+Current target slice: continue P1 multi-use-case foundation in Strategy order by refactoring eval into common invariants plus per-use-case conduct invariant modules.
 
-Previous slice completed: Tool Gateway approval-required write grants now create generic approval packages for any registered connector write tool instead of only calendar writes. Approval packages take `workflow_type`, `subject_id`, and `subject_ref` from `ToolGatewayRequest`; `WorkflowSpine` supplies those from workflow correlation. Package metadata now carries generic `subject_refs` and safe `action_refs`, with `calendar_refs` retained only for the existing calendar projection compatibility path. `apply_approved_write` is the generic apply path and `apply_approved_calendar_write` remains a wrapper.
+Previous slice completed: shared workflow correlation now carries a safe `subject_summary`; `WorkflowSpine` injects it into workflow-event payloads; active UC1 events use `subject_summary`, `subject_from`, and `source_message_id` while projection keeps legacy `enquiry_summary`, `sender`, and `message_id` fallbacks; retry-DLQ payloads separate root `subject_summary` from `dlq_summary`; workflow retry-DLQ, connector-failure compensation, and Tool Gateway audit details now include generic `subject` context; offline eval projection events now use `subject_summary`.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief.md, docs/domain-model.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/product-brief-uc3.md, and docs/domain-model-uc3.md. Keep this slice focused on use-case-neutral subject summary vocabulary across projection, DLQ, and audit payloads. Do not implement UC2 or UC3 workflows, intake contracts, connector adapters, provider routes, replay comparator code, eval fixture schema breadth, provider route wiring, business-specific UI breadth, or UC1 broker-firm-side connector persistence in this slice.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/transformation/eval-reshape-directions.md, docs/product-brief.md, docs/domain-model.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/product-brief-uc3.md, and docs/domain-model-uc3.md. Keep this slice focused on eval invariant module decomposition and current UC1 behaviour preservation.
 
-Before editing, inspect `chorus/persistence/projection.py`, `chorus/workflows/activities.py`, `chorus/workflows/spine.py`, `chorus/workflows/types.py`, `chorus/eval/scenario_player.py`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`, `tests/persistence/test_postgres_foundation.py`, `tests/workflows/test_activities.py`, `tests/workflows/test_uc1_workflow.py`, and searches for UC1-only subject vocabulary such as `enquiry_summary`, `subject_summary`, `subject_ref`, `enq_`, `sender`, `message_id`, and retry-DLQ / audit payload fields. Preserve UC1 projection and UI behaviour while making the shared payload vocabulary suitable for UC1, UC2, and UC3 root subjects.
+Before editing, inspect `chorus/eval/invariants.py`, `chorus/eval/scenario_player.py`, `chorus/eval/run.py`, `chorus/eval/AGENTS.md`, `contracts/eval/eval_fixture.schema.json`, `tests/eval/test_run.py`, and searches for UC1-specific invariant names, `UC1`, `qualification`, `conduct`, `Scenario`, `CapturedRun`, `EvalCheck`, and fixture enum coupling. Preserve the current UC1 eval CLI output and invariant outcomes while moving architecture-wide checks into common eval modules and UC1 conduct checks into a per-use-case module that UC2 and UC3 can later mirror.
+
+Keep this slice focused on eval module decomposition only. Do not update eval fixture schema breadth, add UC2 or UC3 fixtures, implement replay comparator code, wire provider route selection, implement UC2 or UC3 workflows/intake/connectors, broaden UI behaviour, or complete UC1 broker-firm-side connector persistence in this slice.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.

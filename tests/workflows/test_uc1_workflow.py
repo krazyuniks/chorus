@@ -151,6 +151,7 @@ def _retry_exhaustion_dlq_activity_factory(commands: list[RetryExhaustionDlqComm
 @pytest.mark.asyncio
 async def test_uc1_workflow_happy_path_transitions_and_replays() -> None:
     events: list[WorkflowEventCommand] = []
+    intake = _sample_intake()
 
     async with (
         await WorkflowEnvironment.start_time_skipping() as env,
@@ -167,7 +168,7 @@ async def test_uc1_workflow_happy_path_transitions_and_replays() -> None:
     ):
         result = await env.client.execute_workflow(
             "Uc1EnquiryQualificationWorkflow",
-            _sample_intake(),
+            intake,
             id="uc1-workflow-happy-test",
             task_queue="test-uc1-happy",
             result_type=Uc1WorkflowResult,
@@ -184,6 +185,7 @@ async def test_uc1_workflow_happy_path_transitions_and_replays() -> None:
     ]
     assert [event.sequence for event in events] == list(range(1, len(events) + 1))
     assert events[0].event_type == "enquiry.received"
+    assert all(event.payload.get("subject_summary") == intake.subject for event in events)
     assert events[-1].event_type == "workflow.completed"
 
 
@@ -289,5 +291,6 @@ async def test_uc1_workflow_passes_correlation_to_retry_dlq_activity() -> None:
     assert command.workflow_actor_id == "uc1.workflow"
     assert command.subject_id == intake.enquiry_id
     assert command.subject_ref == "enq_motor_private_001"
+    assert command.subject_summary == intake.subject
     assert command.failed_step == "classification"
     assert events[-1].event_type == "workflow.escalated"

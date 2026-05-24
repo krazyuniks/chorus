@@ -162,6 +162,14 @@ The current post-R3 projection surface remains valid:
 | BFF workflow views | Workflow summaries, timelines, current status, step history, correlation IDs, and links into Temporal, Grafana, Redpanda, Mailpit, decision trail, and tool verdict views. |
 | BFF decision/tool views | Safe projections of audit records: IDs, status, route/provider summaries, bounded verdicts, cost/latency summaries, and redaction labels. |
 
+Workflow event payloads use `subject_summary` for the safe root-subject
+display string across UC1 enquiries, UC2 legal intakes, and UC3 advice
+enquiries. The projection adapter still accepts legacy UC1 `enquiry_summary`
+payloads as a compatibility fallback, but active emitters should not introduce
+new use-case-specific summary keys. Where source metadata is safe to expose,
+events should prefer `subject_from` and `source_message_id`; the adapter keeps
+`sender` and `message_id` as UC1 email compatibility fallbacks.
+
 The UI may display safe subsets of audit data for review, but the projection is
 not the authority store. A reviewer-friendly field in the UI does not make the
 BFF an audit owner.

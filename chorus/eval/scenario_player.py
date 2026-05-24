@@ -172,7 +172,7 @@ def play_scenario(
         subject_ref=subject_ref,
         event_type="enquiry.received",
         step="intake",
-        payload={"enquiry_summary": "intake payload"},
+        payload={"subject_summary": "intake payload"},
     )
     _emit(
         run,
@@ -185,7 +185,7 @@ def play_scenario(
         subject_ref=subject_ref,
         event_type="workflow.started",
         step="intake",
-        payload={"enquiry_summary": "intake payload"},
+        payload={"subject_summary": "intake payload"},
     )
 
     scenario = fixture.scenario
@@ -311,7 +311,7 @@ def play_scenario(
         subject_ref=subject_ref,
         event_type="workflow.completed",
         step="complete",
-        payload={"enquiry_summary": "complete", "outcome": "completed"},
+        payload={"subject_summary": "complete", "outcome": "completed"},
     )
     run.terminal_outcome = "completed"
     return run
@@ -384,7 +384,7 @@ def _invoke_stage(
         subject_ref=subject_ref,
         event_type="workflow.step.started",
         step=task_kind,
-        payload={"enquiry_summary": task_kind},
+        payload={"subject_summary": task_kind},
     )
     _emit(
         run,
@@ -397,7 +397,7 @@ def _invoke_stage(
         subject_ref=subject_ref,
         event_type="workflow.step.completed",
         step=task_kind,
-        payload={"enquiry_summary": task_kind},
+        payload={"subject_summary": task_kind},
     )
 
     invocation_id = uuid4()
@@ -481,7 +481,7 @@ def _emit_connector_send(
         subject_ref=subject_ref,
         event_type="workflow.step.started",
         step="missing_data_request_send",
-        payload={"enquiry_summary": "missing_data_request_send"},
+        payload={"subject_summary": "missing_data_request_send"},
     )
     propose_id = uuid4()
     propose_at = clock.tick(milliseconds=10)
@@ -540,7 +540,7 @@ def _emit_connector_send(
         subject_ref=subject_ref,
         event_type="workflow.step.completed",
         step="missing_data_request_send",
-        payload={"enquiry_summary": "missing_data_request_send"},
+        payload={"subject_summary": "missing_data_request_send"},
     )
 
 
@@ -635,7 +635,7 @@ def _play_retry_exhaustion(
             subject_ref=subject_ref,
             event_type="workflow.failed",
             step="classification",
-            payload={"enquiry_summary": "retry exhausted", "outcome": "failed"},
+            payload={"subject_summary": "retry exhausted", "outcome": "failed"},
         )
         run.terminal_outcome = "failed"
 

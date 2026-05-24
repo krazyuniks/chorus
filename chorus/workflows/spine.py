@@ -179,6 +179,7 @@ class WorkflowSpine:
         step: str | None,
         payload: dict[str, Any],
     ) -> None:
+        event_payload = self._event_payload(payload)
         await workflow.execute_activity(
             ACTIVITY_RECORD_WORKFLOW_EVENT,
             WorkflowEventCommand(
@@ -191,7 +192,7 @@ class WorkflowSpine:
                 sequence=self._sequence,
                 event_type=event_type,
                 step=step,
-                payload=payload,
+                payload=event_payload,
             ),
             start_to_close_timeout=DEFAULT_ACTIVITY_TIMEOUT,
             retry_policy=DEFAULT_RETRY_POLICY,
@@ -276,6 +277,7 @@ class WorkflowSpine:
                     workflow_type=self._correlation.workflow_type,
                     subject_id=self._correlation.subject_id,
                     subject_ref=self._correlation.subject_ref,
+                    subject_summary=self._correlation.subject_summary,
                 ),
                 start_to_close_timeout=DEFAULT_ACTIVITY_TIMEOUT,
                 retry_policy=DEFAULT_RETRY_POLICY,
@@ -320,6 +322,7 @@ class WorkflowSpine:
                 idempotency_key=idempotency_key,
                 arguments=arguments,
                 failure_reason=failure_reason,
+                subject_summary=self._correlation.subject_summary,
             ),
             start_to_close_timeout=DEFAULT_ACTIVITY_TIMEOUT,
             retry_policy=DEFAULT_RETRY_POLICY,
@@ -346,6 +349,7 @@ class WorkflowSpine:
                 failed_activity=failure.failed_activity,
                 failure_reason=activity_failure_reason(failure.source),
                 attempts=DEFAULT_RETRY_POLICY.maximum_attempts or 1,
+                subject_summary=self._correlation.subject_summary,
             ),
             start_to_close_timeout=DEFAULT_ACTIVITY_TIMEOUT,
             retry_policy=DEFAULT_RETRY_POLICY,
@@ -361,6 +365,14 @@ class WorkflowSpine:
         """
 
         self._sequence += by
+
+    def _event_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        if self._correlation.subject_summary is None or "subject_summary" in payload:
+            return payload
+        return {
+            "subject_summary": self._correlation.subject_summary,
+            **payload,
+        }
 
 
 def activity_failure_reason(exc: ActivityError) -> str:

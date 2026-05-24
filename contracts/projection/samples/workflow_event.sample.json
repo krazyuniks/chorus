@@ -12,6 +12,7 @@
   "sequence": 3,
   "step": "classification",
   "payload": {
+    "subject_summary": "Motor cover enquiry: 2018 hatchback",
     "product_family_category": "motor_private_car",
     "confidence": 0.86
   }

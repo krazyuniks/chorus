@@ -15,6 +15,7 @@ from chorus.persistence import (
     ProjectionStore,
     apply_migrations,
 )
+from chorus.persistence.projection import metadata_for_event, subject_summary_for_event
 from chorus.persistence.runtime_policy import PolicySnapshotStore
 from chorus.workflows.activities import record_retry_exhaustion_dlq
 from chorus.workflows.types import RetryExhaustionDlqCommand
@@ -82,11 +83,33 @@ def _workflow_event(
             "sequence": sequence,
             "step": step,
             "payload": {
-                "enquiry_summary": f"Enquiry for {tenant_id}",
+                "subject_summary": f"Enquiry for {tenant_id}",
                 "status": "started",
             },
         }
     )
+
+
+def test_projection_payload_helpers_prefer_generic_subject_vocabulary() -> None:
+    event = _workflow_event(
+        tenant_id="tenant_demo",
+        workflow_id="uc1-enq-subject-vocabulary",
+        sequence=1,
+    )
+    assert subject_summary_for_event(event) == "Enquiry for tenant_demo"
+
+    legacy_event = event.model_copy(
+        update={
+            "payload": {
+                "enquiry_summary": "Legacy UC1 enquiry summary",
+                "sender": "enquiry@example.com",
+                "message_id": "<legacy@example.test>",
+            }
+        }
+    )
+    assert subject_summary_for_event(legacy_event) == "Legacy UC1 enquiry summary"
+    assert metadata_for_event(legacy_event)["subject_from"] == "enquiry@example.com"
+    assert metadata_for_event(legacy_event)["source_message_id"] == "<legacy@example.test>"
 
 
 def test_migration_applies_schema_and_demo_seed_data(migrated_database_url: str) -> None:
@@ -176,6 +199,7 @@ def test_projection_store_records_read_model_history_and_outbox(
     assert read_model is not None
     assert read_model.workflow_type == "uc1_enquiry_qualification"
     assert read_model.subject_ref == "enq_test_001"
+    assert read_model.subject_summary == "Enquiry for tenant_demo"
 
 
 @pytest.mark.parametrize(
@@ -297,12 +321,13 @@ def test_retry_exhaustion_activity_writes_dlq_outbox_and_audit(
                 failed_activity="chorus.invoke_agent_runtime",
                 failure_reason="forced classifier failure",
                 attempts=3,
+                subject_summary="Retry exhaustion subject",
             ),
         )
         conn.commit()
         dlq_row = conn.execute(
             """
-            SELECT status, workflow_type, subject_ref
+            SELECT status, workflow_type, subject_ref, payload
             FROM outbox_events
             WHERE event_id = %s
             """,
@@ -310,15 +335,20 @@ def test_retry_exhaustion_activity_writes_dlq_outbox_and_audit(
         ).fetchone()
         audit_row = conn.execute(
             """
-            SELECT action, actor_id
+            SELECT action, actor_id, raw_event
             FROM tool_action_audit
             WHERE audit_event_id = %s
             """,
             (result.audit_event_id,),
         ).fetchone()
 
-    assert dlq_row == ("dlq", "uc1_enquiry_qualification", subject_ref)
-    assert audit_row == ("workflow.retry_exhausted.dlq_recorded", "uc1.workflow")
+    assert dlq_row is not None
+    assert dlq_row[:3] == ("dlq", "uc1_enquiry_qualification", subject_ref)
+    assert dlq_row[3]["subject_summary"] == "Retry exhaustion subject"
+    assert dlq_row[3]["dlq_summary"] == "retry exhaustion DLQ marker"
+    assert audit_row is not None
+    assert audit_row[:2] == ("workflow.retry_exhausted.dlq_recorded", "uc1.workflow")
+    assert audit_row[2]["details"]["subject"]["subject_summary"] == "Retry exhaustion subject"
 
 
 def test_rls_limits_reads_to_current_tenant(migrated_database_url: str) -> None:

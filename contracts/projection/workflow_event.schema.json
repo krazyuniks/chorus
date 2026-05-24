@@ -3,7 +3,7 @@
   "$id": "https://chorus.local/contracts/projection/workflow_event.schema.json",
   "x-subject": "chorus.workflow.events.v1-value",
   "title": "WorkflowEvent",
-  "description": "Schema-governed workflow event emitted through the transactional outbox to Redpanda. The shape is use-case-agnostic: `workflow_type` names the use-case workflow on the spine, `step` carries the workflow's typed-step identifier, and the rest is correlation / sequencing / payload data shared across every use case.",
+  "description": "Schema-governed workflow event emitted through the transactional outbox to Redpanda. The shape is use-case-agnostic: `workflow_type` names the use-case workflow on the spine, `step` carries the workflow's typed-step identifier, `subject_summary` is the neutral safe display summary inside payloads, and the rest is correlation / sequencing / payload data shared across every use case.",
   "type": "object",
   "additionalProperties": false,
   "required": [

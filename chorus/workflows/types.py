@@ -28,6 +28,7 @@ class WorkflowCorrelation:
     workflow_actor_id: str
     subject_id: str
     subject_ref: str
+    subject_summary: str | None = None
 
 
 @dataclass(frozen=True)
@@ -140,6 +141,7 @@ class ToolGatewayRequest:
     mode: str
     idempotency_key: str
     arguments: dict[str, Any]
+    subject_summary: str | None = None
 
 
 @dataclass(frozen=True)
@@ -170,6 +172,7 @@ class ToolFailureCompensationCommand:
     idempotency_key: str
     arguments: dict[str, Any]
     failure_reason: str
+    subject_summary: str | None = None
 
 
 @dataclass(frozen=True)
@@ -194,6 +197,7 @@ class RetryExhaustionDlqCommand:
     failed_activity: str
     failure_reason: str
     attempts: int
+    subject_summary: str | None = None
 
 
 @dataclass(frozen=True)
