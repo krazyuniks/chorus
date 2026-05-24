@@ -164,7 +164,7 @@ credentials.
 | Channel distribution | Roughly one third each across email, web form, and partner portal so each intake adapter is exercised. |
 | Vulnerability markers | A subset of enquiries carries explicit Consumer Duty vulnerability markers (financial difficulty, recent bereavement, communication preference adjustments) so the compliance projection has data to aggregate. |
 | Connector sandboxes | Local sandbox CRM adapter, sandbox underwriter referral inbox, sandbox decline ledger, sandbox outbound customer comms (gated). Mailpit-style local mail capture for the missing-data request. |
-| Provider routes | Dev route DeepSeek `deepseek-v4-flash` through the LLM provider port, demo / eval canonical route OpenAI `gpt-5.4-mini-2026-03-17`. Both routes are captured in the route catalogue; active seeded runtime routing remains local recorded replay until P3 live-provider gates pass. |
+| Provider routes | Active seeded runtime routing remains local recorded replay through runtime route `recorded-replay`, provider `local`, and model `uc1-happy-path-v1`. Dev route DeepSeek `deepseek-v4-flash` and demo / eval canonical route OpenAI `gpt-5.4-mini-2026-03-17` are captured in the route catalogue but stay disabled until live-provider replay gates pass. |
 | Replay corpus | The ~30 enquiries plus their captured transcripts seed the cross-provider replay eval substrate. Replay-as-comparison is exercised between the dev and canonical routes. |
 
 ## Out Of Scope

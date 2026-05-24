@@ -89,6 +89,23 @@ def replay_transcript(
 
     catalogue = route_catalogue or default_route_catalogue()
     target_route = route_id or transcript.route_id
+    target_entry = catalogue.get(target_route)
+    if target_route == transcript.route_id and (
+        target_entry.provider_id != transcript.provider_id
+        or target_entry.model_id != transcript.model_id
+    ):
+        return [
+            EvalCheck(
+                "route governance alignment",
+                "fail",
+                (
+                    f"captured route {target_route!r} records "
+                    f"{transcript.provider_id!r}/{transcript.model_id!r}, but the executable "
+                    f"route catalogue registers {target_entry.provider_id!r}/"
+                    f"{target_entry.model_id!r}"
+                ),
+            )
+        ]
     args = InvocationArgs(
         route_id=target_route,
         messages=tuple(_invocation_message(message) for message in transcript.request_messages),
@@ -98,6 +115,11 @@ def replay_transcript(
             "input": transcript.enquiry_input,
             "agent_role": transcript.agent_role,
             "tenant_id": transcript.tenant_id,
+            "model_id": target_entry.model_id,
+            "parameters": {
+                **target_entry.parameters,
+                **transcript.parameters,
+            },
         },
     )
     replay_result = catalogue.invoke(args)

@@ -10,6 +10,7 @@
     "tenant_tier": "demo"
   },
   "selected_model": {
+    "runtime_route_id": "recorded-replay",
     "provider_catalogue_id": "provider-catalogue.local.seed",
     "provider_id": "local",
     "model_id": "uc1-happy-path-v1",
@@ -32,7 +33,13 @@
   },
   "promotion": {
     "eval_required": true,
-    "eval_fixture_refs": [],
+    "eval_fixture_refs": [
+      "chorus/eval/fixtures/uc1_happy_path.json",
+      "chorus/eval/fixtures/uc1_validator_redraft.json",
+      "chorus/eval/fixtures/uc1_accepted_routing.json",
+      "chorus/eval/fixtures/uc1_referred_routing.json",
+      "chorus/eval/fixtures/uc1_declined_routing.json"
+    ],
     "approved_by": "architecture-docs"
   }
 }

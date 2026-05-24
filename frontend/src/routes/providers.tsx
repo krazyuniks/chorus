@@ -120,6 +120,12 @@ function ProvidersRoute() {
       cell: (r) => `${r.agent_role}:${r.task_kind}:${r.tenant_tier}`,
     },
     {
+      key: "runtime_route_id",
+      header: "Runtime route",
+      mono: true,
+      cell: (r) => r.runtime_route_id,
+    },
+    {
       key: "lifecycle_state",
       header: "State",
       cell: (r) => <StatusPill value={r.lifecycle_state} />,
@@ -144,6 +150,13 @@ function ProvidersRoute() {
       key: "eval_required",
       header: "Eval",
       cell: (r) => (r.eval_required ? "required" : "not required"),
+    },
+    {
+      key: "eval_fixture_refs",
+      header: "Fixtures",
+      align: "right",
+      mono: true,
+      cell: (r) => String(r.eval_fixture_refs.length),
     },
     {
       key: "created_at",

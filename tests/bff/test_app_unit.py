@@ -319,6 +319,7 @@ class BffFixture:
             agent_role="request_drafter",
             task_kind="missing_data_request_draft",
             tenant_tier="demo",
+            runtime_route_id="recorded-replay",
             provider="local",
             model="uc1-happy-path-v1",
             parameters={"temperature": 0.3},
@@ -400,7 +401,13 @@ class BffFixture:
             model_id="uc1-happy-path-v1",
             display_name="UC1 local structured model",
             lifecycle_state="approved",
-            supported_task_kinds=["enquiry_classification"],
+            supported_task_kinds=[
+                "enquiry_classification",
+                "context_gathering",
+                "enquiry_qualification",
+                "missing_data_request_draft",
+                "missing_data_request_validation",
+            ],
             supports_structured_output=True,
             context_window_tokens=8192,
             cost_policy={"currency": "USD"},
@@ -413,7 +420,13 @@ class BffFixture:
             model_id="deepseek-v4-flash",
             display_name="DeepSeek V4 Flash",
             lifecycle_state="disabled",
-            supported_task_kinds=["enquiry_classification"],
+            supported_task_kinds=[
+                "enquiry_classification",
+                "context_gathering",
+                "enquiry_qualification",
+                "missing_data_request_draft",
+                "missing_data_request_validation",
+            ],
             supports_structured_output=True,
             context_window_tokens=1000000,
             cost_policy={"currency": "USD"},
@@ -426,7 +439,13 @@ class BffFixture:
             model_id="gpt-5.4-mini-2026-03-17",
             display_name="GPT-5.4 mini pinned snapshot",
             lifecycle_state="disabled",
-            supported_task_kinds=["enquiry_classification"],
+            supported_task_kinds=[
+                "enquiry_classification",
+                "context_gathering",
+                "enquiry_qualification",
+                "missing_data_request_draft",
+                "missing_data_request_validation",
+            ],
             supports_structured_output=True,
             context_window_tokens=400000,
             cost_policy={"currency": "USD"},
@@ -441,6 +460,7 @@ class BffFixture:
             agent_role="request_drafter",
             task_kind="missing_data_request_draft",
             tenant_tier="demo",
+            runtime_route_id="recorded-replay",
             provider_catalogue_id="provider-catalogue.local.seed",
             provider_id="local",
             model_id="uc1-happy-path-v1",
@@ -449,7 +469,13 @@ class BffFixture:
             max_latency_ms=5000,
             fallback_policy={"mode": "escalate"},
             eval_required=True,
-            eval_fixture_refs=[],
+            eval_fixture_refs=[
+                "chorus/eval/fixtures/uc1_happy_path.json",
+                "chorus/eval/fixtures/uc1_validator_redraft.json",
+                "chorus/eval/fixtures/uc1_accepted_routing.json",
+                "chorus/eval/fixtures/uc1_referred_routing.json",
+                "chorus/eval/fixtures/uc1_declined_routing.json",
+            ],
             promotion={},
             created_at=self.now,
         )
@@ -511,6 +537,7 @@ def test_audit_and_runtime_policy_endpoints_are_read_only_views() -> None:
     assert registry[0]["lifecycle_state"] == "approved"
     assert grants[0]["tool_name"] == "outbound_comms.message"
     assert routing[0]["budget_usd"] == 0.01
+    assert routing[0]["runtime_route_id"] == "recorded-replay"
 
 
 def test_provider_endpoints_are_read_only_views() -> None:
@@ -523,6 +550,7 @@ def test_provider_endpoints_are_read_only_views() -> None:
     assert {row["provider_id"] for row in providers} == {"deepseek", "local", "openai"}
     assert provider_models[0]["model_id"] == "uc1-happy-path-v1"
     assert route_versions[0]["route_version"] == 1
+    assert route_versions[0]["runtime_route_id"] == "recorded-replay"
     assert route_versions[0]["provider_catalogue_id"] == "provider-catalogue.local.seed"
 
 

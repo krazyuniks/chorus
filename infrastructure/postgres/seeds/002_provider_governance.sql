@@ -1,10 +1,10 @@
 -- Provider catalogue and route-version seed data.
 --
 -- Mirrors the contract samples and the model_routing_policies seeded in
--- 001_demo_tenants.sql. The local route stays the runnable structured
--- boundary for UC1 until later runtime work moves to route versions. The
--- DeepSeek and OpenAI rows are verified but disabled until P3 route
--- governance and live-provider gates are complete.
+-- 001_demo_tenants.sql. The local recorded-replay route stays the runnable
+-- structured boundary for UC1. The DeepSeek and OpenAI rows are verified but
+-- disabled until live-provider gates and replay comparison records are
+-- complete.
 
 INSERT INTO provider_catalogues (
     catalogue_id,
@@ -179,6 +179,7 @@ INSERT INTO model_route_versions (
     agent_role,
     task_kind,
     tenant_tier,
+    runtime_route_id,
     provider_catalogue_id,
     provider_id,
     model_id,
@@ -198,6 +199,7 @@ SELECT
     agent_role,
     task_kind,
     tenant_tier,
+    runtime_route_id,
     'provider-catalogue.local.seed',
     provider,
     model,
@@ -206,7 +208,13 @@ SELECT
     5000,
     '{"mode": "escalate", "fallback_reasons": ["provider_error", "timeout", "rate_limited", "budget_exceeded"]}'::jsonb,
     true,
-    ARRAY[]::text[],
+    ARRAY[
+        'chorus/eval/fixtures/uc1_happy_path.json',
+        'chorus/eval/fixtures/uc1_validator_redraft.json',
+        'chorus/eval/fixtures/uc1_accepted_routing.json',
+        'chorus/eval/fixtures/uc1_referred_routing.json',
+        'chorus/eval/fixtures/uc1_declined_routing.json'
+    ]::text[],
     '{"approved_by": "architecture-docs"}'::jsonb
 FROM model_routing_policies
 WHERE provider = 'local'

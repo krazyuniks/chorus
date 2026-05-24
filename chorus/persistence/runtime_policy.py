@@ -48,6 +48,7 @@ class ModelRoutingPolicy(BaseModel):
     agent_role: str
     task_kind: str
     tenant_tier: str
+    runtime_route_id: str
     provider: str
     model: str
     parameters: dict[str, Any]
@@ -142,6 +143,7 @@ class PolicySnapshotStore:
                 agent_role,
                 task_kind,
                 tenant_tier,
+                runtime_route_id,
                 provider,
                 model,
                 parameters,

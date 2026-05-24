@@ -83,8 +83,8 @@ def default_route_catalogue() -> RouteCatalogue:
         [
             RouteCatalogueEntry(
                 route_id="recorded-replay",
-                provider_id="local-replay",
-                model_id="recorded-replay-v1",
+                provider_id="local",
+                model_id="uc1-happy-path-v1",
                 adapter=RecordedReplayAdapter(),
                 parameters={},
             ),

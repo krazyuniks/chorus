@@ -25,6 +25,12 @@ function RoutingRoute() {
       cell: (r) =>
         r.match ?? `${r.agent_role ?? "*"}:${r.task_kind ?? "*"}:${r.tenant_tier ?? "*"}`,
     },
+    {
+      key: "runtime_route_id",
+      header: "Runtime route",
+      mono: true,
+      cell: (r) => r.runtime_route_id ?? "-",
+    },
     { key: "provider", header: "Provider", cell: (r) => r.provider },
     { key: "model", header: "Model", mono: true, cell: (r) => r.model },
     {

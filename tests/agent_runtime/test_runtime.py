@@ -119,6 +119,7 @@ def _resolution(
     task_kind: str = "missing_data_request_draft",
     prompt_reference: str = "prompts/uc1/request-drafter/v1.md",
     prompt_hash: str = PROMPT_HASHES["request_drafter"],
+    runtime_route_id: str | None = "recorded-replay",
     provider: str = "local",
     model: str = "uc1-happy-path-v1",
     fallback_policy: dict[str, Any] | None = None,
@@ -136,6 +137,7 @@ def _resolution(
             capability_tags=["uc1", "drafting"],
         ),
         model_route=ResolvedModelRoute(
+            runtime_route_id=runtime_route_id,
             provider=provider,
             model=model,
             task_kind=task_kind,
@@ -219,6 +221,7 @@ def _fallback_route_policy() -> dict[str, Any]:
         "on_provider_error": "fallback_route",
         "fallback_reasons": ["provider_error", "fixture_outage", "budget_exceeded"],
         "fallback_route": {
+            "runtime_route_id": "recorded-replay",
             "provider": "local",
             "model": "uc1-happy-path-v1",
             "parameters": {"temperature": 0.3},
@@ -231,8 +234,8 @@ def _replay_catalogue() -> RouteCatalogue:
         [
             RouteCatalogueEntry(
                 route_id="recorded-replay",
-                provider_id="local-replay",
-                model_id="recorded-replay-v1",
+                provider_id="local",
+                model_id="uc1-happy-path-v1",
                 adapter=RecordedReplayAdapter(),
             )
         ]
@@ -258,7 +261,7 @@ def test_sequential_engine_runs_pipeline_through_route_catalogue() -> None:
     assert isinstance(execution.contract, Uc1AgentIO)
     assert execution.decision_metadata["execution.pipeline_version"] == EXECUTION_PIPELINE_VERSION
     assert execution.decision_metadata["route_catalogue.route_id"] == "recorded-replay"
-    assert execution.decision_metadata["route_catalogue.provider_id"] == "local-replay"
+    assert execution.decision_metadata["route_catalogue.provider_id"] == "local"
     assert execution.decision_metadata["route_catalogue.adapter_version"] == "recorded-replay-v1"
     assert execution.decision_metadata["prompt.reference"] == "prompts/uc1/request-drafter/v1.md"
     assert execution.decision_metadata["prompt.hash"] == PROMPT_HASHES["request_drafter"]
@@ -286,8 +289,8 @@ def test_runtime_passes_uc1_response_shape_to_provider_port() -> None:
         [
             RouteCatalogueEntry(
                 route_id="recorded-replay",
-                provider_id="local-replay",
-                model_id="recorded-replay-v1",
+                provider_id="local",
+                model_id="uc1-happy-path-v1",
                 adapter=adapter,
             )
         ]
@@ -321,10 +324,21 @@ def test_route_resolver_rejects_unregistered_provider() -> None:
     """A model-route provider with no catalogue entry must fail fast."""
 
     catalogue = _replay_catalogue()
-    resolution = _resolution(provider="unknown.provider")
+    resolution = _resolution(runtime_route_id=None, provider="unknown.provider")
     resolver = ProviderRouteResolver()
 
     with pytest.raises(AgentRuntimeError, match="No LLM provider port route registered"):
+        resolver.resolve(resolution.model_route, catalogue)
+
+
+def test_route_resolver_rejects_policy_catalogue_metadata_mismatch() -> None:
+    """Runtime route keys must resolve to the same provider/model selected by policy."""
+
+    catalogue = _replay_catalogue()
+    resolution = _resolution(model="unexpected-model")
+    resolver = ProviderRouteResolver()
+
+    with pytest.raises(AgentRuntimeError, match="route governance mismatch"):
         resolver.resolve(resolution.model_route, catalogue)
 
 
@@ -345,6 +359,7 @@ def test_runtime_invokes_recorded_replay_route_and_records_decision_trail() -> N
     assert metadata["execution.pipeline_version"] == EXECUTION_PIPELINE_VERSION
     assert metadata["route_catalogue.route_id"] == "recorded-replay"
     assert metadata["model_route.provider"] == "local"
+    assert metadata["model_route.runtime_route_id"] == "recorded-replay"
     assert metadata["model_route.cost_amount_usd"] == "0.000000"
 
 
@@ -382,7 +397,7 @@ def test_runtime_records_decision_trail_and_transcript_on_every_invocation() -> 
     assert str(transcript.invocation_id) == str(decision.invocation_id)
     assert transcript.tenant_id == decision.tenant_id
     assert transcript.route_catalogue.route_id == "recorded-replay"
-    assert transcript.route_catalogue.provider_id == "local-replay"
+    assert transcript.route_catalogue.provider_id == "local"
     assert transcript.route_catalogue.adapter_version == "recorded-replay-v1"
     assert transcript.messages[0].role.value == "system"
     assert transcript.messages[0].content.startswith("# UC1 request drafter v1")
@@ -414,7 +429,12 @@ def test_runtime_records_provider_failure_then_invokes_policy_fallback() -> None
     """Adapter failures must trigger the configured fallback route and be audited."""
 
     store = RecordingRuntimeStore(
-        _resolution(provider="vendor.experimental", fallback_policy=_fallback_route_policy())
+        _resolution(
+            provider="vendor.experimental",
+            model="experimental-v1",
+            runtime_route_id="failing",
+            fallback_policy=_fallback_route_policy(),
+        )
     )
     catalogue = RouteCatalogue(
         [
@@ -456,7 +476,12 @@ def test_runtime_records_provider_budget_exceeded_then_invokes_policy_fallback()
     """Over-budget adapter results raise ProviderBudgetExceededError and trigger fallback."""
 
     store = RecordingRuntimeStore(
-        _resolution(provider="vendor.experimental", fallback_policy=_fallback_route_policy())
+        _resolution(
+            provider="vendor.experimental",
+            model="expensive-v1",
+            runtime_route_id="expensive",
+            fallback_policy=_fallback_route_policy(),
+        )
     )
     catalogue = RouteCatalogue(
         [
@@ -498,7 +523,8 @@ def test_default_route_catalogue_registers_three_routes() -> None:
     catalogue = default_route_catalogue()
     assert catalogue.route_ids == ("demo-eval-canonical", "dev", "recorded-replay")
     replay = catalogue.get("recorded-replay")
-    assert replay.provider_id == "local-replay"
+    assert replay.provider_id == "local"
+    assert replay.model_id == "uc1-happy-path-v1"
     assert replay.adapter_version.startswith("recorded-replay")
     dev = catalogue.get("dev")
     assert dev.provider_id == "deepseek"
@@ -653,6 +679,7 @@ def test_policy_resolution_uses_registry_prompt_and_model_route(
     assert resolution.agent.lifecycle_state == "approved"
     assert resolution.agent.prompt_reference == "prompts/uc1/request-drafter/v1.md"
     assert resolution.agent.prompt_hash == PROMPT_HASHES["request_drafter"]
+    assert resolution.model_route.runtime_route_id == "recorded-replay"
     assert resolution.model_route.provider == "local"
     assert resolution.model_route.model == "uc1-happy-path-v1"
 

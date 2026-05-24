@@ -203,11 +203,13 @@ when discussing the route's model family.
 
 The executable route catalogue and disabled provider-governance seed rows now
 carry these identifiers and credential names. Active `model_routing_policies`
-and `model_route_versions` still select the local recorded-replay model.
-Prompt loading and prompt-hash verification have landed for the provider call
-path, and the runtime now passes task-specific UC1 response shapes into the
-provider port. The OpenAI-compatible adapter requests OpenAI `json_schema`
-structured output where supported and JSON-object mode plus local JSON Schema
-validation for DeepSeek's current route. Live route alignment and replay
-comparison records remain required before any live provider route is
-considered usable. Required credentials must also be present.
+and `model_route_versions` select runtime route `recorded-replay` with the
+governed local provider/model pair `local` / `uc1-happy-path-v1`; provider
+catalogue rows, BFF inspection views, and eval replay fixtures expose the
+same local matrix. Prompt loading and prompt-hash verification have landed for
+the provider call path, and the runtime now passes task-specific UC1 response
+shapes into the provider port. The OpenAI-compatible adapter requests OpenAI
+`json_schema` structured output where supported and JSON-object mode plus
+local JSON Schema validation for DeepSeek's current route. Replay comparison
+records remain required before any live provider route is considered usable.
+Required credentials must also be present.

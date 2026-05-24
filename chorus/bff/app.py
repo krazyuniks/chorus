@@ -214,6 +214,7 @@ class RoutingEntryView(BaseModel):
     agent_role: str
     task_kind: str
     tenant_tier: str
+    runtime_route_id: str
     provider: str
     model: str
     parameters: dict[str, Any]
@@ -255,6 +256,7 @@ class RouteVersionEntryView(BaseModel):
     agent_role: str
     task_kind: str
     tenant_tier: str
+    runtime_route_id: str
     provider_catalogue_id: str
     provider_id: str
     model_id: str
@@ -438,6 +440,7 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
                 agent_role=row.agent_role,
                 task_kind=row.task_kind,
                 tenant_tier=row.tenant_tier,
+                runtime_route_id=row.runtime_route_id,
                 provider=row.provider,
                 model=row.model,
                 parameters=row.parameters,
@@ -767,6 +770,7 @@ def _route_version_view(row: ModelRouteVersion) -> RouteVersionEntryView:
         agent_role=row.agent_role,
         task_kind=row.task_kind,
         tenant_tier=row.tenant_tier,
+        runtime_route_id=row.runtime_route_id,
         provider_catalogue_id=row.provider_catalogue_id,
         provider_id=row.provider_id,
         model_id=row.model_id,

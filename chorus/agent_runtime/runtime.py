@@ -189,6 +189,7 @@ class ResolvedModelRoute(BaseModel):
     route_version: int | None = Field(default=None, ge=1)
     provider_catalogue_id: str | None = None
     selection_source: str = "model_routing_policies"
+    runtime_route_id: str | None = None
     provider: str
     model: str
     task_kind: str
@@ -381,7 +382,6 @@ class ProviderRouteResolver:
 
     _PROVIDER_TO_ROUTE: ClassVar[dict[str, str]] = {
         "local": "recorded-replay",
-        "local-replay": "recorded-replay",
         "deepseek": "dev",
         "openai": "demo-eval-canonical",
     }
@@ -389,13 +389,21 @@ class ProviderRouteResolver:
     def resolve(
         self, model_route: ResolvedModelRoute, catalogue: RouteCatalogue
     ) -> RouteCatalogueEntry:
-        route_id = self._PROVIDER_TO_ROUTE.get(model_route.provider)
+        route_id = model_route.runtime_route_id or self._PROVIDER_TO_ROUTE.get(model_route.provider)
         if route_id is None:
             raise AgentRuntimeError(
                 f"No LLM provider port route registered for provider {model_route.provider!r}; "
                 "register it in the route catalogue first."
             )
-        return catalogue.get(route_id)
+        entry = catalogue.get(route_id)
+        if entry.provider_id != model_route.provider or entry.model_id != model_route.model:
+            raise AgentRuntimeError(
+                "LLM provider route governance mismatch for "
+                f"runtime route {route_id!r}: policy selected "
+                f"{model_route.provider!r}/{model_route.model!r}, but the route catalogue "
+                f"registers {entry.provider_id!r}/{entry.model_id!r}."
+            )
+        return entry
 
 
 class RuntimePolicyStore(Protocol):
@@ -639,6 +647,7 @@ class AgentRuntimeStore:
                         THEN 'model_routing_policies'
                         ELSE 'model_routing_policies+model_route_versions'
                     END AS selection_source,
+                    policy.runtime_route_id,
                     policy.provider,
                     policy.model,
                     policy.task_kind,
@@ -652,6 +661,7 @@ class AgentRuntimeStore:
                  AND version.agent_role = policy.agent_role
                  AND version.task_kind = policy.task_kind
                  AND version.tenant_tier = policy.tenant_tier
+                 AND version.runtime_route_id = policy.runtime_route_id
                  AND version.provider_id = policy.provider
                  AND version.model_id = policy.model
                  AND version.lifecycle_state = 'approved'
@@ -1228,6 +1238,8 @@ def _runtime_fallback_for(
     provider_catalogue_id = (
         provider_catalogue_id_value if isinstance(provider_catalogue_id_value, str) else None
     )
+    runtime_route_id_value = fallback_route.get("runtime_route_id")
+    runtime_route_id = runtime_route_id_value if isinstance(runtime_route_id_value, str) else None
     fallback_policy_value = fallback_route.get("fallback_policy", {"on_provider_error": "escalate"})
     fallback_policy = (
         cast(dict[str, Any], fallback_policy_value).copy()
@@ -1241,6 +1253,7 @@ def _runtime_fallback_for(
                 route_version=route_version,
                 provider_catalogue_id=provider_catalogue_id,
                 selection_source="fallback_policy",
+                runtime_route_id=runtime_route_id,
                 provider=provider,
                 model=model,
                 task_kind=resolution.model_route.task_kind,
@@ -1293,6 +1306,7 @@ def _route_selection_metadata(
         "model_route.route_version": route.route_version,
         "model_route.provider_catalogue_id": route.provider_catalogue_id,
         "model_route.selection_source": route.selection_source,
+        "model_route.runtime_route_id": route.runtime_route_id,
         "model_route.provider": route.provider,
         "model_route.model": route.model,
         "model_route.task_kind": route.task_kind,

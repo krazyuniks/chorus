@@ -104,7 +104,7 @@ Inspect the model routes resolved for a tenant:
 
 ```bash
 ./scripts/dc exec postgres psql -U chorus -d chorus -c \
-  "SELECT agent_role, task_kind, provider, model FROM model_routing_policies WHERE tenant_id = 'tenant_demo' ORDER BY agent_role;"
+  "SELECT agent_role, task_kind, runtime_route_id, provider, model FROM model_routing_policies WHERE tenant_id = 'tenant_demo' ORDER BY agent_role;"
 ```
 
 The agent execution path uses the OpenAI-SDK adapter, the route catalogue, and
@@ -123,8 +123,11 @@ OpenAI route requests `json_schema` structured output; the DeepSeek route
 requests JSON-object mode and the adapter validates the returned object
 against the same task schema locally. Malformed JSON or an empty
 `structured_data` object fails as a non-retryable provider-port error before
-any connector action can be proposed. R4 wires live route activation only
-after route-governance rows, eval route selection, and required local
+any connector action can be proposed. The active local route-governance rows
+now align on runtime route `recorded-replay`, provider `local`, and model
+`uc1-happy-path-v1` across routing policy, immutable route versions, provider
+catalogue rows, BFF inspection, and offline eval route selection. R4 wires
+live route activation only after replay comparison records and required local
 credentials are aligned.
 
 ### Connector port

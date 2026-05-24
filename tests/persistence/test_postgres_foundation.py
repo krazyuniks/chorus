@@ -453,12 +453,51 @@ def test_provider_catalogue_seed_uc1_model(migrated_database_url: str) -> None:
             "SELECT provider_id, secret_ref_names, lifecycle_state "
             "FROM provider_catalogue_providers ORDER BY provider_id"
         ).fetchall()
+        routes = conn.execute(
+            """
+            SELECT
+                policy.agent_role,
+                policy.task_kind,
+                policy.runtime_route_id,
+                policy.provider,
+                policy.model,
+                version.runtime_route_id,
+                version.provider_id,
+                version.model_id,
+                model.supports_structured_output,
+                policy.task_kind = ANY(model.supported_task_kinds),
+                version.eval_required,
+                version.eval_fixture_refs
+            FROM model_routing_policies AS policy
+            JOIN model_route_versions AS version
+              ON version.route_id = policy.policy_id
+             AND version.tenant_id = policy.tenant_id
+             AND version.agent_role = policy.agent_role
+             AND version.task_kind = policy.task_kind
+             AND version.tenant_tier = policy.tenant_tier
+             AND version.runtime_route_id = policy.runtime_route_id
+             AND version.provider_id = policy.provider
+             AND version.model_id = policy.model
+            JOIN provider_catalogue_models AS model
+              ON model.catalogue_id = version.provider_catalogue_id
+             AND model.provider_id = version.provider_id
+             AND model.model_id = version.model_id
+            WHERE policy.tenant_id = 'tenant_demo'
+            ORDER BY policy.agent_role, policy.task_kind
+            """
+        ).fetchall()
 
     assert ("local", "uc1-happy-path-v1", "approved") in models
     assert ("deepseek", "deepseek-v4-flash", "disabled") in models
     assert ("openai", "gpt-5.4-mini-2026-03-17", "disabled") in models
     assert ("deepseek", ["DEEPSEEK_API_KEY"], "disabled") in providers
     assert ("openai", ["OPENAI_API_KEY"], "disabled") in providers
+    assert len(routes) == 5
+    assert all(route[2] == "recorded-replay" and route[5] == "recorded-replay" for route in routes)
+    assert all(route[3] == "local" and route[4] == "uc1-happy-path-v1" for route in routes)
+    assert all(route[6] == "local" and route[7] == "uc1-happy-path-v1" for route in routes)
+    assert all(route[8] is True and route[9] is True and route[10] is True for route in routes)
+    assert all("chorus/eval/fixtures/uc1_happy_path.json" in route[11] for route in routes)
 
 
 def test_runtime_policy_snapshot_is_tenant_scoped(migrated_database_url: str) -> None:

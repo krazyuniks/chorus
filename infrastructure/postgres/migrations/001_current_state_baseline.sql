@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS model_routing_policies (
     agent_role text NOT NULL,
     task_kind text NOT NULL,
     tenant_tier text NOT NULL,
+    runtime_route_id text NOT NULL DEFAULT 'recorded-replay',
     provider text NOT NULL,
     model text NOT NULL,
     parameters jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -93,6 +94,9 @@ CREATE TABLE IF NOT EXISTS model_routing_policies (
     CONSTRAINT model_routing_tier_check CHECK (tenant_tier IN ('demo', 'standard', 'regulated')),
     CONSTRAINT model_routing_lifecycle_check CHECK (
         lifecycle_state IN ('draft', 'approved', 'deprecated', 'disabled')
+    ),
+    CONSTRAINT model_routing_runtime_route_id_shape CHECK (
+        runtime_route_id ~ '^[a-z][a-z0-9_.-]*$'
     ),
     CONSTRAINT model_routing_budget_non_negative CHECK (budget_cap_usd >= 0),
     UNIQUE (tenant_id, agent_role, task_kind, tenant_tier)
@@ -702,6 +706,7 @@ CREATE TABLE IF NOT EXISTS model_route_versions (
     agent_role text NOT NULL,
     task_kind text NOT NULL,
     tenant_tier text NOT NULL,
+    runtime_route_id text NOT NULL,
     provider_catalogue_id text NOT NULL,
     provider_id text NOT NULL,
     model_id text NOT NULL,
@@ -732,6 +737,9 @@ CREATE TABLE IF NOT EXISTS model_route_versions (
     ),
     CONSTRAINT model_route_versions_tier_check CHECK (
         tenant_tier IN ('demo', 'standard', 'regulated')
+    ),
+    CONSTRAINT model_route_versions_runtime_route_id_shape CHECK (
+        runtime_route_id ~ '^[a-z][a-z0-9_.-]*$'
     ),
     CONSTRAINT model_route_versions_budget_non_negative CHECK (budget_cap_usd >= 0),
     CONSTRAINT model_route_versions_latency_positive CHECK (max_latency_ms >= 1),
@@ -1007,6 +1015,21 @@ ALTER TABLE model_routing_policies ADD CONSTRAINT model_routing_agent_role_check
     )
 );
 
+ALTER TABLE model_routing_policies ADD COLUMN IF NOT EXISTS runtime_route_id text;
+UPDATE model_routing_policies
+SET runtime_route_id = CASE
+    WHEN provider = 'deepseek' THEN 'dev'
+    WHEN provider = 'openai' THEN 'demo-eval-canonical'
+    ELSE 'recorded-replay'
+END
+WHERE runtime_route_id IS NULL;
+ALTER TABLE model_routing_policies ALTER COLUMN runtime_route_id SET DEFAULT 'recorded-replay';
+ALTER TABLE model_routing_policies ALTER COLUMN runtime_route_id SET NOT NULL;
+ALTER TABLE model_routing_policies DROP CONSTRAINT IF EXISTS model_routing_runtime_route_id_shape;
+ALTER TABLE model_routing_policies ADD CONSTRAINT model_routing_runtime_route_id_shape CHECK (
+    runtime_route_id ~ '^[a-z][a-z0-9_.-]*$'
+);
+
 ALTER TABLE decision_trail_entries DROP CONSTRAINT IF EXISTS decision_trail_agent_role_check;
 ALTER TABLE decision_trail_entries ADD CONSTRAINT decision_trail_agent_role_check CHECK (
     agent_role IN (
@@ -1028,6 +1051,35 @@ ALTER TABLE model_route_versions ADD CONSTRAINT model_route_versions_agent_role_
         'validator'
     )
 );
+
+DROP TRIGGER IF EXISTS model_route_versions_immutable ON model_route_versions;
+ALTER TABLE model_route_versions ADD COLUMN IF NOT EXISTS runtime_route_id text;
+UPDATE model_route_versions
+SET runtime_route_id = CASE
+    WHEN provider_id = 'deepseek' THEN 'dev'
+    WHEN provider_id = 'openai' THEN 'demo-eval-canonical'
+    ELSE 'recorded-replay'
+END
+WHERE runtime_route_id IS NULL;
+ALTER TABLE model_route_versions ALTER COLUMN runtime_route_id SET NOT NULL;
+ALTER TABLE model_route_versions DROP CONSTRAINT IF EXISTS model_route_versions_runtime_route_id_shape;
+ALTER TABLE model_route_versions ADD CONSTRAINT model_route_versions_runtime_route_id_shape CHECK (
+    runtime_route_id ~ '^[a-z][a-z0-9_.-]*$'
+);
+UPDATE model_route_versions
+SET eval_fixture_refs = ARRAY[
+    'chorus/eval/fixtures/uc1_happy_path.json',
+    'chorus/eval/fixtures/uc1_validator_redraft.json',
+    'chorus/eval/fixtures/uc1_accepted_routing.json',
+    'chorus/eval/fixtures/uc1_referred_routing.json',
+    'chorus/eval/fixtures/uc1_declined_routing.json'
+]::text[]
+WHERE provider_id = 'local'
+  AND model_id = 'uc1-happy-path-v1'
+  AND (
+      eval_fixture_refs IS NULL
+      OR array_length(eval_fixture_refs, 1) IS NULL
+  );
 
 ALTER TABLE tool_grants DROP CONSTRAINT IF EXISTS tool_grants_tool_name_check;
 ALTER TABLE tool_grants ADD CONSTRAINT tool_grants_tool_name_check CHECK (
@@ -1413,7 +1465,7 @@ GRANT SELECT, INSERT ON agent_invocation_transcripts TO chorus_app;
 
 COMMENT ON TABLE tenants IS 'Seeded local tenant boundary for tenant-isolation evidence.';
 COMMENT ON TABLE agent_registry IS 'Tenant-scoped governed agent registry materialised for runtime resolution.';
-COMMENT ON TABLE model_routing_policies IS 'Tenant-scoped provider/model route policy materialised for Agent Runtime lookup.';
+COMMENT ON TABLE model_routing_policies IS 'Tenant-scoped runtime-route and provider/model policy materialised for Agent Runtime lookup.';
 COMMENT ON TABLE tool_grants IS 'Tenant-scoped Tool Gateway authority grants keyed by agent, tool, and mode.';
 COMMENT ON TABLE workflow_read_models IS
     'Projection consumed by the BFF/UI for refresh-safe UC1 enquiry-qualification status.';
@@ -1442,7 +1494,7 @@ COMMENT ON TABLE provider_catalogue_providers IS
 COMMENT ON TABLE provider_catalogue_models IS
     'Models declared by each provider catalogue entry, including task support and cost policy.';
 COMMENT ON TABLE model_route_versions IS
-    'Tenant-scoped immutable model-route versions for governance inspection.';
+    'Tenant-scoped immutable runtime-route/provider/model versions for governance inspection.';
 COMMENT ON TABLE policy_snapshots IS
     'Tenant-scoped immutable local policy bundles behind policy_snapshot_ref values emitted by governed decisions.';
 COMMENT ON TABLE approval_packages IS

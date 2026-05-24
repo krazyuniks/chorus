@@ -247,6 +247,7 @@ def play_scenario(
         )
 
     catalogue = route_catalogue or default_route_catalogue()
+    _assert_recorded_replay_route_alignment(catalogue)
     correlation_id = f"cor_eval_{fixture.fixture_id.replace('-', '_')}"
     workflow_id = f"uc1-eval-{fixture.fixture_id}"
     tenant_id = fixture.input.tenant_id
@@ -602,6 +603,18 @@ def _invoke_stage(
             completed_at=completed,
         )
     )
+
+
+def _assert_recorded_replay_route_alignment(catalogue: RouteCatalogue) -> None:
+    route_entry = catalogue.get(RECORDED_REPLAY_ROUTE)
+    if (
+        route_entry.provider_id != RECORDED_REPLAY_PROVIDER
+        or route_entry.model_id != RECORDED_REPLAY_MODEL
+        or route_entry.adapter_version != REPLAY_ADAPTER_VERSION
+    ):
+        raise ValueError(
+            "recorded-replay eval route metadata does not match the governed local route matrix"
+        )
 
 
 def _emit_terminal_route_connector(

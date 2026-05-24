@@ -44,6 +44,7 @@ class SelectedModel(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    runtime_route_id: Annotated[str, Field(pattern="^[a-z][a-z0-9_.-]*$")]
     provider_catalogue_id: Annotated[str, Field(pattern="^provider-catalogue\\.[A-Za-z0-9_.-]+$")]
     provider_id: Annotated[str, Field(pattern="^[a-z][a-z0-9_.-]*$")]
     model_id: Annotated[str, Field(min_length=1)]

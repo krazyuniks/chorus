@@ -167,6 +167,7 @@ def test_generated_models_validate_representative_samples() -> None:
         "deepseek",
         "openai",
     ]
+    assert route_version.selected_model.runtime_route_id == "recorded-replay"
     assert route_version.selected_model.provider_id == "local"
     assert (
         CalendarAvailabilityLookupArgs.model_validate(availability_sample).calendar_ref

@@ -66,6 +66,7 @@ class ModelRouteVersion(BaseModel):
     agent_role: str
     task_kind: str
     tenant_tier: str
+    runtime_route_id: str
     provider_catalogue_id: str
     provider_id: str
     model_id: str
@@ -170,6 +171,7 @@ class ProviderGovernanceStore:
                 agent_role,
                 task_kind,
                 tenant_tier,
+                runtime_route_id,
                 provider_catalogue_id,
                 provider_id,
                 model_id,

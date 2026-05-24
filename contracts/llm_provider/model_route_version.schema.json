@@ -81,12 +81,17 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "runtime_route_id",
         "provider_catalogue_id",
         "provider_id",
         "model_id",
         "parameters"
       ],
       "properties": {
+        "runtime_route_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
         "provider_catalogue_id": {
           "type": "string",
           "pattern": "^provider-catalogue\\.[A-Za-z0-9_.-]+$"

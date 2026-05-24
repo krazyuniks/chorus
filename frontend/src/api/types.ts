@@ -119,6 +119,7 @@ export interface RoutingEntry {
   agent_role?: string;
   task_kind?: string;
   tenant_tier?: string;
+  runtime_route_id?: string;
   provider: string;
   model: string;
   parameters?: Record<string, unknown>;
@@ -161,6 +162,7 @@ export interface RouteVersionEntry {
   agent_role: string;
   task_kind: string;
   tenant_tier: string;
+  runtime_route_id: string;
   provider_catalogue_id: string;
   provider_id: string;
   model_id: string;

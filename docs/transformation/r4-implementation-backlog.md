@@ -175,7 +175,7 @@ channel runnable status are separate claims.
   call path.
 - [x] Pass task-specific response schemas to OpenAI-compatible routes and reject
   malformed or empty `structured_data`.
-- [ ] Align `default_route_catalogue`, `model_routing_policies`,
+- [x] Align `default_route_catalogue`, `model_routing_policies`,
   `model_route_versions`, provider catalogue seeds, BFF provider views, and
   eval route selection.
 - [ ] Add replay run records that link the original invocation, alternate route,
@@ -990,6 +990,59 @@ channel runnable status are separate claims.
   DB-backed verification and migration execution remain blocked by the local
   Postgres credential failure.
 
+### 2026-05-24 - Provider Route Governance Alignment
+
+- Scope: third P3 provider hardening slice for route-governance alignment and
+  read-only inspection consistency only.
+- Behaviour changed:
+  - the executable `recorded-replay` route now carries the same governed local
+    provider/model metadata as the active DB policy and eval fixtures:
+    `local` / `uc1-happy-path-v1`, while retaining the deterministic
+    recorded-replay adapter;
+  - `model_routing_policies`, `model_route_versions`, the
+    `model_route_version` contract/sample, BFF routing / route-version views,
+    and frontend provider fixtures now expose `runtime_route_id` so the
+    executable route key is inspectable alongside provider/model metadata;
+  - provider catalogue seed rows remain approved only for the local route and
+    disabled for DeepSeek/OpenAI; live-provider routes were not activated and
+    no live provider was called;
+  - model-route version rows now carry the five current UC1 eval fixture refs,
+    and eval replay verifies captured provider/model metadata against the
+    executable route catalogue before deterministic replay;
+  - focused checks now fail on mismatches between route catalogue entries,
+    provider catalogue task/structured-output support, model-route sample
+    selection, DB policy/version joins, BFF provider views, and eval replay
+    route metadata.
+- Files changed: route catalogue, Agent Runtime route resolution, eval replay
+  / scenario route guards, runtime/provider persistence read models, BFF and
+  frontend provider/routing inspection views, LLM provider contract/sample and
+  generated model, audit transcript sample, Postgres baseline and seed data,
+  focused runtime/BFF/persistence/contract/eval/frontend tests, architecture /
+  evidence / runbook / provider docs, and this backlog handoff.
+- Gates run:
+  - `just contracts-gen` - regenerated generated contract models after the
+    `model_route_version` contract addition.
+  - `uv run pytest tests/agent_runtime/test_runtime.py tests/bff/test_app_unit.py tests/eval/test_run.py tests/test_contracts.py tests/test_route_governance_alignment.py -q`
+    - green, 41 passed and 3 skipped; skipped cases were DB-backed Agent
+    Runtime tests because local Postgres on `localhost:5432` rejected the
+    configured `chorus` user.
+  - `uv run pytest tests/persistence/test_postgres_foundation.py -rs` -
+    1 passed and 16 skipped; skipped cases include the new DB-backed
+    route-governance alignment assertion because local Postgres rejected the
+    configured `chorus` user.
+  - `just contracts-check` - green.
+  - `just test-frontend` - green, 13 passed.
+  - `just eval` - green for five UC1 offline eval fixtures.
+  - `just test-replay` - green, 2 passed and 8 deselected.
+  - `just lint` - green after formatting touched Python files.
+  - `git diff --check` - green.
+- Skipped gates: live OpenAI / DeepSeek provider calls, live `just db-migrate`,
+  full `just test`, Redpanda projection integration, frontend e2e, and UC2 /
+  UC3 runtime gates were not run. This slice did not activate live routes,
+  add replay comparator records, or require credentials; DB-backed migration
+  and persistence verification remain blocked by the local Postgres credential
+  failure.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -1037,22 +1090,22 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: continue P3 Provider And Replay Hardening by aligning `default_route_catalogue`, active `model_routing_policies`, `model_route_versions`, provider catalogue seeds, BFF provider views, and eval route selection. Keep the slice focused on route-governance alignment and inspection only.
+Current target slice: continue P3 Provider And Replay Hardening by adding replay run records that link the original invocation, alternate route, comparator result, and cost/latency metrics. Keep the slice focused on replay-run evidence records and inspection only; do not implement the tiered comparator beyond the minimal placeholder/status shape needed to persist records.
 
-Previous slice completed: schema-bound structured-output enforcement is now active in the provider call path. Agent Runtime builds UC1 task-specific `InvocationArgs.response_shape`, adds a generated JSON-only schema instruction after the approved prompt system message, records safe response-schema name / contract / task / hash metadata, and still leaves active provider selection unchanged. The OpenAI-compatible adapter requests OpenAI `json_schema` structured output for the canonical OpenAI route and DeepSeek `json_object` mode for the dev route, parses provider JSON into `InvocationResult.structured_data`, validates it locally against the task schema, and raises non-retryable provider-port errors for malformed JSON, provider refusals, missing choices / messages, empty provider content, or empty `structured_data`. The recorded-replay adapter ignores response shaping for deterministic output while carrying safe response-schema metadata. Eval replay and scenario playback pass the same UC1 response shapes. No live provider was called, no active provider route was changed, no replay comparator records were added, and UC1 connector/UI behaviour was left unchanged.
+Previous slice completed: route-governance alignment is now explicit and inspectable. The executable `recorded-replay` route carries the same governed local provider/model metadata as DB policy, route-version rows, provider catalogue rows, BFF inspection views, frontend provider fixtures, and eval fixtures: runtime route `recorded-replay`, provider `local`, model `uc1-happy-path-v1`. `model_routing_policies`, `model_route_versions`, the model-route contract/sample, BFF routing and route-version views, and frontend inspection fixtures now expose `runtime_route_id`; provider catalogue rows remain approved only for local and disabled for DeepSeek/OpenAI; model-route versions carry the five current UC1 eval fixture refs. Eval replay now verifies captured provider/model metadata against the executable route catalogue before deterministic replay and passes target route model/parameter metadata into the provider port. No live provider was called, no live route was activated, no replay comparator/run records were added, and UC1 connector behaviour was left unchanged.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/llm_provider/, contracts/audit/, infrastructure/postgres/seeds/001_demo_tenants.sql, infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql, infrastructure/postgres/migrations/001_current_state_baseline.sql, frontend/provider governance fixtures/views if present, and the current P3 backlog items. If current provider catalogue or model-route governance details need external verification, use official provider documentation only.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/llm_provider/, contracts/audit/, contracts/eval/, infrastructure/postgres/seeds/001_demo_tenants.sql, infrastructure/postgres/seeds/002_provider_governance.sql, infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql, infrastructure/postgres/migrations/001_current_state_baseline.sql, the current eval replay/scenario-player surfaces, BFF/provider inspection surfaces if replay records become visible there, and the current P3 backlog items. If current provider or model-route governance details need external verification, use official provider documentation only.
 
-Before editing, inspect the route-governance and provider inspection surfaces: `chorus/llm_provider/route_catalogue.py`, `chorus/agent_runtime/runtime.py`, `chorus/persistence/runtime_policy.py`, `chorus/persistence/provider_governance.py`, `chorus/bff/app.py`, `contracts/llm_provider/provider_catalogue.schema.json`, `contracts/llm_provider/model_route_version.schema.json`, `contracts/llm_provider/samples/provider_catalogue.sample.json`, `contracts/llm_provider/samples/model_route_version.sample.json`, `infrastructure/postgres/seeds/001_demo_tenants.sql`, `infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`, `tests/agent_runtime/test_runtime.py`, `tests/bff/test_app_unit.py`, `tests/persistence/test_postgres_foundation.py`, `tests/test_contracts.py`, and relevant frontend tests / fixtures. Search for `default_route_catalogue`, `model_routing_policies`, `model_route_versions`, `provider_catalogue`, `provider_catalogues`, `supports_structured_output`, `response_schema`, `response_format`, `provider_id`, `model_id`, `eval_required`, `eval_fixture_refs`, `route_version`, `provider view`, and `route selection`.
+Before editing, inspect the replay/eval/audit persistence surfaces: `chorus/eval/replay.py`, `chorus/eval/run.py`, `chorus/eval/types.py`, `chorus/eval/scenario_player.py`, `chorus/eval/common_invariants.py`, `chorus/agent_runtime/runtime.py`, `chorus/persistence/audit_port.py`, `chorus/persistence/provider_governance.py`, `chorus/bff/app.py`, `chorus/llm_provider/route_catalogue.py`, `contracts/audit/`, `contracts/llm_provider/`, `contracts/eval/`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`, `infrastructure/postgres/seeds/002_provider_governance.sql`, `tests/eval/test_run.py`, `tests/agent_runtime/test_runtime.py`, `tests/bff/test_app_unit.py`, `tests/persistence/test_postgres_foundation.py`, `tests/test_contracts.py`, and `tests/test_route_governance_alignment.py`. Search for `replay`, `CapturedTranscript`, `InvocationResult`, `transcript`, `route_catalogue`, `runtime_route_id`, `eval_required`, `eval_fixture_refs`, `comparator`, `comparison`, `cost`, `latency`, `token_usage`, and `provider_metadata`.
 
-Expected direction: keep the active runtime route selection on local recorded replay unless the docs and seeds already define an approved local-only alignment move. Align the executable route catalogue metadata with DB route policy, route-version rows, provider catalogue rows / samples, BFF provider inspection views, and eval route-selection assumptions so a reviewer sees one coherent governed route matrix. Preserve the newly landed structured-output capability metadata where relevant. Add or update focused checks that fail on mismatches between route catalogue entries, route policies, route versions, provider catalogue support, and BFF/eval inspection data. Do not activate live-provider routes, call live providers, add replay comparator records, alter UC1 connector behaviour, implement UC2 / UC3 runtime work, change UI behaviour beyond read-only provider inspection consistency, or store secrets. If route-governance alignment requires a DB contract shape that cannot represent the required response-schema support or eval eligibility fields, stop and surface that design question rather than widening the slice.
+Expected direction: add a narrow replay-run record surface that can store the original invocation/transcript reference, original route metadata, alternate runtime route and provider/model metadata, comparator status/result payload, token/cost/latency metrics, policy/prompt/response-schema refs needed for lineage, and safe error/skipped reasons. Prefer contract-first shape and Postgres persistence/read-model alignment if the existing audit/eval contracts do not already cover this. Keep replay execution deterministic/offline unless credentials and design explicitly permit a live route gate; live provider calls are not required for this slice. Add focused tests that fail if replay-run records cannot link original invocation, alternate route, comparator result, and metrics. Do not implement full hard-fail/decision-fail/review-finding comparator semantics, do not add connector side effects, do not activate live routes, do not change UC1 connector/UI behaviour except read-only inspection if a replay-run view is added, and do not store secrets or raw customer content.
 
-Keep this slice focused on route governance alignment. Do not change provider selection semantics unless the existing R4 design docs explicitly require the selected local route metadata to be normalised without live-provider activation.
+Keep this slice focused on replay-run evidence records. If the necessary DB/contract shape cannot represent the required replay lineage or metrics without storing raw prompts, raw outputs, credentials, or personal data, stop and surface the design question rather than widening the slice.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
 - Rewrite the body of the `## Next Continuation Prompt` section in the backlog with the next slice's prompt, in Strategy order. If R4 is fully closed, write the literal `R4-COMPLETE` there instead.
-- Run relevant focused gates for the files touched, likely including focused runtime/workflow/eval tests, `just contracts-gen` and `just contracts-check` if contracts or samples change, `just eval` if eval fixtures or replay metadata change, `just lint`, and `git diff --check`. If DB-backed or live-provider gates cannot run because local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
+- Run relevant focused gates for the files touched, likely including focused eval/replay/runtime/persistence/BFF tests, `just contracts-gen` and `just contracts-check` if contracts or samples change, `just eval` if eval replay metadata changes, `just lint`, and `git diff --check`. If DB-backed or live-provider gates cannot run because local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
 - Stage everything and create one Conventional Commit (`type(scope): description`). Do not add `Co-Authored-By` or any AI attribution.
 - Leave the working tree clean.
 

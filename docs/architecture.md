@@ -70,7 +70,7 @@ and UC3 are modelled for later R4 implementation.
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|
 | Intake | email-channel, web-form-channel, partner-portal-channel, synthetic-channel | email-channel, corporate-intake-form, intermediary-referral-channel | web-form-channel, email-channel, introducer-referral-channel |
-| LLM provider | OpenAI-SDK adapter; route metadata: DeepSeek `deepseek-v4-flash` (dev), OpenAI `gpt-5.4-mini-2026-03-17` (demo / eval), and local recorded replay | same adapter and route shape | same adapter and route shape |
+| LLM provider | OpenAI-SDK adapter; route metadata: active local `recorded-replay` (`local` / `uc1-happy-path-v1`), DeepSeek `deepseek-v4-flash` (dev), and OpenAI `gpt-5.4-mini-2026-03-17` (demo / eval) | same adapter and route shape | same adapter and route shape |
 | Connector | sandbox-crm, sandbox-referral-inbox, sandbox-decline-ledger, sandbox-outbound-comms, sandbox-customer-profile, sandbox-product-catalogue | adds sandbox-conflict-check, sandbox-kyc-bo, sandbox-aml-record-store, sandbox-engagement-letter-store | adds sandbox-attitude-to-risk-profiler, sandbox-capacity-for-loss-tool, sandbox-suitability-report-store, sandbox-platform-research |
 | Audit / transcript | decision-trail adapter, transcript adapter (Postgres-backed) | same | same |
 | Projection sink | Postgres projection adapter; Redpanda event consumer feeding the read-only BFF | same | same |
@@ -160,17 +160,18 @@ model identifier, the model parameters used, and the adapter version.
 |---|---|---|
 | Dev | Day-to-day reasoning during local development. | DeepSeek `deepseek-v4-flash` with thinking mode, on the official OpenAI-compatible endpoint. |
 | Demo / eval canonical | The canonical demo path and the canonical eval baseline. | OpenAI `gpt-5.4-mini-2026-03-17`, the pinned snapshot of the `gpt-5.4-mini` family. |
-| Replay | Re-targets any captured transcript against any route the catalogue knows. | Configurable via the route catalogue. |
+| Replay | Deterministic local replay and the default active local route. | Local `uc1-happy-path-v1` through the `recorded-replay` route. |
 
 The OpenAI and DeepSeek identifiers, base URLs, and credential env-var names
 were verified from official provider docs on 2026-05-24; the source links and
 route-governance rule are recorded in
 [`transformation/r4-design-decisions.md`](transformation/r4-design-decisions.md).
-The active seeded runtime routes still select the local recorded-replay model.
-Prompt loading and prompt-hash verification are active for both live routes
-and the recorded-replay-safe path. Schema-bound structured output enforcement
-is active in the provider call path; route governance alignment and replay
-comparison records remain P3 work.
+The active seeded runtime routes still select `recorded-replay`. Runtime
+policy rows, immutable route-version rows, provider catalogue rows, BFF
+inspection views, and eval replay fixtures all expose the governed local
+`local` / `uc1-happy-path-v1` route matrix. Prompt loading, prompt-hash
+verification, and schema-bound structured output enforcement are active in the
+provider call path. Replay comparison records remain P3 work.
 
 The route catalogue plus the transcript port together make cross-provider
 replay possible. Without route metadata, replay can only target the original

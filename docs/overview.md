@@ -231,7 +231,7 @@ target any other provider the catalogue knows how to address.
 |---|---|---|
 | Dev | Day-to-day reasoning during local development. | DeepSeek `deepseek-v4-flash` with thinking mode, on the official OpenAI-compatible endpoint. |
 | Demo / eval canonical | The canonical demo path and the canonical eval baseline. | OpenAI `gpt-5.4-mini-2026-03-17`, the pinned snapshot of the `gpt-5.4-mini` family. |
-| Replay | Re-targets any captured transcript against any route the catalogue knows. | Configurable via the route catalogue. |
+| Replay | Deterministic local replay and the default active local route. | Local `uc1-happy-path-v1` through the `recorded-replay` route. |
 
 The LLM provider port and its provider-neutral design are recorded in
 [ADR 0018](../adrs/0018-llm-provider-port.md).
