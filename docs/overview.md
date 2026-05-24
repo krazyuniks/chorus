@@ -1,7 +1,7 @@
 ---
 type: project-doc
 status: active
-date: 2026-05-24
+date: 2026-05-25
 ---
 
 # Chorus - Overview
@@ -177,9 +177,14 @@ and the workflow spine stay constant across all three use cases. The intake
 channel adapters, the connector inventory, the approval policy, and the
 regulator-specific audit content vary per use case. R3 and R4 produce the
 evidence for or against that hypothesis: R3 landed the named-port foundation
-and UC1 spine, and R4 is the local POC phase for all three use cases. The full
-mapping is in [`r1-adapter-mapping.md`](r1-adapter-mapping.md); the active R4
-backlog is in
+and UC1 spine, and R4 closed the local POC evidence set. UC1 is locally
+runnable through the Mailpit/email intake path. UC2 and UC3 prove shared
+workflow, connector, grant, approval-package, conduct-invariant, projection,
+BFF/UI inspection, and schema-only eval surfaces, but they are explicit R4
+closure exceptions to the earlier use-case runnable definition because local
+intake start paths, use-case provider route activation, and full fixture
+playback remain absent. The full mapping is in
+[`r1-adapter-mapping.md`](r1-adapter-mapping.md); the closed R4 backlog is in
 [`transformation/r4-implementation-backlog.md`](transformation/r4-implementation-backlog.md).
 The UK-regulated use-case set is recorded in
 [ADR 0020](../adrs/0020-domain-refocus-uk-regulated-use-cases.md).

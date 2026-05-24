@@ -1,7 +1,7 @@
 ---
 type: project-doc
 status: active
-date: 2026-05-24
+date: 2026-05-25
 phase: R4
 use_case: UC2
 ---
@@ -13,11 +13,12 @@ domain terms, actors, artefacts, commands, events, aggregates, value objects,
 state machine, policies, approval points, failure paths, field placement, and
 banned terms that UC2 work must use.
 
-Contract shapes here are schema sketches. The actual JSON Schema contracts
-arrive in later R4 slices. The sketches are deliberately under-specified at
-the field level; what matters here is which payload crosses which named port,
-which fields are load-bearing, and which records must stay behind connector
-or intake boundaries.
+Contract shapes here remain domain-level sketches. The R4 JSON Schema
+contracts for UC2 intake and connector argument payloads now live under
+`contracts/intake/uc2/` and `contracts/connector/uc2/`. The sketches stay
+deliberately under-specified at the field level; what matters here is which
+payload crosses which named port, which fields are load-bearing, and which
+records must stay behind connector or intake boundaries.
 
 ## Glossary
 
@@ -61,7 +62,8 @@ or intake boundaries.
 
 ## Inbound Artefacts
 
-Schema sketches only. Actual contracts land in a later R4 contracts slice.
+Schema sketches only. The R4 intake contracts now live under
+`contracts/intake/uc2/`.
 
 ### Email Legal Intake (intake adapter: `email-channel`)
 
@@ -383,10 +385,14 @@ UC2 R4 is a synthetic local proof of the architecture:
   system, or matter-management system;
 - no client-money, billing, undertakings, SAR / DAML, e-signature, or matter
   execution workflow;
-- one use-case runnable path is enough for R4 once implementation begins, but
-  no channel is described as runnable until its own contract, fixture or
-  sandbox injection path, normalisation, provenance, idempotency, and
-  workflow-start handoff are evidenced;
-- UC2 runtime work waits for the later R4 sequence after shared-surface
-  generalisation, UC1 connector persistence completion, and provider / replay
-  hardening.
+- one use-case runnable path is enough for the original R4 runnable
+  definition, but no channel is described as runnable until its own contract,
+  fixture or sandbox injection path, normalisation, provenance, idempotency,
+  and workflow-start handoff are evidenced;
+- R4 closes with UC2 contracts, a shared-spine workflow definition,
+  deterministic sandbox connector adapters, Tool Gateway grants,
+  approval-package evidence for `engagement_letter.send`, conduct
+  invariants, read-only inspection, and schema-only fixture evidence;
+- UC2 remains an R4 closure exception to use-case runnable status because
+  local intake start, UC2 provider route activation, and full fixture playback
+  are absent.

@@ -1,7 +1,7 @@
 ---
 type: project-doc
 status: active
-date: 2026-05-24
+date: 2026-05-25
 phase: R4
 use_case: UC2
 ---
@@ -212,8 +212,8 @@ The UC2 local POC uses synthetic corporate and commercial intake records only.
 | Conflict scenarios | Clean no-hit, false-positive name match, current-client adverse interest, former-client confidential-information risk, own-interest conflict, substantially common interest candidate, and competing-for-same-objective candidate. |
 | AML scenarios | Standard-risk CDD complete, beneficial-owner gap, high-risk jurisdiction, PEP / sanctions-adjacent marker, complex ownership chain, source-of-funds ambiguity, and intermediary-reliance ambiguity. |
 | Connector sandboxes | Local synthetic conflict index, KYC / beneficial-ownership dataset, AML record store, and engagement-letter store. No live Companies House, SRA, OFSI, credit-reference, document-management, or matter-management service. |
-| Provider routes | Same LLM provider port and route shape as UC1. Exact live route identifiers remain blocked by the separate R4 provider verification item. |
-| Replay corpus | The synthetic corpus plus captured transcripts seed UC2 invariant and replay evaluation once runtime work begins. Replay compares regulated outcome equivalence, not exact prose equality. |
+| Provider routes | Same LLM provider port and route shape as UC1. Live OpenAI / DeepSeek route identifiers were verified in R4, but UC2-specific provider route activation remains deferred. |
+| Replay corpus | The synthetic corpus plus captured transcripts seed UC2 invariant and replay evaluation once local intake, provider route activation, and fixture playback exist. Replay compares regulated outcome equivalence, not exact prose equality. |
 
 ## Failure And Escalation Paths
 
@@ -244,8 +244,12 @@ UC2 R4 is deliberately local and bounded:
 - no claim that a channel is runnable until the channel contract, local
   fixture or sandbox injection path, normalisation, provenance, idempotency,
   and workflow-start handoff are evidenced;
-- no UC2 runtime implementation until the backlog reaches the later UC2
-  implementation slice after UC1 completion and provider / replay hardening.
+- R4 closes with UC2 contracts, a shared-spine workflow definition,
+  deterministic sandbox connector adapters, Tool Gateway grants,
+  `engagement_letter.send` approval-package evidence, conduct invariants,
+  read-only inspection, and schema-only fixture evidence; it does not claim
+  UC2 use-case runnable status until local intake start, UC2 provider route
+  activation, and full fixture playback are added.
 
 ## Out Of Scope
 
@@ -264,7 +268,6 @@ The following are explicitly out of scope for UC2:
 
 ## Open Questions
 
-None for this product brief. Runtime implementation remains gated by the R4
-backlog order: generalise shared surfaces, complete UC1 broker-firm-side
-connector persistence, harden live-provider and replay paths, then implement
-UC2 on the shared spine.
+None for this product brief. R4 closure exceptions for UC2 are local intake
+start, UC2 provider route activation, full fixture playback, and exact
+connector-bound approval packages for conflict-exception and AML EDD paths.

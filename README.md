@@ -63,9 +63,12 @@ flowchart TB
     CORE -->|Observability sink port| OBSA
 ```
 
-The adapter inventory behind each port, as defined by the R1 adapter mapping
-and R4 product/domain artefacts. UC1 is the worked set; UC2 and UC3 now have
-product and domain scope for later R4 implementation.
+The adapter inventory behind each port, as closed in R4. UC1 is the locally
+runnable worked set. UC2 and UC3 exercise the shared workflow, connector,
+grant, approval-package, projection-inspection, and schema-only eval surfaces,
+but are not claimed as locally runnable use cases because local intake start
+paths, use-case provider route activation, and full fixture playback remain
+deferred.
 
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|
@@ -109,7 +112,7 @@ order:
 9. [`docs/r1-adapter-mapping.md`](docs/r1-adapter-mapping.md) - adapter reuse across the three use cases.
 10. [`docs/evidence-map.md`](docs/evidence-map.md) - claims mapped to artefacts, port by port.
 11. [`docs/runbook.md`](docs/runbook.md) - local run and inspection path.
-12. [`docs/transformation/r4-implementation-backlog.md`](docs/transformation/r4-implementation-backlog.md) - active R4 strategy, backlog, and continuation handoff.
+12. [`docs/transformation/r4-implementation-backlog.md`](docs/transformation/r4-implementation-backlog.md) - closed R4 strategy, backlog, evidence notes, and closure exceptions.
 
 ## How to run it locally
 
@@ -119,17 +122,18 @@ observability. There is no hosted dependency. The full command path and the
 UC1 happy-path walk-through are in [`docs/runbook.md`](docs/runbook.md).
 
 The runtime code carries the named-port surface: the LLM provider port,
-connector adapter registry, audit / transcript split, workflow spine with UC1
-on it, per-port projection / doctor decomposition, and invariant-plus-replay
-eval. R4 wires UC1, UC2, and UC3 for local POC readiness after the R4 design
-decisions and use-case product/domain artefacts. The active R4 backlog and
-continuation prompt live in
+connector adapter registry, audit / transcript split, workflow spine with UC1,
+UC2, and UC3 definitions on it, per-port projection / doctor decomposition,
+and invariant-plus-replay eval. R4 is closed as local POC evidence: UC1 is the
+local runnable path, while UC2 and UC3 are shared-surface adapter-reuse proofs
+with explicit runnable-status exceptions. The closed R4 backlog and closure
+notes live in
 [`docs/transformation/r4-implementation-backlog.md`](docs/transformation/r4-implementation-backlog.md).
 
 ## Current Work
 
-R4 is in preflight. The next work is multi-use-case foundation generalisation
-on the existing named-port architecture.
+R4 is closed. Any next phase should start from the recorded closure exceptions
+instead of widening R4 in place.
 Architectural decisions are recorded in [`adrs/`](adrs/); only current
 decisions are kept in the repository.
 

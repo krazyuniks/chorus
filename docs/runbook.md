@@ -1,7 +1,7 @@
 ---
 type: project-doc
 status: active
-date: 2026-05-24
+date: 2026-05-25
 ---
 
 # Chorus - Local Runbook
@@ -17,26 +17,21 @@ bring up and inspect each of the six named ports; every command in it runs
 today. The **UC1 happy-path walk-through** threads the ports into one
 end-to-end run and closes with cross-provider replay-eval.
 
-A note on what runs today. R3 (contract and code terminology refactor)
-closed 2026-05-24. The runtime code carries the named-port surface, and
-the runnable local intake path remains the UC1 enquiry-qualification workflow
-on the shared `WorkflowSpine`. UC2 now has a definition-first workflow on the
-same spine with focused fake-activity workflow / replay tests, plus
-registered deterministic sandbox connector adapters for conflict check, KYC /
-beneficial ownership, AML record-store, and engagement-letter-store tools.
-UC2 grants now exist for the declared sandbox tools, with
-`engagement_letter.send` as the approval-required write. Provider route
-support, full eval fixture playback, and a local intake start path remain
-later R4 work. Read-only BFF/UI inspection can display UC2 workflow rows and
-approval-package state when those rows already exist. UC3 lands later in R4
-alongside cross-provider replay-eval breadth; its intake and connector
-contract surfaces are declared, it now has a definition-first workflow on the
-shared spine with fake-activity replay evidence, and the default connector
-registry has deterministic sandbox adapters for its declared connector tools.
-UC3 grants now exist for those tools, with `suitability_report.issue` as the
-approval-required write. Read-only BFF/UI inspection can display UC3 workflow
-rows and approval-package state when those rows already exist. Provider
-routes, full eval fixture playback, and a local intake path remain absent.
+A note on what runs today. R4 is closed as local POC evidence. The runnable
+local intake path remains the UC1 enquiry-qualification workflow on the
+shared `WorkflowSpine`. UC2 now has a definition-first workflow on the same
+spine with focused fake-activity workflow / replay tests, deterministic
+sandbox connector adapters for conflict check, KYC / beneficial ownership,
+AML record-store, and engagement-letter-store tools, Tool Gateway grants,
+`engagement_letter.send` as the approval-required write, conduct invariants,
+schema-only fixture evidence, and read-only BFF/UI approval-package
+inspection. UC3 has the equivalent shared-spine proof for IFA suitability:
+deterministic sandbox connector adapters, Tool Gateway grants,
+`suitability_report.issue` as the approval-required write, conduct
+invariants, schema-only fixture evidence, and read-only BFF/UI
+approval-package inspection. UC2 and UC3 are recorded R4 closure exceptions to
+the earlier use-case runnable definition: local intake start paths, use-case
+provider route activation, and full eval fixture playback remain absent.
 
 ## Bring the stack up
 
@@ -106,9 +101,10 @@ deduplicates by Message-ID and derives a stable workflow ID, so re-sending the
 same fixture records a duplicate rather than starting a second run; use a fresh
 Message-ID when rehearsing.
 
-R3 leaves the Mailpit/email UC1 channel runnable and keeps the UC1 web-form,
-partner-portal, and synthetic-channel contracts in place. R4 decides which
-non-email channel paths must become runnable for local POC readiness.
+R4 closes with the Mailpit/email UC1 channel runnable and keeps the UC1
+web-form, partner-portal, and synthetic-channel contracts in place. UC2 and
+UC3 intake contracts exist, but no UC2 or UC3 local intake adapter starts a
+workflow yet; that is a recorded closure exception.
 
 ### LLM provider port
 
@@ -141,8 +137,8 @@ against the same task schema locally. Malformed JSON or an empty
 any connector action can be proposed. The active local route-governance rows
 now align on runtime route `recorded-replay`, provider `local`, and model
 `uc1-happy-path-v1` across routing policy, immutable route versions, provider
-catalogue rows, BFF inspection, and offline eval route selection. R4 wires
-live route activation only after required local credentials and live route
+catalogue rows, BFF inspection, and offline eval route selection. Live route
+activation remains deferred until required local credentials and live route
 gates are aligned. Replay-run evidence
 records now persist the original invocation/transcript refs, alternate route
 metadata, comparator status, lineage refs, and token/cost/latency metrics. The
@@ -224,8 +220,8 @@ handoff remain workflow/manual-review conduct evidence until a later slice
 adds exact connector request shapes for those packages. Read-only projection,
 BFF, and UI fixture evidence can show safe UC3 workflow progress and generic
 approval-package state for `suitability_report.issue` when rows exist. The
-runbook does not yet claim a runnable UC3 local intake path: provider routes,
-full eval playback, and local intake adapters remain absent.
+runbook does not yet claim a runnable UC3 local intake path: use-case provider
+route activation, full eval playback, and local intake adapters remain absent.
 
 Inspect approval packages through the read-only BFF:
 
@@ -314,13 +310,32 @@ Every dashboard exposes a `$correlation` variable. Paste a run's
 audit queries above. Do not put secrets, credentials, raw content, or PII into
 span attributes, baggage, or dashboard labels.
 
+## R4 closure gates
+
+The documentation-led R4 closure gate set is:
+
+```bash
+just contracts-check
+just eval
+just test-replay
+just lint
+git diff --check
+```
+
+Run `just test-frontend` when frontend code or fixture data changes. Run
+live-stack, DB-backed, provider, and e2e gates only when the closure slice
+touches those surfaces or when the local credentials and stack are available.
+If local Postgres rejects the configured `chorus` user, record the affected
+DB-backed checks as skipped rather than claiming live DB evidence.
+
 ## UC1 happy-path walk-through
 
 This is the end-to-end happy path threaded through the six ports. The port
 sequence is stable; the UC1 enquiry-qualification workflow runs it
-end-to-end on the shared `WorkflowSpine`. UC2 and UC3 land alongside in R4
-with their own workflow definitions on the same spine; the sequence does
-not change.
+end-to-end on the shared `WorkflowSpine`. R4 added UC2 and UC3 workflow
+definitions on the same spine, but those use cases are inspection and
+schema-only evidence paths until local intake start, use-case provider route
+activation, and full fixture playback land in a later phase.
 
 1. **Bring the stack up (all ports).** Run the bring-up commands above:
    `just up && just db-migrate && just schemas-register && just doctor`.

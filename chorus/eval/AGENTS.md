@@ -18,7 +18,7 @@ R3 G; the invariants now do the asserting.
   audit field, port boundary, or replay property becomes load-bearing across
   use cases.
 - Add or update conduct hooks in per-use-case modules under `use_cases/`
-  (`uc1_conduct.py` today; UC2 and UC3 should mirror that shape later).
+  (`uc1_conduct.py`, `uc2_conduct.py`, and `uc3_conduct.py` today).
 - Keep deterministic fixture execution available without live provider calls.
   The scenario player drives the recorded-replay route only.
 - Live persisted-evidence assertions should plug into the same invariant
@@ -41,9 +41,10 @@ R3 G; the invariants now do the asserting.
   cross-port payload validity, governed-decision provenance, audit
   completeness, observability emission, connector authority discipline, and
   projection convergence.
-- `use_cases/uc1_conduct.py` holds the current UC1 conduct hooks for enquiry
-  qualification. UC2 and UC3 conduct modules should sit beside it when their
-  runtime slices land.
+- `use_cases/uc1_conduct.py` holds the UC1 conduct hooks for enquiry
+  qualification. `use_cases/uc2_conduct.py` and
+  `use_cases/uc3_conduct.py` hold safe synthetic conduct checks for their
+  R4 schema-only evidence; full fixture playback remains absent.
 - `invariants.py` composes the current UC1 suite and keeps the runner-facing
   imports stable.
 - `replay.py` loads a captured transcript fixture, re-executes it through

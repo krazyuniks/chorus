@@ -1,15 +1,15 @@
 ---
 type: project-doc
 status: active
-date: 2026-05-24
+date: 2026-05-25
 phase: R4
 ---
 
 # R4 Implementation Backlog
 
-This is the single working backlog and continuation handoff for R4. Keep this
-file current at the end of every R4 session, then print the next continuation
-prompt from the final section of this file.
+This is the single working backlog and continuation handoff for R4. R4 is now
+closed; the final section records that no further R4 continuation prompt is
+open.
 
 ## R4 Goal
 
@@ -29,36 +29,42 @@ DSL.
 
 ## Current State
 
-Chorus starts R4 from:
+R4 closes with:
 
-- the six-port contract layout and named runtime modules;
-- the OpenAI-compatible provider adapter plus deterministic recorded-replay
-  route;
-- the connector adapter registry and UC1 sandbox connector inventory;
-- the workflow spine with UC1 enquiry qualification on it;
-- the audit / transcript split;
-- per-port projection and doctor decomposition;
-- the UC1 invariant-plus-replay eval substrate.
+- the six-port contract layout and named runtime modules aligned across
+  contracts, runtime code, docs, eval, and read-only inspection surfaces;
+- UC1 locally runnable through the Mailpit/email intake path on the shared
+  `WorkflowSpine`, with persisted broker-firm-side connector refs, seeded
+  customer profile / product catalogue data, verdict routing, a materialised
+  UC1 policy snapshot row, read-only projections, and five UC1 offline eval
+  fixtures covering missing-data, accepted, referred, and declined paths;
+- the OpenAI-compatible provider adapter hardened with prompt loading,
+  prompt-hash verification, task-specific response schemas, structured-output
+  validation, route-governance alignment, replay-run evidence records, and a
+  tiered comparator for hard failures, decision failures, review findings, and
+  metrics-only deltas;
+- UC2 product/domain scope, intake and connector contracts, a shared-spine
+  workflow definition, deterministic sandbox connector adapters, Tool Gateway
+  grants, `engagement_letter.send` approval-package evidence, conduct
+  invariants, read-only projection / BFF / UI inspection evidence, focused
+  tests, and a schema-only eval fixture;
+- UC3 product/domain scope, intake and connector contracts, a shared-spine
+  workflow definition, deterministic sandbox connector adapters, Tool Gateway
+  grants, `suitability_report.issue` approval-package evidence, conduct
+  invariants, read-only projection / BFF / UI inspection evidence, focused
+  tests, and a schema-only eval fixture.
 
-The known gaps are intentional R4 surfaces:
-
-- UC2 and UC3 have product briefs and domain models; runtime implementation
-  for both still waits for shared-surface generalisation, UC1 connector
-  persistence completion, and provider / replay hardening;
-- UC1 connector persistence and verdict routing need to be completed beyond
-  deterministic refs;
-- the projection schema, DB constraints, gateway approval packaging, and eval
-  fixture schema still carry UC1 assumptions;
-- live provider calls need strict structured-output enforcement before
-  cross-provider replay has evidential value;
-- route catalogue entries, DB routing policy, provider catalogue rows, UI
-  provider views, and eval route selection need to agree.
+R4 does not claim UC2 or UC3 as locally runnable use cases under the earlier
+definition below. Their local intake start paths, use-case provider route
+activation, and full fixture playback remain recorded closure exceptions. Live
+OpenAI / DeepSeek execution remains credential-gated and inactive by default.
+DB-backed live-stack checks were repeatedly skipped in the R4 evidence notes
+where local Postgres on `localhost:5432` rejected the configured `chorus`
+user.
 
 ## Strategy
 
-Do not start UC2 or UC3 implementation until the R4 design decisions and both
-use-case briefs are written. The R4 implementation should then proceed in this
-order:
+R4 proceeded in this order:
 
 1. Close R3 documentation drift so reviewers do not encounter contradictory
    phase status.
@@ -98,6 +104,31 @@ Unless a later R4 design decision narrows scope, a use case is runnable when:
 For channel coverage, use the distinction in
 `docs/transformation/r4-design-decisions.md`: use-case runnable status and
 channel runnable status are separate claims.
+
+R4 closure exception: UC2 and UC3 intentionally stop short of this definition.
+They prove shared workflow / connector / grant / approval / projection /
+schema-only eval surfaces, but they lack a documented local intake path that
+starts a workflow, use-case provider route activation, and full fixture
+playback. Those gaps are recorded as deferred closure items below instead of
+being silently reworded into runnable status.
+
+## R4 Exit Criteria
+
+- [x] UC1 has one documented local intake path that starts and inspects the
+  workflow end-to-end on the shared `WorkflowSpine`.
+- [x] UC1 terminal and missing-data verdicts pass through the Tool Gateway and
+  persisted / seeded connector surfaces, with decision-trail, transcript,
+  projection, and eval evidence.
+- [x] The provider path has prompt-hash, response-schema, route-governance,
+  replay-run, and tiered-comparator evidence without activating uncredentialed
+  live routes by default.
+- [x] UC2 and UC3 exercise the same shared workflow, connector, grant,
+  approval-package, conduct-invariant, projection/BFF/UI inspection, and
+  schema-only eval surfaces without production data or live side effects.
+- [x] UC2 and UC3 runnable-status gaps are recorded explicitly as closure
+  exceptions with reasons.
+- [x] Closure docs and handoff state identify final commands, gates, skipped
+  gates, and deferred / blocked state.
 
 ## Backlog
 
@@ -211,14 +242,43 @@ channel runnable status are separate claims.
 
 ### P6 - R4 Closure
 
-- [ ] Update `README.md`, `docs/overview.md`, `docs/architecture.md`,
+- [x] Update `README.md`, `docs/overview.md`, `docs/architecture.md`,
   `docs/evidence-map.md`, and `docs/runbook.md` with final R4 status.
-- [ ] Record final commands, gates, skipped gates, and evidence notes.
-- [ ] Add R4 exit criteria.
-- [ ] Update this backlog so every item is checked, deferred with reason, or
+- [x] Record final commands, gates, skipped gates, and evidence notes.
+- [x] Add R4 exit criteria.
+- [x] Update this backlog so every item is checked, deferred with reason, or
   blocked with reason.
-- [ ] Print the next phase continuation prompt or explicitly state that R4 is
+- [x] Print the next phase continuation prompt or explicitly state that R4 is
   closed.
+
+### R4 Closure Exceptions And Deferred Items
+
+- [x] Deferred - UC2 use-case runnable path. Reason: R4 proved UC2 contracts,
+  shared-spine workflow structure, sandbox connectors, grants,
+  `engagement_letter.send` approval-package evidence, conduct invariants,
+  read-only inspection, and schema-only fixture validation, but did not add a
+  local intake adapter that starts a UC2 workflow, UC2 provider route
+  activation, or full UC2 fixture playback.
+- [x] Deferred - UC3 use-case runnable path. Reason: R4 proved UC3 contracts,
+  shared-spine workflow structure, sandbox connectors, grants,
+  `suitability_report.issue` approval-package evidence, conduct invariants,
+  read-only inspection, and schema-only fixture validation, but did not add a
+  local intake adapter that starts a UC3 workflow, UC3 provider route
+  activation, or full UC3 fixture playback.
+- [x] Deferred - live OpenAI / DeepSeek provider execution. Reason: official
+  route identifiers and credential env vars are verified and the provider path
+  is schema-hardened, but live calls remain credential-gated and inactive by
+  default until route gates and local credentials are deliberately exercised.
+- [x] Deferred - UC2 conflict-exception / AML EDD and UC3 risk-profile /
+  vulnerability exact approval packages. Reason: the R4 workflow / gateway
+  model does not yet bind those approvals to exact connector requests without
+  adding new connector request shapes; they remain workflow/manual-review
+  conduct evidence.
+- [x] Skipped / blocked in local evidence - live DB migration and DB-backed
+  persistence/projection assertions where local Postgres rejected the
+  configured `chorus` user. Reason: the docs-led closure did not touch live
+  persistence behaviour; rerun the DB-backed checks under a working local
+  stack before claiming live DB proof for these assertions.
 
 ## Evidence Notes
 
@@ -1398,7 +1458,8 @@ channel runnable status are separate claims.
   eval, frontend e2e, live-stack, and live-provider gates were not run. This
   slice added workflow structure and fake-activity workflow evidence only;
   UC2 connector adapters, grants, persistence, projections, eval fixtures,
-  local intake start path, and provider route support remain pending P4 work.
+  local intake start path, and provider route support were not part of this
+  slice; final R4 closure state is recorded above.
 
 ### 2026-05-24 - UC2 Sandbox Connector Adapters
 
@@ -1508,8 +1569,9 @@ channel runnable status are separate claims.
   verification, full `just test`, `just test-replay`, Redpanda projection
   integration, frontend/e2e, live-stack, and live-provider gates were not run.
   DB-backed verification and migration execution remain blocked by the local
-  Postgres credential failure; provider, local intake, projection, UI, and
-  full UC2 eval fixtures are later P4 scope.
+  Postgres credential failure. Provider route activation, local intake, and
+  full UC2 eval playback were not part of this slice; final R4 closure state
+  is recorded above.
 
 ### 2026-05-24 - UC2 Projection And Inspection Surface
 
@@ -1664,8 +1726,8 @@ channel runnable status are separate claims.
   live-stack, and live-provider gates were not run. This slice added workflow
   structure and fake-activity workflow evidence only; UC3 connector adapters,
   grants, approval-package behaviour, persistence, projections, eval
-  playback, local intake start path, and provider route support remain
-  pending P5 work.
+  playback, local intake start path, and provider route support were not part
+  of this slice; final R4 closure state is recorded above.
 
 ### 2026-05-24 - UC3 Sandbox Connector Adapters
 
@@ -1716,7 +1778,8 @@ channel runnable status are separate claims.
   live-provider gates were not run. DB-backed verification remains blocked by
   the local Postgres credential failure. UC3 grant seeds, approval packages,
   conduct invariants, projections, eval playback, local intake start path,
-  and provider route support remain pending P5 work.
+  and provider route support were not part of this slice; final R4 closure
+  state is recorded above.
 
 ### 2026-05-25 - UC3 Approval Gates And Conduct Invariants
 
@@ -1782,8 +1845,9 @@ channel runnable status are separate claims.
   approval-apply verification, full `just test`, `just test-replay`, Redpanda
   projection integration, frontend/e2e, live-stack, and live-provider gates
   were not run. DB-backed verification and migration execution remain blocked
-  by the local Postgres credential failure; provider, local intake,
-  projection, UI, and full UC3 eval fixtures are later P5 scope.
+  by the local Postgres credential failure. Provider route activation, local
+  intake, and full UC3 eval playback were not part of this slice; final R4
+  closure state is recorded above.
 
 ### 2026-05-25 - UC3 Projection And Inspection Surface
 
@@ -1847,6 +1911,45 @@ channel runnable status are separate claims.
   validation was not needed because the frontend change is a read-only
   fixture/table-query addition covered by the frontend test suite.
 
+### 2026-05-25 - R4 Closure Documentation And Evidence
+
+- Scope: documentation-led P6 closure for final R4 status, exit criteria,
+  evidence notes, deferred items, and continuation handoff.
+- Files changed: `README.md`, `docs/overview.md`, `docs/architecture.md`,
+  `docs/evidence-map.md`, `docs/runbook.md`,
+  `docs/transformation/r4-implementation-backlog.md`, `contracts/README.md`,
+  `chorus/eval/AGENTS.md`, `docs/product-brief-uc2.md`,
+  `docs/domain-model-uc2.md`, `docs/product-brief-uc3.md`, and
+  `docs/domain-model-uc3.md`.
+- Final status:
+  - UC1 is the locally runnable R4 path through Mailpit/email intake, the
+    shared `WorkflowSpine`, LLM provider port, Tool Gateway, audit /
+    transcript ports, read-only projections, and invariant-plus-replay eval.
+  - UC2 and UC3 close R4 as shared-surface adapter-reuse evidence: contracts,
+    workflow definitions, sandbox connectors, grant / approval-package
+    authority, conduct invariants, read-only projection / BFF / UI inspection,
+    and schema-only eval fixtures.
+  - UC2 and UC3 are not claimed as use-case runnable under the earlier R4
+    definition because local intake start paths, use-case provider route
+    activation, and full fixture playback remain absent.
+- Gates run:
+  - `just contracts-check` - green for 45 schemas, samples, and generated
+    model drift checks.
+  - `just eval` - green for the five current top-level UC1 offline eval
+    fixtures.
+  - `just test-replay` - green, 4 passed and 17 deselected.
+  - `just lint` - green, including ruff, ruff format check, pyright, and
+    frontend type checking.
+  - `git diff --check` - green.
+- Skipped gates: `just test-frontend` was not run because this closure changed
+  docs only and did not touch frontend code, fixture data, or UI behaviour.
+  Live `just db-migrate`, DB-backed persistence/projection assertions, full
+  `just test`, Redpanda projection integration, browser/e2e validation,
+  live-stack gates, and live OpenAI / DeepSeek provider calls were not run
+  because this slice did not touch those runtime surfaces; DB-backed live
+  evidence also remains subject to the previously recorded local Postgres
+  `chorus` user credential blocker.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -1889,29 +1992,4 @@ an answer; leave your uncommitted work in place for that resume.
 
 ## Next Continuation Prompt
 
-```text
-We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/transformation/r4-implementation-backlog.md as the single source of backlog and handoff state.
-
-Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
-
-Current target slice: start P6 - R4 Closure. Update `README.md`, `docs/overview.md`, `docs/architecture.md`, `docs/evidence-map.md`, `docs/runbook.md`, and this backlog with final R4 status, exit criteria, evidence notes, and checked / deferred / blocked state. Keep this slice documentation-led unless a broken reference or command requires a very small test/docs fix. Do not add provider routes, local intake adapters, connector persistence, production data handling, mutable admin UI, broad runtime rewrites, or new use-case scope during closure.
-
-Previous slice completed: P5 UC3 now has read-only projection / BFF / UI inspection evidence and schema-only fixture evidence. The existing generic approval-package projection reader and `/api/approval-packages` BFF endpoints expose UC3 `suitability_report.issue.write` package state when rows exist. Fixture mode now includes a safe UC3 workflow row, workflow progress events, a suitability-decision row, an approval-required `suitability_report.issue` Tool Gateway verdict, the UC3 issue grant, and a generic UC3 approval package. `chorus/eval/fixtures/uc3/uc3_synthetic_suitability_conduct.json` validates the eval fixture contract without entering default playback. Focused BFF/eval/frontend tests were green; the DB-backed UC3 projection assertion skipped because local Postgres rejected the configured `chorus` user. No UC3 provider routes, local intake path, connector persistence, full eval playback, live side effects, or production FCA/client data path were added.
-
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/architecture.md, docs/overview.md, docs/evidence-map.md, docs/runbook.md, README.md, contracts/README.md, chorus/eval/AGENTS.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/product-brief-uc3.md, docs/domain-model-uc3.md, and the current P6 backlog items. Use official sources only if a regulatory or provider wording claim needs fresh verification; otherwise rely on already verified project docs.
-
-Before editing, inspect the P6 backlog items and the existing final-status wording. Search for stale claims such as `later P4`, `later P5`, `runtime implementation is later`, `projections remain`, `eval playback remain`, `UC2 lands later`, `UC3 lands later`, `runnable`, `local intake`, `provider routes`, `R4`, and `exit criteria`. Keep the closure honest: UC1 is runnable locally; UC2 and UC3 now prove shared workflow / connector / grant / approval / projection inspection / schema-only eval surfaces, but they still do not have local intake start paths, provider route activation, or full fixture playback unless a later explicit decision changes that.
-
-Expected direction: close R4 documentation and evidence, not runtime breadth. Add or update R4 exit criteria and final command/evidence notes. If UC2 or UC3 do not meet the earlier "Definition Of Runnable" because local intake / provider / playback remain absent, record that as an explicit R4 closure exception or deferred item with reason instead of silently rewording the definition. If the backlog is fully closed or explicitly deferred with reasons, rewrite the `## Next Continuation Prompt` body to the literal `R4-COMPLETE`; otherwise write the next bounded continuation prompt in Strategy order.
-
-Run documentation-appropriate gates, likely `just contracts-check`, `just eval`, `just test-replay`, `just lint`, and `git diff --check`. Run `just test-frontend` if frontend docs/fixtures/code change, and focused Python tests if runtime-facing references are edited. Run broader live-stack, DB-backed, provider, or e2e gates only if closure unexpectedly touches those surfaces; if local Postgres, credentials, or another live dependency is unavailable, record the skipped gate and reason.
-
-End-of-session contract (mandatory; see Session Cadence in the backlog):
-- Update checkboxes and evidence notes for the slice you completed.
-- Rewrite the body of the `## Next Continuation Prompt` section in the backlog with the next slice's prompt, in Strategy order. If R4 is fully closed, write the literal `R4-COMPLETE` there instead.
-- Run relevant gates for the files touched, likely including `just contracts-check`, `just eval`, `just test-replay`, `just lint`, and `git diff --check`; add `just test-frontend` or focused Python tests if code / fixture references change. Run broader gates only if runtime, persistence, BFF, frontend, replay, or eval code changes require them; if local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
-- Stage everything and create one Conventional Commit (`type(scope): description`). Do not add `Co-Authored-By` or any AI attribution.
-- Leave the working tree clean.
-
-If a blocking decision the prompt does not cover comes up, stop without committing or touching checkboxes. Surface the question clearly as the final content of your response so the next session can be reprompted with an answer.
-```
+R4-COMPLETE

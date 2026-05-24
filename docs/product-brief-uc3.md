@@ -1,7 +1,7 @@
 ---
 type: project-doc
 status: active
-date: 2026-05-24
+date: 2026-05-25
 phase: R4
 use_case: UC3
 ---
@@ -224,8 +224,8 @@ The UC3 local POC uses synthetic advice enquiries only.
 | Consumer Duty scenarios | Communication adjustment, bereavement, financial difficulty, low financial capability, health-related support need, power-of-attorney concern, and no vulnerability marker. |
 | Product governance scenarios | In-market product, edge-of-market product, negative target-market flag, high charges, complex product, platform bias, insufficient product universe, and clean independent-advice range evidence. |
 | Connector sandboxes | Local synthetic attitude-to-risk profiler, capacity-for-loss tool, platform research store, and suitability-report store. No live platform, provider, investment research, due-diligence, fact-find, CRM, e-signature, dealing, or custody service. |
-| Provider routes | Same LLM provider port and route shape as UC1. Exact live route identifiers remain blocked by the separate R4 provider verification item. |
-| Replay corpus | The synthetic corpus plus captured transcripts seed UC3 invariant and replay evaluation once runtime work begins. Replay compares regulated outcome equivalence, not exact prose equality. |
+| Provider routes | Same LLM provider port and route shape as UC1. Live OpenAI / DeepSeek route identifiers were verified in R4, but UC3-specific provider route activation remains deferred. |
+| Replay corpus | The synthetic corpus plus captured transcripts seed UC3 invariant and replay evaluation once local intake, provider route activation, and fixture playback exist. Replay compares regulated outcome equivalence, not exact prose equality. |
 
 ## Failure And Escalation Paths
 
@@ -259,9 +259,12 @@ UC3 R4 is deliberately local and bounded:
 - no claim that a channel is runnable until the channel contract, local
   fixture or sandbox injection path, normalisation, provenance, idempotency,
   and workflow-start handoff are evidenced;
-- no UC3 runtime implementation until the backlog reaches the later UC3
-  implementation slice after shared-surface generalisation, UC1 connector
-  persistence completion, and provider / replay hardening;
+- R4 closes with UC3 contracts, a shared-spine workflow definition,
+  deterministic sandbox connector adapters, Tool Gateway grants,
+  `suitability_report.issue` approval-package evidence, conduct invariants,
+  read-only inspection, and schema-only fixture evidence; it does not claim
+  UC3 use-case runnable status until local intake start, UC3 provider route
+  activation, and full fixture playback are added;
 - COBS 9A, COBS 19, pension transfer, pension conversion, pension opt-out,
   insurance-based investment product, and drawdown-specific advice paths are
   out of local POC runtime scope unless a later R4 decision explicitly adds
@@ -290,7 +293,7 @@ The following are explicitly out of scope for UC3:
 
 ## Open Questions
 
-None for this product brief. Runtime implementation remains gated by the R4
-backlog order: generalise shared surfaces, complete UC1 broker-firm-side
-connector persistence, harden live-provider and replay paths, then implement
-UC3 on the shared spine.
+None for this product brief. R4 closure exceptions for UC3 are local intake
+start, UC3 provider route activation, full fixture playback, and exact
+connector-bound approval packages for risk-profile override and vulnerability
+handoff paths.

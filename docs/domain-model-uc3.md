@@ -1,7 +1,7 @@
 ---
 type: project-doc
 status: active
-date: 2026-05-24
+date: 2026-05-25
 phase: R4
 use_case: UC3
 ---
@@ -13,11 +13,12 @@ domain terms, actors, artefacts, commands, events, aggregates, value objects,
 state machine, policies, approval points, failure paths, field placement, and
 banned terms that UC3 work must use.
 
-Contract shapes here are schema sketches. The actual JSON Schema contracts
-arrive in later R4 slices. The sketches are deliberately under-specified at
-the field level; what matters here is which payload crosses which named port,
-which fields are load-bearing, and which records must stay behind connector
-or intake boundaries.
+Contract shapes here remain domain-level sketches. The R4 JSON Schema
+contracts for UC3 intake and connector argument payloads now live under
+`contracts/intake/uc3/` and `contracts/connector/uc3/`. The sketches stay
+deliberately under-specified at the field level; what matters here is which
+payload crosses which named port, which fields are load-bearing, and which
+records must stay behind connector or intake boundaries.
 
 ## Glossary
 
@@ -64,7 +65,8 @@ or intake boundaries.
 
 ## Inbound Artefacts
 
-Schema sketches only. Actual contracts land in a later R4 contracts slice.
+Schema sketches only. The R4 intake contracts now live under
+`contracts/intake/uc3/`.
 
 ### Web Advice Enquiry (intake adapter: `web-form-channel`)
 
@@ -427,10 +429,14 @@ UC3 R4 is a synthetic local proof of the architecture:
 - no COBS 9A, COBS 19, pension transfer, pension conversion, pension opt-out,
   insurance-based investment product, annuity purchase, or drawdown-specific
   advice path without a later official-source verification slice;
-- one use-case runnable path is enough for R4 once implementation begins, but
-  no channel is described as runnable until its own contract, fixture or
-  sandbox injection path, normalisation, provenance, idempotency, and
-  workflow-start handoff are evidenced;
-- UC3 runtime work waits for the later R4 sequence after shared-surface
-  generalisation, UC1 connector persistence completion, and provider / replay
-  hardening.
+- one use-case runnable path is enough for the original R4 runnable
+  definition, but no channel is described as runnable until its own contract,
+  fixture or sandbox injection path, normalisation, provenance, idempotency,
+  and workflow-start handoff are evidenced;
+- R4 closes with UC3 contracts, a shared-spine workflow definition,
+  deterministic sandbox connector adapters, Tool Gateway grants,
+  approval-package evidence for `suitability_report.issue`, conduct
+  invariants, read-only inspection, and schema-only fixture evidence;
+- UC3 remains an R4 closure exception to use-case runnable status because
+  local intake start, UC3 provider route activation, and full fixture playback
+  are absent.
