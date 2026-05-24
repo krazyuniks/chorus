@@ -78,13 +78,13 @@ full product briefs and domain models are written.
 
 ## Use cases
 
-Chorus carries one fully modelled use case plus two confirmed use cases whose
-role is to demonstrate adapter reuse across different UK regulatory regimes.
+Chorus carries two modelled use cases plus one confirmed use case whose role
+is to demonstrate adapter reuse across different UK regulatory regimes.
 
 | Slot | Use case | Regulator |
 |---|---|---|
 | UC1 | UK personal-lines insurance broking inbound quote qualification. Fully modelled in [`docs/product-brief.md`](docs/product-brief.md) and [`docs/domain-model.md`](docs/domain-model.md). | FCA general insurance distribution (ICOBS, PROD 4, Consumer Duty). |
-| UC2 | UK legal services intake and conflict check, corporate / commercial practice area. Confirmed. | SRA Code of Conduct, conflict-of-interest rules, AML obligations. |
+| UC2 | UK legal services intake and conflict check, corporate / commercial practice area. Modelled in [`docs/product-brief-uc2.md`](docs/product-brief-uc2.md) and [`docs/domain-model-uc2.md`](docs/domain-model-uc2.md). | SRA Code of Conduct, conflict-of-interest rules, AML obligations. |
 | UC3 | UK independent financial advice inbound enquiry. Confirmed. | FCA retail investment advice (COBS 9 suitability, PROD, Consumer Duty). |
 
 The six named ports and the workflow spine stay constant across all three use
@@ -103,11 +103,12 @@ order:
 3. [`docs/transformation/engineering-thesis.md`](docs/transformation/engineering-thesis.md) - long-form thesis.
 4. [`docs/product-brief.md`](docs/product-brief.md) - UC1 product description.
 5. [`docs/domain-model.md`](docs/domain-model.md) - UC1 ubiquitous language.
-6. [`docs/r1-use-case-confirmation.md`](docs/r1-use-case-confirmation.md) - UC2 and UC3 confirmation.
-7. [`docs/r1-adapter-mapping.md`](docs/r1-adapter-mapping.md) - adapter reuse across the three use cases.
-8. [`docs/evidence-map.md`](docs/evidence-map.md) - claims mapped to artefacts, port by port.
-9. [`docs/runbook.md`](docs/runbook.md) - local run and inspection path.
-10. [`docs/transformation/r4-implementation-backlog.md`](docs/transformation/r4-implementation-backlog.md) - active R4 strategy, backlog, and continuation handoff.
+6. [`docs/product-brief-uc2.md`](docs/product-brief-uc2.md) and [`docs/domain-model-uc2.md`](docs/domain-model-uc2.md) - UC2 product and domain scope.
+7. [`docs/r1-use-case-confirmation.md`](docs/r1-use-case-confirmation.md) - UC2 and UC3 confirmation.
+8. [`docs/r1-adapter-mapping.md`](docs/r1-adapter-mapping.md) - adapter reuse across the three use cases.
+9. [`docs/evidence-map.md`](docs/evidence-map.md) - claims mapped to artefacts, port by port.
+10. [`docs/runbook.md`](docs/runbook.md) - local run and inspection path.
+11. [`docs/transformation/r4-implementation-backlog.md`](docs/transformation/r4-implementation-backlog.md) - active R4 strategy, backlog, and continuation handoff.
 
 ## How to run it locally
 
@@ -120,14 +121,14 @@ The runtime code carries the named-port surface: the LLM provider port,
 connector adapter registry, audit / transcript split, workflow spine with UC1
 on it, per-port projection / doctor decomposition, and invariant-plus-replay
 eval. R4 wires UC1, UC2, and UC3 for local POC readiness after the R4 design
-decisions and UC2 / UC3 product artefacts are written. The active R4 backlog
+decisions and UC3 product artefacts are written. The active R4 backlog
 and continuation prompt live in
 [`docs/transformation/r4-implementation-backlog.md`](docs/transformation/r4-implementation-backlog.md).
 
 ## Current Work
 
-R4 is in preflight. The next work is product/domain scoping for UC2 and UC3,
-then multi-use-case implementation on the existing named-port architecture.
+R4 is in preflight. The next work is product/domain scoping for UC3, then
+multi-use-case implementation on the existing named-port architecture.
 Architectural decisions are recorded in [`adrs/`](adrs/); only current
 decisions are kept in the repository.
 

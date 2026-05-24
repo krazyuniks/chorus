@@ -44,6 +44,9 @@ Production deployment is out of scope for the local POC.
 - [r4-design-decisions.md](r4-design-decisions.md) records the accepted R4
   sequencing, runnable-channel, replay-comparison, approval-package, and
   route-alignment decisions.
+- [../product-brief-uc2.md](../product-brief-uc2.md) and
+  [../domain-model-uc2.md](../domain-model-uc2.md) define the UC2 legal
+  services intake and conflict-check product / domain scope.
 - [code-refactor-directions.md](code-refactor-directions.md) names the code
   direction required to keep the implementation aligned with the thesis.
 - [eval-reshape-directions.md](eval-reshape-directions.md) shifts eval from

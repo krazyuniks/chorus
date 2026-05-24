@@ -16,9 +16,11 @@ The thesis statement this document elaborates is
 [`transformation/engineering-thesis.md`](transformation/engineering-thesis.md);
 that document and the rest of the reset bundle in
 [`transformation/`](transformation/) are the architectural authority. For the
-worked use case see [`product-brief.md`](product-brief.md) and
-[`domain-model.md`](domain-model.md); for how each use case exercises the
-ports see [`r1-adapter-mapping.md`](r1-adapter-mapping.md).
+worked UC1 use case see [`product-brief.md`](product-brief.md) and
+[`domain-model.md`](domain-model.md); for the modelled UC2 use case see
+[`product-brief-uc2.md`](product-brief-uc2.md) and
+[`domain-model-uc2.md`](domain-model-uc2.md). For how each use case exercises
+the ports see [`r1-adapter-mapping.md`](r1-adapter-mapping.md).
 
 This document describes the architecture the project carries today. R3
 landed the named-port surface in code; the
@@ -59,9 +61,10 @@ flowchart TB
     CORE -->|Observability sink port| OBSA
 ```
 
-The adapter inventory behind each port, as defined by the R1 adapter mapping.
-UC1 is the worked set; UC2 and UC3 are confirmed and land in R4 after their
-full product briefs and domain models are written.
+The adapter inventory behind each port, as defined by the R1 adapter mapping
+and R4 product/domain artefacts. UC1 is the current runnable worked set, UC2 is
+modelled for R4 implementation, and UC3 is confirmed pending its R4 product
+brief and domain model.
 
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|

@@ -14,8 +14,8 @@ wants to move from a claim to the code, contract, test, or decision record
 behind it.
 
 The map keeps design evidence and implementation evidence distinct. UC1 has
-the concrete runnable path today. UC2 and UC3 have confirmed scope and adapter
-deltas; R4 adds their full product/domain models and implementation evidence.
+the concrete runnable path today. UC2 now has product/domain scope, while UC3
+has confirmed scope and adapter deltas pending its R4 product/domain slice.
 
 ## How to use this map
 
@@ -32,6 +32,7 @@ contract-validate and normalise it.
 | Inbound work enters through a contract-validated channel adapter | `chorus/workflows/mailpit.py`, `chorus/workflows/intake.py`, `contracts/intake/uc1/` (email-channel, web-form-channel, partner-portal-channel), `tests/workflows/test_mailpit_intake.py` | UC1 Mailpit/email intake is runnable; web-form and partner-portal contracts are present, with runnable adapter paths an R4 decision. |
 | Channel-specific idempotency maps to one work identifier | `chorus/workflows/mailpit.py` (Message-ID dedupe, stable workflow ID) | Implementation in code. |
 | UC1 intake shape is fully specified | [`product-brief.md`](product-brief.md), [`domain-model.md`](domain-model.md), [`r1-adapter-mapping.md`](r1-adapter-mapping.md) | Design complete. |
+| UC2 intake and conduct shape is fully specified | [`product-brief-uc2.md`](product-brief-uc2.md), [`domain-model-uc2.md`](domain-model-uc2.md), [`r1-adapter-mapping.md`](r1-adapter-mapping.md) | Design complete. Runtime implementation is later R4 work. |
 
 Decision record: [ADR 0020](../adrs/0020-domain-refocus-uk-regulated-use-cases.md).
 

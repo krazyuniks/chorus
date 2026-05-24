@@ -150,8 +150,8 @@ supplementary, never the accountability store.
 
 ## Use cases
 
-Chorus carries one fully modelled use case plus two confirmed use cases. The
-use cases exist to exercise the ports; they are not three independent products.
+Chorus carries two modelled use cases plus one confirmed use case. The use
+cases exist to exercise the ports; they are not three independent products.
 
 UC1 is UK personal-lines insurance broking inbound quote qualification. A
 broker firm receives inbound consumer enquiries across email, a web form, and
@@ -164,10 +164,13 @@ modelled in [`product-brief.md`](product-brief.md) and
 
 UC2 is UK legal services intake and conflict check for a corporate and
 commercial practice area, SRA-regulated, exercising KYC, beneficial-ownership,
-conflict-of-interest, and AML record-keeping. UC3 is UK independent financial
+conflict-of-interest, and AML record-keeping. It is modelled in
+[`product-brief-uc2.md`](product-brief-uc2.md) and
+[`domain-model-uc2.md`](domain-model-uc2.md). UC3 is UK independent financial
 advice inbound enquiry, FCA-regulated under COBS 9 suitability, and carries the
-strictest audit shape of the three. Both are confirmed in
-[`r1-use-case-confirmation.md`](r1-use-case-confirmation.md).
+strictest audit shape of the three. UC3 is confirmed in
+[`r1-use-case-confirmation.md`](r1-use-case-confirmation.md), with its product
+brief and domain model still due in R4.
 
 The adapter-reuse hypothesis is the centre of the thesis. The six named ports
 and the workflow spine stay constant across all three use cases. The intake

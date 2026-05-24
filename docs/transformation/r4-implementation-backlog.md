@@ -42,8 +42,8 @@ Chorus starts R4 from:
 
 The known gaps are intentional R4 surfaces:
 
-- UC2 and UC3 have confirmations and adapter deltas only, not full product
-  briefs or domain models;
+- UC2 has a full product brief and domain model; UC3 still has confirmation
+  and adapter deltas only, not full product or domain artefacts;
 - UC1 connector persistence and verdict routing need to be completed beyond
   deterministic refs;
 - the projection schema, DB constraints, gateway approval packaging, and eval
@@ -117,12 +117,17 @@ channel runnable status are separate claims.
   - [x] how generic approval packages work beyond calendar writes;
   - [x] how provider route catalogue, DB policy, provider catalogue rows, UI,
     and eval route selection stay aligned.
-- [ ] Write `docs/product-brief-uc2.md`.
-- [ ] Write `docs/domain-model-uc2.md`.
+- [x] Write `docs/product-brief-uc2.md`.
+- [x] Write `docs/domain-model-uc2.md`.
 - [ ] Write `docs/product-brief-uc3.md`.
 - [ ] Write `docs/domain-model-uc3.md`.
 - [ ] Verify current SRA/FCA regulatory references from official sources for
   UC2 and UC3 before encoding them as conduct hooks.
+  - [x] UC2 SRA and UK AML sources verified from official sources on
+    2026-05-24 in `docs/product-brief-uc2.md` and
+    `docs/domain-model-uc2.md`.
+  - [ ] UC3 FCA sources remain to be verified in the UC3 product/domain
+    slice.
 - [ ] Verify exact OpenAI and DeepSeek model identifiers and credential names
   before live-provider route wiring.
 
@@ -279,6 +284,28 @@ channel runnable status are separate claims.
   eval, frontend, and e2e gates were not run because this slice only adds a
   prescriptive design note and backlog/index updates.
 
+### 2026-05-24 - UC2 Product Brief And Domain Model
+
+- Scope: UC2 legal services intake and conflict-check product/domain preflight.
+- Files changed: `docs/product-brief-uc2.md`, `docs/domain-model-uc2.md`,
+  top-level UC2 documentation pointers, and this backlog handoff.
+- Regulatory references verified from official sources:
+  - SRA Principles and SRA Codes of Conduct current versions in effect from
+    11 April 2025.
+  - SRA AML obligations page updated 18 February 2026, including LSAG 2025
+    official guidance for SRA-supervised firms approved by HM Treasury and
+    effective from 23 April 2025.
+  - SRA Sectoral Risk Assessment published 31 July 2025.
+  - GOV.UK National Risk Assessment of Money Laundering and Terrorist
+    Financing 2025 published by HM Treasury on 17 July 2025.
+  - Money Laundering Regulations 2017 regulations 18, 19, 27, 28, 33, and 40.
+- Gates run:
+  - `git diff --check` - green.
+- Skipped gates: `just doctor`, `just contracts-check`, `just test`, replay,
+  eval, frontend, and e2e gates were not run because this slice only adds UC2
+  documentation and backlog / pointer updates. No contracts, runtime code,
+  connectors, routes, replay code, or database schema changed.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -326,11 +353,11 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: write the UC2 product brief and UC2 domain model in Strategy order. Create docs/product-brief-uc2.md and docs/domain-model-uc2.md.
+Current target slice: write the UC3 product brief and UC3 domain model in Strategy order. Create docs/product-brief-uc3.md and docs/domain-model-uc3.md.
 
-Before encoding UC2 conduct hooks, verify current SRA and UK AML regulatory references from official sources. Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md. Keep this slice focused on UC2 docs and matching backlog/docs updates. Do not implement UC2 contracts, workflow code, connector adapters, provider routes, replay code, or database schema changes in this slice.
+Before encoding UC3 conduct hooks, verify current FCA, COBS 9 suitability, PROD, Consumer Duty, and UK retail investment advice references from official sources. Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md. Keep this slice focused on UC3 docs and matching backlog/docs updates. Do not implement UC3 contracts, workflow code, connector adapters, provider routes, replay code, or database schema changes in this slice.
 
-The UC2 brief/model must cover actors and roles, inbound artefacts, lifecycle records and state machine, commands and events, value objects and safe refs, approval points, policies and conduct invariants, connector inventory, failure/escalation paths, field placement across ports, banned/ambiguous terms, and R4 local POC boundaries.
+The UC3 brief/model must cover actors and roles, inbound artefacts, lifecycle records and state machine, commands and events, value objects and safe refs, approval points, policies and conduct invariants, connector inventory, failure/escalation paths, field placement across ports, banned/ambiguous terms, and R4 local POC boundaries.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
