@@ -132,6 +132,52 @@ class Uc2LegalIntake:
 
 
 @dataclass(frozen=True)
+class Uc3AttachmentSummary:
+    """Bounded UC3 attachment metadata preserved from intake into the workflow."""
+
+    attachment_ref: str
+    document_category: str
+    content_type: str
+    size_bytes: int
+    sha256: str
+
+
+@dataclass(frozen=True)
+class Uc3AdviceEnquiry:
+    """Normalised UC3 advice enquiry accepted by the workflow.
+
+    Channel adapters validate concrete contracts under `contracts/intake/uc3/`
+    and normalise to this workflow input. It carries safe refs and bounded
+    categories only; raw client financial details, vulnerability narratives,
+    platform credentials, suitability-report prose, and production adviser /
+    customer data stay behind intake or connector-owned stores.
+    """
+
+    schema_version: str
+    advice_enquiry_id: str
+    tenant_id: str
+    correlation_id: str
+    channel: str
+    adapter_id: str
+    received_at: str
+    source_payload_ref: str
+    advice_enquiry_ref: str
+    subject_summary: str
+    advice_need_summary: str
+    advice_need_categories: list[str]
+    declared_objective_categories: list[str]
+    support_need_categories: list[str]
+    attachments_summary: list[Uc3AttachmentSummary]
+    prospective_retail_client_ref: str | None = None
+    household_ref: str | None = None
+    introducer_ref: str | None = None
+    risk_preference_hint: str | None = None
+    time_horizon_band: str = "unknown"
+    product_context_categories: list[str] = field(default_factory=_empty_strings)
+    idempotency_key_ref: str | None = None
+
+
+@dataclass(frozen=True)
 class WorkflowEventCommand:
     tenant_id: str
     correlation_id: str
@@ -297,6 +343,30 @@ class Uc2WorkflowResult:
     legal_intake_id: str
     legal_intake_ref: str
     outcome: Uc2WorkflowOutcome
+    path: list[str]
+    final_summary: str
+    escalation_reason: str | None = None
+
+
+Uc3WorkflowOutcome = Literal[
+    "completed",
+    "approval_required",
+    "declined_advice_service",
+    "manual_review",
+    "fact_find_incomplete",
+    "escalated",
+    "failed",
+]
+
+
+@dataclass(frozen=True)
+class Uc3WorkflowResult:
+    workflow_id: str
+    tenant_id: str
+    correlation_id: str
+    advice_enquiry_id: str
+    advice_enquiry_ref: str
+    outcome: Uc3WorkflowOutcome
     path: list[str]
     final_summary: str
     escalation_reason: str | None = None

@@ -30,8 +30,10 @@ full eval fixture playback, and a local intake start path remain later R4
 work. Read-only BFF/UI inspection can display UC2 workflow rows and
 approval-package state when those rows already exist. UC3 lands later in R4
 alongside cross-provider replay-eval breadth; its intake and connector
-contract surfaces are declared, but no UC3 workflow runtime, connector
-adapters, grants, provider routes, or local intake path are active yet.
+contract surfaces are declared and it now has a definition-first workflow on
+the shared spine with fake-activity replay evidence, but no UC3 connector
+adapters, grants, approval-package behaviour, provider routes, projections,
+eval playback, or local intake path are active yet.
 
 ## Bring the stack up
 
@@ -199,6 +201,17 @@ is the approval-required write, while conflict exception and AML EDD approval
 remain conduct-gated/manual-review evidence until a later slice adds an exact
 connector request shape for those packages. The runbook does not yet claim a
 runnable UC2 local intake path.
+
+UC3 has a definition-first workflow for `uc3_ifa_suitability_intake` on the
+same `WorkflowSpine`. The workflow routes `attitude_to_risk.profile`,
+`capacity_for_loss.assess`, `platform_research.run`,
+`suitability_report.draft`, `suitability_report.issue`,
+`suitability_report.record_decline`, and
+`suitability_report.route_manual_review` through `WorkflowSpine.connector_call`
+with safe refs and bounded categories only. The runbook does not yet claim a
+runnable UC3 local intake path: UC3 connector adapters, Tool Gateway grant
+seeds, approval-package behaviour, provider routes, projections, eval
+playback, and local intake adapters remain later P5 work.
 
 Inspect approval packages through the read-only BFF:
 

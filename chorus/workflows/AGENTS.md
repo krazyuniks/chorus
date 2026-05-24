@@ -37,6 +37,11 @@ the same primitives.
   definition-first R4 `WorkflowDefinition` for UC2. Its tests use fake
   activity boundaries until UC2 connectors, grants, provider routes, intake
   adapters, and projections land.
+- `uc3.py` contains the `Uc3IfaSuitabilityIntakeWorkflow` and its
+  definition-first R4 `WorkflowDefinition` for UC3. Its tests use fake
+  activity boundaries until UC3 connectors, grants, approval-package
+  behaviour, provider routes, intake adapters, projections, and eval playback
+  land.
 - `activities.py` contains Temporal activities that may perform IO.
 - `mailpit.py` parses inbound Mailpit messages as UC1 email-channel
   enquiries and dedupes by Message-ID.
