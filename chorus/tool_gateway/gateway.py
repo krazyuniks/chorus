@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
-from typing import Any
+from typing import Any, cast
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from psycopg import Connection
@@ -173,9 +173,13 @@ class ApprovalPackageRecord:
             "expires_at": self.expires_at.isoformat(),
             "grant_ref": f"tool_grant:{self.grant_id}",
             "policy_version_refs": self.policy_version_refs,
-            "calendar_refs": self.metadata.get("calendar_refs", {}),
+            "subject_refs": self.metadata.get("subject_refs", {}),
+            "action_refs": self.metadata.get("action_refs", {}),
             "trace_join": self.trace_join,
         }
+        calendar_refs = self.metadata.get("calendar_refs")
+        if isinstance(calendar_refs, dict):
+            summary["calendar_refs"] = calendar_refs
         if self.tool_name == "calendar.cancel_hold":
             summary["compensation_category"] = "compensation_requested"
         return summary
@@ -614,7 +618,7 @@ class ToolGateway:
             decided_at=_now(),
         )
         approval_package: ApprovalPackage | None = None
-        if _requires_calendar_approval_package(request, decision):
+        if _requires_approval_package(request, decision):
             approval_package = _approval_package(
                 request=request,
                 tool_call=tool_call,
@@ -657,17 +661,17 @@ class ToolGateway:
         )
         return response
 
-    def apply_approved_calendar_write(
+    def apply_approved_write(
         self,
         request: ToolGatewayRequest,
         *,
         approval_id: str | UUID,
     ) -> ToolGatewayResponse:
-        """Apply an approved local calendar package by re-entering the gateway."""
+        """Apply an approved connector write package by re-entering the gateway."""
 
         approval_uuid = UUID(str(approval_id))
-        if request.mode != "write" or request.tool_name not in _CALENDAR_WRITE_TOOLS:
-            raise ToolGatewayError("Calendar approval apply only supports calendar write tools.")
+        if request.mode != "write":
+            raise ToolGatewayError("Approval apply only supports write-mode tool requests.")
 
         apply_idempotency_key = _approval_apply_idempotency_key(
             request.idempotency_key,
@@ -685,7 +689,7 @@ class ToolGateway:
         now = _now()
         tool_call = _tool_call(apply_request, now)
         decision, validated_arguments, approval_package, failure_category = (
-            self._decide_calendar_approval_apply(
+            self._decide_approval_apply(
                 request=request,
                 approval_id=approval_uuid,
                 now=now,
@@ -708,23 +712,17 @@ class ToolGateway:
                     ),
                     arguments=validated_arguments,
                 )
-                connector_output = {
-                    **connector_result.output,
-                    "approval_id": str(approval_uuid),
-                    "calendar_apply_status": "applied",
-                }
-                if request.tool_name == "calendar.cancel_hold":
-                    connector_output["compensation_category"] = (
-                        "compensation_completed"
-                        if connector_result.output.get("cancellation_status") == "cancelled"
-                        else "compensation_idempotent_missing"
-                    )
+                connector_output = _approval_apply_success_output(
+                    tool_name=request.tool_name,
+                    approval_id=approval_uuid,
+                    connector_output=connector_result.output,
+                )
             except ConnectorTransientError as exc:
                 failure_category = _connector_failure_category(exc)
                 decision = GatewayDecision(
                     verdict="block",
                     enforced_mode=decision.enforced_mode,
-                    reason="Connector transient failure after approved calendar apply.",
+                    reason="Connector transient failure after approved package apply.",
                     grant=decision.grant,
                     rewritten_arguments=decision.rewritten_arguments,
                     connector_allowed=False,
@@ -765,7 +763,7 @@ class ToolGateway:
                 decision = GatewayDecision(
                     verdict="block",
                     enforced_mode=decision.enforced_mode,
-                    reason="Connector rejected approved calendar apply.",
+                    reason="Connector rejected approved package apply.",
                     grant=decision.grant,
                     rewritten_arguments=decision.rewritten_arguments,
                     connector_allowed=False,
@@ -778,21 +776,21 @@ class ToolGateway:
                 if request.tool_name == "calendar.cancel_hold":
                     connector_failure["compensation_category"] = "compensation_failed"
                     connector_failure["escalation_category"] = "calendar_compensation_failed"
-                connector_output = {
-                    "approval_id": str(approval_uuid),
-                    "calendar_apply_status": "blocked",
-                    "failure_category": failure_category,
-                    "retry_category": "non_retryable",
-                }
+                connector_output = _approval_apply_blocked_output(
+                    tool_name=request.tool_name,
+                    approval_id=approval_uuid,
+                    failure_category=failure_category,
+                    retry_category="non_retryable",
+                )
                 if request.tool_name == "calendar.cancel_hold":
                     connector_output["compensation_category"] = "compensation_failed"
                     connector_output["escalation_category"] = "calendar_compensation_failed"
         elif failure_category is not None:
-            connector_output = {
-                "approval_id": str(approval_uuid),
-                "calendar_apply_status": "blocked",
-                "failure_category": failure_category,
-            }
+            connector_output = _approval_apply_blocked_output(
+                tool_name=request.tool_name,
+                approval_id=approval_uuid,
+                failure_category=failure_category,
+            )
             if request.tool_name == "calendar.cancel_hold":
                 connector_output["compensation_category"] = "compensation_blocked"
 
@@ -846,6 +844,18 @@ class ToolGateway:
             response=response,
         )
         return response
+
+    def apply_approved_calendar_write(
+        self,
+        request: ToolGatewayRequest,
+        *,
+        approval_id: str | UUID,
+    ) -> ToolGatewayResponse:
+        """Compatibility wrapper for the local calendar approval apply path."""
+
+        if request.tool_name not in _CALENDAR_WRITE_TOOLS:
+            raise ToolGatewayError("Calendar approval apply only supports calendar write tools.")
+        return self.apply_approved_write(request, approval_id=approval_id)
 
     def _decide(self, request: ToolGatewayRequest) -> tuple[GatewayDecision, BaseModel | None]:
         try:
@@ -949,7 +959,7 @@ class ToolGateway:
             None,
         )
 
-    def _decide_calendar_approval_apply(
+    def _decide_approval_apply(
         self,
         *,
         request: ToolGatewayRequest,
@@ -985,7 +995,7 @@ class ToolGateway:
                 GatewayDecision(
                     verdict="block",
                     enforced_mode=request.mode,
-                    reason="No local calendar approval package matched the apply request.",
+                    reason="No local approval package matched the apply request.",
                     grant=None,
                 ),
                 None,
@@ -1004,7 +1014,7 @@ class ToolGateway:
                 GatewayDecision(
                     verdict="block",
                     enforced_mode=request.mode,
-                    reason="Explicit Tool Gateway grant denies the approved calendar apply.",
+                    reason="Explicit Tool Gateway grant denies the approved package apply.",
                     grant=denied_grant,
                 ),
                 None,
@@ -1023,7 +1033,7 @@ class ToolGateway:
                 GatewayDecision(
                     verdict="block",
                     enforced_mode=request.mode,
-                    reason="No current Tool Gateway grant matched the approved calendar apply.",
+                    reason="No current Tool Gateway grant matched the approved package apply.",
                     grant=None,
                 ),
                 None,
@@ -1035,9 +1045,7 @@ class ToolGateway:
                 GatewayDecision(
                     verdict="block",
                     enforced_mode=request.mode,
-                    reason=(
-                        "Current grant no longer requires an approval package for calendar apply."
-                    ),
+                    reason=("Current grant no longer requires an approval package for apply."),
                     grant=exact_grant,
                 ),
                 None,
@@ -1056,7 +1064,7 @@ class ToolGateway:
                 GatewayDecision(
                     verdict="block",
                     enforced_mode=request.mode,
-                    reason="Approved calendar package failed gateway re-check.",
+                    reason="Approved package failed gateway re-check.",
                     grant=exact_grant,
                 ),
                 None,
@@ -1068,8 +1076,7 @@ class ToolGateway:
             "Approved local calendar compensation package re-entered the Tool Gateway; "
             "connector execution permitted."
             if request.tool_name == "calendar.cancel_hold"
-            else "Approved local calendar package re-entered the Tool Gateway; "
-            "connector execution permitted."
+            else "Approved package re-entered the Tool Gateway; connector execution permitted."
         )
         return (
             GatewayDecision(
@@ -1144,16 +1151,11 @@ def _gateway_verdict(
     )
 
 
-def _requires_calendar_approval_package(
+def _requires_approval_package(
     request: ToolGatewayRequest,
     decision: GatewayDecision,
 ) -> bool:
-    return (
-        decision.approval_required
-        and decision.grant is not None
-        and request.mode == "write"
-        and request.tool_name in {"calendar.create_hold", "calendar.cancel_hold"}
-    )
+    return decision.approval_required and decision.grant is not None and request.mode == "write"
 
 
 def _approval_package(
@@ -1176,8 +1178,11 @@ def _approval_package(
     decision_due_at = requested_at + timedelta(hours=4)
     expires_at = requested_at + timedelta(hours=24)
     grant_ref = f"tool_grant:{decision.grant.grant_id}"
-    approval_policy_ref = "approval_policy.calendar_write.local.v1"
-    sla_policy_ref = "approval_sla.calendar_write.local.v1"
+    policy_version_refs = _approval_policy_version_refs(
+        grant=decision.grant,
+        tool_name=request.tool_name,
+        mode=request.mode,
+    )
 
     return ApprovalPackage(
         approval_id=approval_id,
@@ -1185,7 +1190,7 @@ def _approval_package(
         tenant_id=request.tenant_id,
         correlation_id=request.correlation_id,
         workflow_id=request.workflow_id,
-        workflow_type="uc1_enquiry_qualification",
+        workflow_type=request.workflow_type,
         invocation_id=request.invocation_id,
         tool_call_id=tool_call.tool_call_id,
         verdict_id=verdict.verdict_id,
@@ -1208,24 +1213,76 @@ def _approval_package(
         requested_at=requested_at,
         decision_due_at=decision_due_at,
         expires_at=expires_at,
-        sla_policy_ref=sla_policy_ref,
+        sla_policy_ref=policy_version_refs["sla_policy_ref"],
         reviewer_trust_domain="local.chorus",
         requested_by_workload_principal_id=None,
         requested_by_workload_session_id=None,
         trust_domain="local.chorus",
         grant_id=decision.grant.grant_id,
-        policy_version_refs={
-            "tool_grant_ref": grant_ref,
-            "approval_policy_ref": approval_policy_ref,
-            "sla_policy_ref": sla_policy_ref,
-        },
+        policy_version_refs=policy_version_refs,
         trace_join=current_otel_ids(),
-        metadata={
-            "source": "tool_gateway.approval_required",
-            "scope": "phase_2c_calendar_write",
-            "calendar_refs": _calendar_argument_refs(request.tool_name, request.arguments),
-        },
+        metadata=_approval_package_metadata(request),
     )
+
+
+def _approval_policy_version_refs(
+    *,
+    grant: ToolGrant,
+    tool_name: str,
+    mode: str,
+) -> dict[str, str]:
+    tool_policy_slug = tool_name.replace(".", "_").replace("-", "_")
+    return {
+        "tool_grant_ref": f"tool_grant:{grant.grant_id}",
+        "approval_policy_ref": f"approval_policy.{tool_policy_slug}_{mode}.local.v1",
+        "sla_policy_ref": f"approval_sla.{tool_policy_slug}_{mode}.local.v1",
+    }
+
+
+def _approval_package_metadata(request: ToolGatewayRequest) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "source": "tool_gateway.approval_required",
+        "scope": "generic_connector_write",
+        "subject_refs": _subject_refs(request),
+        "action_refs": _safe_argument_refs(request.arguments),
+    }
+    calendar_refs = _calendar_argument_refs(request.tool_name, request.arguments)
+    if calendar_refs:
+        metadata["calendar_refs"] = calendar_refs
+    return metadata
+
+
+def _subject_refs(request: ToolGatewayRequest) -> dict[str, str]:
+    subject_refs: dict[str, str] = {}
+    if request.subject_id is not None:
+        subject_refs["subject_id"] = request.subject_id
+    if request.subject_ref is not None:
+        subject_refs["subject_ref"] = request.subject_ref
+    return subject_refs
+
+
+def _safe_argument_refs(arguments: dict[str, Any]) -> dict[str, Any]:
+    safe_refs: dict[str, Any] = {}
+    for key, value in sorted(arguments.items()):
+        if not (key.endswith("_ref") or key.endswith("_refs")):
+            continue
+        safe_value = _safe_argument_ref_value(value)
+        if safe_value is not None:
+            safe_refs[key] = safe_value
+    return safe_refs
+
+
+def _safe_argument_ref_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        safe_items: list[str] = []
+        for item in cast(list[Any], value):
+            if not isinstance(item, str):
+                return None
+            safe_items.append(item)
+        return safe_items
+    return None
 
 
 def _safe_ref_hash(value: str) -> str:
@@ -1244,13 +1301,12 @@ def _approval_package_mismatch_category(
     now: datetime,
 ) -> str | None:
     expected_action = f"{request.tool_name}.{request.mode}"
-    expected_refs = _calendar_argument_refs(request.tool_name, request.arguments)
-    package_refs = approval_package.metadata.get("calendar_refs", {})
+    expected_metadata = _approval_package_metadata(request)
     checks = {
         "tenant_id": approval_package.tenant_id == request.tenant_id,
         "correlation_id": approval_package.correlation_id == request.correlation_id,
         "workflow_id": approval_package.workflow_id == request.workflow_id,
-        "workflow_type": approval_package.workflow_type == "uc1_enquiry_qualification",
+        "workflow_type": approval_package.workflow_type == request.workflow_type,
         "invocation_id": str(approval_package.invocation_id) == request.invocation_id,
         "agent_id": approval_package.agent_id == request.agent_id,
         "agent_version": approval_package.agent_version == grant.agent_version,
@@ -1262,13 +1318,27 @@ def _approval_package_mismatch_category(
     }
     if not all(checks.values()):
         return "authority_context_mismatch"
+    expected_policy_refs = _approval_policy_version_refs(
+        grant=grant,
+        tool_name=request.tool_name,
+        mode=request.mode,
+    )
+    for key, value in expected_policy_refs.items():
+        if approval_package.policy_version_refs.get(key) != value:
+            return "policy_ref_mismatch"
     if approval_package.approval_state != "approved" or approval_package.decision != "approved":
         return "approval_state_not_approved"
     if approval_package.expires_at <= now:
         return "approval_expired"
     if approval_package.idempotency_key_ref != _safe_ref_hash(request.idempotency_key):
         return "idempotency_ref_mismatch"
-    if package_refs != expected_refs:
+    if approval_package.metadata.get("subject_refs", {}) != expected_metadata["subject_refs"]:
+        return "approval_ref_mismatch"
+    if approval_package.metadata.get("action_refs", {}) != expected_metadata["action_refs"]:
+        return "approval_ref_mismatch"
+    if request.tool_name in _CALENDAR_WRITE_TOOLS and approval_package.metadata.get(
+        "calendar_refs", {}
+    ) != expected_metadata.get("calendar_refs", {}):
         return "calendar_ref_mismatch"
     return None
 
@@ -1286,6 +1356,47 @@ def _approval_apply_summary(
             "apply_idempotency_key_ref": _safe_ref_hash(apply_idempotency_key),
         }
     return approval_package.apply_summary(apply_idempotency_key=apply_idempotency_key)
+
+
+def _approval_apply_success_output(
+    *,
+    tool_name: str,
+    approval_id: UUID,
+    connector_output: dict[str, Any],
+) -> dict[str, Any]:
+    output = {
+        **connector_output,
+        "approval_id": str(approval_id),
+        "approval_apply_status": "applied",
+    }
+    if tool_name in _CALENDAR_WRITE_TOOLS:
+        output["calendar_apply_status"] = "applied"
+    if tool_name == "calendar.cancel_hold":
+        output["compensation_category"] = (
+            "compensation_completed"
+            if connector_output.get("cancellation_status") == "cancelled"
+            else "compensation_idempotent_missing"
+        )
+    return output
+
+
+def _approval_apply_blocked_output(
+    *,
+    tool_name: str,
+    approval_id: UUID,
+    failure_category: str,
+    retry_category: str | None = None,
+) -> dict[str, Any]:
+    output = {
+        "approval_id": str(approval_id),
+        "approval_apply_status": "blocked",
+        "failure_category": failure_category,
+    }
+    if retry_category is not None:
+        output["retry_category"] = retry_category
+    if tool_name in _CALENDAR_WRITE_TOOLS:
+        output["calendar_apply_status"] = "blocked"
+    return output
 
 
 def _calendar_argument_refs(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:

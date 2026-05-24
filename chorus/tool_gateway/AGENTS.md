@@ -12,10 +12,10 @@ whether a connector may execute them.
 - Enforce `read`, `propose`, and `write` modes. Downgrade writes to proposals
   only when grant policy allows it.
 - Do not call connectors when the verdict is `block` or `approval_required`.
-  Calendar writes may execute only through the local approved-apply path after
-  it re-checks the approved package, grant, expiry, idempotency, and safe refs.
-  Ticket status writes remain approval-required in 2D-02 and do not have a
-  connector execution path.
+  Approval-gated writes may execute only through the local approved-apply path
+  after it re-checks the approved package, grant, expiry, idempotency, workflow
+  type, policy refs, and safe subject/action refs. Calendar apply remains a
+  compatibility wrapper over that generic path.
 - Always write `tool_action_audit` for decided calls and connector failures.
 - Apply redaction policy before persisting audited arguments.
 - Preserve idempotency behaviour: replayed successful keys return the persisted

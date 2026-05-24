@@ -1,7 +1,7 @@
 ---
 type: project-doc
-status: planning
-date: 2026-05-17
+status: active
+date: 2026-05-24
 ---
 
 # Human Approval Identity and Audit Lifecycle
@@ -19,22 +19,18 @@ policy-change packages that may reference `approval_id`.
 
 The current Tool Gateway can return an `approval_required` verdict when an
 allowed grant requires a human decision before connector execution. That verdict
-is audit-visible, but it is not yet a full approval package. This model defines
-the approval package and audit lifecycle that future executable work should use
+is audit-visible and, for write-mode calls, creates a durable approval package
+inside the gateway authority boundary. This model defines the approval package
+and audit lifecycle that executable work should use
 without adding production SSO, AWS, credential entry, production connector
 writes, raw sensitive content, or a mutating admin UI.
 
-No contract, Postgres migration, seed, BFF route, UI queue, Temporal wait state,
-or Tool Gateway runtime change is added by this item. The post-R3 local path
-keeps the same authority rule: `approval_required` stops before connector
-invocation and records redacted Tool Gateway audit evidence.
-
-The local calendar-write package subset creates requested approval package
-rows with safe refs and bounded categories. The local approved-apply path for
-those packages stays inside the Tool Gateway. Safe package/apply refs are
-exposed through the read-only BFF calendar status projection. Reviewer
-decisions, BFF/UI queues, Temporal waits, production identity, and production
-connector writes remain out of scope.
+The local package path creates requested approval package rows with safe refs
+and bounded categories for approval-required connector writes. The local
+approved-apply path for those packages stays inside the Tool Gateway. Calendar
+status keeps its read-only compatibility projection from the same package/apply
+audit records. Reviewer decisions, BFF/UI queues, Temporal waits, production
+identity, and production connector writes remain out of scope.
 
 ## Boundary Rules
 
@@ -69,18 +65,20 @@ tool_grants.approval_required = true
 requested tenant + agent + tool + mode matches the grant
 ```
 
-When that trigger fires today, the gateway:
+When that trigger fires for a write-mode call, the gateway:
 
 1. validates the tool request and arguments;
 2. resolves the grant;
 3. returns a `GatewayVerdict` with `verdict = approval_required`;
 4. keeps `enforced_mode` equal to the requested mode;
 5. does not call the connector;
-6. writes a `tool_action_audit` row with redacted arguments and safe OTel
+6. creates an `approval_package` row with safe subject/action refs and bounded
+   policy refs;
+7. writes a `tool_action_audit` row with redacted arguments and safe OTel
    metadata.
 
-Future executable approval work should treat this verdict as the package
-creation trigger. The verdict is not itself the approval decision.
+The verdict is not itself the approval decision. Approval packages are not
+created for non-write calls unless a later design explicitly adds that surface.
 
 ## Approval Package Shape
 
@@ -197,9 +195,8 @@ state.
    tool request fields.
 2. The gateway validates arguments, resolves the grant, and finds
    `approval_required = true` for the requested tenant, agent, tool, and mode.
-3. The gateway returns `approval_required`, writes the existing redacted
-   `tool_action_audit` row, and future executable work creates an
-   `approval_package` plus `approval.requested` audit event in the same
+3. The gateway returns `approval_required`, writes the redacted
+   `tool_action_audit` row, and creates an `approval_package` in the same
    authority boundary.
 4. The package may be projected into a read-only approval queue using only safe
    fields: approval ID, tenant, workflow/correlation IDs, tool/action, mode,
@@ -207,11 +204,12 @@ state.
 5. A reviewer or authorised system actor records a decision with opaque subject
    ref, actor session ref, reviewer role, bounded reason category, decision
    timestamp, and safe workload/session refs.
-6. If approved, an apply path re-enters the Tool Gateway. The current executable
-   subset is local calendar-only: the gateway re-checks package state, expiry,
-   idempotency key, grant state, requested and enforced mode, policy refs,
-   tenant, workflow, invocation/tool authority refs, and safe calendar refs
-   before any connector invocation.
+6. If approved, an apply path re-enters the Tool Gateway. The gateway re-checks
+   package state, expiry, idempotency key, grant state, requested and enforced
+   mode, policy refs, tenant, workflow type, invocation/tool authority refs,
+   and safe subject/action refs before any connector invocation. Calendar
+   apply keeps calendar-specific status fields for the existing read-only
+   projection, but the authority check is generic.
 7. If denied, expired, cancelled, or superseded, the workflow should branch to a
    safe outcome such as propose-only or escalation, with explicit workflow and
    audit evidence.
@@ -226,23 +224,22 @@ state.
 | Postgres projections and BFF/UI | Safe approval queue/read-model fields, expiry status, bounded decision state, role requirement, and redaction labels. | Full package bodies, raw arguments, raw rationale, full actor claims, sensitive identity-provider data. |
 | Audit/accountability | Full non-secret approval package summary, immutable lifecycle events, actor subject ref, role, decision, reason category, policy refs, workload/session refs, and trace joins. | Credentials, access tokens, raw sensitive content, raw prompts/outputs, unredacted tool arguments, raw rationale, PII. |
 
-## Promotion Criteria
+## Further Promotion Criteria
 
-Keep this docs-first until one of these happens:
+The local gateway package/apply path is active. Broaden the approval surface
+only when one of these happens:
 
-- Tool Gateway starts returning an `approval_id` with `approval_required`
-  verdicts;
 - a Temporal workflow waits for or reacts to approval decisions;
 - BFF/UI adds a read-only approval queue or journey view;
 - a local deterministic approval service records reviewer decisions;
-- connector expansion in 2C needs executable approval evidence for risky
+- connector expansion needs executable approval evidence for risky
   writes;
-- policy mutation in 2B-05 needs approval actors and audit fields for change
+- policy mutation needs approval actors and audit fields for change
   control.
 
-When promoted, start with local deterministic Postgres persistence and focused
-Tool Gateway tests. Add a JSON Schema contract only when the approval package
-crosses a service boundary or is validated by a release gate. Keep all AWS,
-production SSO, production cloud deployment, identity-provider integration,
-credential entry, mutating admin UI, and production connector writes out of the
-promotion unless a later ADR explicitly changes the boundary.
+For further promotion, keep the Postgres-backed package as the local source of
+truth. Add a JSON Schema contract only when the approval package crosses a
+service boundary or is validated by a release gate. Keep all AWS, production
+SSO, production cloud deployment, identity-provider integration, credential
+entry, mutating admin UI, and production connector writes out of the promotion
+unless a later ADR explicitly changes the boundary.

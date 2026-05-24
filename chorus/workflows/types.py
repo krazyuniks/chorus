@@ -131,6 +131,9 @@ class ToolGatewayRequest:
     tenant_id: str
     correlation_id: str
     workflow_id: str
+    workflow_type: str
+    subject_id: str | None
+    subject_ref: str | None
     invocation_id: str
     agent_id: str
     tool_name: str

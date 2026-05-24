@@ -562,13 +562,14 @@ CREATE TABLE IF NOT EXISTS approval_packages (
         )
     ),
     CONSTRAINT approval_packages_tool_name_check CHECK (
-        tool_name IN ('calendar.create_hold', 'calendar.cancel_hold')
+        tool_name ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'
     ),
     CONSTRAINT approval_packages_mode_check CHECK (
         requested_mode = 'write' AND enforced_mode = 'write'
     ),
     CONSTRAINT approval_packages_requested_action_check CHECK (
-        requested_action IN ('calendar.create_hold.write', 'calendar.cancel_hold.write')
+        requested_action = tool_name || '.' || requested_mode
+        AND requested_action ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+\.(read|propose|write)$'
     ),
     CONSTRAINT approval_packages_idempotency_ref_shape CHECK (
         idempotency_key_ref ~ '^sha256:[a-f0-9]{64}$'
@@ -828,6 +829,15 @@ ALTER TABLE approval_packages ADD CONSTRAINT approval_packages_workflow_type_che
         'uc3_ifa_suitability_intake'
     )
 );
+ALTER TABLE approval_packages DROP CONSTRAINT IF EXISTS approval_packages_tool_name_check;
+ALTER TABLE approval_packages ADD CONSTRAINT approval_packages_tool_name_check CHECK (
+    tool_name ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'
+);
+ALTER TABLE approval_packages DROP CONSTRAINT IF EXISTS approval_packages_requested_action_check;
+ALTER TABLE approval_packages ADD CONSTRAINT approval_packages_requested_action_check CHECK (
+    requested_action = tool_name || '.' || requested_mode
+    AND requested_action ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+\.(read|propose|write)$'
+);
 
 CREATE INDEX IF NOT EXISTS agent_registry_tenant_role_idx
     ON agent_registry (tenant_id, role, lifecycle_state);
@@ -1036,6 +1046,6 @@ COMMENT ON TABLE provider_catalogue_models IS
 COMMENT ON TABLE model_route_versions IS
     'Tenant-scoped immutable model-route versions for governance inspection.';
 COMMENT ON TABLE approval_packages IS
-    'Local approval package evidence for Tool Gateway approval-required calendar writes.';
+    'Local approval package evidence for Tool Gateway approval-required connector writes.';
 COMMENT ON TABLE agent_invocation_transcripts IS
     'Full-fidelity transcript port records for replayable governed agent invocations.';

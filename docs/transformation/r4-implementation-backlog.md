@@ -138,7 +138,7 @@ channel runnable status are separate claims.
   `uc1_enquiry_qualification` and `enq_` subject refs.
 - [x] Remove UC1-specific workflow type and actor hardcoding from shared
   activity-owned DLQ/outbox paths.
-- [ ] Generalise Tool Gateway approval package creation and apply semantics
+- [x] Generalise Tool Gateway approval package creation and apply semantics
   beyond the current calendar-shaped path.
 - [ ] Introduce use-case-neutral subject summary vocabulary across projection,
   DLQ, and audit payloads.
@@ -412,6 +412,47 @@ channel runnable status are separate claims.
   slice did not implement runtime workflows, connectors, replay, contract, or
   UI behaviour.
 
+### 2026-05-24 - Tool Gateway Approval Generalisation
+
+- Scope: third P1 multi-use-case foundation slice for generic Tool Gateway
+  approval package creation and apply semantics only.
+- Files changed: Tool Gateway request DTOs and gateway implementation,
+  `WorkflowSpine` request construction, Postgres approval-package constraints,
+  focused gateway and persistence tests, approval lifecycle docs, Tool Gateway
+  package instructions, and this backlog handoff.
+- Behaviour changed:
+  - `ToolGatewayRequest` now carries `workflow_type`, `subject_id`, and
+    `subject_ref`; `WorkflowSpine` passes those values from workflow
+    correlation so approval packages no longer hardcode UC1 workflow type;
+  - approval-required write grants create approval packages for any registered
+    connector write tool, with generic `subject_refs` and safe `action_refs`
+    metadata; `calendar_refs` remains only as calendar projection
+    compatibility metadata;
+  - approval-package DB constraints now validate safe tool/action label
+    shapes instead of enumerating only calendar create/cancel actions;
+  - `apply_approved_write` re-enters the Tool Gateway generically and rechecks
+    package state, expiry, grant, workflow type, policy refs, idempotency, and
+    safe subject/action refs before connector execution;
+  - `apply_approved_calendar_write` remains as a compatibility wrapper and
+    calendar apply outputs still include calendar-specific status fields.
+- Gates run:
+  - `uv run pytest tests/tool_gateway/test_gateway.py -rs` - 3 passed and
+    6 skipped; the skipped cases are DB-backed because local Postgres on
+    `localhost:5432` rejected the configured `chorus` user.
+  - `uv run pytest tests/persistence/test_postgres_foundation.py -rs` -
+    14 skipped because local Postgres rejected the configured `chorus` user.
+  - `uv run pytest tests/workflows/test_uc1_workflow.py tests/workflows/test_activities.py -rs`
+    - green, 5 passed.
+  - `just test-replay` - green, 2 passed and 5 deselected.
+  - `just lint` - green after formatting the touched Python files.
+  - `just contracts-check` - green.
+  - `git diff --check` - green.
+- Skipped gates: live `just db-migrate`, full `just test`, eval, frontend
+  e2e, and live-stack gates were not run; DB-backed verification and migration
+  execution were blocked by the local Postgres credential failure, and the
+  slice did not change contracts, runtime use-case breadth, connector
+  adapters, eval, or UI behaviour.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -459,13 +500,13 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: continue P1 multi-use-case foundation in Strategy order by generalising Tool Gateway approval package creation and apply semantics beyond the current calendar-shaped path.
+Current target slice: continue P1 multi-use-case foundation in Strategy order by introducing use-case-neutral subject summary vocabulary across projection, DLQ, and audit payloads.
 
-Previous slice completed: shared WorkflowSpine compensation and retry-DLQ commands now carry `workflow_type`, `workflow_actor_id`, `subject_id`, and `subject_ref` from use-case correlation; shared activity-owned compensation and retry-DLQ audit / outbox writes use those fields instead of hardcoded UC1 workflow type or actor values. UC1 preserves its actor via `UC1_WORKFLOW_ACTOR_ID` in `chorus/workflows/uc1.py`. Preserve that surface unless a focused test proves it is wrong.
+Previous slice completed: Tool Gateway approval-required write grants now create generic approval packages for any registered connector write tool instead of only calendar writes. Approval packages take `workflow_type`, `subject_id`, and `subject_ref` from `ToolGatewayRequest`; `WorkflowSpine` supplies those from workflow correlation. Package metadata now carries generic `subject_refs` and safe `action_refs`, with `calendar_refs` retained only for the existing calendar projection compatibility path. `apply_approved_write` is the generic apply path and `apply_approved_calendar_write` remains a wrapper.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief.md, docs/domain-model.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/product-brief-uc3.md, and docs/domain-model-uc3.md. Keep this slice focused on generic approval package creation and apply semantics in the Tool Gateway. Do not implement UC2 or UC3 workflows, intake contracts, connector adapters, provider routes, replay comparator code, eval fixture schema breadth, use-case-neutral subject-summary vocabulary, or business-specific UI breadth in this slice.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief.md, docs/domain-model.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/product-brief-uc3.md, and docs/domain-model-uc3.md. Keep this slice focused on use-case-neutral subject summary vocabulary across projection, DLQ, and audit payloads. Do not implement UC2 or UC3 workflows, intake contracts, connector adapters, provider routes, replay comparator code, eval fixture schema breadth, provider route wiring, business-specific UI breadth, or UC1 broker-firm-side connector persistence in this slice.
 
-Before editing, inspect `chorus/tool_gateway/gateway.py`, `chorus/connectors/types.py`, `chorus/connectors/uc1.py`, `chorus/persistence/projection.py`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`, `tests/tool_gateway/test_gateway.py`, `tests/persistence/test_postgres_foundation.py`, and searches for calendar-only approval package/apply assumptions such as `calendar_refs`, `calendar.create_hold`, `calendar.cancel_hold`, `approval_policy.calendar_write`, `approval_sla.calendar_write`, and approval-package `workflow_type` hardcoding. Preserve existing calendar approval behaviour and tests while making the package authority envelope generic enough for future approval-gated connector actions named in the UC1, UC2, and UC3 design docs.
+Before editing, inspect `chorus/persistence/projection.py`, `chorus/workflows/activities.py`, `chorus/workflows/spine.py`, `chorus/workflows/types.py`, `chorus/eval/scenario_player.py`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`, `tests/persistence/test_postgres_foundation.py`, `tests/workflows/test_activities.py`, `tests/workflows/test_uc1_workflow.py`, and searches for UC1-only subject vocabulary such as `enquiry_summary`, `subject_summary`, `subject_ref`, `enq_`, `sender`, `message_id`, and retry-DLQ / audit payload fields. Preserve UC1 projection and UI behaviour while making the shared payload vocabulary suitable for UC1, UC2, and UC3 root subjects.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.

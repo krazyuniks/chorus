@@ -217,6 +217,35 @@ def test_projection_constraints_accept_r4_use_case_identifiers(
     assert read_model.subject_ref == subject_ref
 
 
+def test_approval_package_constraints_are_generic_for_connector_writes(
+    migrated_database_url: str,
+) -> None:
+    with psycopg.connect(migrated_database_url) as conn:
+        constraints = dict(
+            conn.execute(
+                """
+                SELECT conname, pg_get_constraintdef(oid)
+                FROM pg_constraint
+                WHERE conrelid = 'approval_packages'::regclass
+                  AND conname IN (
+                    'approval_packages_tool_name_check',
+                    'approval_packages_requested_action_check'
+                  )
+                """
+            ).fetchall()
+        )
+
+    assert "calendar.create_hold" not in constraints["approval_packages_tool_name_check"]
+    assert (
+        "outbound_comms.message.write"
+        not in constraints["approval_packages_requested_action_check"]
+    )
+    assert (
+        "requested_action = ((tool_name || '.'::text) || requested_mode)"
+        in constraints["approval_packages_requested_action_check"]
+    )
+
+
 def test_outbox_claim_sent_and_failed_transitions(migrated_database_url: str) -> None:
     workflow_id = "uc1-enq-outbox"
     with psycopg.connect(migrated_database_url) as conn:
