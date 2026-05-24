@@ -155,7 +155,7 @@ channel runnable status are separate claims.
   lookup data behind the existing read connectors.
 - [x] Route accepted, referred, declined, and missing-data verdicts through the
   appropriate connector paths.
-- [ ] Materialise the UC1 policy snapshot row behind `policy_snapshot_ref`.
+- [x] Materialise the UC1 policy snapshot row behind `policy_snapshot_ref`.
 - [ ] Add eval fixtures and invariants that prove the full UC1 connector path,
   not only outbound missing-data messaging.
 
@@ -715,6 +715,61 @@ channel runnable status are separate claims.
   live-provider gates were not run. DB-backed verification and migration
   execution remain blocked by the local Postgres credential failure.
 
+### 2026-05-24 - UC1 Policy Snapshot Materialisation
+
+- Scope: fourth P2 UC1 completion slice for materialising the local UC1 policy
+  snapshot row behind `policy_snapshot_ref`.
+- Files changed: `chorus/agent_runtime/runtime.py`,
+  `chorus/persistence/runtime_policy.py`, Postgres current-state baseline,
+  new deterministic UC1 policy-snapshot seed, focused runtime / persistence /
+  workflow / eval / BFF tests, scaffold checks, architecture / evidence /
+  runbook / Postgres docs, and this backlog handoff.
+- Behaviour changed:
+  - `policy_snapshots` is now an immutable tenant-scoped Postgres table with
+    RLS and read grants for local governance inspection;
+  - `infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql` materialises
+    `policy_snapshot:uc1:default:v1` for `tenant_demo` as a safe-ref bundle
+    covering UC1 agents/prompts, local model route refs, Tool Gateway grant
+    refs, connector policy refs, target-market refs, and bounded conduct-hook
+    refs;
+  - `PolicySnapshotStore.snapshot` now includes policy snapshot rows and
+    `PolicySnapshotStore.get_policy_snapshot` reads a specific ref;
+  - successful Agent Runtime decisions that emit `policy_snapshot_ref` now
+    carry `policy_snapshot.ref` in decision metadata, preserving the current
+    deterministic recorded-replay qualifier output;
+  - connector contracts, Tool Gateway authority, outbound-comms approval
+    semantics, read-connector seed data, provider route selection, verdict
+    connector routing, UC2 / UC3 runtime scope, replay comparator code, and UI
+    behaviour were intentionally left unchanged.
+- Gates run:
+  - `uv run pytest tests/agent_runtime/test_runtime.py -q` - green, 9 passed
+    and 3 skipped because local Postgres on `localhost:5432` rejected the
+    configured `chorus` user for DB-backed runtime tests.
+  - `uv run pytest tests/persistence/test_postgres_foundation.py -rs` -
+    1 passed and 16 skipped; skipped cases include the new DB-backed
+    policy-snapshot schema/seed assertions because local Postgres rejected the
+    configured `chorus` user.
+  - `uv run pytest tests/workflows/test_uc1_workflow.py tests/workflows/test_activities.py -q`
+    - green, 8 passed.
+  - `uv run pytest tests/eval/test_run.py -q` - green, 8 passed.
+  - `uv run pytest tests/test_scaffold.py -q` - green, 2 passed.
+  - `uv run pytest tests/bff/test_app_unit.py -q` - green, 4 passed.
+  - `uv run pytest tests/agent_runtime/test_runtime.py tests/persistence/test_postgres_foundation.py tests/workflows/test_uc1_workflow.py tests/workflows/test_activities.py tests/eval/test_run.py tests/bff/test_app_unit.py -rs`
+    - 30 passed and 19 skipped; skipped cases were DB-backed because local
+    Postgres rejected the configured `chorus` user.
+  - `just doctor-quick` - green.
+  - `just contracts-check` - green.
+  - `just eval` - green for the two current UC1 offline eval fixtures with
+    unchanged invariant names, order, and pass outcomes.
+  - `just test-replay` - green, 2 passed and 8 deselected.
+  - `just lint` - green after formatting the touched persistence test.
+  - `git diff --check` - green.
+- Skipped gates: `just contracts-gen` was not run because no JSON Schema
+  contracts changed. Live `just db-migrate`, full `just test`, Redpanda
+  projection integration, frontend e2e, UC2 / UC3 runtime gates, and
+  live-provider gates were not run. DB-backed verification and migration
+  execution remain blocked by the local Postgres credential failure.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -762,20 +817,20 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: continue P2 UC1 Completion in Strategy order by materialising the UC1 policy snapshot row behind `policy_snapshot_ref`.
+Current target slice: finish P2 UC1 Completion in Strategy order by adding eval fixtures and invariants that prove the full UC1 connector path, not only outbound missing-data messaging.
 
-Previous slice completed: UC1 qualification verdicts now route through the existing connector paths behind the Tool Gateway. `accept` / `accepted` routes to `crm.route_to_quoting_queue`, `refer` / `referred` routes to `referral_inbox.route`, and `decline` / `declined` routes to `decline_ledger.route`, with `verdict_ref` as the idempotency key and the existing `uc1.qualifier` write grants. Missing-data verdicts continue through the existing draft / validation / proposal-mode `outbound_comms.message` path, now using `missing_data_request_ref` as the proposal idempotency key; write-mode outbound customer communication remains approval-required. The deterministic recorded-replay qualification output now labels the current offline happy path as `missing_data`, preserving current eval fixture semantics. Connector contracts, Postgres routing/reference schemas, provider route selection, UC2 / UC3 runtime scope, replay comparator code, and UI behaviour were left unchanged.
+Previous slice completed: the local UC1 policy snapshot ref is now materialised. `policy_snapshots` is an immutable tenant-scoped Postgres table with RLS and read grants; `infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql` materialises `policy_snapshot:uc1:default:v1` for `tenant_demo` as a safe-ref bundle covering UC1 agents/prompts, local model route refs, Tool Gateway grant refs, connector policy refs, target-market refs, and bounded conduct-hook refs. `PolicySnapshotStore.snapshot` includes policy snapshot rows, `PolicySnapshotStore.get_policy_snapshot` reads a specific ref, and successful Agent Runtime decisions that emit `policy_snapshot_ref` now carry `policy_snapshot.ref` in decision metadata. Connector contracts, Tool Gateway authority, outbound-comms approval semantics, read-connector seed data, provider route selection, verdict connector routing, UC2 / UC3 runtime scope, replay comparator code, and UI behaviour were left unchanged.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief.md, docs/domain-model.md, docs/r1-adapter-mapping.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, and the current P2 backlog items. Keep this slice focused on the fourth P2 item only: materialising the UC1 policy snapshot row behind `policy_snapshot_ref`.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief.md, docs/domain-model.md, docs/r1-adapter-mapping.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, docs/transformation/eval-reshape-directions.md, and the current P2 backlog items. Keep this slice focused on the final P2 item only: eval evidence for the full UC1 connector path.
 
-Before editing, inspect `chorus/agent_runtime/runtime.py`, `chorus/llm_provider/adapter_replay.py`, `chorus/persistence/runtime_policy.py`, `chorus/persistence/audit_port.py`, `chorus/workflows/uc1.py`, `chorus/workflows/activities.py`, `chorus/tool_gateway/gateway.py`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`, `infrastructure/postgres/seeds/`, `tests/agent_runtime/test_runtime.py`, `tests/persistence/test_postgres_foundation.py`, `tests/workflows/test_uc1_workflow.py`, `tests/eval/test_run.py`, and searches for `policy_snapshot_ref`, `policy_snapshot`, `PolicySnapshot`, `policy_snapshot:uc1:default:v1`, `runtime_policy`, `tool_grants`, `agent_registry`, `model_routing_policies`, `model_route_versions`, and `qualification_verdict_category`. Preserve the existing Tool Gateway authority path, approval-required outbound-comms behaviour, read-connector seeding, provider route selection, verdict connector routing, and current eval fixture semantics unless the policy-snapshot persistence change requires a small focused preservation assertion.
+Before editing, inspect `chorus/eval/scenario_player.py`, `chorus/eval/common_invariants.py`, `chorus/eval/use_cases/uc1_conduct.py`, `chorus/eval/invariants.py`, `chorus/eval/fixtures/`, `tests/eval/test_run.py`, `chorus/workflows/uc1.py`, `chorus/llm_provider/adapter_replay.py`, `chorus/connectors/uc1.py`, `chorus/persistence/uc1_connectors.py`, `chorus/tool_gateway/gateway.py`, `tests/workflows/test_uc1_workflow.py`, `tests/connectors/test_uc1_connectors.py`, and searches for `qualification_verdict_category`, `crm.route_to_quoting_queue`, `referral_inbox.route`, `decline_ledger.route`, `queued_route_ref`, `referral_route_ref`, `decline_route_ref`, `policy_snapshot_ref`, `policy_snapshot:uc1:default:v1`, `missing_data`, `outbound_comms.message`, and `connector write authority`. Preserve the existing Tool Gateway authority path, approval-required outbound-comms behaviour, read-connector seeding, provider route selection, verdict connector routing, policy snapshot row, and current missing-data eval fixture semantics while adding the smallest eval fixture/invariant coverage needed to prove accepted, referred, and declined connector routing.
 
-Keep this slice focused on policy snapshot materialisation only. Do not implement UC2 or UC3 runtime work, add new provider route wiring, add replay comparator code, broaden eval fixture coverage beyond what is needed to preserve or minimally prove current UC1 behaviour, change UI behaviour, or complete the remaining P2 item for full UC1 connector-path eval fixtures unless a tiny supporting test assertion is required for this policy-snapshot change. If the design requires changing cross-port contracts, bypassing the Tool Gateway or LLM provider port, changing approval semantics for outbound customer comms, storing real customer data, or adding a materially broader migration boundary than local sandbox policy snapshot rows, stop and surface the blocking question before committing.
+Keep this slice focused on UC1 eval fixture/invariant coverage only. Do not implement UC2 or UC3 runtime work, add new provider route wiring, add replay comparator code beyond fixture/invariant needs, change UI behaviour, change connector contracts unless the existing fixture schema cannot represent the evidence, alter approval semantics for outbound customer comms, or store real customer data. If proving the full connector path requires changing cross-port contracts, bypassing the Tool Gateway or LLM provider port, replacing the invariant-plus-replay eval model with path enumeration, or broadening into live-provider replay, stop and surface the blocking question before committing.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
 - Rewrite the body of the `## Next Continuation Prompt` section in the backlog with the next slice's prompt, in Strategy order. If R4 is fully closed, write the literal `R4-COMPLETE` there instead.
-- Run relevant focused gates for the files touched, likely including `just contracts-gen` and `just contracts-check` if connector contracts change, focused connector / workflow / persistence tests, `just test-replay` if deterministic workflow history changes, `just eval` if UC1 eval behaviour is affected, `just lint`, and `git diff --check`. If DB-backed gates cannot run because local Postgres or another live-stack dependency is unavailable, record the skipped gate and reason.
+- Run relevant focused gates for the files touched, likely including `just contracts-gen` and `just contracts-check` if eval or connector contracts change, focused eval / connector / workflow / persistence tests, `just test-replay` if deterministic workflow history changes, `just eval`, `just lint`, and `git diff --check`. If DB-backed gates cannot run because local Postgres or another live-stack dependency is unavailable, record the skipped gate and reason.
 - Stage everything and create one Conventional Commit (`type(scope): description`). Do not add `Co-Authored-By` or any AI attribution.
 - Leave the working tree clean.
 

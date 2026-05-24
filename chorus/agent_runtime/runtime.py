@@ -696,6 +696,7 @@ class AgentRuntime:
                 ],
             ),
             metadata=execution.decision_metadata
+            | _policy_snapshot_metadata(execution.contract)
             | _route_selection_metadata(
                 resolution=resolution,
                 fallback_reason=None,
@@ -791,6 +792,7 @@ class AgentRuntime:
                 ],
             ),
             metadata=execution.decision_metadata
+            | _policy_snapshot_metadata(execution.contract)
             | _route_selection_metadata(
                 resolution=fallback.resolution,
                 fallback_reason=fallback.reason,
@@ -1210,6 +1212,13 @@ def _route_selection_metadata(
         "model_route.cost_amount_usd": str(cost_amount_usd),
         "model_route.latency_ms": duration_ms,
     }
+
+
+def _policy_snapshot_metadata(contract: AgentOutputContract) -> dict[str, Any]:
+    policy_snapshot_ref = contract.result.structured_data.get("policy_snapshot_ref")
+    if not isinstance(policy_snapshot_ref, str) or not policy_snapshot_ref:
+        return {}
+    return {"policy_snapshot.ref": policy_snapshot_ref}
 
 
 __all__ = [

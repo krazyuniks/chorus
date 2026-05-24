@@ -738,6 +738,45 @@ CREATE TABLE IF NOT EXISTS model_route_versions (
     UNIQUE (tenant_id, agent_role, task_kind, tenant_tier, route_version)
 );
 
+CREATE TABLE IF NOT EXISTS policy_snapshots (
+    tenant_id text NOT NULL REFERENCES tenants (tenant_id) ON DELETE RESTRICT,
+    policy_snapshot_ref text NOT NULL,
+    workflow_type text NOT NULL,
+    snapshot_version text NOT NULL,
+    lifecycle_state text NOT NULL DEFAULT 'active',
+    effective_from timestamptz NOT NULL,
+    policy_bundle jsonb NOT NULL,
+    source_refs jsonb NOT NULL DEFAULT '{}'::jsonb,
+    content_hash text NOT NULL,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, policy_snapshot_ref),
+    CONSTRAINT policy_snapshots_ref_shape CHECK (
+        policy_snapshot_ref ~ '^policy_snapshot:[a-z0-9_:-]+$'
+    ),
+    CONSTRAINT policy_snapshots_workflow_type_check CHECK (
+        workflow_type IN (
+            'uc1_enquiry_qualification',
+            'uc2_legal_services_intake_conflict_check',
+            'uc3_ifa_suitability_intake'
+        )
+    ),
+    CONSTRAINT policy_snapshots_version_shape CHECK (snapshot_version ~ '^v[0-9]+$'),
+    CONSTRAINT policy_snapshots_lifecycle_check CHECK (
+        lifecycle_state IN ('active', 'deprecated', 'disabled')
+    ),
+    CONSTRAINT policy_snapshots_bundle_object_check CHECK (
+        jsonb_typeof(policy_bundle) = 'object'
+    ),
+    CONSTRAINT policy_snapshots_source_refs_object_check CHECK (
+        jsonb_typeof(source_refs) = 'object'
+    ),
+    CONSTRAINT policy_snapshots_metadata_object_check CHECK (jsonb_typeof(metadata) = 'object'),
+    CONSTRAINT policy_snapshots_content_hash_shape CHECK (
+        content_hash ~ '^sha256:[a-f0-9]{64}$'
+    )
+);
+
 CREATE TABLE IF NOT EXISTS approval_packages (
     tenant_id text NOT NULL REFERENCES tenants (tenant_id) ON DELETE RESTRICT,
     approval_id uuid NOT NULL,
@@ -1158,6 +1197,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS model_route_versions_approved_route_idx
     ON model_route_versions (tenant_id, agent_role, task_kind, tenant_tier)
     WHERE lifecycle_state = 'approved';
 
+CREATE INDEX IF NOT EXISTS policy_snapshots_lookup_idx
+    ON policy_snapshots (tenant_id, workflow_type, lifecycle_state, effective_from DESC);
+
 CREATE UNIQUE INDEX IF NOT EXISTS approval_packages_idempotency_idx
     ON approval_packages (tenant_id, tool_name, idempotency_key_ref);
 
@@ -1191,6 +1233,21 @@ CREATE TRIGGER model_route_versions_immutable
     FOR EACH ROW
     EXECUTE FUNCTION prevent_model_route_version_mutation();
 
+CREATE OR REPLACE FUNCTION prevent_policy_snapshot_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'policy_snapshots are immutable; insert a new snapshot ref instead';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS policy_snapshots_immutable ON policy_snapshots;
+CREATE TRIGGER policy_snapshots_immutable
+    BEFORE UPDATE OR DELETE ON policy_snapshots
+    FOR EACH ROW
+    EXECUTE FUNCTION prevent_policy_snapshot_mutation();
+
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_registry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE model_routing_policies ENABLE ROW LEVEL SECURITY;
@@ -1206,6 +1263,7 @@ ALTER TABLE local_decline_ledger_routes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workflow_history_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE model_route_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE policy_snapshots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE approval_packages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_invocation_transcripts ENABLE ROW LEVEL SECURITY;
 
@@ -1302,6 +1360,11 @@ CREATE POLICY model_route_versions_tenant_isolation ON model_route_versions
     FOR SELECT TO chorus_app
     USING (tenant_id = chorus_current_tenant_id());
 
+DROP POLICY IF EXISTS policy_snapshots_tenant_isolation ON policy_snapshots;
+CREATE POLICY policy_snapshots_tenant_isolation ON policy_snapshots
+    FOR SELECT TO chorus_app
+    USING (tenant_id = chorus_current_tenant_id());
+
 DROP POLICY IF EXISTS approval_packages_tenant_isolation ON approval_packages;
 CREATE POLICY approval_packages_tenant_isolation ON approval_packages
     FOR ALL TO chorus_app
@@ -1341,7 +1404,8 @@ GRANT SELECT ON
     provider_catalogues,
     provider_catalogue_providers,
     provider_catalogue_models,
-    model_route_versions
+    model_route_versions,
+    policy_snapshots
 TO chorus_app;
 
 GRANT SELECT, INSERT, UPDATE ON approval_packages TO chorus_app;
@@ -1379,6 +1443,8 @@ COMMENT ON TABLE provider_catalogue_models IS
     'Models declared by each provider catalogue entry, including task support and cost policy.';
 COMMENT ON TABLE model_route_versions IS
     'Tenant-scoped immutable model-route versions for governance inspection.';
+COMMENT ON TABLE policy_snapshots IS
+    'Tenant-scoped immutable local policy bundles behind policy_snapshot_ref values emitted by governed decisions.';
 COMMENT ON TABLE approval_packages IS
     'Local approval package evidence for Tool Gateway approval-required connector writes.';
 COMMENT ON TABLE agent_invocation_transcripts IS

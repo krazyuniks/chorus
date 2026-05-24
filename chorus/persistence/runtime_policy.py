@@ -70,6 +70,22 @@ class ToolGrant(BaseModel):
     redaction_policy: dict[str, Any]
 
 
+class PolicySnapshotEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: str
+    policy_snapshot_ref: str
+    workflow_type: str
+    snapshot_version: str
+    lifecycle_state: str
+    effective_from: datetime
+    policy_bundle: dict[str, Any]
+    source_refs: dict[str, Any]
+    content_hash: str
+    metadata: dict[str, Any]
+    created_at: datetime
+
+
 class RuntimePolicySnapshot(BaseModel):
     """Read-only governance policy state for later BFF/admin inspection."""
 
@@ -79,6 +95,7 @@ class RuntimePolicySnapshot(BaseModel):
     agents: list[AgentRegistryEntry]
     model_routes: list[ModelRoutingPolicy]
     tool_grants: list[ToolGrant]
+    policy_snapshots: list[PolicySnapshotEntry]
 
 
 class PolicySnapshotStore:
@@ -157,9 +174,62 @@ class PolicySnapshotStore:
             """,
             (tenant_id,),
         )
+        policy_snapshots = fetch_models(
+            self._conn,
+            PolicySnapshotEntry,
+            """
+            SELECT
+                tenant_id,
+                policy_snapshot_ref,
+                workflow_type,
+                snapshot_version,
+                lifecycle_state,
+                effective_from,
+                policy_bundle,
+                source_refs,
+                content_hash,
+                metadata,
+                created_at
+            FROM policy_snapshots
+            WHERE tenant_id = %s
+            ORDER BY workflow_type, effective_from DESC, policy_snapshot_ref
+            """,
+            (tenant_id,),
+        )
         return RuntimePolicySnapshot(
             tenant_id=tenant_id,
             agents=agents,
             model_routes=model_routes,
             tool_grants=tool_grants,
+            policy_snapshots=policy_snapshots,
         )
+
+    def get_policy_snapshot(
+        self,
+        tenant_id: str,
+        policy_snapshot_ref: str,
+    ) -> PolicySnapshotEntry | None:
+        rows = fetch_models(
+            self._conn,
+            PolicySnapshotEntry,
+            """
+            SELECT
+                tenant_id,
+                policy_snapshot_ref,
+                workflow_type,
+                snapshot_version,
+                lifecycle_state,
+                effective_from,
+                policy_bundle,
+                source_refs,
+                content_hash,
+                metadata,
+                created_at
+            FROM policy_snapshots
+            WHERE tenant_id = %s
+              AND policy_snapshot_ref = %s
+            LIMIT 1
+            """,
+            (tenant_id, policy_snapshot_ref),
+        )
+        return rows[0] if rows else None

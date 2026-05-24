@@ -32,7 +32,7 @@ After the R3 F decomposition the read surfaces are split per port.
   `AuditPortStore.list_decision_trail`, `AuditPortStore.list_tool_action_audit`.
 - `runtime_policy.py` owns the runtime-policy snapshot:
   `PolicySnapshotStore.snapshot` composes agent registry + model routing
-  policies + tool grants for a tenant.
+  policies + tool grants + immutable policy snapshot rows for a tenant.
 - `provider_governance.py` owns the provider catalogue + route-version
   snapshot: `ProviderGovernanceStore.snapshot` composes provider catalogues +
   providers + provider models + route versions.

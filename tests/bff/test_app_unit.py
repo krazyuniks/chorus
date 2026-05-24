@@ -126,6 +126,7 @@ class FakePolicySnapshotStore:
             agents=[self._fixture.agent()],
             model_routes=[self._fixture.routing_policy()],
             tool_grants=[self._fixture.grant()],
+            policy_snapshots=[],
         )
 
 

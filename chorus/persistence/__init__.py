@@ -14,10 +14,10 @@ port-shaped read surface:
   for broker-firm routing refs and read-connector reference data.
 
 This package init re-exports the migration + outbox + projection-write
-entry points, which are the common shared surface. Audit, policy, and
-provider-governance read stores must be imported from their port-named
-module directly; that keeps the F port boundaries visible at the
-callsite.
+entry points, which are the common shared surface. Audit, runtime-policy,
+policy-snapshot, and provider-governance read stores must be imported from
+their port-named modules directly; that keeps the F port boundaries visible
+at the callsite.
 """
 
 from __future__ import annotations

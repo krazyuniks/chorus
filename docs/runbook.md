@@ -124,6 +124,13 @@ Inspect the grants for an agent:
   "SELECT agent_id, tool_name, mode, allowed, approval_required FROM tool_grants WHERE tenant_id = 'tenant_demo' ORDER BY tool_name;"
 ```
 
+Inspect the UC1 policy snapshot row emitted by the deterministic qualifier:
+
+```bash
+./scripts/dc exec postgres psql -U chorus -d chorus -c \
+  "SELECT policy_snapshot_ref, workflow_type, snapshot_version, lifecycle_state, content_hash FROM policy_snapshots WHERE tenant_id = 'tenant_demo' AND policy_snapshot_ref = 'policy_snapshot:uc1:default:v1';"
+```
+
 Every gateway call writes an audit row regardless of verdict; see the audit
 port section below. The UC1 workflow routes `accept`, `refer`, and `decline`
 qualification verdicts through the Tool Gateway to the quoting queue,
@@ -131,8 +138,11 @@ referral inbox, and decline ledger adapters, which persist their local
 sandbox refs in Postgres. Missing-data verdicts stay on the proposal-mode
 outbound-comms path; the write-mode send remains approval-required.
 Customer-profile and product-catalogue reads resolve tenant-scoped synthetic
-rows from the local Postgres seeds. Full connector-path eval fixtures remain
-P2 work.
+rows from the local Postgres seeds. The emitted
+`policy_snapshot:uc1:default:v1` ref resolves to an immutable local
+`policy_snapshots` row containing safe refs for agents, routes, grants,
+connector policies, target-market checks, and conduct hooks. Full
+connector-path eval fixtures remain P2 work.
 
 ### Audit / transcript ports
 

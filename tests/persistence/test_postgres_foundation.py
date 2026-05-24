@@ -135,6 +135,7 @@ def test_migration_applies_schema_and_demo_seed_data(migrated_database_url: str)
     assert ("outbox_events",) in tables
     assert ("provider_catalogues",) in tables
     assert ("model_route_versions",) in tables
+    assert ("policy_snapshots",) in tables
     assert ("approval_packages",) in tables
     assert ("local_customer_profiles",) in tables
     assert ("local_product_catalogue_entries",) in tables
@@ -159,11 +160,13 @@ def test_migrations_and_seeds_are_idempotent(migrated_database_url: str) -> None
         "001_demo_tenants.sql",
         "002_provider_governance.sql",
         "003_uc1_connector_reference_data.sql",
+        "004_uc1_policy_snapshots.sql",
     ]
     assert second == [
         "001_demo_tenants.sql",
         "002_provider_governance.sql",
         "003_uc1_connector_reference_data.sql",
+        "004_uc1_policy_snapshots.sql",
     ]
     assert tenant_count == (2,)
     assert seed_agents == (10,)
@@ -456,3 +459,35 @@ def test_runtime_policy_snapshot_is_tenant_scoped(migrated_database_url: str) ->
         snapshot = PolicySnapshotStore(conn).snapshot("tenant_demo")
     assert all(agent.tenant_id == "tenant_demo" for agent in snapshot.agents)
     assert any(grant.tool_name == "outbound_comms.message" for grant in snapshot.tool_grants)
+    assert all(
+        policy_snapshot.tenant_id == "tenant_demo" for policy_snapshot in snapshot.policy_snapshots
+    )
+
+
+def test_uc1_policy_snapshot_ref_is_materialised(migrated_database_url: str) -> None:
+    with psycopg.connect(migrated_database_url) as conn:
+        conn.execute("SELECT set_config('app.tenant_id', 'tenant_demo', false)")
+        snapshot = PolicySnapshotStore(conn).get_policy_snapshot(
+            "tenant_demo",
+            "policy_snapshot:uc1:default:v1",
+        )
+
+    assert snapshot is not None
+    assert snapshot.workflow_type == "uc1_enquiry_qualification"
+    assert snapshot.snapshot_version == "v1"
+    assert snapshot.lifecycle_state == "active"
+    assert snapshot.content_hash.startswith("sha256:")
+    assert snapshot.policy_bundle["policy_snapshot_ref"] == "policy_snapshot:uc1:default:v1"
+    assert snapshot.policy_bundle["connector_policy_refs"]["routing_policy_ref"] == (
+        "policy_uc1_routing_v1"
+    )
+    assert any(
+        route["agent_role"] == "qualifier" and route["task_kind"] == "enquiry_qualification"
+        for route in snapshot.policy_bundle["model_routes"]
+    )
+    assert any(
+        grant["tool_name"] == "outbound_comms.message"
+        and grant["mode"] == "write"
+        and grant["approval_required"] is True
+        for grant in snapshot.policy_bundle["tool_grants"]
+    )

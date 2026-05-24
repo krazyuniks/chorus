@@ -100,6 +100,11 @@ def _request(
 
 def _resolution(
     *,
+    role: str = "request_drafter",
+    agent_id: str = "uc1.request_drafter",
+    task_kind: str = "missing_data_request_draft",
+    prompt_reference: str = "prompts/uc1/request-drafter/v1.md",
+    prompt_hash: str = "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
     provider: str = "local",
     model: str = "uc1-happy-path-v1",
     fallback_policy: dict[str, Any] | None = None,
@@ -107,19 +112,19 @@ def _resolution(
     return RuntimeResolution(
         tenant=TenantPolicy(tenant_id="tenant_demo", tenant_tier="demo", status="active"),
         agent=ResolvedAgent(
-            agent_id="uc1.request_drafter",
-            role="request_drafter",
+            agent_id=agent_id,
+            role=role,
             version="v1",
             lifecycle_state="approved",
             owner="agent-runtime",
-            prompt_reference="prompts/uc1/request-drafter/v1.md",
-            prompt_hash="sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            prompt_reference=prompt_reference,
+            prompt_hash=prompt_hash,
             capability_tags=["uc1", "drafting"],
         ),
         model_route=ResolvedModelRoute(
             provider=provider,
             model=model,
-            task_kind="missing_data_request_draft",
+            task_kind=task_kind,
             parameters={"temperature": 0.3},
             budget_cap_usd=Decimal("0.01"),
             fallback_policy=fallback_policy or {"on_provider_error": "escalate"},
@@ -260,6 +265,26 @@ def test_runtime_invokes_recorded_replay_route_and_records_decision_trail() -> N
     assert metadata["route_catalogue.route_id"] == "recorded-replay"
     assert metadata["model_route.provider"] == "local"
     assert metadata["model_route.cost_amount_usd"] == "0.000000"
+
+
+def test_runtime_records_policy_snapshot_ref_metadata_for_qualification() -> None:
+    """Qualifier outputs keep the policy snapshot ref visible on the decision trail."""
+
+    store = RecordingRuntimeStore(
+        _resolution(
+            role="qualifier",
+            agent_id="uc1.qualifier",
+            task_kind="enquiry_qualification",
+            prompt_reference="prompts/uc1/qualifier/v1.md",
+            prompt_hash="sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        )
+    )
+    runtime = AgentRuntime(store, _replay_catalogue())
+
+    response = runtime.invoke(_request(task_kind="enquiry_qualification", role="qualifier"))
+
+    assert response.structured_data["policy_snapshot_ref"] == "policy_snapshot:uc1:default:v1"
+    assert store.metadata[0]["policy_snapshot.ref"] == "policy_snapshot:uc1:default:v1"
 
 
 def test_runtime_records_decision_trail_and_transcript_on_every_invocation() -> None:
