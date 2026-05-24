@@ -21,9 +21,11 @@ A note on what runs today. R3 (contract and code terminology refactor)
 closed 2026-05-24. The runtime code carries the named-port surface, and
 the runnable local intake path remains the UC1 enquiry-qualification workflow
 on the shared `WorkflowSpine`. UC2 now has a definition-first workflow on the
-same spine with focused fake-activity workflow / replay tests; UC2 connector
-adapters, grants, provider route support, projections, eval fixtures, and a
-local intake start path remain later R4 work. UC3 lands later in R4 alongside
+same spine with focused fake-activity workflow / replay tests, plus
+registered deterministic sandbox connector adapters for conflict check, KYC /
+beneficial ownership, AML record-store, and engagement-letter-store tools.
+UC2 grants, provider route support, projections, eval fixtures, and a local
+intake start path remain later R4 work. UC3 lands later in R4 alongside
 cross-provider replay-eval breadth.
 
 ## Bring the stack up
@@ -178,6 +180,17 @@ rows from the local Postgres seeds. The emitted
 connector policies, target-market checks, and conduct hooks. The offline
 eval suite covers the missing-data outbound path plus accepted, referred,
 and declined terminal connector routing.
+
+UC2 connector adapters are registered in the default connector registry for
+`conflict_check.search`, `kyc_bo.lookup`,
+`aml_record_store.record_assessment`, `engagement_letter.draft`,
+`engagement_letter.send`, `engagement_letter.record_decline`, and
+`engagement_letter.route_manual_review`. They return deterministic synthetic
+refs and bounded statuses only; they do not call production legal, AML,
+identity, Companies House, sanctions, document-management, matter-management,
+email, or e-signature systems. UC2 Tool Gateway grants and approval/conduct
+evidence are still pending later P4 slices, so the runbook does not yet claim
+a runnable UC2 local intake path.
 
 ### Audit / transcript ports
 

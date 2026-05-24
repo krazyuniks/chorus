@@ -1,6 +1,6 @@
 # Connector Implementation Instructions
 
-This package contains the connector adapter registry and the UC1 sandbox
+This package contains the connector adapter registry and the sandbox
 connector adapters used behind the Tool Gateway. The gateway dispatches
 through `ConnectorRegistry`; new connectors register an adapter without editing
 the gateway.
@@ -34,6 +34,12 @@ the gateway.
   `sandbox-customer-profile` (Postgres-seeded read-only profile +
   vulnerability markers), `sandbox-product-catalogue` (Postgres-seeded
   read-only target-market data).
+- `uc2.py` holds the four UC2 sandbox adapter families:
+  `sandbox-conflict-check`, `sandbox-kyc-bo`, `sandbox-aml-record-store`, and
+  `sandbox-engagement-letter-store`. They return deterministic synthetic
+  refs and bounded statuses only; they do not call production legal, AML,
+  identity, Companies House, sanctions, document-management,
+  matter-management, email, or e-signature services.
 - `calendar.py` carries the Radicale-backed CalDAV adapter
   (`CalendarAdapter`) wrapping `RadicaleCalendarConnector` for
   approval-required write surfaces.

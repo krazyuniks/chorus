@@ -21,6 +21,7 @@ from chorus.connectors import (
     ToolSpec,
     default_registry,
 )
+from chorus.connectors.uc2 import SandboxConflictCheckAdapter
 from chorus.contracts.generated.connector.uc1.outbound_comms_message_args import (
     OutboundCommsMessageArgs,
 )
@@ -217,6 +218,61 @@ def _build_uc1_lookup_request(
     )
 
 
+def _uc2_conflict_arguments() -> dict[str, object]:
+    return {
+        "legal_intake_ref": "legal_intake_gateway_001",
+        "party_graph_ref": "pgraph_gateway_001_v1",
+        "matter_scope_ref": "mscope_gateway_001",
+        "prospective_client_ref": "prospective_client_gateway_001",
+        "party_search_terms": [
+            {
+                "party_ref": "party_prospective_client_gateway_001",
+                "role": "prospective_client",
+                "party_category": "organisation",
+            },
+            {
+                "party_ref": "party_counterparty_gateway_001",
+                "role": "counterparty",
+                "party_category": "organisation",
+            },
+        ],
+        "conflict_search_categories": [
+            "current_client",
+            "former_client",
+            "adverse_party",
+            "confidential_information",
+        ],
+        "jurisdiction_categories": ["england_and_wales"],
+        "conflict_policy_ref": "policy_uc2_conflict_check_v1",
+        "conduct_hook_refs": [
+            "conduct_sra_conflict_6_1_6_2",
+            "conduct_sra_confidentiality_6_3_6_5",
+        ],
+    }
+
+
+def _build_uc2_conflict_request(
+    *,
+    arguments: dict[str, object] | None = None,
+) -> ToolGatewayRequest:
+    workflow_id = f"uc2-legal-intake-conflict-{uuid4().hex}"
+    return ToolGatewayRequest(
+        tenant_id="tenant_demo",
+        correlation_id=f"cor_{workflow_id.replace('-', '_')}",
+        workflow_id=workflow_id,
+        invocation_id=str(uuid4()),
+        agent_id="uc2.conflict_analyst",
+        tool_name="conflict_check.search",
+        mode="read",
+        idempotency_key=f"{workflow_id}:conflict_check.search:read",
+        arguments=arguments or _uc2_conflict_arguments(),
+        workflow_type="uc2_legal_services_intake_conflict_check",
+        subject_id=str(uuid4()),
+        subject_ref="legal_intake_gateway_001",
+        subject_summary="UC2 conflict-check connector request",
+    )
+
+
 def _build_registry(adapter: ConnectorAdapter) -> ConnectorRegistry:
     registry = ConnectorRegistry()
     registry.register(adapter)
@@ -234,16 +290,26 @@ class _ApprovalGrant:
     approval_required: bool
     redaction_policy: dict[str, Any]
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        agent_id: str = "uc1.request_drafter",
+        tool_name: str = "outbound_comms.message",
+        mode: str = "write",
+        approval_required: bool = True,
+        redaction_policy: dict[str, Any] | None = None,
+    ) -> None:
         self.grant_id = uuid4()
         self.tenant_id = "tenant_demo"
-        self.agent_id = "uc1.request_drafter"
+        self.agent_id = agent_id
         self.agent_version = "v1"
-        self.tool_name = "outbound_comms.message"
-        self.mode = "write"
+        self.tool_name = tool_name
+        self.mode = mode
         self.allowed = True
-        self.approval_required = True
-        self.redaction_policy = {"redact_fields": ["body_text"]}
+        self.approval_required = approval_required
+        self.redaction_policy = (
+            redaction_policy if redaction_policy is not None else {"redact_fields": ["body_text"]}
+        )
 
 
 class _InMemoryApprovalRecord:
@@ -308,8 +374,8 @@ class _InMemoryApprovalRecord:
 
 
 class _InMemoryGatewayStore:
-    def __init__(self) -> None:
-        self.grant = _ApprovalGrant()
+    def __init__(self, grant: _ApprovalGrant | None = None) -> None:
+        self.grant = grant or _ApprovalGrant()
         self.approval_package: Any | None = None
         self.approval_record: _InMemoryApprovalRecord | None = None
         self.audit_events: list[Any] = []
@@ -450,6 +516,63 @@ def test_approval_apply_recheck_blocks_safe_ref_and_workflow_type_mismatch() -> 
     assert workflow_type_mismatch.verdict == "block"
     assert workflow_type_mismatch.output["failure_category"] == "authority_context_mismatch"
     assert adapter.calls == []
+
+
+def test_uc2_connector_invocation_uses_registered_generated_argument_contract() -> None:
+    request = _build_uc2_conflict_request()
+    store = _InMemoryGatewayStore(
+        _ApprovalGrant(
+            agent_id="uc2.conflict_analyst",
+            tool_name="conflict_check.search",
+            mode="read",
+            approval_required=False,
+            redaction_policy={},
+        )
+    )
+    gateway = ToolGateway(
+        cast(ToolGatewayStore, store),
+        _build_registry(SandboxConflictCheckAdapter()),
+    )
+
+    response = gateway.invoke(request)
+
+    assert response.verdict == "allow"
+    assert response.enforced_mode == "read"
+    assert response.output["connector"] == "sandbox_conflict_check.local"
+    assert response.output["legal_intake_ref"] == "legal_intake_gateway_001"
+    assert response.output["conflict_check_ref"].startswith("conflict_check_")
+    assert store.audit_events[-1].details["subject"] == {
+        "workflow_type": "uc2_legal_services_intake_conflict_check",
+        "subject_id": request.subject_id,
+        "subject_ref": "legal_intake_gateway_001",
+        "subject_summary": "UC2 conflict-check connector request",
+    }
+
+
+def test_uc2_connector_invocation_blocks_before_adapter_on_invalid_arguments() -> None:
+    invalid_arguments = _uc2_conflict_arguments()
+    invalid_arguments["raw_party_name"] = "Raw names stay outside the connector contract."
+    request = _build_uc2_conflict_request(arguments=invalid_arguments)
+    store = _InMemoryGatewayStore(
+        _ApprovalGrant(
+            agent_id="uc2.conflict_analyst",
+            tool_name="conflict_check.search",
+            mode="read",
+            approval_required=False,
+            redaction_policy={},
+        )
+    )
+    gateway = ToolGateway(
+        cast(ToolGatewayStore, store),
+        _build_registry(SandboxConflictCheckAdapter()),
+    )
+
+    response = gateway.invoke(request)
+
+    assert response.verdict == "block"
+    assert response.enforced_mode == "read"
+    assert response.output == {}
+    assert response.reason.startswith("Tool argument schema validation failed")
 
 
 def test_propose_grant_invokes_adapter_and_persists_audit(
