@@ -1,0 +1,18 @@
+{
+  "advice_enquiry_ref": "advice_enquiry_demo_001",
+  "suitability_report_ref": "suitability_report_demo_001",
+  "suitability_conclusion_ref": "suitability_conclusion_demo_001",
+  "approval_package_ref": "approval_suitability_report_demo_001",
+  "adviser_approval_ref": "approval_adviser_demo_001",
+  "issue_instruction_ref": "issue_instruction_demo_001",
+  "prospective_retail_client_ref": "prospective_client_demo_ifa_001",
+  "support_assessment_ref": "support_assessment_demo_001_v1",
+  "consumer_understanding_check_ref": "consumer_understanding_demo_001",
+  "issue_channel_category": "portal",
+  "issue_policy_ref": "policy_uc3_suitability_report_issue_v1",
+  "conduct_hook_refs": [
+    "conduct_cobs_9_4_suitability_report",
+    "conduct_cobs_9_5_record_retention",
+    "conduct_prin_2a_consumer_understanding"
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0.0",
+  "advice_enquiry_id": "65073b95-c826-41c8-aaf6-83fbb2f88d5e",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_advice_web_001",
+  "channel": "web-form",
+  "adapter_id": "web-form-channel",
+  "form_submission_id": "advice_form_isa_review_001",
+  "submitted_at": "2026-05-01T09:30:00Z",
+  "form_version": "ifa-web-enquiry-v1",
+  "source_payload_ref": "source_payload_advice_web_001",
+  "prospective_retail_client_ref": "prospective_client_demo_ifa_001",
+  "household_ref": "household_demo_ifa_001",
+  "advice_need_categories": [
+    "isa_investment",
+    "portfolio_review"
+  ],
+  "declared_objective_categories": [
+    "capital_growth",
+    "tax_wrapper_use"
+  ],
+  "time_horizon_band": "5_to_10_years",
+  "asset_band": "100k_250k",
+  "pension_context_category": "none_disclosed",
+  "risk_preference_hint": "medium",
+  "support_need_categories": [
+    "none_disclosed"
+  ],
+  "consent_flags": {
+    "contact_authority_confirmed": true,
+    "advice_service_disclosure_acknowledged": true,
+    "suitability_data_processing_acknowledged": true
+  },
+  "attachments_summary": [
+    {
+      "attachment_ref": "attachment_platform_summary_001",
+      "document_category": "platform_summary",
+      "content_type": "application/pdf",
+      "size_bytes": 184231,
+      "sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ]
+}

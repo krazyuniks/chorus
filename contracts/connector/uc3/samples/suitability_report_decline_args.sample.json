@@ -1,0 +1,14 @@
+{
+  "advice_enquiry_ref": "advice_enquiry_demo_002",
+  "suitability_conclusion_ref": "suitability_conclusion_demo_decline_001",
+  "decline_ref": "decline_unsuitable_demo_001",
+  "platform_research_ref": "platform_research_demo_002_v1",
+  "capacity_for_loss_ref": "capacity_for_loss_demo_002_v1",
+  "decline_reason_category": "capacity_for_loss_blocked",
+  "decline_summary_ref": "decline_summary_demo_001",
+  "routing_policy_ref": "policy_uc3_suitability_report_routing_v1",
+  "conduct_hook_refs": [
+    "conduct_cobs_9_2_6_insufficient_information",
+    "conduct_prin_2a_foreseeable_harm"
+  ]
+}

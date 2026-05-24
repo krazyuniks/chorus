@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc3/attitude_to_risk_profile_args.schema.json",
+  "title": "AttitudeToRiskProfileArgs",
+  "description": "Arguments accepted by the UC3 sandbox-attitude-to-risk-profiler connector. Questionnaire answers, scoring detail, raw narratives, and client financial data stay inside connector or intake stores; this payload carries safe refs, bounded risk categories, policy refs, and conduct-hook refs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "advice_enquiry_ref",
+    "prospective_retail_client_ref",
+    "fact_find_summary_ref",
+    "questionnaire_bundle_ref",
+    "stated_risk_preference_band",
+    "time_horizon_band",
+    "objective_refs",
+    "knowledge_experience_ref",
+    "profiler_policy_ref",
+    "conduct_hook_refs"
+  ],
+  "properties": {
+    "advice_enquiry_ref": {
+      "type": "string",
+      "pattern": "^advice_enquiry_[A-Za-z0-9_-]+$"
+    },
+    "prospective_retail_client_ref": {
+      "type": "string",
+      "pattern": "^prospective_client_[A-Za-z0-9_-]+$"
+    },
+    "fact_find_summary_ref": {
+      "type": "string",
+      "pattern": "^fact_find_[A-Za-z0-9_-]+$"
+    },
+    "questionnaire_bundle_ref": {
+      "type": "string",
+      "pattern": "^risk_questionnaire_[A-Za-z0-9_-]+$"
+    },
+    "narrative_evidence_ref": {
+      "type": "string",
+      "pattern": "^evidence_[A-Za-z0-9_-]+$"
+    },
+    "stated_risk_preference_band": {
+      "type": "string",
+      "enum": [
+        "very_low",
+        "low",
+        "low_medium",
+        "medium",
+        "medium_high",
+        "high",
+        "not_disclosed"
+      ]
+    },
+    "time_horizon_band": {
+      "type": "string",
+      "enum": [
+        "under_2_years",
+        "2_to_5_years",
+        "5_to_10_years",
+        "over_10_years",
+        "unknown"
+      ]
+    },
+    "objective_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^objective_[A-Za-z0-9_-]+$"
+      }
+    },
+    "knowledge_experience_ref": {
+      "type": "string",
+      "pattern": "^knowledge_experience_[A-Za-z0-9_-]+$"
+    },
+    "risk_context_categories": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "first_time_investor",
+          "experienced_investor",
+          "retirement_income_dependency",
+          "loss_concern_disclosed",
+          "concentration_risk",
+          "objective_risk_mismatch",
+          "none_identified"
+        ]
+      }
+    },
+    "profiler_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    },
+    "conduct_hook_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^conduct_[A-Za-z0-9_.:-]+$"
+      }
+    }
+  }
+}

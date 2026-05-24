@@ -1,0 +1,31 @@
+{
+  "advice_enquiry_ref": "advice_enquiry_demo_001",
+  "advice_scope_ref": "advice_scope_demo_001_v1",
+  "prospective_retail_client_ref": "prospective_client_demo_ifa_001",
+  "risk_profile_ref": "risk_profile_demo_001_v1",
+  "capacity_for_loss_ref": "capacity_for_loss_demo_001_v1",
+  "objective_refs": [
+    "objective_capital_growth_001",
+    "objective_tax_wrapper_001"
+  ],
+  "product_universe_scope": "independent_full_relevant_market",
+  "product_candidate_refs": [
+    "product_candidate_model_portfolio_001",
+    "product_candidate_global_tracker_001"
+  ],
+  "target_market_categories": [
+    "in_target_market"
+  ],
+  "platform_constraint_categories": [
+    "none_identified"
+  ],
+  "research_policy_refs": {
+    "platform_research_policy_ref": "policy_uc3_platform_research_v1",
+    "independent_advice_policy_ref": "policy_uc3_independent_advice_range_v1",
+    "prod_policy_ref": "policy_uc3_prod_target_market_v1"
+  },
+  "conduct_hook_refs": [
+    "conduct_cobs_6_2b_independent_advice",
+    "conduct_prod_3_target_market"
+  ]
+}

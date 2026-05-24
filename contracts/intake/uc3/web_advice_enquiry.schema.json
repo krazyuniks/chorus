@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/intake/uc3/web_advice_enquiry.schema.json",
+  "x-subject": "chorus.uc3.web-advice-enquiry.v1-value",
+  "title": "WebAdviceEnquiry",
+  "description": "Inbound UC3 independent-financial-advice payload produced by the `web-form-channel` adapter. The raw web form, contact details, financial details, health details, and uploads stay inside intake storage; this contract carries safe refs, bounded categories, consent flags, provenance, and attachment digests.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "advice_enquiry_id",
+    "tenant_id",
+    "correlation_id",
+    "channel",
+    "adapter_id",
+    "form_submission_id",
+    "submitted_at",
+    "form_version",
+    "source_payload_ref",
+    "prospective_retail_client_ref",
+    "advice_need_categories",
+    "declared_objective_categories",
+    "time_horizon_band",
+    "risk_preference_hint",
+    "support_need_categories",
+    "consent_flags",
+    "attachments_summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "advice_enquiry_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^cor_[A-Za-z0-9_-]+$"
+    },
+    "channel": {
+      "type": "string",
+      "const": "web-form"
+    },
+    "adapter_id": {
+      "type": "string",
+      "const": "web-form-channel"
+    },
+    "form_submission_id": {
+      "type": "string",
+      "pattern": "^advice_form_[A-Za-z0-9_-]+$",
+      "description": "Adapter-minted web-form identifier; channel idempotency key."
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "form_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_payload_ref": {
+      "type": "string",
+      "pattern": "^source_payload_[A-Za-z0-9_-]+$"
+    },
+    "prospective_retail_client_ref": {
+      "type": "string",
+      "pattern": "^prospective_client_[A-Za-z0-9_-]+$"
+    },
+    "household_ref": {
+      "type": "string",
+      "pattern": "^household_[A-Za-z0-9_-]+$"
+    },
+    "advice_need_categories": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "isa_investment",
+          "pension_consolidation",
+          "regular_investment",
+          "retirement_planning",
+          "portfolio_review",
+          "cash_versus_investment",
+          "inheritance_investment",
+          "other"
+        ]
+      }
+    },
+    "declared_objective_categories": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "capital_growth",
+          "income",
+          "pension_accumulation",
+          "retirement_planning",
+          "emergency_reserve",
+          "tax_wrapper_use",
+          "inheritance_planning",
+          "portfolio_simplification",
+          "other"
+        ]
+      }
+    },
+    "time_horizon_band": {
+      "type": "string",
+      "enum": [
+        "under_2_years",
+        "2_to_5_years",
+        "5_to_10_years",
+        "over_10_years",
+        "unknown"
+      ]
+    },
+    "asset_band": {
+      "type": "string",
+      "enum": [
+        "under_25k",
+        "25k_100k",
+        "100k_250k",
+        "250k_1m",
+        "over_1m",
+        "not_disclosed"
+      ]
+    },
+    "pension_context_category": {
+      "type": "string",
+      "enum": [
+        "none_disclosed",
+        "accumulation",
+        "consolidation",
+        "retirement_income_planning",
+        "safeguarded_benefit_out_of_scope",
+        "unknown"
+      ]
+    },
+    "risk_preference_hint": {
+      "type": "string",
+      "enum": [
+        "very_low",
+        "low",
+        "low_medium",
+        "medium",
+        "medium_high",
+        "high",
+        "not_disclosed"
+      ]
+    },
+    "support_need_categories": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "communication_adjustment",
+          "third_party_authority",
+          "financial_difficulty",
+          "bereavement",
+          "health_marker",
+          "low_capability",
+          "none_disclosed",
+          "unknown"
+        ]
+      }
+    },
+    "consent_flags": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contact_authority_confirmed",
+        "advice_service_disclosure_acknowledged",
+        "suitability_data_processing_acknowledged"
+      ],
+      "properties": {
+        "contact_authority_confirmed": {
+          "type": "boolean"
+        },
+        "advice_service_disclosure_acknowledged": {
+          "type": "boolean"
+        },
+        "suitability_data_processing_acknowledged": {
+          "type": "boolean"
+        }
+      }
+    },
+    "attachments_summary": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attachment_ref",
+          "document_category",
+          "content_type",
+          "size_bytes",
+          "sha256"
+        ],
+        "properties": {
+          "attachment_ref": {
+            "type": "string",
+            "pattern": "^attachment_[A-Za-z0-9_-]+$"
+          },
+          "document_category": {
+            "type": "string",
+            "enum": [
+              "fact_find",
+              "pension_statement",
+              "investment_statement",
+              "platform_summary",
+              "authority_evidence",
+              "support_need_evidence",
+              "other"
+            ]
+          },
+          "content_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc3/suitability_report_draft_args.schema.json",
+  "title": "SuitabilityReportDraftArgs",
+  "description": "Arguments accepted by the UC3 sandbox-suitability-report-store connector when creating a draft suitability-report record. Draft prose and client-facing content stay inside the connector store; this payload carries safe refs, bounded draft-basis categories, policy refs, and conduct-hook refs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "advice_enquiry_ref",
+    "suitability_report_ref",
+    "suitability_conclusion_ref",
+    "prospective_retail_client_ref",
+    "fact_find_summary_ref",
+    "risk_profile_ref",
+    "capacity_for_loss_ref",
+    "platform_research_ref",
+    "report_summary_ref",
+    "draft_basis_categories",
+    "draft_policy_ref",
+    "conduct_hook_refs"
+  ],
+  "properties": {
+    "advice_enquiry_ref": {
+      "type": "string",
+      "pattern": "^advice_enquiry_[A-Za-z0-9_-]+$"
+    },
+    "suitability_report_ref": {
+      "type": "string",
+      "pattern": "^suitability_report_[A-Za-z0-9_-]+$"
+    },
+    "suitability_conclusion_ref": {
+      "type": "string",
+      "pattern": "^suitability_conclusion_[A-Za-z0-9_-]+$"
+    },
+    "prospective_retail_client_ref": {
+      "type": "string",
+      "pattern": "^prospective_client_[A-Za-z0-9_-]+$"
+    },
+    "fact_find_summary_ref": {
+      "type": "string",
+      "pattern": "^fact_find_[A-Za-z0-9_-]+$"
+    },
+    "risk_profile_ref": {
+      "type": "string",
+      "pattern": "^risk_profile_[A-Za-z0-9_-]+$"
+    },
+    "capacity_for_loss_ref": {
+      "type": "string",
+      "pattern": "^capacity_for_loss_[A-Za-z0-9_-]+$"
+    },
+    "platform_research_ref": {
+      "type": "string",
+      "pattern": "^platform_research_[A-Za-z0-9_-]+$"
+    },
+    "support_assessment_ref": {
+      "type": "string",
+      "pattern": "^support_assessment_[A-Za-z0-9_-]+$"
+    },
+    "report_summary_ref": {
+      "type": "string",
+      "pattern": "^report_summary_[A-Za-z0-9_-]+$"
+    },
+    "template_ref": {
+      "type": "string",
+      "pattern": "^template_[A-Za-z0-9_-]+$"
+    },
+    "draft_basis_categories": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "standard_independent_advice",
+          "focused_independent_advice",
+          "risk_profile_override_approved",
+          "capacity_for_loss_limited",
+          "vulnerability_support_adjustment",
+          "product_universe_review",
+          "redraft_requested"
+        ]
+      }
+    },
+    "draft_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    },
+    "conduct_hook_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^conduct_[A-Za-z0-9_.:-]+$"
+      }
+    }
+  }
+}

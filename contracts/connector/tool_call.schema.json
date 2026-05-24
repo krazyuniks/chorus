@@ -62,7 +62,14 @@
         "engagement_letter.draft",
         "engagement_letter.send",
         "engagement_letter.record_decline",
-        "engagement_letter.route_manual_review"
+        "engagement_letter.route_manual_review",
+        "attitude_to_risk.profile",
+        "capacity_for_loss.assess",
+        "platform_research.run",
+        "suitability_report.draft",
+        "suitability_report.issue",
+        "suitability_report.record_decline",
+        "suitability_report.route_manual_review"
       ]
     },
     "mode": {

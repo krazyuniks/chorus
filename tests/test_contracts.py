@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from chorus.contracts import check
@@ -60,6 +60,25 @@ from chorus.contracts.generated.connector.uc2.engagement_letter_send_args import
 from chorus.contracts.generated.connector.uc2.kyc_beneficial_ownership_lookup_args import (
     KycBeneficialOwnershipLookupArgs,
 )
+from chorus.contracts.generated.connector.uc3.attitude_to_risk_profile_args import (
+    AttitudeToRiskProfileArgs,
+)
+from chorus.contracts.generated.connector.uc3.capacity_for_loss_assessment_args import (
+    CapacityForLossAssessmentArgs,
+)
+from chorus.contracts.generated.connector.uc3.platform_research_args import PlatformResearchArgs
+from chorus.contracts.generated.connector.uc3.suitability_report_decline_args import (
+    SuitabilityReportDeclineArgs,
+)
+from chorus.contracts.generated.connector.uc3.suitability_report_draft_args import (
+    SuitabilityReportDraftArgs,
+)
+from chorus.contracts.generated.connector.uc3.suitability_report_issue_args import (
+    SuitabilityReportIssueArgs,
+)
+from chorus.contracts.generated.connector.uc3.suitability_report_manual_review_args import (
+    SuitabilityReportManualReviewArgs,
+)
 from chorus.contracts.generated.eval.replay_run_record import ReplayRunRecord
 from chorus.contracts.generated.intake.uc1.email_channel_enquiry import EmailChannelEnquiry
 from chorus.contracts.generated.intake.uc1.partner_portal_channel_enquiry import (
@@ -73,6 +92,11 @@ from chorus.contracts.generated.intake.uc2.email_legal_intake import EmailLegalI
 from chorus.contracts.generated.intake.uc2.intermediary_referral_intake import (
     IntermediaryReferralIntake,
 )
+from chorus.contracts.generated.intake.uc3.email_advice_enquiry import EmailAdviceEnquiry
+from chorus.contracts.generated.intake.uc3.introducer_referral_intake import (
+    IntroducerReferralIntake,
+)
+from chorus.contracts.generated.intake.uc3.web_advice_enquiry import WebAdviceEnquiry
 from chorus.contracts.generated.llm_provider.model_route_version import ModelRouteVersion
 from chorus.contracts.generated.llm_provider.provider_catalogue import ProviderCatalogue
 from chorus.contracts.generated.llm_provider.uc1_agent_io import Uc1AgentIO
@@ -88,7 +112,7 @@ def test_contract_gate_passes() -> None:
 def test_contract_schemas_have_samples_and_generated_models() -> None:
     schemas = schema_files()
 
-    assert len(schemas) == 35
+    assert len(schemas) == 45
     for schema in schemas:
         name = schema.name.removesuffix(".schema.json")
         assert (schema.parent / "samples" / f"{name}.sample.json").exists()
@@ -204,6 +228,36 @@ def test_generated_models_validate_representative_samples() -> None:
     )
     engagement_manual_review_sample = _sample(
         "contracts/connector/uc2/samples/engagement_letter_manual_review_args.sample.json"
+    )
+    web_advice_enquiry_sample = _sample(
+        "contracts/intake/uc3/samples/web_advice_enquiry.sample.json"
+    )
+    email_advice_enquiry_sample = _sample(
+        "contracts/intake/uc3/samples/email_advice_enquiry.sample.json"
+    )
+    introducer_referral_intake_sample = _sample(
+        "contracts/intake/uc3/samples/introducer_referral_intake.sample.json"
+    )
+    attitude_to_risk_sample = _sample(
+        "contracts/connector/uc3/samples/attitude_to_risk_profile_args.sample.json"
+    )
+    capacity_for_loss_sample = _sample(
+        "contracts/connector/uc3/samples/capacity_for_loss_assessment_args.sample.json"
+    )
+    platform_research_sample = _sample(
+        "contracts/connector/uc3/samples/platform_research_args.sample.json"
+    )
+    suitability_report_draft_sample = _sample(
+        "contracts/connector/uc3/samples/suitability_report_draft_args.sample.json"
+    )
+    suitability_report_issue_sample = _sample(
+        "contracts/connector/uc3/samples/suitability_report_issue_args.sample.json"
+    )
+    suitability_report_decline_sample = _sample(
+        "contracts/connector/uc3/samples/suitability_report_decline_args.sample.json"
+    )
+    suitability_report_manual_review_sample = _sample(
+        "contracts/connector/uc3/samples/suitability_report_manual_review_args.sample.json"
     )
 
     email_intake = EmailChannelEnquiry.model_validate(email_intake_sample)
@@ -324,8 +378,111 @@ def test_generated_models_validate_representative_samples() -> None:
         == "mlro"
     )
 
+    web_advice_enquiry = WebAdviceEnquiry.model_validate(web_advice_enquiry_sample)
+    email_advice_enquiry = EmailAdviceEnquiry.model_validate(email_advice_enquiry_sample)
+    introducer_referral_intake = IntroducerReferralIntake.model_validate(
+        introducer_referral_intake_sample
+    )
+    assert web_advice_enquiry.channel == "web-form"
+    assert email_advice_enquiry.subject_summary == "Synthetic pension consolidation enquiry"
+    assert introducer_referral_intake.introducer_ref == "introducer_accountancy_demo"
 
-def test_tool_call_contract_accepts_uc2_tool_names() -> None:
+    assert (
+        AttitudeToRiskProfileArgs.model_validate(
+            attitude_to_risk_sample
+        ).stated_risk_preference_band.value
+        == "medium"
+    )
+    assert (
+        CapacityForLossAssessmentArgs.model_validate(capacity_for_loss_sample)
+        .stress_scenario_categories[0]
+        .value
+        == "market_fall_20_percent"
+    )
+    assert (
+        PlatformResearchArgs.model_validate(platform_research_sample).product_universe_scope.value
+        == "independent_full_relevant_market"
+    )
+    assert (
+        SuitabilityReportDraftArgs.model_validate(suitability_report_draft_sample)
+        .draft_basis_categories[0]
+        .value
+        == "standard_independent_advice"
+    )
+    assert (
+        SuitabilityReportIssueArgs.model_validate(
+            suitability_report_issue_sample
+        ).issue_channel_category.value
+        == "portal"
+    )
+    assert (
+        SuitabilityReportDeclineArgs.model_validate(
+            suitability_report_decline_sample
+        ).decline_reason_category.value
+        == "capacity_for_loss_blocked"
+    )
+    assert (
+        SuitabilityReportManualReviewArgs.model_validate(
+            suitability_report_manual_review_sample
+        ).review_destination_category.value
+        == "vulnerability_support_reviewer"
+    )
+
+
+def test_uc3_contracts_keep_sensitive_payloads_behind_port_boundaries() -> None:
+    forbidden_property_names = {
+        "full_name",
+        "address",
+        "date_of_birth",
+        "national_insurance_number",
+        "pension_policy_number",
+        "platform_account_number",
+        "income",
+        "expenditure",
+        "assets",
+        "liabilities",
+        "health_information",
+        "vulnerability_narrative",
+        "report_body",
+        "report_prose",
+        "platform_credentials",
+    }
+    uc3_schemas = [
+        schema
+        for schema in schema_files()
+        if "contracts/intake/uc3" in schema.as_posix()
+        or "contracts/connector/uc3" in schema.as_posix()
+    ]
+
+    assert len(uc3_schemas) == 10
+    for schema in uc3_schemas:
+        document = json.loads(schema.read_text())
+        properties = _collect_property_names(document)
+
+        assert forbidden_property_names.isdisjoint(properties), schema
+
+
+def _collect_property_names(value: Any) -> set[str]:
+    if isinstance(value, dict):
+        document = cast(dict[str, Any], value)
+        raw_properties = document.get("properties")
+        properties = (
+            cast(dict[str, Any], raw_properties) if isinstance(raw_properties, dict) else {}
+        )
+        names = set(properties)
+        for item in document.values():
+            names.update(_collect_property_names(item))
+        return names
+    if isinstance(value, list):
+        items = cast(list[Any], value)
+        names: set[str] = set()
+        for item in items:
+            names.update(_collect_property_names(item))
+        return names
+    return set()
+
+
+def test_tool_call_contract_accepts_uc2_and_uc3_tool_names() -> None:
     tool_modes = {
         "conflict_check.search": "read",
         "kyc_bo.lookup": "read",
@@ -334,6 +491,13 @@ def test_tool_call_contract_accepts_uc2_tool_names() -> None:
         "engagement_letter.send": "write",
         "engagement_letter.record_decline": "write",
         "engagement_letter.route_manual_review": "write",
+        "attitude_to_risk.profile": "read",
+        "capacity_for_loss.assess": "read",
+        "platform_research.run": "read",
+        "suitability_report.draft": "propose",
+        "suitability_report.issue": "write",
+        "suitability_report.record_decline": "write",
+        "suitability_report.route_manual_review": "write",
     }
 
     for tool_name, mode in tool_modes.items():

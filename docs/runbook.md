@@ -29,7 +29,9 @@ UC2 grants now exist for the declared sandbox tools, with
 full eval fixture playback, and a local intake start path remain later R4
 work. Read-only BFF/UI inspection can display UC2 workflow rows and
 approval-package state when those rows already exist. UC3 lands later in R4
-alongside cross-provider replay-eval breadth.
+alongside cross-provider replay-eval breadth; its intake and connector
+contract surfaces are declared, but no UC3 workflow runtime, connector
+adapters, grants, provider routes, or local intake path are active yet.
 
 ## Bring the stack up
 

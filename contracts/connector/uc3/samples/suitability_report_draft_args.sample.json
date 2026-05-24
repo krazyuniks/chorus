@@ -1,0 +1,22 @@
+{
+  "advice_enquiry_ref": "advice_enquiry_demo_001",
+  "suitability_report_ref": "suitability_report_demo_001",
+  "suitability_conclusion_ref": "suitability_conclusion_demo_001",
+  "prospective_retail_client_ref": "prospective_client_demo_ifa_001",
+  "fact_find_summary_ref": "fact_find_demo_ifa_001_v1",
+  "risk_profile_ref": "risk_profile_demo_001_v1",
+  "capacity_for_loss_ref": "capacity_for_loss_demo_001_v1",
+  "platform_research_ref": "platform_research_demo_001_v1",
+  "support_assessment_ref": "support_assessment_demo_001_v1",
+  "report_summary_ref": "report_summary_demo_001",
+  "template_ref": "template_suitability_report_standard_v1",
+  "draft_basis_categories": [
+    "standard_independent_advice",
+    "product_universe_review"
+  ],
+  "draft_policy_ref": "policy_uc3_suitability_report_draft_v1",
+  "conduct_hook_refs": [
+    "conduct_cobs_9_4_suitability_report",
+    "conduct_prin_2a_consumer_understanding"
+  ]
+}

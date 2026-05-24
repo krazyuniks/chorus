@@ -1,0 +1,23 @@
+{
+  "advice_enquiry_ref": "advice_enquiry_demo_001",
+  "prospective_retail_client_ref": "prospective_client_demo_ifa_001",
+  "fact_find_summary_ref": "fact_find_demo_ifa_001_v1",
+  "questionnaire_bundle_ref": "risk_questionnaire_demo_001",
+  "narrative_evidence_ref": "evidence_risk_narrative_001",
+  "stated_risk_preference_band": "medium",
+  "time_horizon_band": "5_to_10_years",
+  "objective_refs": [
+    "objective_capital_growth_001",
+    "objective_tax_wrapper_001"
+  ],
+  "knowledge_experience_ref": "knowledge_experience_demo_001",
+  "risk_context_categories": [
+    "experienced_investor",
+    "loss_concern_disclosed"
+  ],
+  "profiler_policy_ref": "policy_uc3_attitude_to_risk_profiler_v1",
+  "conduct_hook_refs": [
+    "conduct_cobs_9_2_2_risk_profile",
+    "conduct_prin_2a_foreseeable_harm"
+  ]
+}

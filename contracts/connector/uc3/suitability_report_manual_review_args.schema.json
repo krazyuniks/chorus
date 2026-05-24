@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc3/suitability_report_manual_review_args.schema.json",
+  "title": "SuitabilityReportManualReviewArgs",
+  "description": "Arguments accepted by the UC3 sandbox-suitability-report-store connector when recording an adviser, supervisor, investment-committee, or vulnerability-support manual-review handoff. The payload carries bounded review categories, safe refs, policy refs, and conduct-hook refs only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "advice_enquiry_ref",
+    "handoff_ref",
+    "review_reason_category",
+    "review_destination_category",
+    "routing_policy_ref",
+    "conduct_hook_refs"
+  ],
+  "properties": {
+    "advice_enquiry_ref": {
+      "type": "string",
+      "pattern": "^advice_enquiry_[A-Za-z0-9_-]+$"
+    },
+    "handoff_ref": {
+      "type": "string",
+      "pattern": "^manual_review_[A-Za-z0-9_-]+$"
+    },
+    "suitability_conclusion_ref": {
+      "type": "string",
+      "pattern": "^suitability_conclusion_[A-Za-z0-9_-]+$"
+    },
+    "safe_summary_ref": {
+      "type": "string",
+      "pattern": "^review_summary_[A-Za-z0-9_-]+$"
+    },
+    "review_reason_category": {
+      "type": "string",
+      "enum": [
+        "advice_scope_unclear",
+        "client_authority_uncertain",
+        "fact_find_gap",
+        "risk_profile_mismatch",
+        "capacity_for_loss_concern",
+        "vulnerability_support_required",
+        "product_universe_defect",
+        "report_redraft_requested",
+        "technical_exception"
+      ]
+    },
+    "review_destination_category": {
+      "type": "string",
+      "enum": [
+        "financial_adviser",
+        "paraplanner",
+        "supervisor",
+        "compliance_reviewer",
+        "investment_committee",
+        "vulnerability_support_reviewer"
+      ]
+    },
+    "routing_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    },
+    "conduct_hook_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^conduct_[A-Za-z0-9_.:-]+$"
+      }
+    }
+  }
+}

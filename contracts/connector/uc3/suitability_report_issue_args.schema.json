@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc3/suitability_report_issue_args.schema.json",
+  "title": "SuitabilityReportIssueArgs",
+  "description": "Arguments accepted by the UC3 sandbox-suitability-report-store connector for approval-gated suitability report issue. The payload binds the exact report, adviser approval package, suitability conclusion, consumer-understanding check, policy refs, and conduct hooks without carrying report prose, contact details, platform credentials, or production client data.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "advice_enquiry_ref",
+    "suitability_report_ref",
+    "suitability_conclusion_ref",
+    "approval_package_ref",
+    "issue_instruction_ref",
+    "prospective_retail_client_ref",
+    "consumer_understanding_check_ref",
+    "issue_channel_category",
+    "issue_policy_ref",
+    "conduct_hook_refs"
+  ],
+  "properties": {
+    "advice_enquiry_ref": {
+      "type": "string",
+      "pattern": "^advice_enquiry_[A-Za-z0-9_-]+$"
+    },
+    "suitability_report_ref": {
+      "type": "string",
+      "pattern": "^suitability_report_[A-Za-z0-9_-]+$"
+    },
+    "suitability_conclusion_ref": {
+      "type": "string",
+      "pattern": "^suitability_conclusion_[A-Za-z0-9_-]+$"
+    },
+    "approval_package_ref": {
+      "type": "string",
+      "pattern": "^approval_[A-Za-z0-9_-]+$"
+    },
+    "adviser_approval_ref": {
+      "type": "string",
+      "pattern": "^approval_[A-Za-z0-9_-]+$"
+    },
+    "issue_instruction_ref": {
+      "type": "string",
+      "pattern": "^issue_instruction_[A-Za-z0-9_-]+$"
+    },
+    "prospective_retail_client_ref": {
+      "type": "string",
+      "pattern": "^prospective_client_[A-Za-z0-9_-]+$"
+    },
+    "support_assessment_ref": {
+      "type": "string",
+      "pattern": "^support_assessment_[A-Za-z0-9_-]+$"
+    },
+    "consumer_understanding_check_ref": {
+      "type": "string",
+      "pattern": "^consumer_understanding_[A-Za-z0-9_-]+$"
+    },
+    "issue_channel_category": {
+      "type": "string",
+      "enum": [
+        "portal",
+        "email",
+        "adviser_meeting",
+        "manual_capture"
+      ]
+    },
+    "issue_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    },
+    "conduct_hook_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^conduct_[A-Za-z0-9_.:-]+$"
+      }
+    }
+  }
+}

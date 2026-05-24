@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc3/capacity_for_loss_assessment_args.schema.json",
+  "title": "CapacityForLossAssessmentArgs",
+  "description": "Arguments accepted by the UC3 sandbox-capacity-for-loss-tool connector. Detailed income, expenditure, asset, liability, health, and household data stays behind intake or connector storage; this payload carries safe refs, stress categories, policy refs, and conduct-hook refs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "advice_enquiry_ref",
+    "prospective_retail_client_ref",
+    "fact_find_summary_ref",
+    "financial_situation_ref",
+    "objective_refs",
+    "time_horizon_band",
+    "stress_scenario_categories",
+    "assessment_policy_ref",
+    "conduct_hook_refs"
+  ],
+  "properties": {
+    "advice_enquiry_ref": {
+      "type": "string",
+      "pattern": "^advice_enquiry_[A-Za-z0-9_-]+$"
+    },
+    "prospective_retail_client_ref": {
+      "type": "string",
+      "pattern": "^prospective_client_[A-Za-z0-9_-]+$"
+    },
+    "household_ref": {
+      "type": "string",
+      "pattern": "^household_[A-Za-z0-9_-]+$"
+    },
+    "fact_find_summary_ref": {
+      "type": "string",
+      "pattern": "^fact_find_[A-Za-z0-9_-]+$"
+    },
+    "financial_situation_ref": {
+      "type": "string",
+      "pattern": "^financial_situation_[A-Za-z0-9_-]+$"
+    },
+    "objective_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^objective_[A-Za-z0-9_-]+$"
+      }
+    },
+    "time_horizon_band": {
+      "type": "string",
+      "enum": [
+        "under_2_years",
+        "2_to_5_years",
+        "5_to_10_years",
+        "over_10_years",
+        "unknown"
+      ]
+    },
+    "liquidity_need_category": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "emergency_reserve_gap",
+        "unknown"
+      ]
+    },
+    "dependency_context_refs": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^dependency_[A-Za-z0-9_-]+$"
+      }
+    },
+    "stress_scenario_categories": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "market_fall_10_percent",
+          "market_fall_20_percent",
+          "market_fall_30_percent",
+          "income_reduction",
+          "retirement_income_shortfall",
+          "emergency_reserve_depletion",
+          "care_cost_pressure",
+          "inflation_pressure"
+        ]
+      }
+    },
+    "assessment_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    },
+    "conduct_hook_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^conduct_[A-Za-z0-9_.:-]+$"
+      }
+    }
+  }
+}

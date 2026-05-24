@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0.0",
+  "advice_enquiry_id": "55af088b-5106-4345-af8d-26b8bf37a6ee",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_advice_email_001",
+  "channel": "email",
+  "adapter_id": "email-channel",
+  "message_id": "<advice-enquiry-001@example.test>",
+  "received_at": "2026-05-01T10:00:00Z",
+  "source_payload_ref": "source_payload_advice_email_001",
+  "mailbox_ref": "mailbox_ifa_intake",
+  "sender_contact_ref": "contact_advice_sender_001",
+  "prospective_retail_client_ref": "prospective_client_demo_ifa_002",
+  "subject_summary": "Synthetic pension consolidation enquiry",
+  "advice_need_summary": "Bounded summary of an advice enquiry about consolidating pension and ISA holdings; raw message content remains behind intake storage.",
+  "advice_need_categories": [
+    "pension_consolidation",
+    "retirement_planning"
+  ],
+  "declared_objective_categories": [
+    "pension_accumulation",
+    "retirement_planning"
+  ],
+  "product_context_categories": [
+    "pension",
+    "isa"
+  ],
+  "support_need_categories": [
+    "unknown"
+  ],
+  "attachments_summary": [
+    {
+      "attachment_ref": "attachment_pension_statement_001",
+      "document_category": "pension_statement",
+      "content_type": "application/pdf",
+      "size_bytes": 231440,
+      "sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  ]
+}

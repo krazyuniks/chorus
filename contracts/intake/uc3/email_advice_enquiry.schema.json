@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/intake/uc3/email_advice_enquiry.schema.json",
+  "x-subject": "chorus.uc3.email-advice-enquiry.v1-value",
+  "title": "EmailAdviceEnquiry",
+  "description": "Inbound UC3 independent-financial-advice payload produced by the `email-channel` adapter. Raw message bodies, headers, addresses, attachments, financial details, and vulnerability narratives stay inside intake storage; this contract carries safe refs, bounded summaries, and digest metadata.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "advice_enquiry_id",
+    "tenant_id",
+    "correlation_id",
+    "channel",
+    "adapter_id",
+    "message_id",
+    "received_at",
+    "source_payload_ref",
+    "mailbox_ref",
+    "sender_contact_ref",
+    "subject_summary",
+    "advice_need_summary",
+    "advice_need_categories",
+    "declared_objective_categories",
+    "support_need_categories",
+    "attachments_summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "advice_enquiry_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^cor_[A-Za-z0-9_-]+$"
+    },
+    "channel": {
+      "type": "string",
+      "const": "email"
+    },
+    "adapter_id": {
+      "type": "string",
+      "const": "email-channel"
+    },
+    "message_id": {
+      "type": "string",
+      "minLength": 3,
+      "description": "Email Message-ID header value; channel idempotency key."
+    },
+    "received_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_payload_ref": {
+      "type": "string",
+      "pattern": "^source_payload_[A-Za-z0-9_-]+$"
+    },
+    "mailbox_ref": {
+      "type": "string",
+      "pattern": "^mailbox_[A-Za-z0-9_-]+$"
+    },
+    "sender_contact_ref": {
+      "type": "string",
+      "pattern": "^contact_[A-Za-z0-9_-]+$"
+    },
+    "prospective_retail_client_ref": {
+      "type": "string",
+      "pattern": "^prospective_client_[A-Za-z0-9_-]+$"
+    },
+    "subject_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 280,
+      "description": "Redaction-friendly subject summary, not the raw email subject."
+    },
+    "advice_need_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "description": "Bounded safe summary of the advice enquiry, not the raw email body."
+    },
+    "advice_need_categories": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "isa_investment",
+          "pension_consolidation",
+          "regular_investment",
+          "retirement_planning",
+          "portfolio_review",
+          "cash_versus_investment",
+          "inheritance_investment",
+          "other"
+        ]
+      }
+    },
+    "declared_objective_categories": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "capital_growth",
+          "income",
+          "pension_accumulation",
+          "retirement_planning",
+          "emergency_reserve",
+          "tax_wrapper_use",
+          "inheritance_planning",
+          "portfolio_simplification",
+          "other"
+        ]
+      }
+    },
+    "product_context_categories": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "isa",
+          "gia",
+          "pension",
+          "platform_portfolio",
+          "cash_savings",
+          "investment_bond",
+          "unknown"
+        ]
+      }
+    },
+    "support_need_categories": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "communication_adjustment",
+          "third_party_authority",
+          "financial_difficulty",
+          "bereavement",
+          "health_marker",
+          "low_capability",
+          "none_disclosed",
+          "unknown"
+        ]
+      }
+    },
+    "attachments_summary": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attachment_ref",
+          "document_category",
+          "content_type",
+          "size_bytes",
+          "sha256"
+        ],
+        "properties": {
+          "attachment_ref": {
+            "type": "string",
+            "pattern": "^attachment_[A-Za-z0-9_-]+$"
+          },
+          "document_category": {
+            "type": "string",
+            "enum": [
+              "fact_find",
+              "pension_statement",
+              "investment_statement",
+              "platform_summary",
+              "authority_evidence",
+              "support_need_evidence",
+              "other"
+            ]
+          },
+          "content_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

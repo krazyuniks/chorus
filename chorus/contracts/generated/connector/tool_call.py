@@ -26,6 +26,13 @@ class ToolName(StrEnum):
     ENGAGEMENT_LETTER_SEND = "engagement_letter.send"
     ENGAGEMENT_LETTER_RECORD_DECLINE = "engagement_letter.record_decline"
     ENGAGEMENT_LETTER_ROUTE_MANUAL_REVIEW = "engagement_letter.route_manual_review"
+    ATTITUDE_TO_RISK_PROFILE = "attitude_to_risk.profile"
+    CAPACITY_FOR_LOSS_ASSESS = "capacity_for_loss.assess"
+    PLATFORM_RESEARCH_RUN = "platform_research.run"
+    SUITABILITY_REPORT_DRAFT = "suitability_report.draft"
+    SUITABILITY_REPORT_ISSUE = "suitability_report.issue"
+    SUITABILITY_REPORT_RECORD_DECLINE = "suitability_report.record_decline"
+    SUITABILITY_REPORT_ROUTE_MANUAL_REVIEW = "suitability_report.route_manual_review"
 
 
 class Mode(StrEnum):

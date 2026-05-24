@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc3/platform_research_args.schema.json",
+  "title": "PlatformResearchArgs",
+  "description": "Arguments accepted by the UC3 sandbox-platform-research connector. Live platform credentials, provider data feeds, product account details, and due-diligence documents stay outside the connector port payload; this contract carries safe research refs, bounded product-universe categories, policy refs, and conduct-hook refs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "advice_enquiry_ref",
+    "advice_scope_ref",
+    "prospective_retail_client_ref",
+    "risk_profile_ref",
+    "capacity_for_loss_ref",
+    "objective_refs",
+    "product_universe_scope",
+    "product_candidate_refs",
+    "target_market_categories",
+    "research_policy_refs",
+    "conduct_hook_refs"
+  ],
+  "properties": {
+    "advice_enquiry_ref": {
+      "type": "string",
+      "pattern": "^advice_enquiry_[A-Za-z0-9_-]+$"
+    },
+    "advice_scope_ref": {
+      "type": "string",
+      "pattern": "^advice_scope_[A-Za-z0-9_-]+$"
+    },
+    "prospective_retail_client_ref": {
+      "type": "string",
+      "pattern": "^prospective_client_[A-Za-z0-9_-]+$"
+    },
+    "risk_profile_ref": {
+      "type": "string",
+      "pattern": "^risk_profile_[A-Za-z0-9_-]+$"
+    },
+    "capacity_for_loss_ref": {
+      "type": "string",
+      "pattern": "^capacity_for_loss_[A-Za-z0-9_-]+$"
+    },
+    "objective_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^objective_[A-Za-z0-9_-]+$"
+      }
+    },
+    "product_universe_scope": {
+      "type": "string",
+      "enum": [
+        "independent_full_relevant_market",
+        "focused_independent_range",
+        "platform_constrained_range",
+        "existing_platform_review",
+        "manual_research_required"
+      ]
+    },
+    "product_candidate_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "pattern": "^product_candidate_[A-Za-z0-9_-]+$"
+      }
+    },
+    "target_market_categories": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "in_target_market",
+          "edge_of_target_market",
+          "negative_target_market",
+          "unknown",
+          "manual_review"
+        ]
+      }
+    },
+    "platform_constraint_categories": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "none_identified",
+          "existing_platform_bias",
+          "platform_charges_concern",
+          "custody_or_dealing_out_of_scope",
+          "manufacturer_data_missing",
+          "restricted_panel_indicator"
+        ]
+      }
+    },
+    "research_policy_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform_research_policy_ref",
+        "independent_advice_policy_ref",
+        "prod_policy_ref"
+      ],
+      "properties": {
+        "platform_research_policy_ref": {
+          "type": "string",
+          "pattern": "^policy_[A-Za-z0-9_-]+$"
+        },
+        "independent_advice_policy_ref": {
+          "type": "string",
+          "pattern": "^policy_[A-Za-z0-9_-]+$"
+        },
+        "prod_policy_ref": {
+          "type": "string",
+          "pattern": "^policy_[A-Za-z0-9_-]+$"
+        }
+      }
+    },
+    "conduct_hook_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^conduct_[A-Za-z0-9_.:-]+$"
+      }
+    }
+  }
+}

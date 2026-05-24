@@ -87,7 +87,10 @@ surfacing later as a wrong decision deep in business logic.
 Contracts are JSON Schema. Generated models, representative samples, and a
 drift gate move with every schema change. R3 rewrites the contract set around
 the six named ports, with use-case-specific payload schemas at the intake and
-connector ports.
+connector ports. UC3 now has contract-declared intake payloads and connector
+argument payloads for its R4 IFA suitability inventory; runtime adapters,
+grants, approval packages, projections, and local intake start paths remain
+later P5 work.
 
 ## Workflow durability is not a port
 
@@ -110,7 +113,7 @@ record, with the channel preserved as provenance.
 | Aspect | Detail |
 |---|---|
 | Role | Inbound business work entering the system. |
-| Adapter contract shape | A per-channel inbound payload schema (for UC1: `EmailEnquiry`, `WebFormEnquiry`, `PartnerPortalSubmission`), each normalised to a single domain-side record. |
+| Adapter contract shape | A per-channel inbound payload schema (for UC1: `EmailEnquiry`, `WebFormEnquiry`, `PartnerPortalSubmission`; for UC3: `WebAdviceEnquiry`, `EmailAdviceEnquiry`, `IntroducerReferralIntake`), each normalised to a single domain-side record. |
 | Adapter inventory | UC1: email-channel, web-form-channel, partner-portal-channel, plus a synthetic-channel that injects authored fixtures through the same path. UC2 and UC3 swap the channel set; the port does not change. |
 | Invariants | Every inbound payload validates against its channel contract before the domain core accepts it. Each channel adapter carries a channel-specific idempotency key, and the port maps that key to one domain work identifier. |
 

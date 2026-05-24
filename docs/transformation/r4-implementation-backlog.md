@@ -201,7 +201,7 @@ channel runnable status are separate claims.
 
 ### P5 - UC3 IFA Suitability Intake
 
-- [ ] Add UC3 intake and connector contracts under the named ports.
+- [x] Add UC3 intake and connector contracts under the named ports.
 - [ ] Add UC3 workflow definition on the shared spine.
 - [ ] Add sandbox attitude-to-risk profiler, capacity-for-loss tool,
   suitability-report store, and platform-research connectors.
@@ -1568,6 +1568,50 @@ channel runnable status are separate claims.
   the frontend change is a read-only table/query addition covered by the
   frontend test suite.
 
+### 2026-05-24 - UC3 Intake And Connector Contracts
+
+- Scope: first P5 UC3 slice for named-port JSON Schema contracts, safe
+  samples, generated Pydantic models, focused contract tests, and contract
+  evidence docs only.
+- Behaviour changed:
+  - added `contracts/intake/uc3/` schemas and samples for web advice enquiry,
+    email advice enquiry, and introducer referral intake;
+  - added `contracts/connector/uc3/` argument schemas and samples for
+    attitude-to-risk profiling, capacity-for-loss assessment, platform
+    research, suitability-report draft / issue, decline, and manual-review
+    handoff;
+  - widened the ToolCall contract enum to include the declared UC3 connector
+    tool names: `attitude_to_risk.profile`, `capacity_for_loss.assess`,
+    `platform_research.run`, `suitability_report.draft`,
+    `suitability_report.issue`, `suitability_report.record_decline`, and
+    `suitability_report.route_manual_review`;
+  - all UC3 payloads carry safe refs, bounded categories, statuses, policy
+    refs, conduct-hook refs, source-payload refs, and digest metadata; raw
+    client financial details, vulnerability narratives, personal data,
+    platform credentials, suitability-report prose, and production
+    adviser/customer data stay outside these cross-port contracts;
+  - no UC3 workflow runtime, connector adapter implementation, Tool Gateway
+    grant seed, approval package, BFF/UI surface, provider route, local
+    intake adapter, production FCA/client data path, connector persistence, or
+    shared-runtime rewrite was added.
+- Files changed: UC3 intake and connector contract schemas / samples,
+  generated contract models, `contracts/connector/tool_call.schema.json`,
+  focused contract tests, `contracts/README.md`, `docs/architecture.md`,
+  `docs/evidence-map.md`, `docs/runbook.md`, and this backlog handoff.
+- Gates run:
+  - `just contracts-gen` - green; generated UC3 intake / connector models and
+    the widened ToolCall model.
+  - `just contracts-check` - green for 45 schemas, samples, and generated
+    model drift checks.
+  - `uv run pytest tests/test_contracts.py -q` - green, 6 passed.
+  - `just lint` - green after formatting `tests/test_contracts.py` and
+    tightening the typed schema-property helper.
+  - `git diff --check` - green.
+- Skipped gates: live `just db-migrate`, DB-backed tests, full `just test`,
+  replay, eval, frontend, e2e, live-stack, and live-provider gates were not
+  run because this slice changed contracts, generated models, focused tests,
+  and docs only.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -1615,17 +1659,17 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: start P5 - UC3 IFA Suitability Intake by adding UC3 intake and connector contracts under the named ports. Keep the slice contract-first: JSON Schema contracts, samples, generated Pydantic models, focused contract tests, and matching docs only. Do not add UC3 workflow runtime, connector adapter implementations, Tool Gateway grant seeds, approval packages, BFF/UI surfaces, provider routes, local intake adapters, production FCA/client data handling, connector persistence, or broad shared-runtime rewrites in this slice.
+Current target slice: continue P5 - UC3 IFA Suitability Intake by adding a UC3 workflow definition on the shared `WorkflowSpine`. Keep the slice definition-first and deterministic: workflow constants, safe DTOs, step composition, connector-call wiring to the already-declared UC3 tool names, focused fake-activity workflow tests, Temporal replay coverage, and matching docs only. Do not add UC3 connector adapter implementations, Tool Gateway grant seeds, approval package behaviour, BFF/UI surfaces, provider routes, local intake adapters, projection breadth, eval fixture playback, connector persistence, production FCA/client data handling, or broad shared-runtime rewrites in this slice.
 
-Previous slice completed: P4 - UC2 Legal Services Intake And Conflict Check is complete for the current R4 preflight scope. UC2 now has intake and connector contracts, a definition-first workflow on the shared `WorkflowSpine`, deterministic sandbox connectors, Tool Gateway grant seeds with only `engagement_letter.send` approval-required, UC2 conduct invariants over safe synthetic captured-run artefacts, generic approval-package BFF/UI inspection, a schema-only UC2 eval fixture under `chorus/eval/fixtures/uc2/`, documented BFF inspection commands, and focused gates recorded. UC2 still does not claim a local runnable intake path, live provider route, connector persistence breadth, production legal / AML data path, or full UC2 eval fixture playback.
+Previous slice completed: P5 now has UC3 intake and connector contracts under the named ports. `contracts/intake/uc3/` declares web advice enquiry, email advice enquiry, and introducer referral intake payloads. `contracts/connector/uc3/` declares argument payloads for `attitude_to_risk.profile`, `capacity_for_loss.assess`, `platform_research.run`, `suitability_report.draft`, `suitability_report.issue`, `suitability_report.record_decline`, and `suitability_report.route_manual_review`; ToolCall admits only those UC3 names. The slice generated Pydantic models, added safe samples and focused contract tests, and documented that raw client financial details, vulnerability narratives, personal data, platform credentials, suitability-report prose, and production adviser/customer data remain outside cross-port payloads. No UC3 runtime, adapters, grants, approvals, provider routes, local intake path, projections, or eval playback were added.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief-uc3.md, docs/domain-model-uc3.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/README.md, contracts/intake/uc1/, contracts/intake/uc2/, contracts/connector/uc1/, contracts/connector/uc2/, contracts/connector/tool_call.schema.json, chorus/contracts/generated/, tests/test_contracts.py, and the current P5 backlog items. Use official FCA sources only if UC3 regulatory wording needs fresh verification; otherwise rely on the already verified UC3 product/domain docs.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief-uc3.md, docs/domain-model-uc3.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/README.md, contracts/intake/uc3/, contracts/connector/uc3/, contracts/connector/tool_call.schema.json, chorus/contracts/generated/, chorus/workflows/spine.py, chorus/workflows/types.py, chorus/workflows/uc1.py, chorus/workflows/uc2.py, tests/workflows/test_uc1_workflow.py, tests/workflows/test_uc2_workflow.py, tests/workflows/test_activities.py, and the current P5 backlog items. Use official FCA sources only if UC3 regulatory wording needs fresh verification; otherwise rely on the already verified UC3 product/domain docs.
 
-Before editing, inspect the existing contract patterns rather than inventing new structure. Search for `contracts/intake/uc2`, `contracts/connector/uc2`, `ToolCall`, `tool_call.schema.json`, `EmailLegalIntake`, `corporate_intake_form`, `intermediary_referral_intake`, `conduct_hook_refs`, `policy_ref`, `safe refs`, `tests/test_contracts.py`, `contracts-gen`, and generated Pydantic package layout.
+Before editing, inspect the existing UC2 workflow definition and tests rather than inventing new structure. Search for `UC2_LEGAL_SERVICES_INTAKE_CONFLICT_CHECK_DEFINITION`, `Uc2LegalServicesIntakeConflictCheckWorkflow`, `WorkflowDefinition`, `WorkflowSpine`, `WorkflowCorrelation`, `connector_call`, `ToolRequest`, `engagement_letter.send`, `safe refs`, `test_uc2_workflow`, and `test-replay`.
 
-Expected direction: add the minimum UC3 intake schemas and connector argument schemas needed to declare the P5 connector inventory under the named ports, with safe synthetic refs, bounded categories/statuses, policy refs, conduct-hook refs, and samples. The likely connector contract families come from the backlog and UC3 domain docs: attitude-to-risk profiler, capacity-for-loss tool, suitability-report store, and platform-research connectors. Widen `contracts/connector/tool_call.schema.json` only for the declared UC3 tool names. Keep raw client financial details, vulnerability narratives, personal data, platform credentials, report prose, and production adviser/customer data out of cross-port payloads.
+Expected direction: add the minimum UC3 workflow module needed to declare the P5 workflow over the shared spine with deterministic safe-ref payloads and bounded categories/statuses. The workflow should route connector actions through `WorkflowSpine.connector_call` using the declared UC3 tool names for attitude-to-risk profiling, capacity-for-loss assessment, platform research, suitability-report draft, issue, decline, and manual review. Keep raw client financial details, vulnerability narratives, report prose, platform credentials, and production adviser/customer data out of workflow payloads. Treat approval-gated behaviour as named workflow steps / connector-call modes only; do not seed grants or implement approval-package semantics in this slice.
 
-Run `just contracts-gen`, `just contracts-check`, focused contract tests, `just lint`, and `git diff --check`. If no runtime code changes are made, do not run live-stack, provider, replay, frontend, or DB-backed gates unless a contract change unexpectedly requires them; record skipped gates and reasons.
+Run focused UC3 workflow tests, relevant existing UC1/UC2 workflow/activity tests, `just test-replay`, `just contracts-check`, `just lint`, and `git diff --check`. Do not run live-stack, provider, DB-backed, frontend, or eval gates unless the workflow change unexpectedly touches those surfaces; record skipped gates and reasons.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
