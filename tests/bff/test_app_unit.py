@@ -530,10 +530,11 @@ class BffFixture:
             provider_catalogue_id="provider-catalogue.local.seed",
             eval_fixture_ref="chorus/eval/fixtures/uc1_happy_path.json",
             transcript_source_ref="fixture:uc1_happy_path",
-            comparator_name="exact_structured_data_placeholder",
-            comparator_version="v1",
+            comparator_name="tiered_replay_comparator",
+            comparator_version="v0.1-hard-fail",
             comparator_status="pass",
             comparator_result={
+                "tier": "metrics_only",
                 "reason_code": "structured_data_matched",
                 "changed_field_names": [],
             },

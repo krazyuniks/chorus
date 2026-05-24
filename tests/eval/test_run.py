@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import json
+from dataclasses import replace
+from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -11,6 +15,13 @@ from chorus.eval.invariants import UC1_INVARIANTS
 from chorus.eval.replay import load_transcript, replay_transcript_with_record
 from chorus.eval.scenario_player import play_scenario
 from chorus.eval.use_cases.uc1_conduct import UC1_CONDUCT_INVARIANTS
+from chorus.llm_provider import (
+    InvocationArgs,
+    InvocationResult,
+    LLMProviderInvocationError,
+    RouteCatalogue,
+    RouteCatalogueEntry,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_DIR = ROOT / "chorus" / "eval" / "fixtures"
@@ -168,10 +179,122 @@ def test_replay_classifier_transcript_builds_safe_run_record() -> None:
     )
     assert record.comparator.status.value == "pass"
     assert record.comparator.result["reason_code"] == "structured_data_matched"
+    assert record.comparator.result["tier"] == "metrics_only"
     assert record.metrics.original.latency_ms == 50
     assert record.metrics.alternate.cost_amount_usd == 0
     assert isinstance(record.metrics.alternate.latency_ms, int)
     assert "enquiry_body_text" not in str(record.comparator.result)
+
+
+def test_replay_hard_fails_schema_invalid_output() -> None:
+    transcript = load_transcript(ROOT / TRANSCRIPT_FIXTURE)
+    invalid_result = _invocation_result(
+        structured_data={
+            "product_family_category": "motor_private_car",
+            "demanded_cover_shape": "third_party_fire_and_theft",
+            "classification_attempt": "not-an-integer",
+            "deeper_context_completed": None,
+        }
+    )
+
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_returning(invalid_result),
+    )
+
+    assert result.record.comparator.status.value == "fail"
+    assert result.record.comparator.result["tier"] == "hard_fail"
+    assert result.record.comparator.result["reason_code"] == "schema_invalid_replay_output"
+    assert result.record.comparator.result["field_names"] == [
+        "structured_data.classification_attempt"
+    ]
+    assert result.record.metrics.original.latency_ms == 50
+
+
+def test_replay_hard_fails_missing_qualification_policy_snapshot_ref() -> None:
+    transcript = _qualifier_transcript()
+    structured = _qualification_structured_data()
+    structured["policy_snapshot_ref"] = None
+
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_returning(_invocation_result(structured_data=structured)),
+    )
+
+    assert result.record.comparator.status.value == "fail"
+    assert result.record.comparator.result["reason_code"] == "missing_policy_snapshot_evidence"
+    assert result.record.comparator.result["field_names"] == ["structured_data.policy_snapshot_ref"]
+
+
+def test_replay_hard_fails_missing_required_uc1_conduct_hooks() -> None:
+    transcript = _qualifier_transcript()
+    structured = _qualification_structured_data()
+    del structured["best_interests_check"]
+
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_returning(_invocation_result(structured_data=structured)),
+    )
+
+    assert result.record.comparator.status.value == "fail"
+    assert result.record.comparator.result["reason_code"] == "missing_conduct_hooks"
+    assert result.record.comparator.result["field_names"] == [
+        "structured_data.best_interests_check"
+    ]
+
+
+def test_replay_hard_fails_unsafe_action_proposals() -> None:
+    transcript = load_transcript(ROOT / TRANSCRIPT_FIXTURE)
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_returning(
+            _invocation_result(
+                structured_data=_classification_structured_data(),
+                tool_calls=({"name": "direct_connector_write"},),
+            )
+        ),
+    )
+
+    assert result.record.comparator.status.value == "fail"
+    assert result.record.comparator.result["reason_code"] == "unsafe_action_proposal"
+    assert result.record.comparator.result["field_names"] == ["tool_calls"]
+    assert "direct_connector_write" not in str(result.record.comparator.result)
+
+
+def test_replay_hard_fails_missing_transcript_linkage(
+    tmp_path: Path,
+) -> None:
+    data = json.loads((ROOT / TRANSCRIPT_FIXTURE).read_text(encoding="utf-8"))
+    data.pop("transcript_id")
+    transcript_path = tmp_path / "missing_transcript_link.json"
+    transcript_path.write_text(json.dumps(data), encoding="utf-8")
+
+    result = replay_transcript_with_record(
+        load_transcript(transcript_path),
+        route_catalogue=_catalogue_returning(_invocation_result()),
+    )
+
+    assert result.record.comparator.status.value == "fail"
+    assert result.record.comparator.result["reason_code"] == "missing_audit_transcript_evidence"
+    assert result.record.comparator.result["field_names"] == ["original.transcript_id"]
+
+
+def test_replay_hard_fails_provider_port_errors() -> None:
+    transcript = load_transcript(ROOT / TRANSCRIPT_FIXTURE)
+
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_raising("structured_output_schema_violation:structured_data"),
+    )
+
+    assert result.record.comparator.status.value == "error"
+    assert result.record.comparator.safe_error_reason == (
+        "structured_output_schema_violation:structured_data"
+    )
+    assert result.record.comparator.result["reason_code"] == "provider_port_replay_error"
+    assert result.record.comparator.result["provider_error_reason"] == (
+        "structured_output_schema_violation:structured_data"
+    )
 
 
 def test_recorded_replay_scenario_captures_loaded_prompt_evidence() -> None:
@@ -262,3 +385,128 @@ def test_terminal_routing_fixtures_capture_connector_path(
         and event.payload.get("tool_name") == tool_name
     )
     assert completed_route_step.payload["routing_ref"] == action.output[route_ref_key]
+
+
+class _StaticAdapter:
+    adapter_version = "static-test-v1"
+
+    def __init__(self, result: InvocationResult) -> None:
+        self._result = result
+
+    def invoke(self, args: InvocationArgs) -> InvocationResult:
+        del args
+        return self._result
+
+
+class _FailingReplayAdapter:
+    adapter_version = "failing-test-v1"
+
+    def __init__(self, reason: str) -> None:
+        self._reason = reason
+
+    def invoke(self, args: InvocationArgs) -> InvocationResult:
+        raise LLMProviderInvocationError(
+            route_id=args.route_id,
+            reason=self._reason,
+            retryable=False,
+        )
+
+
+def _catalogue_returning(result: InvocationResult) -> RouteCatalogue:
+    return _catalogue_for_adapter(_StaticAdapter(result))
+
+
+def _catalogue_raising(reason: str) -> RouteCatalogue:
+    return _catalogue_for_adapter(_FailingReplayAdapter(reason))
+
+
+def _catalogue_for_adapter(adapter: Any) -> RouteCatalogue:
+    return RouteCatalogue(
+        [
+            RouteCatalogueEntry(
+                route_id="recorded-replay",
+                provider_id="local",
+                model_id="uc1-happy-path-v1",
+                adapter=adapter,
+                parameters={},
+            )
+        ]
+    )
+
+
+def _invocation_result(
+    *,
+    structured_data: dict[str, Any] | None = None,
+    tool_calls: tuple[dict[str, Any], ...] = (),
+) -> InvocationResult:
+    return InvocationResult(
+        summary="Replay fixture response.",
+        structured_data=structured_data or _classification_structured_data(),
+        confidence=0.88,
+        recommended_next_step="continue",
+        rationale="Replay fixture rationale.",
+        cost_amount_usd=Decimal("0.000000"),
+        tool_calls=tool_calls,
+        token_usage={"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+    )
+
+
+def _classification_structured_data() -> dict[str, Any]:
+    return {
+        "product_family_category": "motor_private_car",
+        "demanded_cover_shape": "third_party_fire_and_theft",
+        "classification_attempt": None,
+        "deeper_context_completed": None,
+    }
+
+
+def _qualifier_transcript() -> Any:
+    base = load_transcript(ROOT / TRANSCRIPT_FIXTURE)
+    return replace(
+        base,
+        invocation_id="11000000-0000-4000-8000-000000000003",
+        transcript_id="21000000-0000-4000-8000-000000000103",
+        task_kind="enquiry_qualification",
+        agent_role="qualifier",
+        prompt_reference="prompts/uc1/qualifier/v1.md",
+        prompt_hash="sha256:2877d857fba0d2dc974e73968977dfd5072568b03aca9ed8adb73fab01d17f5f",
+        route_version_ref="model_route_versions:11000000-0000-4000-8000-000000000003:1",
+        expected_structured_data=_qualification_structured_data(),
+    )
+
+
+def _qualification_structured_data() -> dict[str, Any]:
+    return {
+        "qualification_verdict_category": "missing_data",
+        "missing_data_request_required": True,
+        "conduct_hooks_pass": True,
+        "best_interests_check": {
+            "status": "pass",
+            "regulatory_ref": "ICOBS 2.5.-1R",
+            "summary": None,
+        },
+        "demands_and_needs_statement": {
+            "captured": True,
+            "regulatory_ref": "ICOBS 5",
+            "summary": "Customer seeks third-party fire and theft cover.",
+        },
+        "target_market_check": {
+            "status": "pass",
+            "regulatory_ref": "PROD 4",
+            "summary": None,
+        },
+        "foreseeable_harm_check": {
+            "status": "no_harm_identified",
+            "regulatory_ref": "Consumer Duty PRIN 12",
+            "summary": None,
+        },
+        "policy_snapshot_ref": "policy_snapshot:uc1:default:v1",
+        "customer_ref": "cust_demo_001",
+        "verdict_ref": "verdict_demo_missing_data_001",
+        "routing_policy_ref": "policy_uc1_routing_v1",
+        "product_family_category": None,
+        "qualification_summary_ref": None,
+        "referral_destination_category": None,
+        "referral_reason_category": None,
+        "decline_reason_category": None,
+    }

@@ -213,6 +213,9 @@ shapes into the provider port. The OpenAI-compatible adapter requests OpenAI
 local JSON Schema validation for DeepSeek's current route. Replay comparison
 records now exist as safe replay-run evidence linking original
 invocation/transcript refs, alternate route metadata, comparator status, safe
-lineage refs, and token/cost/latency metrics. The full tiered comparator
-semantics remain required before any live provider route is considered usable.
-Required credentials must also be present.
+lineage refs, and token/cost/latency metrics. The comparator now implements
+the hard-fail tier for schema, policy snapshot, conduct hook, unsafe action,
+audit/transcript linkage, route-governance, and provider-port replay defects.
+Decision-fail, review-finding, metrics-only tier semantics, and required
+credentials remain required before any live provider route is considered
+usable.

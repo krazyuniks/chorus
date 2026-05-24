@@ -38,6 +38,8 @@
   },
   "expected_structured_data": {
     "product_family_category": "motor_private_car",
-    "demanded_cover_shape": "third_party_fire_and_theft"
+    "demanded_cover_shape": "third_party_fire_and_theft",
+    "classification_attempt": null,
+    "deeper_context_completed": null
   }
 }

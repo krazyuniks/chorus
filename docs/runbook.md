@@ -127,10 +127,13 @@ any connector action can be proposed. The active local route-governance rows
 now align on runtime route `recorded-replay`, provider `local`, and model
 `uc1-happy-path-v1` across routing policy, immutable route versions, provider
 catalogue rows, BFF inspection, and offline eval route selection. R4 wires
-live route activation only after the tiered comparator and required local
-credentials are aligned. Replay-run evidence records now persist the original
-invocation/transcript refs, alternate route metadata, comparator status,
-lineage refs, and token/cost/latency metrics.
+live route activation only after the remaining comparator tiers and required
+local credentials are aligned. Replay-run evidence records now persist the
+original invocation/transcript refs, alternate route metadata, comparator
+status, lineage refs, and token/cost/latency metrics. The hard-fail comparator
+tier classifies schema, policy snapshot, conduct hook, unsafe action,
+audit/transcript linkage, route-governance, and provider-port replay defects
+with safe reason codes and field names.
 
 ### Connector port
 
@@ -273,8 +276,9 @@ not change.
    accepted, referred, and declined terminal connector routes. Cross-provider
    replay-eval - re-running a captured transcript against an alternate route
    and comparing the result - is the closing eval step. The replay path now
-   builds contract-shaped replay-run records for Postgres/BFF inspection; the
-   full tiered comparator and live route gates are still P3 work. The target
+   builds contract-shaped replay-run records for Postgres/BFF inspection and
+   classifies hard-fail defects; decision-fail, review-finding, metrics-only
+   semantics, and live route gates are still P3 work. The target
    shape is in
    [`transformation/eval-reshape-directions.md`](transformation/eval-reshape-directions.md).
 

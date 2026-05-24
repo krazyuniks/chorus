@@ -35,10 +35,11 @@
     "transcript_source_ref": "fixture:uc1_classifier_happy"
   },
   "comparator": {
-    "name": "exact_structured_data_placeholder",
-    "version": "v1",
+    "name": "tiered_replay_comparator",
+    "version": "v0.1-hard-fail",
     "status": "pass",
     "result": {
+      "tier": "metrics_only",
       "reason_code": "structured_data_matched",
       "changed_field_names": [],
       "tier_placeholder": "metrics_only"

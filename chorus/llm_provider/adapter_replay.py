@@ -53,6 +53,11 @@ class RecordedReplayAdapter:
         agent_input = cast(dict[str, Any], raw_input)
 
         summary, next_step, structured_data, confidence = _replay_result_for(task_kind, agent_input)
+        if args.response_shape is not None:
+            structured_data = _normalise_structured_data_for_shape(
+                structured_data,
+                args.response_shape,
+            )
 
         return InvocationResult(
             summary=summary,
@@ -272,6 +277,55 @@ def _safe_response_schema_metadata(response_shape: dict[str, Any] | None) -> dic
     response_schema["hash"] = _schema_hash(cast(dict[str, Any], schema))
     response_schema["response_format_type"] = "recorded_replay"
     return metadata
+
+
+def _normalise_structured_data_for_shape(
+    structured_data: dict[str, Any],
+    response_shape: dict[str, Any],
+) -> dict[str, Any]:
+    schema_obj = response_shape.get("schema")
+    if not isinstance(schema_obj, dict):
+        return structured_data
+    schema = cast(dict[str, Any], schema_obj)
+    properties_obj = schema.get("properties")
+    if not isinstance(properties_obj, dict):
+        return structured_data
+    properties = cast(dict[str, Any], properties_obj)
+    structured_schema_obj = properties.get("structured_data")
+    if not isinstance(structured_schema_obj, dict):
+        return structured_data
+    structured_schema = cast(dict[str, Any], structured_schema_obj)
+    normalised = _normalise_for_schema(structured_data, structured_schema)
+    return cast(dict[str, Any], normalised) if isinstance(normalised, dict) else structured_data
+
+
+def _normalise_for_schema(value: Any, schema: dict[str, Any]) -> Any:
+    schema_type = schema.get("type")
+    if isinstance(schema_type, list):
+        if value is None and "null" in schema_type:
+            return None
+        schema_types = [str(item) for item in cast(list[object], schema_type)]
+        non_null_types = [item for item in schema_types if item != "null"]
+        if non_null_types:
+            return _normalise_for_schema(value, {**schema, "type": non_null_types[0]})
+        return value
+
+    if schema_type == "object":
+        raw = cast(dict[str, Any], value) if isinstance(value, dict) else {}
+        properties_obj = schema.get("properties")
+        if not isinstance(properties_obj, dict):
+            return raw
+        properties = cast(dict[str, Any], properties_obj)
+        normalised: dict[str, Any] = {}
+        for key, field_schema_obj in properties.items():
+            if isinstance(field_schema_obj, dict):
+                field_schema = cast(dict[str, Any], field_schema_obj)
+                normalised[str(key)] = _normalise_for_schema(raw.get(str(key)), field_schema)
+        return normalised
+
+    if value is None:
+        return None
+    return value
 
 
 def _schema_hash(schema: dict[str, Any]) -> str:

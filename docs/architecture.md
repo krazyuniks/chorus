@@ -173,8 +173,10 @@ inspection views, and eval replay fixtures all expose the governed local
 verification, and schema-bound structured output enforcement are active in the
 provider call path. Replay-run evidence records now capture original
 invocation/transcript refs, alternate route metadata, comparator status, safe
-lineage refs, and token/cost/latency metrics; the full tiered comparator
-semantics remain P3 work.
+lineage refs, and token/cost/latency metrics. The replay comparator now
+classifies hard-fail defects before exact-output comparison; decision-fail,
+review-finding, metrics-only tier semantics, and live-provider gates remain P3
+work.
 
 The route catalogue plus the transcript port together make cross-provider
 replay possible. Without route metadata, replay can only target the original

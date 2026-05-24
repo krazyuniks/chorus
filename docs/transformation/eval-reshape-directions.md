@@ -73,5 +73,9 @@ The current P3 replay-run record surface is intentionally narrow:
 `replay_run_records`, and the BFF replay-run view persist the original
 invocation/transcript refs, original and alternate route metadata, safe
 policy/prompt/response-schema lineage refs, comparator status/result payload,
-safe skipped/error reasons, and token/cost/latency metrics. The tiered
-comparator semantics above are still pending.
+safe skipped/error reasons, and token/cost/latency metrics. The hard-fail
+tier is now implemented for schema-invalid replay output, missing policy
+snapshot evidence, missing required UC1 conduct hooks, unsafe action
+proposals, missing audit/transcript linkage, route-governance mismatch, and
+provider-port replay errors. Decision-fail, review-finding, and metrics-only
+tier semantics remain pending.
