@@ -179,8 +179,10 @@ UC1 qualification verdict, routing, regulated-outcome, approval-decision, and
 connector-action category fields under the same policy snapshot, then
 non-terminal review findings for recommended-next-step, confidence, rationale,
 optional field, and evidence-selection divergence without storing raw
-rationale or customer content. Metrics-only tier semantics and live-provider
-gates remain P3 work.
+rationale or customer content, and finally metrics-only token, latency,
+retry-count, provider-cost, and safe provider-metadata deltas when semantics
+agree. Live-provider execution remains credential-gated and inactive by
+default.
 
 The route catalogue plus the transcript port together make cross-provider
 replay possible. Without route metadata, replay can only target the original
@@ -271,7 +273,8 @@ project's eval substrate, not an incidental capability.
 A captured transcript can be loaded, re-routed through the LLM provider port
 against a different provider and model, and compared to the original on
 contract validity, decision agreement under the same policy snapshot,
-tool-call divergence, response-shape divergence, and cost and latency deltas.
+tool-call divergence, response-shape divergence, and metrics-only cost,
+latency, retry-count, token, and safe provider-metadata deltas.
 Every replay builds a contract-shaped replay-run evidence record for Postgres
 and BFF inspection, linking the original invocation/transcript to the
 alternate route and comparator outcome without storing raw prompts, raw

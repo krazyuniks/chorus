@@ -36,13 +36,42 @@
   },
   "comparator": {
     "name": "tiered_replay_comparator",
-    "version": "v0.3-review-finding",
+    "version": "v0.4-metrics-only",
     "status": "pass",
     "result": {
       "tier": "metrics_only",
-      "reason_code": "structured_data_matched",
-      "changed_field_names": [],
-      "tier_placeholder": "metrics_only"
+      "reason_code": "metrics_only_delta",
+      "field_names": [
+        "metrics.latency_ms"
+      ],
+      "changed_field_names": [
+        "metrics.latency_ms"
+      ],
+      "compared_field_names": [
+        "metrics.cost_amount_usd",
+        "metrics.latency_ms",
+        "metrics.token_usage.prompt_tokens",
+        "metrics.token_usage.completion_tokens",
+        "metrics.token_usage.total_tokens",
+        "provider_metadata.retry_count",
+        "provider_metadata.retry_attempts",
+        "provider_metadata.attempt_count",
+        "provider_metadata.retries",
+        "provider_metadata.adapter",
+        "provider_metadata.model",
+        "provider_metadata.finish_reason",
+        "provider_metadata.response_format_type",
+        "provider_metadata.response_schema.name",
+        "provider_metadata.response_schema.contract_ref",
+        "provider_metadata.response_schema.task_kind",
+        "provider_metadata.response_schema.strict",
+        "provider_metadata.response_schema.source",
+        "provider_metadata.response_schema.hash",
+        "provider_metadata.response_schema.response_format_type"
+      ],
+      "reason_codes": [
+        "latency_delta"
+      ]
     }
   },
   "metrics": {

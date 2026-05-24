@@ -27,9 +27,11 @@ from chorus.contracts.generated.eval.replay_run_record import ReplayRunRecord
 from chorus.eval.replay_comparator import (
     DecisionFailClassification,
     HardFailClassification,
+    MetricsOnlyClassification,
     ReviewFindingClassification,
     classify_replay_decision_failure,
     classify_replay_input_hard_failure,
+    classify_replay_metrics_only,
     classify_replay_result_hard_failure,
     classify_replay_review_finding,
     provider_port_error_hard_failure,
@@ -48,7 +50,7 @@ from chorus.llm_provider import (
 
 _VALID_ROLES = ("system", "user", "assistant", "tool")
 _COMPARATOR_NAME = "tiered_replay_comparator"
-_COMPARATOR_VERSION = "v0.3-review-finding"
+_COMPARATOR_VERSION = "v0.4-metrics-only"
 _UC1_PROMPT_REFERENCES = {
     "classifier": "prompts/uc1/classifier/v1.md",
     "context_gatherer": "prompts/uc1/context-gatherer/v1.md",
@@ -109,6 +111,7 @@ class CapturedTranscript:
     original_cost_amount_usd: Decimal
     original_latency_ms: int
     token_usage: dict[str, int]
+    provider_metadata: dict[str, Any]
     expected_recommended_next_step: str | None = None
     expected_confidence: float | None = None
     expected_rationale: str | None = None
@@ -170,6 +173,7 @@ def load_transcript(path: Path) -> CapturedTranscript:
         original_cost_amount_usd=Decimal(str(data.get("original_cost_amount_usd", "0"))),
         original_latency_ms=int(data.get("original_latency_ms", 0)),
         token_usage=_token_usage(data.get("token_usage")),
+        provider_metadata=_provider_metadata(data.get("provider_metadata")),
         expected_recommended_next_step=_optional_str(data.get("expected_recommended_next_step")),
         expected_confidence=_optional_float(data.get("expected_confidence")),
         expected_rationale=_optional_str(data.get("expected_rationale")),
@@ -288,6 +292,7 @@ def replay_transcript_with_record(
         route_id=target_route,
         expected=transcript.expected_structured_data,
         actual=replay_result,
+        replay_latency_ms=replay_latency_ms,
     )
     return ReplayRunResult(
         checks=comparison.checks,
@@ -310,6 +315,7 @@ def _compare_structured_data(
     route_id: str,
     expected: dict[str, Any],
     actual: InvocationResult,
+    replay_latency_ms: int,
 ) -> _Comparison:
     hard_fail = classify_replay_result_hard_failure(
         task_kind=transcript.task_kind,
@@ -362,24 +368,20 @@ def _compare_structured_data(
         )
 
     if actual_data == expected:
-        return _Comparison(
-            checks=[
-                EvalCheck(
-                    "replay stability",
-                    "pass",
-                    (
-                        f"replay through route {route_id!r} for invocation {invocation_id!r} "
-                        "produced the same structured output"
-                    ),
-                )
-            ],
-            status="pass",
-            result={
-                "tier": "metrics_only",
-                "reason_code": "structured_data_matched",
-                "changed_field_names": [],
-                "tier_placeholder": "metrics_only",
-            },
+        metrics_only = classify_replay_metrics_only(
+            original_cost_amount_usd=transcript.original_cost_amount_usd,
+            alternate_cost_amount_usd=actual.cost_amount_usd,
+            original_latency_ms=transcript.original_latency_ms,
+            alternate_latency_ms=replay_latency_ms,
+            original_token_usage=transcript.token_usage,
+            alternate_token_usage=actual.token_usage,
+            original_provider_metadata=transcript.provider_metadata,
+            alternate_provider_metadata=actual.provider_metadata,
+        )
+        return _metrics_only_comparison(
+            transcript=transcript,
+            target_route=route_id,
+            classification=metrics_only,
         )
 
     missing = sorted(expected.keys() - actual_data.keys())
@@ -457,6 +459,30 @@ def _review_finding_comparison(
                     f"replay through route {target_route!r} for invocation "
                     f"{transcript.invocation_id!r} recorded non-terminal "
                     f"{classification.reason_code!r} on fields: {fields}"
+                ),
+            )
+        ],
+        status="pass",
+        result=classification.result_payload(),
+    )
+
+
+def _metrics_only_comparison(
+    *,
+    transcript: CapturedTranscript,
+    target_route: str,
+    classification: MetricsOnlyClassification,
+) -> _Comparison:
+    fields = ", ".join(classification.field_names) if classification.field_names else "none"
+    return _Comparison(
+        checks=[
+            EvalCheck(
+                "replay metrics-only tier",
+                "pass",
+                (
+                    f"replay through route {target_route!r} for invocation "
+                    f"{transcript.invocation_id!r} produced equivalent structured output; "
+                    f"metrics-only deltas on fields: {fields}"
                 ),
             )
         ],
@@ -696,6 +722,12 @@ def _optional_float(value: Any) -> float | None:
     if isinstance(value, int | float):
         return float(value)
     return None
+
+
+def _provider_metadata(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    return cast(dict[str, Any], value)
 
 
 def _evidence_missing_fields(data: dict[str, Any]) -> tuple[str, ...]:

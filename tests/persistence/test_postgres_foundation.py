@@ -707,7 +707,8 @@ def test_replay_run_records_link_invocation_transcript_route_and_metrics(
     assert row.alternate_runtime_route_id == "recorded-replay"
     assert row.alternate_provider_id == "local"
     assert row.comparator_status == "pass"
-    assert row.comparator_result["reason_code"] == "structured_data_matched"
+    assert row.comparator_result["reason_code"] == "metrics_only_delta"
+    assert row.comparator_result["changed_field_names"] == ["metrics.latency_ms"]
     assert row.original_latency_ms == 50
     assert row.alternate_latency_ms == 12
     assert row.metric_deltas["latency_ms"] == -38

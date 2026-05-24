@@ -178,8 +178,16 @@ def test_replay_classifier_transcript_builds_safe_run_record() -> None:
         "contracts/llm_provider/uc1_agent_io.schema.json"
     )
     assert record.comparator.status.value == "pass"
-    assert record.comparator.result["reason_code"] == "structured_data_matched"
     assert record.comparator.result["tier"] == "metrics_only"
+    assert record.comparator.result["reason_code"] in {
+        "metrics_only_delta",
+        "metrics_only_no_delta",
+    }
+    assert "metrics.latency_ms" in record.comparator.result["compared_field_names"]
+    assert (
+        "provider_metadata.response_schema.hash" in record.comparator.result["compared_field_names"]
+    )
+    assert "tier_placeholder" not in record.comparator.result
     assert record.metrics.original.latency_ms == 50
     assert record.metrics.alternate.cost_amount_usd == 0
     assert isinstance(record.metrics.alternate.latency_ms, int)
@@ -433,6 +441,80 @@ def test_replay_review_finds_optional_structured_and_evidence_selection_fields()
     assert "qsum_demo_missing_data_002" not in str(result.record.comparator.result)
 
 
+def test_replay_metrics_only_classifies_metric_and_safe_provider_metadata_deltas() -> None:
+    transcript = replace(
+        load_transcript(ROOT / TRANSCRIPT_FIXTURE),
+        original_cost_amount_usd=Decimal("0.001000"),
+        original_latency_ms=9999,
+        token_usage={"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        provider_metadata={
+            "adapter": "recorded-replay-v1",
+            "retry_count": 0,
+            "response_id": "raw-original-response-id",
+            "response_schema": {
+                "name": "uc1_enquiry_classification_response",
+                "hash": "sha256:" + "0" * 64,
+                "response_format_type": "recorded_replay",
+            },
+        },
+    )
+
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_returning(
+            _invocation_result(
+                structured_data=_classification_structured_data(),
+                cost_amount_usd=Decimal("0.003000"),
+                token_usage={
+                    "prompt_tokens": 12,
+                    "completion_tokens": 7,
+                    "total_tokens": 19,
+                },
+                provider_metadata={
+                    "adapter": "recorded-replay-v2",
+                    "retry_count": 1,
+                    "response_id": "raw-alternate-response-id",
+                    "response_schema": {
+                        "name": "uc1_enquiry_classification_response",
+                        "hash": "sha256:" + "1" * 64,
+                        "response_format_type": "json_schema",
+                    },
+                },
+            )
+        ),
+    )
+
+    payload = result.record.comparator.result
+    assert result.checks[0].status == "pass"
+    assert result.checks[0].name == "replay metrics-only tier"
+    assert result.record.comparator.status.value == "pass"
+    assert payload["tier"] == "metrics_only"
+    assert payload["reason_code"] == "metrics_only_delta"
+    assert payload["reason_codes"] == [
+        "cost_amount_delta",
+        "latency_delta",
+        "token_usage_delta",
+        "retry_count_delta",
+        "provider_metadata_delta",
+    ]
+    assert payload["changed_field_names"] == [
+        "metrics.cost_amount_usd",
+        "metrics.latency_ms",
+        "metrics.token_usage.completion_tokens",
+        "metrics.token_usage.prompt_tokens",
+        "metrics.token_usage.total_tokens",
+        "provider_metadata.adapter",
+        "provider_metadata.response_schema.hash",
+        "provider_metadata.response_schema.response_format_type",
+        "provider_metadata.retry_count",
+    ]
+    assert payload["reason_code"] != "structured_data_diverged"
+    assert "decision_comparator_pending" not in str(payload)
+    assert "tier_placeholder" not in payload
+    assert "raw-original-response-id" not in str(payload)
+    assert "raw-alternate-response-id" not in str(payload)
+
+
 def test_replay_hard_fail_takes_precedence_over_review_finding() -> None:
     transcript = replace(
         _qualifier_transcript(),
@@ -638,6 +720,9 @@ def _invocation_result(
     confidence: float = 0.88,
     recommended_next_step: str = "continue",
     rationale: str = "Replay fixture rationale.",
+    cost_amount_usd: Decimal = Decimal("0.000000"),
+    token_usage: dict[str, int] | None = None,
+    provider_metadata: dict[str, Any] | None = None,
 ) -> InvocationResult:
     return InvocationResult(
         summary="Replay fixture response.",
@@ -645,9 +730,10 @@ def _invocation_result(
         confidence=confidence,
         recommended_next_step=recommended_next_step,
         rationale=rationale,
-        cost_amount_usd=Decimal("0.000000"),
+        cost_amount_usd=cost_amount_usd,
         tool_calls=tool_calls,
-        token_usage={"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        token_usage=token_usage or {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        provider_metadata=provider_metadata or {},
     )
 
 

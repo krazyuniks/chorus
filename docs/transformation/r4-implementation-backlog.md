@@ -180,13 +180,14 @@ channel runnable status are separate claims.
   eval route selection.
 - [x] Add replay run records that link the original invocation, alternate route,
   comparator result, and cost/latency metrics.
-- [ ] Implement tiered replay comparison:
+- [x] Implement tiered replay comparison:
   - [x] hard fail for schema, policy snapshot, conduct hook, and unsafe action
     defects;
   - [x] decision fail for terminal verdict or routing mismatch;
   - [x] review finding for rationale, confidence, field, or evidence
     divergence;
-  - [ ] metrics only for token, latency, retry, and cost deltas.
+  - [x] metrics only for token, latency, retry, cost, and safe
+    provider-metadata deltas.
 
 ### P4 - UC2 Legal Services Intake And Conflict Check
 
@@ -1263,6 +1264,53 @@ channel runnable status are separate claims.
   credential failure; live provider gates remain out of scope until the
   remaining metrics-only tier and credentials are aligned.
 
+### 2026-05-24 - Replay Comparator Metrics-Only Tier
+
+- Scope: final tiered-comparator slice for metrics-only replay semantics only.
+- Behaviour changed:
+  - `chorus/eval/replay_comparator.py` now classifies metrics-only replay
+    records after hard-fail, decision-fail, and review-finding checks pass;
+  - metrics-only records cover token usage, latency, retry-count metadata,
+    provider cost, and allowlisted provider-metadata deltas with safe reason
+    codes and field names only;
+  - `eval replay` now emits comparator version `v0.4-metrics-only`, loads
+    optional captured safe provider metadata, preserves the replay-run record
+    metric fields and BFF/persistence read views, and removes the old
+    metrics placeholder from successful comparator results;
+  - hard-fail, decision-fail, and review-finding classifications still take
+    precedence, and unclassified structured-data divergence still fails
+    instead of being downgraded to metrics-only;
+  - no live provider route was activated, no live provider was called, no
+    connector side effect was added, UC1 connector behaviour was left
+    unchanged, and no DB schema change was made.
+- Files changed: replay comparator helper, eval replay wiring, captured
+  replay transcript safe provider metadata, replay-run contract sample,
+  focused eval/BFF/persistence tests, architecture / evidence / runbook /
+  eval-direction / R4 design docs, and this backlog handoff.
+- Gates run:
+  - `uv run pytest tests/eval/test_run.py -q` - green, 29 passed.
+  - `uv run pytest tests/bff/test_app_unit.py tests/test_contracts.py tests/test_route_governance_alignment.py -q`
+    - green, 11 passed.
+  - `uv run pytest tests/persistence/test_postgres_foundation.py -rs` -
+    1 passed and 17 skipped; skipped cases were DB-backed because local
+    Postgres on `localhost:5432` rejected the configured `chorus` user.
+  - `uv run pytest tests/agent_runtime/test_runtime.py -q` - green, 16
+    passed and 3 skipped because local Postgres rejected the configured
+    `chorus` user for DB-backed runtime tests.
+  - `just contracts-gen` - regenerated generated contract models with no
+    schema change.
+  - `just contracts-check` - green after the replay-run sample update.
+  - `just eval` - green for five UC1 offline eval fixtures.
+  - `just test-replay` - green, 2 passed and 8 deselected.
+  - `just lint` - green after formatting the focused eval test.
+  - `git diff --check` - green.
+- Skipped gates: live `just db-migrate`, live OpenAI / DeepSeek provider
+  calls, full `just test`, Redpanda projection integration, frontend/e2e
+  gates, and UC2 / UC3 runtime gates were not run. Live DB migration and
+  DB-backed replay-run verification remain blocked by the local Postgres
+  credential failure; live provider gates remain out of scope until UC2/UC3
+  runtime breadth and credentials are aligned.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -1310,22 +1358,22 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: finish P3 Provider And Replay Hardening's tiered replay comparator by adding metrics-only semantics only. Keep the slice focused on token, latency, retry, cost, and safe provider-metadata deltas that do not affect schema, policy, conduct, decision, connector authority, review-finding, or regulated outcome classification. Do not change hard-fail, decision-fail, or review-finding semantics, do not activate live provider routes, and do not add connector side effects.
+Current target slice: start P4 - UC2 Legal Services Intake And Conflict Check by adding UC2 intake and connector contracts under the named ports only. Keep the slice focused on JSON Schema contracts, representative safe samples, generated Pydantic models, and focused contract tests/docs. Do not add UC2 workflow runtime, connector adapter implementations, DB migrations, BFF/UI surfaces, eval fixtures, live provider routes, or connector side effects in this slice.
 
-Previous slice completed: the review-finding tier now exists in `chorus/eval/replay_comparator.py` and is wired through `chorus/eval/replay.py` into `tiered_replay_comparator` replay-run records as comparator version `v0.3-review-finding`. It runs after hard-fail and decision-fail checks and before the exact structured-data placeholder, classifying non-terminal UC1 qualification divergence under the same policy snapshot for `recommended_next_step`, confidence band / material confidence delta, rationale presence or text-change evidence without storing free-text rationale, optional structured fields, and safe evidence-selection refs. Hard-fail and decision-fail classifications still take precedence. No live provider was called, no live route was activated, no connector side effect was added, UC1 connector behaviour was left unchanged, and metrics-only tier semantics remain pending.
+Previous slice completed: P3 Provider And Replay Hardening's tiered comparator is complete through metrics-only semantics. `chorus/eval/replay_comparator.py` and `chorus/eval/replay.py` now emit `tiered_replay_comparator` replay-run records as comparator version `v0.4-metrics-only`. Metrics-only runs after hard-fail, decision-fail, and review-finding checks, and records token, latency, retry-count, provider-cost, and safe provider-metadata deltas using reason codes and field names only. Hard-fail, decision-fail, and review-finding precedence was preserved. No live provider was called, no live route was activated, no connector side effect was added, UC1 connector behaviour was left unchanged, and P3 is now checked.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/eval/replay_run_record.schema.json, contracts/llm_provider/, contracts/audit/, infrastructure/postgres/migrations/001_current_state_baseline.sql, infrastructure/postgres/seeds/002_provider_governance.sql, infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql, the current eval replay/scenario-player surfaces, replay-run persistence/BFF inspection surfaces, and the current P3 backlog items. If current provider or model-route governance details need external verification, use official provider documentation only.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/README.md, contracts/intake/, contracts/connector/, contracts/audit/, contracts/projection/, contracts/eval/eval_fixture.schema.json, and the current P4 backlog items. Use official SRA/GOV.UK sources only if UC2 regulatory wording needs fresh verification; otherwise rely on the already verified UC2 product/domain docs.
 
-Before editing, inspect the comparator and replay evidence surfaces: `chorus/eval/replay_comparator.py`, `chorus/eval/replay.py`, `chorus/eval/run.py`, `chorus/eval/types.py`, `chorus/eval/scenario_player.py`, `chorus/eval/common_invariants.py`, `chorus/eval/use_cases/uc1_conduct.py`, `chorus/agent_runtime/response_schemas.py`, `chorus/agent_runtime/runtime.py`, `chorus/persistence/replay_runs.py`, `chorus/persistence/audit_port.py`, `chorus/persistence/provider_governance.py`, `chorus/bff/app.py`, `contracts/eval/replay_run_record.schema.json`, `contracts/audit/`, `contracts/llm_provider/`, `tests/eval/test_run.py`, `tests/bff/test_app_unit.py`, `tests/persistence/test_postgres_foundation.py`, `tests/test_contracts.py`, and `tests/test_route_governance_alignment.py`. Search for `replay`, `ReplayRunRecord`, `CapturedTranscript`, `InvocationResult`, `comparator`, `comparison`, `hard_fail`, `decision_fail`, `review`, `finding`, `rationale`, `confidence`, `recommended_next_step`, `optional`, `evidence`, `policy_snapshot_ref`, `conduct_hooks`, `qualification_verdict_category`, `route_category`, `approval`, `connector-action`, `schema`, `transcript`, `route_catalogue`, `runtime_route_id`, `cost`, `latency`, `token_usage`, and `provider_metadata`.
+Before editing, inspect the existing contract patterns and tests: `contracts/intake/uc1/`, `contracts/connector/uc1/`, `contracts/connector/gateway_verdict.schema.json`, `contracts/connector/tool_call.schema.json`, `contracts/connector/samples/`, `chorus/contracts/gen.py`, `chorus/contracts/check.py`, `tests/test_contracts.py`, `docs/product-brief-uc2.md`, `docs/domain-model-uc2.md`, and any existing docs that enumerate the UC2 connector set. Search for `uc2`, `legal_services`, `conflict`, `conflict_check`, `kyc`, `beneficial_ownership`, `aml`, `engagement_letter`, `client_matter`, `matter_ref`, `subject_ref`, `approval`, `connector`, `tool_name`, `tool_call`, `gateway_verdict`, `intake`, `channel`, and `schema`.
 
-Expected direction: extend the comparator/replay helper with explicit metrics-only semantics that run after hard-fail, decision-fail, and review-finding checks. Preserve the existing replay-run record metric fields and safe BFF/persistence views, but make the comparator result explicitly describe the metrics-only tier for token, latency, retry, cost, and safe provider-metadata deltas without treating them as hard failures, decision failures, or review findings. Use safe reason codes and field names only; do not store raw prompts, raw outputs, free-text rationale, credentials, customer content, or provider response bodies. Add focused tests that fail if pure token/cost/latency/provider-metadata divergence is reported as the old exact-data placeholder or as review/decision/hard failure, while hard-fail, decision-fail, and review-finding cases still take precedence.
+Expected direction: add UC2 contract surfaces for the declared local intake and connector boundaries, following existing naming/generation/sample conventions. The UC2 connector contract set should align with the modelled sandbox adapters from the docs: conflict check, KYC / beneficial ownership, AML record store, and engagement letter store. Keep fields safe and bounded: use refs, categories, statuses, policy refs, conduct-hook refs, and redaction-friendly summaries instead of raw client matter narratives, credentials, private records, or production customer data. Update representative samples and generated models, and extend focused contract tests so the new schemas are generated, sampled, and validated.
 
-Keep this slice focused on metrics-only comparator semantics. If the comparator cannot classify metric deltas safely without raw prompts, raw outputs, free-text rationale, credentials, personal data, provider response bodies, or connector side effects, stop and surface the design question rather than widening the slice.
+Keep this slice contract-first and narrow. If the UC2 docs do not define enough information to design a safe contract field or connector argument without inventing runtime policy, stop and surface the design question rather than widening into implementation.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
 - Rewrite the body of the `## Next Continuation Prompt` section in the backlog with the next slice's prompt, in Strategy order. If R4 is fully closed, write the literal `R4-COMPLETE` there instead.
-- Run relevant focused gates for the files touched, likely including focused eval/replay/runtime/persistence/BFF tests, `just contracts-gen` and `just contracts-check` if contracts or samples change, `just eval` if eval replay metadata changes, `just lint`, and `git diff --check`. If DB-backed or live-provider gates cannot run because local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
+- Run relevant focused gates for the files touched, likely including `just contracts-gen`, `just contracts-check`, focused `tests/test_contracts.py`, `just lint`, and `git diff --check`. If DB-backed or live-stack gates cannot run because local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
 - Stage everything and create one Conventional Commit (`type(scope): description`). Do not add `Co-Authored-By` or any AI attribution.
 - Leave the working tree clean.
 

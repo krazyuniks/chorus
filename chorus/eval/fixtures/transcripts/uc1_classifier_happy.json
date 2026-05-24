@@ -23,6 +23,18 @@
     "completion_tokens": 0,
     "total_tokens": 0
   },
+  "provider_metadata": {
+    "adapter": "recorded-replay-v1",
+    "response_schema": {
+      "name": "uc1_enquiry_classification_response",
+      "contract_ref": "contracts/llm_provider/uc1_agent_io.schema.json",
+      "task_kind": "enquiry_classification",
+      "strict": true,
+      "source": "agent-runtime.uc1.response-schema.v1",
+      "hash": "sha256:4855c75e9611600fb5376bd7387c1aac143fe01e9d0f91d1f7dbf36d25e4bdc1",
+      "response_format_type": "recorded_replay"
+    }
+  },
   "request_messages": [
     {
       "role": "user",

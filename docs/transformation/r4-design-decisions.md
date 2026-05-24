@@ -224,5 +224,7 @@ The review-finding tier now records non-terminal UC1 qualification divergence
 for recommended-next-step, confidence band / material confidence delta,
 rationale presence or text-change evidence without storing free-text
 rationale, optional structured fields, and safe evidence-selection refs.
-Metrics-only tier semantics and required credentials remain required before
-any live provider route is considered usable.
+The metrics-only tier now records token, latency, retry-count, provider-cost,
+and safe provider-metadata deltas only after semantic replay tiers agree. It
+stores reason codes and field names only. Required credentials and live route
+gates remain required before any live provider route is considered usable.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, Literal, cast
 
 from jsonschema import Draft202012Validator
@@ -14,6 +15,13 @@ ComparatorStatus = Literal["pass", "fail", "skipped", "error"]
 HARD_FAIL_TIER = "hard_fail"
 DECISION_FAIL_TIER = "decision_fail"
 REVIEW_FINDING_TIER = "review_finding"
+METRICS_ONLY_TIER = "metrics_only"
+
+
+def _provider_metadata_field_name(path: tuple[str, ...]) -> str:
+    return "provider_metadata." + ".".join(path)
+
+
 REQUIRED_UC1_CONDUCT_HOOKS: tuple[str, ...] = (
     "best_interests_check",
     "demands_and_needs_statement",
@@ -71,6 +79,37 @@ _UC1_CONNECTOR_ACTION_BY_ROUTE_CATEGORY = {
     "missing_data": "outbound_comms.message.propose",
 }
 _CONFIDENCE_DELTA_THRESHOLD = 0.15
+_TOKEN_USAGE_FIELDS: tuple[str, ...] = (
+    "prompt_tokens",
+    "completion_tokens",
+    "total_tokens",
+)
+_PROVIDER_RETRY_METADATA_PATHS: tuple[tuple[str, ...], ...] = (
+    ("retry_count",),
+    ("retry_attempts",),
+    ("attempt_count",),
+    ("retries",),
+)
+_SAFE_PROVIDER_METADATA_PATHS: tuple[tuple[str, ...], ...] = (
+    ("adapter",),
+    ("model",),
+    ("finish_reason",),
+    ("response_format_type",),
+    ("response_schema", "name"),
+    ("response_schema", "contract_ref"),
+    ("response_schema", "task_kind"),
+    ("response_schema", "strict"),
+    ("response_schema", "source"),
+    ("response_schema", "hash"),
+    ("response_schema", "response_format_type"),
+)
+_METRICS_COMPARED_FIELD_NAMES: tuple[str, ...] = (
+    "metrics.cost_amount_usd",
+    "metrics.latency_ms",
+    *tuple(f"metrics.token_usage.{field_name}" for field_name in _TOKEN_USAGE_FIELDS),
+    *tuple(_provider_metadata_field_name(path) for path in _PROVIDER_RETRY_METADATA_PATHS),
+    *tuple(_provider_metadata_field_name(path) for path in _SAFE_PROVIDER_METADATA_PATHS),
+)
 
 
 @dataclass(frozen=True)
@@ -133,6 +172,28 @@ class ReviewFindingClassification:
             "field_names": list(self.field_names),
             "changed_field_names": list(self.field_names),
             "non_terminal": True,
+        }
+        if self.reason_codes:
+            payload["reason_codes"] = list(self.reason_codes)
+        return payload
+
+
+@dataclass(frozen=True)
+class MetricsOnlyClassification:
+    """Safe metrics-only replay details after semantic replay tiers pass."""
+
+    reason_code: str
+    field_names: tuple[str, ...]
+    reason_codes: tuple[str, ...] = ()
+    compared_field_names: tuple[str, ...] = _METRICS_COMPARED_FIELD_NAMES
+
+    def result_payload(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "tier": METRICS_ONLY_TIER,
+            "reason_code": self.reason_code,
+            "field_names": list(self.field_names),
+            "changed_field_names": list(self.field_names),
+            "compared_field_names": list(self.compared_field_names),
         }
         if self.reason_codes:
             payload["reason_codes"] = list(self.reason_codes)
@@ -376,6 +437,65 @@ def classify_replay_review_finding(
     )
 
 
+def classify_replay_metrics_only(
+    *,
+    original_cost_amount_usd: Decimal,
+    alternate_cost_amount_usd: Decimal,
+    original_latency_ms: int,
+    alternate_latency_ms: int,
+    original_token_usage: dict[str, int],
+    alternate_token_usage: dict[str, int],
+    original_provider_metadata: dict[str, Any],
+    alternate_provider_metadata: dict[str, Any],
+) -> MetricsOnlyClassification:
+    """Classify safe metric/provider-metadata deltas after semantics agree."""
+
+    mismatch_groups: list[tuple[str, tuple[str, ...]]] = []
+
+    if alternate_cost_amount_usd != original_cost_amount_usd:
+        mismatch_groups.append(("cost_amount_delta", ("metrics.cost_amount_usd",)))
+
+    if alternate_latency_ms != original_latency_ms:
+        mismatch_groups.append(("latency_delta", ("metrics.latency_ms",)))
+
+    token_fields = _changed_token_usage_field_names(
+        original_token_usage,
+        alternate_token_usage,
+    )
+    if token_fields:
+        mismatch_groups.append(("token_usage_delta", token_fields))
+
+    retry_fields = _changed_provider_metadata_field_names(
+        original_provider_metadata,
+        alternate_provider_metadata,
+        _PROVIDER_RETRY_METADATA_PATHS,
+    )
+    if retry_fields:
+        mismatch_groups.append(("retry_count_delta", retry_fields))
+
+    safe_metadata_fields = _changed_provider_metadata_field_names(
+        original_provider_metadata,
+        alternate_provider_metadata,
+        _SAFE_PROVIDER_METADATA_PATHS,
+    )
+    if safe_metadata_fields:
+        mismatch_groups.append(("provider_metadata_delta", safe_metadata_fields))
+
+    if not mismatch_groups:
+        return MetricsOnlyClassification(
+            reason_code="metrics_only_no_delta",
+            field_names=(),
+        )
+
+    reason_codes = tuple(reason for reason, _fields in mismatch_groups)
+    field_names = tuple(sorted({field for _reason, fields in mismatch_groups for field in fields}))
+    return MetricsOnlyClassification(
+        reason_code="metrics_only_delta",
+        reason_codes=reason_codes,
+        field_names=field_names,
+    )
+
+
 def provider_port_error_hard_failure(reason: str) -> HardFailClassification:
     """Classify an LLM-provider replay error without leaking provider content."""
 
@@ -597,6 +717,46 @@ def _field_name(path: tuple[str, ...]) -> str:
     return "structured_data." + ".".join(path)
 
 
+def _changed_token_usage_field_names(
+    original: dict[str, int],
+    alternate: dict[str, int],
+) -> tuple[str, ...]:
+    changed = [
+        f"metrics.token_usage.{field_name}"
+        for field_name in _TOKEN_USAGE_FIELDS
+        if _token_count(original.get(field_name)) != _token_count(alternate.get(field_name))
+    ]
+    return tuple(changed)
+
+
+def _token_count(value: object) -> int:
+    if isinstance(value, int) and value >= 0:
+        return value
+    return 0
+
+
+def _changed_provider_metadata_field_names(
+    original: dict[str, Any],
+    alternate: dict[str, Any],
+    field_paths: tuple[tuple[str, ...], ...],
+) -> tuple[str, ...]:
+    changed: list[str] = []
+    for path in field_paths:
+        original_present, original_value = _path_value(original, path)
+        alternate_present, alternate_value = _path_value(alternate, path)
+        if not (original_present or alternate_present):
+            continue
+        if _safe_metadata_value(original_value) != _safe_metadata_value(alternate_value):
+            changed.append(_provider_metadata_field_name(path))
+    return tuple(sorted(set(changed)))
+
+
+def _safe_metadata_value(value: object) -> object:
+    if isinstance(value, str | int | float | bool) or value is None:
+        return value
+    return type(value).__name__
+
+
 def _confidence_review_reason(
     expected_confidence: float | None,
     actual_confidence: float,
@@ -640,14 +800,17 @@ def _optional_string(value: object) -> str | None:
 __all__ = [
     "DECISION_FAIL_TIER",
     "HARD_FAIL_TIER",
+    "METRICS_ONLY_TIER",
     "REQUIRED_UC1_CONDUCT_HOOKS",
     "REVIEW_FINDING_TIER",
     "ComparatorStatus",
     "DecisionFailClassification",
     "HardFailClassification",
+    "MetricsOnlyClassification",
     "ReviewFindingClassification",
     "classify_replay_decision_failure",
     "classify_replay_input_hard_failure",
+    "classify_replay_metrics_only",
     "classify_replay_result_hard_failure",
     "classify_replay_review_finding",
     "provider_port_error_hard_failure",

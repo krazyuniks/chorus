@@ -85,5 +85,7 @@ available in replay-safe records. The review-finding tier is now implemented
 for non-terminal UC1 qualification divergence under the same policy snapshot:
 recommended-next-step, confidence band / material confidence delta, rationale
 presence or text-change evidence without storing rationale text, optional
-structured fields, and safe evidence-selection refs. Metrics-only tier
-semantics remain pending.
+structured fields, and safe evidence-selection refs. The metrics-only tier is
+now implemented for token, latency, retry-count, provider-cost, and safe
+provider-metadata deltas after semantic tiers agree; the comparator stores
+bounded reason codes and field names only.
