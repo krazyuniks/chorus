@@ -134,6 +134,13 @@ the adapter and exposed only as configuration: base URL, API key, model
 identifier, and provider-specific parameters such as thinking-mode toggles and
 tool-use schema variants.
 
+Before the Agent Runtime calls the provider port, it resolves the approved
+agent registry row, loads the repo-local `prompt_reference`, verifies the file
+bytes against `prompt_hash`, and prepends the loaded prompt as the system
+message. Decision-trail metadata records only safe prompt references and
+hashes; the transcript port records the full message sequence needed for
+replay.
+
 ### The route catalogue
 
 The route catalogue is the LLM provider port's metadata layer. Every captured
@@ -150,8 +157,10 @@ The OpenAI and DeepSeek identifiers, base URLs, and credential env-var names
 were verified from official provider docs on 2026-05-24; the source links and
 route-governance rule are recorded in
 [`transformation/r4-design-decisions.md`](transformation/r4-design-decisions.md).
-The active seeded runtime routes still select the local recorded-replay model
-until P3 completes schema-bound live-provider route alignment.
+The active seeded runtime routes still select the local recorded-replay model.
+Prompt loading and prompt-hash verification are active for both live routes
+and the recorded-replay-safe path; schema-bound structured output, route
+governance alignment, and replay comparison records remain P3 work.
 
 The route catalogue plus the transcript port together make cross-provider
 replay possible. Without route metadata, replay can only target the original

@@ -171,7 +171,7 @@ channel runnable status are separate claims.
 
 ### P3 - Provider And Replay Hardening
 
-- [ ] Load registered prompt references and prompt hashes into the live provider
+- [x] Load registered prompt references and prompt hashes into the live provider
   call path.
 - [ ] Pass task-specific response schemas to OpenAI-compatible routes and reject
   malformed or empty `structured_data`.
@@ -879,6 +879,56 @@ channel runnable status are separate claims.
   or require credentials, and DB-backed verification remains blocked by the
   local Postgres credential failure.
 
+### 2026-05-24 - Provider Prompt Loading And Hash Evidence
+
+- Scope: first P3 provider hardening slice for prompt-loading and prompt-hash
+  evidence only.
+- Behaviour changed:
+  - added local UC1 prompt assets under `prompts/uc1/` for classifier,
+    context gatherer, qualifier, request drafter, and validator;
+  - Agent Runtime now loads the approved repo-local `prompt_reference`, verifies
+    the file bytes against the registered `prompt_hash`, prepends the prompt as
+    a system message before the task input, and records safe prompt ref/hash
+    metadata with the decision trail;
+  - prompt hash mismatch, missing prompt, unsafe prompt reference, invalid hash,
+    non-UTF-8 prompt, and empty prompt fail before provider invocation and are
+    audited as failed runtime decisions without transcript rows;
+  - the recorded-replay eval scenario player now uses the same local prompt
+    loader so offline captured decision/transcript evidence carries real UC1
+    prompt refs and hashes instead of placeholder hashes;
+  - UC1 demo tenant seed rows and the local UC1 policy snapshot seed now carry
+    deterministic SHA-256 hashes for the new prompt assets;
+  - live provider route activation, provider selection semantics,
+    schema-bound structured-output enforcement, replay comparator records,
+    UC1 connector behaviour, UC2 / UC3 runtime work, and UI behaviour were
+    intentionally left unchanged.
+- Files changed: Agent Runtime prompt loader and runtime wiring, five UC1
+  prompt files, eval scenario prompt evidence, UC1 prompt hashes in seeds and
+  policy snapshot seed, focused runtime / eval tests, architecture / evidence /
+  runbook / invocation-authority docs, R4 design note, and this backlog
+  handoff.
+- Gates run:
+  - `uv run pytest tests/agent_runtime/test_runtime.py -q` - green, 10 passed
+    and 3 skipped because local Postgres on `localhost:5432` rejected the
+    configured `chorus` user for DB-backed runtime tests.
+  - `uv run pytest tests/workflows/test_uc1_workflow.py -q` - green, 7 passed.
+  - `uv run pytest tests/agent_runtime/test_runtime.py tests/workflows/test_uc1_workflow.py tests/eval/test_run.py -rs`
+    - green, 32 passed and 3 skipped; skipped cases were DB-backed Agent
+    Runtime tests because local Postgres rejected the configured `chorus` user.
+  - `just eval` - green for five UC1 offline eval fixtures, now with loaded
+    prompt evidence in the recorded-replay-safe transcripts.
+  - `just test-replay` - green, 2 passed and 8 deselected.
+  - `just contracts-check` - green.
+  - `just lint` - green after applying Ruff import / `__all__` fixes.
+  - `git diff --check` - green.
+- Skipped gates: `just contracts-gen` was not run because no JSON Schema
+  contracts or samples changed. Live OpenAI / DeepSeek provider calls, live
+  `just db-migrate`, full `just test`, Redpanda projection integration,
+  frontend e2e, UC2 / UC3 runtime gates, and live-provider gates were not run.
+  This slice did not activate live routes or require credentials, and
+  DB-backed verification and migration execution remain blocked by the local
+  Postgres credential failure.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -926,17 +976,17 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: start P3 Provider And Replay Hardening by loading registered prompt references and prompt hashes into the live provider call path. Keep the slice focused on prompt-loading and prompt-hash evidence only.
+Current target slice: continue P3 Provider And Replay Hardening by passing task-specific response schemas to OpenAI-compatible routes and rejecting malformed or empty `structured_data`. Keep the slice focused on schema-bound structured-output enforcement only.
 
-Previous slice completed: the remaining P0 provider verification prerequisite is closed. Official sources were verified on 2026-05-24. OpenAI uses `OPENAI_API_KEY`; the canonical demo / eval route records pinned snapshot `gpt-5.4-mini-2026-03-17` for the `gpt-5.4-mini` family. DeepSeek uses `DEEPSEEK_API_KEY`, `https://api.deepseek.com`, and `deepseek-v4-flash`; legacy `deepseek-chat` and `deepseek-reasoner` names are scheduled for deprecation on 2026-07-24. `default_route_catalogue`, disabled provider-governance seed/sample rows, frontend provider fixtures, and docs now carry those verified identifiers. Active `model_routing_policies` and `model_route_versions` still select local recorded replay; no live provider was called, no structured-output enforcement was added, and provider selection semantics were left unchanged.
+Previous slice completed: registered prompt references and hashes now load into the provider call path. The repo has UC1 prompt assets under `prompts/uc1/`; Agent Runtime verifies the loaded file bytes against the approved `agent_registry.prompt_hash`, prepends the prompt as a system message, records safe prompt ref/hash metadata, and fails before provider invocation on prompt mismatch or unsafe/missing prompt references. The recorded-replay eval scenario player now uses the same prompt loader. UC1 demo tenant seeds and `policy_snapshot:uc1:default:v1` carry deterministic prompt hashes. No live provider was called, no provider selection semantics changed, no structured-output enforcement was added, no replay comparator code was added, and UC1 connector/UI behaviour was left unchanged.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, docs/invocation-authority-context.md, contracts/llm_provider/, contracts/audit/, infrastructure/postgres/seeds/001_demo_tenants.sql, infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql, infrastructure/postgres/migrations/001_current_state_baseline.sql, and the current P3 backlog items.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/llm_provider/, contracts/audit/, infrastructure/postgres/seeds/001_demo_tenants.sql, infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql, infrastructure/postgres/migrations/001_current_state_baseline.sql, and the current P3 backlog items. If current OpenAI-compatible structured-output parameter details are needed, verify them from official provider documentation only before encoding them.
 
-Before editing, inspect the prompt and runtime surfaces: `chorus/agent_runtime/runtime.py`, `chorus/llm_provider/port.py`, `chorus/llm_provider/route_catalogue.py`, `chorus/llm_provider/adapter_openai.py`, `chorus/llm_provider/adapter_replay.py`, `chorus/persistence/audit_port.py`, `contracts/audit/agent_invocation_record.schema.json`, `contracts/audit/agent_invocation_transcript.schema.json`, `contracts/llm_provider/uc1_agent_io.schema.json`, `infrastructure/postgres/seeds/001_demo_tenants.sql`, `infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql`, `tests/agent_runtime/test_runtime.py`, `tests/workflows/test_uc1_workflow.py`, `tests/eval/test_run.py`, and relevant docs. Search for `prompt_reference`, `prompt_hash`, `agent_registry`, `InvocationMessage`, `messages`, `system`, `developer`, `structured_data`, `response_schema`, `record_transcript`, and `decision_metadata`.
+Before editing, inspect the structured-output and provider surfaces: `chorus/agent_runtime/runtime.py`, `chorus/agent_runtime/prompt_loader.py`, `chorus/llm_provider/port.py`, `chorus/llm_provider/route_catalogue.py`, `chorus/llm_provider/adapter_openai.py`, `chorus/llm_provider/adapter_replay.py`, `chorus/eval/replay.py`, `chorus/eval/scenario_player.py`, `chorus/persistence/audit_port.py`, `contracts/llm_provider/uc1_agent_io.schema.json`, `contracts/audit/agent_invocation_record.schema.json`, `contracts/audit/agent_invocation_transcript.schema.json`, `tests/agent_runtime/test_runtime.py`, `tests/eval/test_run.py`, and relevant docs. Search for `response_shape`, `response_schema`, `response_format`, `structured_data`, `json_schema`, `InvocationArgs`, `InvocationResult`, `raw_messages`, `record_transcript`, `decision_metadata`, and `malformed`.
 
-Expected direction: the Agent Runtime already resolves `prompt_reference` and `prompt_hash` from approved `agent_registry` rows and records them in decision/audit surfaces, but the provider invocation message currently sends only a summarised user input. Add a bounded prompt-loading path that can resolve approved local prompt references, verify the loaded content hash against the registered `prompt_hash`, include the prompt in the provider invocation messages for live routes and recorded-replay-safe paths, and record enough metadata for audit/transcript replay. If the repository lacks actual prompt assets or hash conventions are inconsistent, add the minimal local prompt assets and deterministic hash updates needed for UC1, or stop and surface a blocking question if multiple incompatible designs are possible.
+Expected direction: keep `InvocationArgs.response_shape` as the provider-port field and make Agent Runtime pass the UC1 task response schema to OpenAI-compatible routes without changing active provider selection. Add provider adapter handling that requests structured JSON from OpenAI-compatible chat completions, extracts the structured object into `InvocationResult.structured_data`, and raises a non-retryable provider/runtime error when the provider returns malformed JSON or an empty structured payload. Preserve the deterministic recorded-replay adapter and offline eval semantics; it may ignore `response_shape` while continuing to return valid structured data. Record enough safe metadata for audit/transcript replay, but do not store raw provider response bodies in decision metadata. If task-specific schemas cannot be represented without changing JSON Schema contracts, stop and surface the design question instead of widening the slice.
 
-Keep this slice focused. Do not implement schema-bound structured-output enforcement, add live-provider route activation, call live providers, change provider selection semantics, add replay comparator code, alter UC1 connector behaviour, implement UC2 / UC3 runtime work, change UI behaviour, or store secrets.
+Keep this slice focused. Do not activate live-provider routes, call live providers, change provider selection semantics, add replay comparator code, alter UC1 connector behaviour, implement UC2 / UC3 runtime work, change UI behaviour, or store secrets.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.

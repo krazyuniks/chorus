@@ -48,7 +48,7 @@ VALUES
         'approved',
         'agent-runtime',
         'prompts/uc1/classifier/v1.md',
-        'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        'sha256:6e25aca95c76a38b089fedbcac94316a47e18a9d2575089363f5c35f1cbcd67e',
         ARRAY['uc1', 'classification']::text[],
         '{"seed": true}'::jsonb
     ),
@@ -60,7 +60,7 @@ VALUES
         'approved',
         'agent-runtime',
         'prompts/uc1/context-gatherer/v1.md',
-        'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        'sha256:ebbbcc8091838ce2962642f3436b1188bef35fe0dc8ab67ededd475aaa683e20',
         ARRAY['uc1', 'context']::text[],
         '{"seed": true}'::jsonb
     ),
@@ -72,7 +72,7 @@ VALUES
         'approved',
         'agent-runtime',
         'prompts/uc1/qualifier/v1.md',
-        'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+        'sha256:2877d857fba0d2dc974e73968977dfd5072568b03aca9ed8adb73fab01d17f5f',
         ARRAY['uc1', 'qualification']::text[],
         '{"seed": true}'::jsonb
     ),
@@ -84,7 +84,7 @@ VALUES
         'approved',
         'agent-runtime',
         'prompts/uc1/request-drafter/v1.md',
-        'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+        'sha256:e25a62fe7137f6f88a0987cb9897417532a7a5dc807eb954a48c3b770923bcbd',
         ARRAY['uc1', 'missing_data_request']::text[],
         '{"seed": true}'::jsonb
     ),
@@ -96,7 +96,7 @@ VALUES
         'approved',
         'agent-runtime',
         'prompts/uc1/validator/v1.md',
-        'sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+        'sha256:157b1c9e3b0916bed7814bd01e912c62d38b87d4ceee9af25807f7b062fc0743',
         ARRAY['uc1', 'validation']::text[],
         '{"seed": true}'::jsonb
     ),
@@ -108,7 +108,7 @@ VALUES
         'approved',
         'agent-runtime',
         'prompts/uc1/classifier/v1.md',
-        'sha256:1111111111111111111111111111111111111111111111111111111111111111',
+        'sha256:6e25aca95c76a38b089fedbcac94316a47e18a9d2575089363f5c35f1cbcd67e',
         ARRAY['uc1', 'classification']::text[],
         '{"seed": true}'::jsonb
     ),
@@ -120,7 +120,7 @@ VALUES
         'approved',
         'agent-runtime',
         'prompts/uc1/context-gatherer/v1.md',
-        'sha256:2222222222222222222222222222222222222222222222222222222222222222',
+        'sha256:ebbbcc8091838ce2962642f3436b1188bef35fe0dc8ab67ededd475aaa683e20',
         ARRAY['uc1', 'context']::text[],
         '{"seed": true}'::jsonb
     ),
@@ -132,7 +132,7 @@ VALUES
         'approved',
         'agent-runtime',
         'prompts/uc1/qualifier/v1.md',
-        'sha256:3333333333333333333333333333333333333333333333333333333333333333',
+        'sha256:2877d857fba0d2dc974e73968977dfd5072568b03aca9ed8adb73fab01d17f5f',
         ARRAY['uc1', 'qualification']::text[],
         '{"seed": true}'::jsonb
     ),
@@ -144,7 +144,7 @@ VALUES
         'approved',
         'agent-runtime',
         'prompts/uc1/request-drafter/v1.md',
-        'sha256:4444444444444444444444444444444444444444444444444444444444444444',
+        'sha256:e25a62fe7137f6f88a0987cb9897417532a7a5dc807eb954a48c3b770923bcbd',
         ARRAY['uc1', 'missing_data_request']::text[],
         '{"seed": true}'::jsonb
     ),
@@ -156,7 +156,7 @@ VALUES
         'approved',
         'agent-runtime',
         'prompts/uc1/validator/v1.md',
-        'sha256:5555555555555555555555555555555555555555555555555555555555555555',
+        'sha256:157b1c9e3b0916bed7814bd01e912c62d38b87d4ceee9af25807f7b062fc0743',
         ARRAY['uc1', 'validation']::text[],
         '{"seed": true}'::jsonb
     )

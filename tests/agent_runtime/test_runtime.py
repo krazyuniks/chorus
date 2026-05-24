@@ -18,6 +18,7 @@ from chorus.agent_runtime import (
     AgentRuntime,
     AgentRuntimeError,
     AgentRuntimeStore,
+    PromptLoadError,
     ProviderBudgetExceededError,
     ProviderRouteResolver,
     ResolvedAgent,
@@ -48,6 +49,13 @@ ADMIN_DATABASE_URL = os.environ.get(
     "CHORUS_TEST_ADMIN_DATABASE_URL",
     "postgresql://chorus:chorus@localhost:5432/postgres",
 )
+PROMPT_HASHES = {
+    "classifier": "sha256:6e25aca95c76a38b089fedbcac94316a47e18a9d2575089363f5c35f1cbcd67e",
+    "context_gatherer": ("sha256:ebbbcc8091838ce2962642f3436b1188bef35fe0dc8ab67ededd475aaa683e20"),
+    "qualifier": "sha256:2877d857fba0d2dc974e73968977dfd5072568b03aca9ed8adb73fab01d17f5f",
+    "request_drafter": ("sha256:e25a62fe7137f6f88a0987cb9897417532a7a5dc807eb954a48c3b770923bcbd"),
+    "validator": "sha256:157b1c9e3b0916bed7814bd01e912c62d38b87d4ceee9af25807f7b062fc0743",
+}
 
 
 def _database_url(dbname: str) -> str:
@@ -105,7 +113,7 @@ def _resolution(
     agent_id: str = "uc1.request_drafter",
     task_kind: str = "missing_data_request_draft",
     prompt_reference: str = "prompts/uc1/request-drafter/v1.md",
-    prompt_hash: str = "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    prompt_hash: str = PROMPT_HASHES["request_drafter"],
     provider: str = "local",
     model: str = "uc1-happy-path-v1",
     fallback_policy: dict[str, Any] | None = None,
@@ -235,6 +243,12 @@ def test_sequential_engine_runs_pipeline_through_route_catalogue() -> None:
     assert execution.decision_metadata["route_catalogue.route_id"] == "recorded-replay"
     assert execution.decision_metadata["route_catalogue.provider_id"] == "local-replay"
     assert execution.decision_metadata["route_catalogue.adapter_version"] == "recorded-replay-v1"
+    assert execution.decision_metadata["prompt.reference"] == "prompts/uc1/request-drafter/v1.md"
+    assert execution.decision_metadata["prompt.hash"] == PROMPT_HASHES["request_drafter"]
+    assert execution.decision_metadata["prompt.hash_verified"] is True
+    assert execution.request_messages[0].role == "system"
+    assert execution.request_messages[0].content.startswith("# UC1 request drafter v1")
+    assert execution.request_messages[1].role == "user"
 
 
 def test_route_resolver_rejects_unregistered_provider() -> None:
@@ -277,7 +291,7 @@ def test_runtime_records_policy_snapshot_ref_metadata_for_qualification() -> Non
             agent_id="uc1.qualifier",
             task_kind="enquiry_qualification",
             prompt_reference="prompts/uc1/qualifier/v1.md",
-            prompt_hash="sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            prompt_hash=PROMPT_HASHES["qualifier"],
         )
     )
     runtime = AgentRuntime(store, _replay_catalogue())
@@ -304,8 +318,28 @@ def test_runtime_records_decision_trail_and_transcript_on_every_invocation() -> 
     assert transcript.route_catalogue.route_id == "recorded-replay"
     assert transcript.route_catalogue.provider_id == "local-replay"
     assert transcript.route_catalogue.adapter_version == "recorded-replay-v1"
+    assert transcript.messages[0].role.value == "system"
+    assert transcript.messages[0].content.startswith("# UC1 request drafter v1")
     assert any(message.role.value == "user" for message in transcript.messages)
     assert any(message.role.value == "assistant" for message in transcript.messages)
+
+
+def test_runtime_rejects_prompt_hash_mismatch_before_provider_call() -> None:
+    """Registry prompt hashes are enforced before invoking the provider port."""
+
+    store = RecordingRuntimeStore(_resolution(prompt_hash="sha256:" + "0" * 64))
+    runtime = AgentRuntime(store, _replay_catalogue())
+
+    with pytest.raises(PromptLoadError):
+        runtime.invoke(_request())
+
+    assert len(store.records) == 1
+    assert store.records[0].outcome.value == "failed"
+    assert store.metadata[0]["prompt.reference"] == "prompts/uc1/request-drafter/v1.md"
+    assert store.metadata[0]["prompt.hash_verified"] is False
+    assert store.metadata[0]["prompt.failure_reason"] == "prompt_hash_mismatch"
+    assert store.metadata[0]["execution.step_path"] == ["prepare_context"]
+    assert not store.transcripts
 
 
 def test_runtime_records_provider_failure_then_invokes_policy_fallback() -> None:
@@ -457,6 +491,8 @@ def test_policy_resolution_uses_registry_prompt_and_model_route(
     assert resolution.tenant.tenant_id == "tenant_demo"
     assert resolution.agent.role == "request_drafter"
     assert resolution.agent.lifecycle_state == "approved"
+    assert resolution.agent.prompt_reference == "prompts/uc1/request-drafter/v1.md"
+    assert resolution.agent.prompt_hash == PROMPT_HASHES["request_drafter"]
     assert resolution.model_route.provider == "local"
     assert resolution.model_route.model == "uc1-happy-path-v1"
 

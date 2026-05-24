@@ -22,6 +22,11 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field
 
+from chorus.agent_runtime.prompt_loader import (
+    LoadedPrompt,
+    PromptReferenceError,
+    load_registered_prompt,
+)
 from chorus.contracts.generated.audit.agent_invocation_record import AgentInvocationRecord
 from chorus.contracts.generated.audit.agent_invocation_transcript import (
     AgentInvocationTranscript,
@@ -58,6 +63,34 @@ class AgentRuntimeError(RuntimeError):
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
         self.execution_step_path: tuple[str, ...] = ()
+
+
+class PromptLoadError(AgentRuntimeError):
+    """Raised when a registry prompt reference fails local loading or hash checks."""
+
+    def __init__(
+        self,
+        *,
+        prompt_reference: str,
+        expected_hash: str,
+        reason: str,
+        actual_hash: str | None = None,
+    ) -> None:
+        self.prompt_reference = prompt_reference
+        self.expected_hash = expected_hash
+        self.actual_hash = actual_hash
+        self.reason = reason
+        super().__init__(f"Prompt {prompt_reference!r} failed local verification: {reason}")
+
+    @property
+    def decision_metadata(self) -> dict[str, Any]:
+        return {
+            "prompt.reference": self.prompt_reference,
+            "prompt.hash": self.expected_hash,
+            "prompt.content_hash": self.actual_hash,
+            "prompt.hash_verified": False,
+            "prompt.failure_reason": self.reason,
+        }
 
 
 class ProviderInvocationError(AgentRuntimeError):
@@ -220,12 +253,18 @@ class SequentialAgentExecutionEngine:
 
         step_path.append("prepare_context")
         input_summary = _summarise_mapping(request.input)
-        route_entry = self._route_resolver.resolve(resolution.model_route, self._route_catalogue)
-        args = self._build_invocation_args(
-            request=request,
-            resolution=resolution,
-            route_entry=route_entry,
-        )
+        try:
+            route_entry = self._route_resolver.resolve(
+                resolution.model_route, self._route_catalogue
+            )
+            args = self._build_invocation_args(
+                request=request,
+                resolution=resolution,
+                route_entry=route_entry,
+            )
+        except AgentRuntimeError as exc:
+            exc.execution_step_path = tuple(step_path)
+            raise
 
         step_path.append("invoke_llm_provider_port")
         try:
@@ -270,7 +309,8 @@ class SequentialAgentExecutionEngine:
             input_summary=input_summary,
             step_path=tuple(step_path),
             route_entry=route_entry,
-            decision_metadata=_execution_metadata(route_entry, tuple(step_path)),
+            decision_metadata=_execution_metadata(route_entry, tuple(step_path))
+            | _prompt_invocation_metadata(args),
             request_messages=args.messages,
         )
 
@@ -281,9 +321,14 @@ class SequentialAgentExecutionEngine:
         resolution: RuntimeResolution,
         route_entry: RouteCatalogueEntry,
     ) -> InvocationArgs:
+        prompt = _load_prompt(resolution.agent)
         return InvocationArgs(
             route_id=route_entry.route_id,
             messages=(
+                InvocationMessage(
+                    role="system",
+                    content=prompt.content,
+                ),
                 InvocationMessage(
                     role="user",
                     content=_summarise_mapping(request.input),
@@ -299,6 +344,7 @@ class SequentialAgentExecutionEngine:
                     **route_entry.parameters,
                     **resolution.model_route.parameters,
                 },
+                "prompt": prompt.metadata,
             },
         )
 
@@ -1024,7 +1070,8 @@ def _summarise_mapping(payload: dict[str, Any]) -> str:
 
 
 def _execution_metadata(
-    route_entry: RouteCatalogueEntry, step_path: tuple[str, ...]
+    route_entry: RouteCatalogueEntry,
+    step_path: tuple[str, ...],
 ) -> dict[str, Any]:
     return {
         "execution.pipeline_version": EXECUTION_PIPELINE_VERSION,
@@ -1035,6 +1082,25 @@ def _execution_metadata(
         "route_catalogue.model_id": route_entry.model_id,
         "route_catalogue.adapter_version": route_entry.adapter_version,
     }
+
+
+def _load_prompt(agent: ResolvedAgent) -> LoadedPrompt:
+    try:
+        return load_registered_prompt(agent.prompt_reference, agent.prompt_hash)
+    except PromptReferenceError as exc:
+        raise PromptLoadError(
+            prompt_reference=exc.prompt_reference,
+            expected_hash=exc.expected_hash,
+            actual_hash=exc.actual_hash,
+            reason=exc.reason,
+        ) from exc
+
+
+def _prompt_invocation_metadata(args: InvocationArgs) -> dict[str, Any]:
+    prompt_metadata = args.metadata.get("prompt")
+    if isinstance(prompt_metadata, dict):
+        return cast(dict[str, Any], prompt_metadata).copy()
+    return {}
 
 
 def _failure_decision_metadata(exc: Exception) -> dict[str, Any]:
@@ -1230,6 +1296,7 @@ __all__ = [
     "AgentRuntime",
     "AgentRuntimeError",
     "AgentRuntimeStore",
+    "PromptLoadError",
     "ProviderBudgetExceededError",
     "ProviderInvocationError",
     "ProviderRouteResolver",

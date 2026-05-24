@@ -37,8 +37,8 @@ mutation work needs a durable `authority_context_id` join.
 
 - Authority context is application policy evidence, not authentication.
 - Agent Runtime creates the agent-invocation authority context after resolving
-  tenant policy, approved agent version, prompt reference, route version, and
-  budget cap.
+  tenant policy, approved agent version, verified prompt reference and hash,
+  route version, and budget cap.
 - Tool Gateway consumes either the relevant authority fields or a future
   `authority_context_id` plus tool-authority subset; it still enforces grants,
   schemas, modes, approvals, idempotency, and redaction locally.
@@ -103,7 +103,7 @@ Field rules:
 |---|---|
 | Tenant and workflow | Values must match the activity request and persisted workflow evidence. Use stable IDs only. |
 | Invocation | `invocation_id` is minted by Agent Runtime for the specific attempt. A fallback attempt gets a new invocation ID and references the failed attempt through `parent_invocation_id`. |
-| Agent | `agent_id`, `agent_version`, `agent_role`, `prompt_reference`, and `prompt_hash` come from approved registry rows, not from model output or prompt text. |
+| Agent | `agent_id`, `agent_version`, `agent_role`, `prompt_reference`, and `prompt_hash` come from approved registry rows, not from model output or prompt text. The current runtime verifies the repo-local prompt bytes against `prompt_hash` before provider invocation. |
 | Route | `provider_id`, `model_id`, `route_id`, and `route_version` come from approved immutable route metadata. Provider credential state and secret refs are excluded. |
 | Budget | `budget_cap_usd` is the policy cap used for enforcement. Observed cost remains decision-trail evidence, not authority input. |
 | Workload | Workload references use the workload-principal IDs. They are nullable until workload-session persistence exists. |

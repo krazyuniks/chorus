@@ -21,6 +21,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
+from chorus.agent_runtime.prompt_loader import LoadedPrompt, load_registered_prompt
 from chorus.contracts.generated.eval.eval_fixture import EvalFixture
 from chorus.llm_provider import (
     InvocationArgs,
@@ -61,6 +62,20 @@ UC1_RECORDED_REPLAY_SCENARIOS = frozenset(
         *UC1_TERMINAL_ROUTE_SCENARIOS,
     }
 )
+UC1_PROMPT_REFERENCES = {
+    "classifier": "prompts/uc1/classifier/v1.md",
+    "context_gatherer": "prompts/uc1/context-gatherer/v1.md",
+    "qualifier": "prompts/uc1/qualifier/v1.md",
+    "request_drafter": "prompts/uc1/request-drafter/v1.md",
+    "validator": "prompts/uc1/validator/v1.md",
+}
+UC1_PROMPT_HASHES = {
+    "classifier": "sha256:6e25aca95c76a38b089fedbcac94316a47e18a9d2575089363f5c35f1cbcd67e",
+    "context_gatherer": ("sha256:ebbbcc8091838ce2962642f3436b1188bef35fe0dc8ab67ededd475aaa683e20"),
+    "qualifier": "sha256:2877d857fba0d2dc974e73968977dfd5072568b03aca9ed8adb73fab01d17f5f",
+    "request_drafter": ("sha256:e25a62fe7137f6f88a0987cb9897417532a7a5dc807eb954a48c3b770923bcbd"),
+    "validator": "sha256:157b1c9e3b0916bed7814bd01e912c62d38b87d4ceee9af25807f7b062fc0743",
+}
 
 # UC1 pipeline stage ordering. Each stage corresponds to one LLM provider
 # invocation and one workflow.step.* event pair in the projection stream.
@@ -476,14 +491,19 @@ def _invoke_stage(
     enquiry_input: dict[str, Any],
 ) -> None:
     started = clock.tick(milliseconds=20)
+    prompt = _prompt_for_agent_role(agent_role)
     args = InvocationArgs(
         route_id=RECORDED_REPLAY_ROUTE,
-        messages=(InvocationMessage(role="user", content=f"{task_kind} input"),),
+        messages=(
+            InvocationMessage(role="system", content=prompt.content),
+            InvocationMessage(role="user", content=f"{task_kind} input"),
+        ),
         metadata={
             "task_kind": task_kind,
             "input": enquiry_input,
             "agent_role": agent_role,
             "tenant_id": tenant_id,
+            "prompt": prompt.metadata,
         },
     )
     result = catalogue.invoke(args)
@@ -530,8 +550,8 @@ def _invoke_stage(
             agent_id=f"uc1.{agent_role}",
             agent_role=agent_role,
             agent_version="v1",
-            prompt_reference=f"prompts/uc1/{agent_role}/v1.md",
-            prompt_hash="sha256:" + "0" * 64,
+            prompt_reference=prompt.reference,
+            prompt_hash=prompt.expected_hash,
             provider=route_entry.provider_id,
             model=route_entry.model_id,
             task_kind=task_kind,
@@ -764,14 +784,19 @@ def _play_retry_exhaustion(
         "enquiry_body_text": "Retry-exhaustion fixture marker.",
     }
     started = clock.tick(milliseconds=20)
+    prompt = _prompt_for_agent_role("classifier")
     args = InvocationArgs(
         route_id=RECORDED_REPLAY_ROUTE,
-        messages=(InvocationMessage(role="user", content="enquiry_classification input"),),
+        messages=(
+            InvocationMessage(role="system", content=prompt.content),
+            InvocationMessage(role="user", content="enquiry_classification input"),
+        ),
         metadata={
             "task_kind": "enquiry_classification",
             "input": enquiry_input,
             "agent_role": "classifier",
             "tenant_id": tenant_id,
+            "prompt": prompt.metadata,
         },
     )
     try:
@@ -789,8 +814,8 @@ def _play_retry_exhaustion(
                 agent_id="uc1.classifier",
                 agent_role="classifier",
                 agent_version="v1",
-                prompt_reference="prompts/uc1/classifier/v1.md",
-                prompt_hash="sha256:" + "0" * 64,
+                prompt_reference=prompt.reference,
+                prompt_hash=prompt.expected_hash,
                 provider=route_entry.provider_id,
                 model=route_entry.model_id,
                 task_kind="enquiry_classification",
@@ -846,6 +871,10 @@ def _play_retry_exhaustion(
 def _last_decision_for_task(run: CapturedRun, task_kind: str) -> DecisionTrailRecord | None:
     matches = [decision for decision in run.decisions if decision.task_kind == task_kind]
     return matches[-1] if matches else None
+
+
+def _prompt_for_agent_role(agent_role: str) -> LoadedPrompt:
+    return load_registered_prompt(UC1_PROMPT_REFERENCES[agent_role], UC1_PROMPT_HASHES[agent_role])
 
 
 def _emit(

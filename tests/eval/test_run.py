@@ -149,6 +149,19 @@ def test_replay_classifier_transcript_matches() -> None:
     assert run.main(["replay", "--transcript", TRANSCRIPT_FIXTURE]) == 0
 
 
+def test_recorded_replay_scenario_captures_loaded_prompt_evidence() -> None:
+    fixture = run.load_fixture(FIXTURE_DIR / "uc1_happy_path.json")
+    captured = play_scenario(fixture)
+
+    decision = captured.decisions[0]
+    transcript = captured.transcripts[0]
+    assert decision.prompt_reference == "prompts/uc1/classifier/v1.md"
+    assert decision.prompt_hash.startswith("sha256:")
+    assert decision.prompt_hash != "sha256:" + "0" * 64
+    assert transcript.request_messages[0]["role"] == "system"
+    assert str(transcript.request_messages[0]["content"]).startswith("# UC1 classifier v1")
+
+
 def test_qualification_invariants_capture_conduct_hooks() -> None:
     fixture = run.load_fixture(FIXTURE_DIR / "uc1_happy_path.json")
     captured = play_scenario(fixture)

@@ -24,35 +24,35 @@ WITH snapshots AS (
               "role": "classifier",
               "version": "v1",
               "prompt_reference": "prompts/uc1/classifier/v1.md",
-              "prompt_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              "prompt_hash": "sha256:6e25aca95c76a38b089fedbcac94316a47e18a9d2575089363f5c35f1cbcd67e"
             },
             {
               "agent_id": "uc1.context_gatherer",
               "role": "context_gatherer",
               "version": "v1",
               "prompt_reference": "prompts/uc1/context-gatherer/v1.md",
-              "prompt_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              "prompt_hash": "sha256:ebbbcc8091838ce2962642f3436b1188bef35fe0dc8ab67ededd475aaa683e20"
             },
             {
               "agent_id": "uc1.qualifier",
               "role": "qualifier",
               "version": "v1",
               "prompt_reference": "prompts/uc1/qualifier/v1.md",
-              "prompt_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+              "prompt_hash": "sha256:2877d857fba0d2dc974e73968977dfd5072568b03aca9ed8adb73fab01d17f5f"
             },
             {
               "agent_id": "uc1.request_drafter",
               "role": "request_drafter",
               "version": "v1",
               "prompt_reference": "prompts/uc1/request-drafter/v1.md",
-              "prompt_hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              "prompt_hash": "sha256:e25a62fe7137f6f88a0987cb9897417532a7a5dc807eb954a48c3b770923bcbd"
             },
             {
               "agent_id": "uc1.validator",
               "role": "validator",
               "version": "v1",
               "prompt_reference": "prompts/uc1/validator/v1.md",
-              "prompt_hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+              "prompt_hash": "sha256:157b1c9e3b0916bed7814bd01e912c62d38b87d4ceee9af25807f7b062fc0743"
             }
           ],
           "model_routes": [

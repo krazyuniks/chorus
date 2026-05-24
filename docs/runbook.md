@@ -115,9 +115,12 @@ R4 live-provider route metadata is DeepSeek `deepseek-v4-flash` with
 `demo-eval-canonical` route. These identifiers and credential names were
 verified from official provider docs on 2026-05-24; source links are recorded
 in [`transformation/r4-design-decisions.md`](transformation/r4-design-decisions.md).
-R4 wires those live routes only after schema-bound structured output,
-route-governance rows, eval route selection, and required local credentials
-are aligned.
+The runtime now loads the approved repo-local `prompt_reference`, verifies the
+file bytes against `prompt_hash`, and sends the prompt as the system message
+before the user task input for both live routes and recorded-replay-safe runs.
+R4 wires live route activation only after schema-bound structured output,
+route-governance rows, eval route selection, and required local credentials are
+aligned.
 
 ### Connector port
 

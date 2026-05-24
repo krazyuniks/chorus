@@ -203,7 +203,8 @@ when discussing the route's model family.
 
 The executable route catalogue and disabled provider-governance seed rows now
 carry these identifiers and credential names. Active `model_routing_policies`
-and `model_route_versions` still select the local recorded-replay model until
-P3 adds prompt loading, schema-bound structured output enforcement, live route
-alignment, and replay comparison records. No live provider route is considered
-usable until those gates pass and required credentials are present.
+and `model_route_versions` still select the local recorded-replay model.
+Prompt loading and prompt-hash verification have landed for the provider call
+path; schema-bound structured output enforcement, live route alignment, and
+replay comparison records remain required before any live provider route is
+considered usable. Required credentials must also be present.
