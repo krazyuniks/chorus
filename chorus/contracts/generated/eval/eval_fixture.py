@@ -9,21 +9,39 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class WorkflowType(StrEnum):
     UC1_ENQUIRY_QUALIFICATION = "uc1_enquiry_qualification"
-
-
-class Scenario(StrEnum):
-    HAPPY_PATH = "happy_path"
-    DEEPER_CONTEXT = "deeper_context"
-    VALIDATOR_REDRAFT = "validator_redraft"
-    RETRY_EXHAUSTION = "retry_exhaustion"
+    UC2_LEGAL_SERVICES_INTAKE_CONFLICT_CHECK = "uc2_legal_services_intake_conflict_check"
+    UC3_IFA_SUITABILITY_INTAKE = "uc3_ifa_suitability_intake"
 
 
 class Input(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    email_fixture_path: Annotated[str | None, Field(min_length=1)] = None
-    enquiry_fixture_ref: Annotated[str | None, Field(pattern="^fixture_[A-Za-z0-9_-]+$")] = None
+    source_fixture_path: Annotated[
+        str | None,
+        Field(
+            description="Path to the synthetic intake or subject fixture for any use case.",
+            min_length=1,
+        ),
+    ] = None
+    subject_fixture_ref: Annotated[
+        str | None,
+        Field(
+            description="Use-case-neutral synthetic root-subject fixture reference.",
+            pattern="^fixture_[A-Za-z0-9_-]+$",
+        ),
+    ] = None
+    email_fixture_path: Annotated[
+        str | None,
+        Field(description="Compatibility field for the current UC1 email fixtures.", min_length=1),
+    ] = None
+    enquiry_fixture_ref: Annotated[
+        str | None,
+        Field(
+            description="Compatibility field for UC1 enquiry refs.",
+            pattern="^fixture_[A-Za-z0-9_-]+$",
+        ),
+    ] = None
     tenant_id: Annotated[str, Field(min_length=1)]
 
 
@@ -38,8 +56,16 @@ class Expected(BaseModel):
         extra="forbid",
     )
     outcome_category: Annotated[
-        OutcomeCategory, Field(description="Final disposition the scenario should reach.")
+        OutcomeCategory,
+        Field(description="Architecture-level final disposition the scenario should reach."),
     ]
+    use_case_outcome: Annotated[
+        str | None,
+        Field(
+            description="Optional use-case-domain outcome label for conduct and replay comparison.",
+            pattern="^[a-z][a-z0-9_]*$",
+        ),
+    ] = None
     max_cost_usd: Annotated[float | None, Field(ge=0.0)] = None
     max_latency_ms: Annotated[int | None, Field(ge=1)] = None
 
@@ -51,10 +77,17 @@ class EvalFixture(BaseModel):
     schema_version: Literal["1.0.0"]
     fixture_id: Annotated[str, Field(min_length=1)]
     name: Annotated[str, Field(min_length=1)]
-    workflow_type: WorkflowType
+    workflow_type: Annotated[
+        WorkflowType,
+        Field(
+            description="Workflow family on the shared spine for UC1, UC2, or UC3 eval fixtures."
+        ),
+    ]
     scenario: Annotated[
-        Scenario,
-        Field(description="Which branch the recorded-replay adapter exercises for this fixture."),
+        str,
+        Field(
+            description="Use-case-owned scenario id for eval playback.", pattern="^[a-z][a-z0-9_]*$"
+        ),
     ]
     input: Input
     expected: Expected

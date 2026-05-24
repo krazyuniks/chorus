@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
+from chorus.contracts.generated.eval.eval_fixture import EvalFixture
 from chorus.eval import run
 from chorus.eval.common_invariants import COMMON_INVARIANTS
 from chorus.eval.invariants import UC1_INVARIANTS
@@ -25,6 +28,82 @@ def test_uc1_invariant_suite_composes_common_and_conduct_modules() -> None:
     ]
     assert UC1_CONDUCT_INVARIANTS[0] in UC1_INVARIANTS
     assert set(COMMON_INVARIANTS).issubset(UC1_INVARIANTS)
+
+
+def test_eval_fixture_contract_accepts_r4_workflow_specific_scenarios() -> None:
+    cases = [
+        (
+            "uc1_enquiry_qualification",
+            "happy_path",
+            "fixture_uc1_happy_path",
+            "fixtures/uc1/happy-path.json",
+            "missing_data_request_proposed",
+        ),
+        (
+            "uc2_legal_services_intake_conflict_check",
+            "conflict_exception_approval",
+            "fixture_uc2_conflict_exception",
+            "fixtures/uc2/conflict-exception-approval.json",
+            "accept_subject_to_approval",
+        ),
+        (
+            "uc3_ifa_suitability_intake",
+            "suitability_report_approval",
+            "fixture_uc3_suitability_report",
+            "fixtures/uc3/suitability-report-approval.json",
+            "suitable_subject_to_adviser_approval",
+        ),
+    ]
+
+    for workflow_type, scenario, subject_fixture_ref, source_fixture_path, outcome in cases:
+        fixture = EvalFixture.model_validate(
+            {
+                "schema_version": "1.0.0",
+                "fixture_id": f"{workflow_type}-{scenario}",
+                "name": f"{workflow_type} {scenario}",
+                "workflow_type": workflow_type,
+                "scenario": scenario,
+                "input": {
+                    "tenant_id": "tenant_demo",
+                    "subject_fixture_ref": subject_fixture_ref,
+                    "source_fixture_path": source_fixture_path,
+                },
+                "expected": {
+                    "outcome_category": "propose",
+                    "use_case_outcome": outcome,
+                },
+            }
+        )
+
+        assert fixture.workflow_type.value == workflow_type
+        assert fixture.scenario == scenario
+        assert fixture.input.subject_fixture_ref == subject_fixture_ref
+        assert fixture.input.source_fixture_path == source_fixture_path
+        assert fixture.expected.use_case_outcome == outcome
+
+
+def test_scenario_player_rejects_non_uc1_fixtures_until_runtime_playback_lands() -> None:
+    fixture = EvalFixture.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "fixture_id": "uc2-conflict-exception-approval",
+            "name": "UC2 conflict exception approval",
+            "workflow_type": "uc2_legal_services_intake_conflict_check",
+            "scenario": "conflict_exception_approval",
+            "input": {
+                "tenant_id": "tenant_demo",
+                "subject_fixture_ref": "fixture_uc2_conflict_exception",
+                "source_fixture_path": "fixtures/uc2/conflict-exception-approval.json",
+            },
+            "expected": {
+                "outcome_category": "propose",
+                "use_case_outcome": "accept_subject_to_approval",
+            },
+        }
+    )
+
+    with pytest.raises(ValueError, match="supports only 'uc1_enquiry_qualification'"):
+        play_scenario(fixture)
 
 
 def test_assert_default_loads_every_fixture() -> None:

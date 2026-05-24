@@ -5,11 +5,12 @@
   "workflow_type": "uc1_enquiry_qualification",
   "scenario": "happy_path",
   "input": {
-    "email_fixture_path": "docs/fixtures/enquiry-motor-private.eml",
+    "source_fixture_path": "docs/fixtures/enquiry-motor-private.eml",
     "tenant_id": "tenant_demo"
   },
   "expected": {
     "outcome_category": "propose",
+    "use_case_outcome": "missing_data_request_proposed",
     "max_cost_usd": 1.25,
     "max_latency_ms": 120000
   }

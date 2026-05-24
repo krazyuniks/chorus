@@ -29,19 +29,17 @@
     },
     "workflow_type": {
       "type": "string",
+      "description": "Workflow family on the shared spine for UC1, UC2, or UC3 eval fixtures.",
       "enum": [
-        "uc1_enquiry_qualification"
+        "uc1_enquiry_qualification",
+        "uc2_legal_services_intake_conflict_check",
+        "uc3_ifa_suitability_intake"
       ]
     },
     "scenario": {
       "type": "string",
-      "description": "Which branch the recorded-replay adapter exercises for this fixture.",
-      "enum": [
-        "happy_path",
-        "deeper_context",
-        "validator_redraft",
-        "retry_exhaustion"
-      ]
+      "description": "Use-case-owned scenario id for eval playback.",
+      "pattern": "^[a-z][a-z0-9_]*$"
     },
     "input": {
       "type": "object",
@@ -50,13 +48,25 @@
         "tenant_id"
       ],
       "properties": {
+        "source_fixture_path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path to the synthetic intake or subject fixture for any use case."
+        },
+        "subject_fixture_ref": {
+          "type": "string",
+          "pattern": "^fixture_[A-Za-z0-9_-]+$",
+          "description": "Use-case-neutral synthetic root-subject fixture reference."
+        },
         "email_fixture_path": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "Compatibility field for the current UC1 email fixtures."
         },
         "enquiry_fixture_ref": {
           "type": "string",
-          "pattern": "^fixture_[A-Za-z0-9_-]+$"
+          "pattern": "^fixture_[A-Za-z0-9_-]+$",
+          "description": "Compatibility field for UC1 enquiry refs."
         },
         "tenant_id": {
           "type": "string",
@@ -73,12 +83,17 @@
       "properties": {
         "outcome_category": {
           "type": "string",
-          "description": "Final disposition the scenario should reach.",
+          "description": "Architecture-level final disposition the scenario should reach.",
           "enum": [
             "propose",
             "escalate",
             "dlq"
           ]
+        },
+        "use_case_outcome": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Optional use-case-domain outcome label for conduct and replay comparison."
         },
         "max_cost_usd": {
           "type": "number",

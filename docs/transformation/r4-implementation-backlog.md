@@ -144,7 +144,7 @@ channel runnable status are separate claims.
   DLQ, and audit payloads.
 - [x] Refactor eval into common invariants plus per-use-case conduct invariant
   modules.
-- [ ] Update fixture schema so UC1, UC2, and UC3 scenarios can be represented
+- [x] Update fixture schema so UC1, UC2, and UC3 scenarios can be represented
   without copying UC1-only enum names.
 
 ### P2 - UC1 Completion
@@ -533,6 +533,44 @@ channel runnable status are separate claims.
   live-provider gates were not run because this slice only decomposed eval
   modules and docs.
 
+### 2026-05-24 - Eval Fixture Schema Breadth
+
+- Scope: final P1 multi-use-case foundation slice for eval fixture contract
+  breadth only.
+- Files changed: eval fixture JSON Schema and sample, generated eval fixture
+  model, UC1 scenario player compatibility guard, focused eval tests, eval
+  package instructions, and this backlog handoff.
+- Behaviour changed:
+  - the eval fixture `workflow_type` contract now admits
+    `uc1_enquiry_qualification`,
+    `uc2_legal_services_intake_conflict_check`, and
+    `uc3_ifa_suitability_intake`;
+  - `scenario` is now a constrained use-case-owned identifier instead of a
+    UC1-only enum, so future UC2 and UC3 fixtures can use domain scenario
+    labels without reusing `validator_redraft` or other UC1 branch names;
+  - fixture input / expected payloads now include neutral
+    `source_fixture_path`, `subject_fixture_ref`, and `use_case_outcome`
+    fields while current UC1 compatibility fields remain valid;
+  - the offline scenario player still executes only current UC1 recorded-replay
+    scenarios and explicitly rejects non-UC1 fixtures until their runtime
+    playback slices land;
+  - current UC1 eval CLI report shape, invariant order, check names, and pass
+    outcomes were preserved.
+- Gates run:
+  - `just contracts-gen` - regenerated the eval fixture Pydantic model.
+  - `uv run pytest tests/eval/test_run.py -rs` - green, 8 passed.
+  - `just contracts-check` - green.
+  - `just eval` - green for the two current UC1 offline eval fixtures with
+    unchanged invariant names, order, and pass outcomes.
+  - `just lint` - green after sorting `__all__` and formatting the touched
+    scenario-player module.
+  - `git diff --check` - green.
+- Skipped gates: live stack, DB-backed tests, full `just test`, Temporal
+  replay beyond the focused eval replay test, frontend e2e, UC2 / UC3 runtime
+  gates, and live-provider gates were not run because this slice only widens
+  the eval fixture contract/model surface and preserves current UC1 offline
+  playback.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -580,20 +618,20 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: continue P1 multi-use-case foundation in Strategy order by updating the eval fixture schema so UC1, UC2, and UC3 scenarios can be represented without copying UC1-only enum names.
+Current target slice: start P2 UC1 Completion in Strategy order by persisting UC1 broker-firm-side refs for quoting queue, referral inbox, and decline ledger behind the existing connector adapters.
 
-Previous slice completed: eval invariants are decomposed into `chorus/eval/common_invariants.py` for architecture-wide checks, `chorus/eval/use_cases/uc1_conduct.py` for UC1 qualification conduct hooks, and `chorus/eval/invariants.py` for the current UC1 suite composition. Current UC1 eval CLI output, invariant order, check names, and outcomes were preserved.
+Previous slice completed: eval fixture schema breadth was widened without adding UC2 or UC3 runtime fixtures. `contracts/eval/eval_fixture.schema.json` now admits UC1, UC2, and UC3 workflow families, treats `scenario` as a constrained use-case-owned identifier, and adds neutral `source_fixture_path`, `subject_fixture_ref`, and `use_case_outcome` fields while current UC1 compatibility fields remain valid. `chorus/eval/scenario_player.py` still executes only current UC1 recorded-replay scenarios and rejects non-UC1 fixtures until their runtime playback lands. Current UC1 eval CLI output, invariant order, check names, and pass outcomes were preserved.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/transformation/eval-reshape-directions.md, docs/product-brief.md, docs/domain-model.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/product-brief-uc3.md, and docs/domain-model-uc3.md. Keep this slice focused on eval fixture schema breadth and current UC1 eval behaviour preservation.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief.md, docs/domain-model.md, docs/r1-adapter-mapping.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, and the current P2 backlog items. Keep this slice focused on persistence-backed UC1 broker-firm-side connector refs for quoting queue, referral inbox, and decline ledger only.
 
-Before editing, inspect `contracts/eval/eval_fixture.schema.json`, `contracts/eval/samples/eval_fixture.sample.json`, `chorus/contracts/generated/eval/eval_fixture.py`, `chorus/eval/scenario_player.py`, `chorus/eval/run.py`, `chorus/eval/common_invariants.py`, `chorus/eval/use_cases/uc1_conduct.py`, `chorus/eval/invariants.py`, `chorus/eval/AGENTS.md`, `tests/eval/test_run.py`, the current eval fixtures under `chorus/eval/fixtures/`, and searches for `WorkflowType`, `Scenario`, `OutcomeCategory`, `workflow_type`, `scenario`, `uc1_enquiry_qualification`, `happy_path`, `validator_redraft`, `retry_exhaustion`, and fixture enum coupling. Preserve the current UC1 eval CLI output and invariant outcomes while widening only the fixture contract/model vocabulary needed for UC2 and UC3 representation.
+Before editing, inspect `chorus/connectors/uc1.py`, `chorus/connectors/types.py`, `chorus/tool_gateway/gateway.py`, the UC1 connector contracts and generated models under `contracts/connector/uc1/` and `chorus/contracts/generated/connector/uc1/`, `chorus/workflows/uc1.py`, `chorus/workflows/spine.py`, `chorus/workflows/activities.py`, `chorus/persistence/`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`, `tests/tool_gateway/test_gateway.py`, `tests/workflows/test_uc1_workflow.py`, `tests/workflows/test_activities.py`, `tests/persistence/test_postgres_foundation.py`, and searches for deterministic refs such as `quote_ref`, `referral_ref`, `decline_ref`, `quoting_queue`, `referral_inbox`, `decline_ledger`, `deterministic`, and `uc1` connector persistence. Preserve current UC1 workflow and eval behaviour while moving only the broker-firm-side write connector refs behind persistence-backed local sandbox records.
 
-Keep this slice focused on eval fixture schema breadth only. Do not add UC2 or UC3 runtime fixtures, implement UC2 or UC3 scenario playback, add replay comparator code, wire provider route selection, implement UC2 or UC3 workflows/intake/connectors, broaden UI behaviour, or complete UC1 broker-firm-side connector persistence in this slice. If the schema change requires renaming generated enum classes or changing scenario-player comparisons, keep compatibility shims or focused test coverage so existing UC1 fixtures and CLI reports remain unchanged.
+Keep this slice focused on the first P2 UC1 connector-persistence item only. Do not implement UC2 or UC3 runtime work, add new provider route wiring, add replay comparator code, broaden eval fixture coverage beyond what is needed to preserve current UC1 behaviour, change UI behaviour, or complete the remaining P2 items for customer profile/product catalogue seeding, verdict routing, policy snapshot persistence, or full UC1 connector-path eval fixtures unless a tiny supporting test assertion is required for the broker-firm-side ref persistence change. If the persistence design exposes a contract or migration boundary that would materially change more than these three connector write surfaces, stop and surface the blocking question before committing.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
 - Rewrite the body of the `## Next Continuation Prompt` section in the backlog with the next slice's prompt, in Strategy order. If R4 is fully closed, write the literal `R4-COMPLETE` there instead.
-- Run relevant focused gates for the files touched, including `just contracts-gen`, `just contracts-check`, focused eval tests, `just eval`, and `git diff --check`. If a documented gate cannot run because the live stack is unavailable, record the skipped gate and reason.
+- Run relevant focused gates for the files touched, likely including `just contracts-gen` and `just contracts-check` if connector contracts change, focused connector / workflow / persistence tests, `just eval` if UC1 eval behaviour is affected, `just lint`, and `git diff --check`. If DB-backed gates cannot run because local Postgres or another live-stack dependency is unavailable, record the skipped gate and reason.
 - Stage everything and create one Conventional Commit (`type(scope): description`). Do not add `Co-Authored-By` or any AI attribution.
 - Leave the working tree clean.
 

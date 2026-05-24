@@ -21,7 +21,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
-from chorus.contracts.generated.eval.eval_fixture import EvalFixture, Scenario
+from chorus.contracts.generated.eval.eval_fixture import EvalFixture
 from chorus.llm_provider import (
     InvocationArgs,
     InvocationMessage,
@@ -37,6 +37,19 @@ RECORDED_REPLAY_ROUTE = "recorded-replay"
 RECORDED_REPLAY_PROVIDER = "local"
 RECORDED_REPLAY_MODEL = "uc1-happy-path-v1"
 RECORDED_REPLAY_BUDGET_USD = Decimal("0.05")
+UC1_WORKFLOW_TYPE = "uc1_enquiry_qualification"
+UC1_SCENARIO_HAPPY_PATH = "happy_path"
+UC1_SCENARIO_DEEPER_CONTEXT = "deeper_context"
+UC1_SCENARIO_VALIDATOR_REDRAFT = "validator_redraft"
+UC1_SCENARIO_RETRY_EXHAUSTION = "retry_exhaustion"
+UC1_RECORDED_REPLAY_SCENARIOS = frozenset(
+    {
+        UC1_SCENARIO_HAPPY_PATH,
+        UC1_SCENARIO_DEEPER_CONTEXT,
+        UC1_SCENARIO_VALIDATOR_REDRAFT,
+        UC1_SCENARIO_RETRY_EXHAUSTION,
+    }
+)
 
 # UC1 pipeline stage ordering. Each stage corresponds to one LLM provider
 # invocation and one workflow.step.* event pair in the projection stream.
@@ -149,6 +162,19 @@ def play_scenario(
 ) -> CapturedRun:
     """Drive a fixture's scenario through the recorded-replay adapter."""
 
+    workflow_type = _string_value(fixture.workflow_type)
+    if workflow_type != UC1_WORKFLOW_TYPE:
+        raise ValueError(
+            "offline recorded-replay playback currently supports only "
+            f"{UC1_WORKFLOW_TYPE!r}; got {workflow_type!r}"
+        )
+
+    scenario = _string_value(fixture.scenario)
+    if scenario not in UC1_RECORDED_REPLAY_SCENARIOS:
+        raise ValueError(
+            f"offline recorded-replay playback does not support UC1 scenario {scenario!r}"
+        )
+
     catalogue = route_catalogue or default_route_catalogue()
     correlation_id = f"cor_eval_{fixture.fixture_id.replace('-', '_')}"
     workflow_id = f"uc1-eval-{fixture.fixture_id}"
@@ -188,8 +214,7 @@ def play_scenario(
         payload={"subject_summary": "intake payload"},
     )
 
-    scenario = fixture.scenario
-    if scenario == Scenario.RETRY_EXHAUSTION:
+    if scenario == UC1_SCENARIO_RETRY_EXHAUSTION:
         _play_retry_exhaustion(
             run,
             catalogue,
@@ -206,7 +231,7 @@ def play_scenario(
     enquiry_input = _enquiry_input_for(scenario)
 
     for agent_role, task_kind in PIPELINE_STAGES:
-        if scenario == Scenario.VALIDATOR_REDRAFT and task_kind in {
+        if scenario == UC1_SCENARIO_VALIDATOR_REDRAFT and task_kind in {
             "missing_data_request_draft",
             "missing_data_request_validation",
         }:
@@ -242,7 +267,7 @@ def play_scenario(
             )
             continue
 
-        if scenario == Scenario.DEEPER_CONTEXT and task_kind == "enquiry_classification":
+        if scenario == UC1_SCENARIO_DEEPER_CONTEXT and task_kind == "enquiry_classification":
             attempt_one = {**enquiry_input, "classification_attempt": 1}
             _invoke_stage(
                 run,
@@ -317,15 +342,15 @@ def play_scenario(
     return run
 
 
-def _enquiry_input_for(scenario: Scenario) -> dict[str, Any]:
-    if scenario == Scenario.DEEPER_CONTEXT:
+def _enquiry_input_for(scenario: str) -> dict[str, Any]:
+    if scenario == UC1_SCENARIO_DEEPER_CONTEXT:
         return {
             "enquiry_subject": "Motor cover enquiry (deeper-context fixture)",
             "enquiry_body_text": (
                 "Hi, I would like a quote for my car. Deeper-context fixture marker."
             ),
         }
-    if scenario == Scenario.VALIDATOR_REDRAFT:
+    if scenario == UC1_SCENARIO_VALIDATOR_REDRAFT:
         return {
             "enquiry_subject": "Motor cover enquiry (validator-redraft fixture)",
             "enquiry_body_text": (
@@ -661,7 +686,7 @@ def _emit(
             correlation_id=correlation_id,
             workflow_id=workflow_id,
             tenant_id=tenant_id,
-            workflow_type="uc1_enquiry_qualification",
+            workflow_type=UC1_WORKFLOW_TYPE,
             subject_id=subject_id,
             subject_ref=subject_ref,
             sequence=sequence,
@@ -675,6 +700,10 @@ def _emit(
 
 def _summarise(payload: dict[str, Any]) -> str:
     return ", ".join(f"{key}={payload[key]}" for key in sorted(payload))
+
+
+def _string_value(value: object) -> str:
+    return str(getattr(value, "value", value))
 
 
 class _SequenceCursor:
@@ -703,6 +732,8 @@ __all__ = [
     "RECORDED_REPLAY_MODEL",
     "RECORDED_REPLAY_PROVIDER",
     "RECORDED_REPLAY_ROUTE",
+    "UC1_RECORDED_REPLAY_SCENARIOS",
+    "UC1_WORKFLOW_TYPE",
     "CapturedRun",
     "DecisionTrailRecord",
     "ProjectionEvent",
