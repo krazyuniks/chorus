@@ -47,6 +47,9 @@ Production deployment is out of scope for the local POC.
 - [../product-brief-uc2.md](../product-brief-uc2.md) and
   [../domain-model-uc2.md](../domain-model-uc2.md) define the UC2 legal
   services intake and conflict-check product / domain scope.
+- [../product-brief-uc3.md](../product-brief-uc3.md) and
+  [../domain-model-uc3.md](../domain-model-uc3.md) define the UC3 independent
+  financial advice suitability product / domain scope.
 - [code-refactor-directions.md](code-refactor-directions.md) names the code
   direction required to keep the implementation aligned with the thesis.
 - [eval-reshape-directions.md](eval-reshape-directions.md) shifts eval from

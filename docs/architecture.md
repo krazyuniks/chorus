@@ -19,7 +19,9 @@ that document and the rest of the reset bundle in
 worked UC1 use case see [`product-brief.md`](product-brief.md) and
 [`domain-model.md`](domain-model.md); for the modelled UC2 use case see
 [`product-brief-uc2.md`](product-brief-uc2.md) and
-[`domain-model-uc2.md`](domain-model-uc2.md). For how each use case exercises
+[`domain-model-uc2.md`](domain-model-uc2.md); for the modelled UC3 use case see
+[`product-brief-uc3.md`](product-brief-uc3.md) and
+[`domain-model-uc3.md`](domain-model-uc3.md). For how each use case exercises
 the ports see [`r1-adapter-mapping.md`](r1-adapter-mapping.md).
 
 This document describes the architecture the project carries today. R3
@@ -62,9 +64,8 @@ flowchart TB
 ```
 
 The adapter inventory behind each port, as defined by the R1 adapter mapping
-and R4 product/domain artefacts. UC1 is the current runnable worked set, UC2 is
-modelled for R4 implementation, and UC3 is confirmed pending its R4 product
-brief and domain model.
+and R4 product/domain artefacts. UC1 is the current runnable worked set; UC2
+and UC3 are modelled for later R4 implementation.
 
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|

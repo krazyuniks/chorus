@@ -42,8 +42,9 @@ Chorus starts R4 from:
 
 The known gaps are intentional R4 surfaces:
 
-- UC2 has a full product brief and domain model; UC3 still has confirmation
-  and adapter deltas only, not full product or domain artefacts;
+- UC2 and UC3 have product briefs and domain models; runtime implementation
+  for both still waits for shared-surface generalisation, UC1 connector
+  persistence completion, and provider / replay hardening;
 - UC1 connector persistence and verdict routing need to be completed beyond
   deterministic refs;
 - the projection schema, DB constraints, gateway approval packaging, and eval
@@ -119,15 +120,15 @@ channel runnable status are separate claims.
     and eval route selection stay aligned.
 - [x] Write `docs/product-brief-uc2.md`.
 - [x] Write `docs/domain-model-uc2.md`.
-- [ ] Write `docs/product-brief-uc3.md`.
-- [ ] Write `docs/domain-model-uc3.md`.
-- [ ] Verify current SRA/FCA regulatory references from official sources for
+- [x] Write `docs/product-brief-uc3.md`.
+- [x] Write `docs/domain-model-uc3.md`.
+- [x] Verify current SRA/FCA regulatory references from official sources for
   UC2 and UC3 before encoding them as conduct hooks.
   - [x] UC2 SRA and UK AML sources verified from official sources on
     2026-05-24 in `docs/product-brief-uc2.md` and
     `docs/domain-model-uc2.md`.
-  - [ ] UC3 FCA sources remain to be verified in the UC3 product/domain
-    slice.
+  - [x] UC3 FCA sources verified from official sources on 2026-05-24 in
+    `docs/product-brief-uc3.md` and `docs/domain-model-uc3.md`.
 - [ ] Verify exact OpenAI and DeepSeek model identifiers and credential names
   before live-provider route wiring.
 
@@ -306,6 +307,37 @@ channel runnable status are separate claims.
   documentation and backlog / pointer updates. No contracts, runtime code,
   connectors, routes, replay code, or database schema changed.
 
+### 2026-05-24 - UC3 Product Brief And Domain Model
+
+- Scope: UC3 independent financial advice suitability intake product/domain
+  preflight.
+- Files changed: `docs/product-brief-uc3.md`,
+  `docs/domain-model-uc3.md`, top-level UC3 documentation pointers,
+  `docs/r1-adapter-mapping.md`, and this backlog handoff.
+- Regulatory references verified from official FCA sources:
+  - COBS 2.1 client best interests.
+  - COBS 6.1A adviser charging and COBS 6.2B independent / restricted advice
+    service disclosure, sufficient range, focused independent advice, and
+    selection process requirements.
+  - COBS 9.2 suitability obligations, COBS 9.4 suitability report evidence,
+    COBS 9.5 / COBS Sch 1 suitability record references, and COBS 9A noted as
+    out of local POC runtime scope unless later added with fresh verification.
+  - PROD 3 product governance for distributor understanding, target-market
+    compatibility, distribution strategy, information from manufacturers, and
+    review.
+  - PRIN 2 Principle 12 and PRIN 2A Consumer Duty cross-cutting obligations,
+    outcomes, consumer understanding, support, expected standards, and outcome
+    monitoring.
+  - FCA MiFID II retail investment advice firms page, FCA FG21/1 vulnerable
+    customers guidance, FCA glossary refs for retail investment product /
+    activity / independent advice, and PERG 13.3 personal recommendation.
+- Gates run:
+  - `git diff --check` - green.
+- Skipped gates: `just doctor`, `just contracts-check`, `just test`, replay,
+  eval, frontend, and e2e gates were not run because this slice only adds UC3
+  documentation and backlog / pointer updates. No contracts, runtime code,
+  connectors, provider routes, replay code, or database schema changed.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -353,16 +385,16 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: write the UC3 product brief and UC3 domain model in Strategy order. Create docs/product-brief-uc3.md and docs/domain-model-uc3.md.
+Current target slice: begin P1 multi-use-case foundation in Strategy order by widening projection contracts and DB constraints beyond `uc1_enquiry_qualification` and `enq_` subject refs.
 
-Before encoding UC3 conduct hooks, verify current FCA, COBS 9 suitability, PROD, Consumer Duty, and UK retail investment advice references from official sources. Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md. Keep this slice focused on UC3 docs and matching backlog/docs updates. Do not implement UC3 contracts, workflow code, connector adapters, provider routes, replay code, or database schema changes in this slice.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief.md, docs/domain-model.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/product-brief-uc3.md, and docs/domain-model-uc3.md. Keep the slice focused on projection contract / schema / DB-constraint generalisation and matching docs/backlog updates. Do not implement UC2 or UC3 workflows, intake contracts, connector adapters, provider routes, replay comparator code, or business-specific UI breadth in this slice.
 
-The UC3 brief/model must cover actors and roles, inbound artefacts, lifecycle records and state machine, commands and events, value objects and safe refs, approval points, policies and conduct invariants, connector inventory, failure/escalation paths, field placement across ports, banned/ambiguous terms, and R4 local POC boundaries.
+Before editing, inspect the current projection contracts, Postgres baseline, projection persistence, BFF projection readers, projection tests, and any doctor / evidence references that enforce `uc1_enquiry_qualification` workflow type or `enq_` subject refs. Generalise only the shared projection surfaces needed for UC1, UC2, and UC3 subject/workflow identifiers; preserve UC1 behaviour and existing tests.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
 - Rewrite the body of the `## Next Continuation Prompt` section in the backlog with the next slice's prompt, in Strategy order. If R4 is fully closed, write the literal `R4-COMPLETE` there instead.
-- Run `git diff --check`.
+- Run relevant focused gates for the files touched, including `git diff --check` and `just contracts-check` if contract files change. If a documented gate cannot run because the live stack is unavailable, record the skipped gate and reason.
 - Stage everything and create one Conventional Commit (`type(scope): description`). Do not add `Co-Authored-By` or any AI attribution.
 - Leave the working tree clean.
 

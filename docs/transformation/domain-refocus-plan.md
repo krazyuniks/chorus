@@ -16,8 +16,8 @@ ports.
 | Slot | Use case | Regulator | R4 state |
 |---|---|---|---|
 | UC1 | UK personal-lines insurance broking inbound quote qualification. | FCA general insurance distribution: ICOBS, PROD 4, Consumer Duty. | Product brief and domain model exist; runnable path exists; connector persistence and full verdict routing are R4 work. |
-| UC2 | UK legal services intake and conflict check for a corporate / commercial practice area. | SRA Code of Conduct, conflict-of-interest rules, AML obligations. | Confirmed; full product brief and domain model are R4 prerequisites. |
-| UC3 | UK independent financial advice inbound enquiry. | FCA retail investment advice: COBS 9 suitability, PROD, Consumer Duty. | Confirmed; full product brief and domain model are R4 prerequisites. |
+| UC2 | UK legal services intake and conflict check for a corporate / commercial practice area. | SRA Code of Conduct, conflict-of-interest rules, AML obligations. | Product brief and domain model exist; runtime implementation is later R4 work. |
+| UC3 | UK independent financial advice inbound enquiry. | FCA retail investment advice: COBS 9 suitability, PROD, Consumer Duty. | Product brief and domain model exist; runtime implementation is later R4 work. |
 
 The use cases are not independent products. They prove whether the same
 workflow spine and named ports can carry different regulated business
@@ -36,7 +36,8 @@ contexts.
 
 ## Domain Model Requirements
 
-Each use case needs a product brief and domain model before runtime work:
+Each use case has a product brief and domain model before runtime work. Those
+artefacts define:
 
 - actors and roles;
 - inbound artefacts;
