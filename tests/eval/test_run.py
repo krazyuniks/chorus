@@ -23,10 +23,15 @@ def test_uc1_invariant_suite_composes_common_and_conduct_modules() -> None:
         "assert_audit_completeness",
         "assert_observability_emission",
         "assert_uc1_qualification_invariants",
+        "assert_uc1_terminal_connector_routing",
         "assert_connector_authority_discipline",
         "assert_projection_convergence",
     ]
-    assert UC1_CONDUCT_INVARIANTS[0] in UC1_INVARIANTS
+    assert [invariant.__name__ for invariant in UC1_CONDUCT_INVARIANTS] == [
+        "assert_uc1_qualification_invariants",
+        "assert_uc1_terminal_connector_routing",
+    ]
+    assert set(UC1_CONDUCT_INVARIANTS).issubset(UC1_INVARIANTS)
     assert set(COMMON_INVARIANTS).issubset(UC1_INVARIANTS)
 
 
@@ -128,6 +133,18 @@ def test_assert_uc1_validator_redraft_fixture_passes_offline() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "fixture_name",
+    [
+        "uc1_accepted_routing.json",
+        "uc1_referred_routing.json",
+        "uc1_declined_routing.json",
+    ],
+)
+def test_assert_uc1_terminal_routing_fixtures_pass_offline(fixture_name: str) -> None:
+    assert run.main(["assert", "--fixture", str(FIXTURE_DIR / fixture_name)]) == 0
+
+
 def test_replay_classifier_transcript_matches() -> None:
     assert run.main(["replay", "--transcript", TRANSCRIPT_FIXTURE]) == 0
 
@@ -146,3 +163,61 @@ def test_qualification_invariants_capture_conduct_hooks() -> None:
     ):
         assert hook in qualifier.structured_data
     assert qualifier.structured_data.get("policy_snapshot_ref")
+
+
+@pytest.mark.parametrize(
+    ("fixture_name", "category", "tool_name", "route_ref_key", "route_ref_prefix"),
+    [
+        (
+            "uc1_accepted_routing.json",
+            "accept",
+            "crm.route_to_quoting_queue",
+            "queued_route_ref",
+            "qroute_",
+        ),
+        (
+            "uc1_referred_routing.json",
+            "refer",
+            "referral_inbox.route",
+            "referral_route_ref",
+            "rroute_",
+        ),
+        (
+            "uc1_declined_routing.json",
+            "decline",
+            "decline_ledger.route",
+            "decline_route_ref",
+            "droute_",
+        ),
+    ],
+)
+def test_terminal_routing_fixtures_capture_connector_path(
+    fixture_name: str,
+    category: str,
+    tool_name: str,
+    route_ref_key: str,
+    route_ref_prefix: str,
+) -> None:
+    fixture = run.load_fixture(FIXTURE_DIR / fixture_name)
+    captured = play_scenario(fixture)
+
+    qualifier = next(
+        decision for decision in captured.decisions if decision.task_kind == "enquiry_qualification"
+    )
+    assert qualifier.structured_data["qualification_verdict_category"] == category
+
+    action = next(action for action in captured.tool_actions if action.tool_name == tool_name)
+    assert action.actor_id == "uc1.qualifier"
+    assert action.requested_mode == "write"
+    assert action.enforced_mode == "write"
+    assert action.verdict == "allow"
+    assert action.approval_required is False
+    assert action.output[route_ref_key].startswith(route_ref_prefix)
+
+    completed_route_step = next(
+        event
+        for event in captured.projection_events
+        if event.event_type == "workflow.step.completed"
+        and event.payload.get("tool_name") == tool_name
+    )
+    assert completed_route_step.payload["routing_ref"] == action.output[route_ref_key]

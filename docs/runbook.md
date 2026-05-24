@@ -141,8 +141,9 @@ Customer-profile and product-catalogue reads resolve tenant-scoped synthetic
 rows from the local Postgres seeds. The emitted
 `policy_snapshot:uc1:default:v1` ref resolves to an immutable local
 `policy_snapshots` row containing safe refs for agents, routes, grants,
-connector policies, target-market checks, and conduct hooks. Full
-connector-path eval fixtures remain P2 work.
+connector policies, target-market checks, and conduct hooks. The offline
+eval suite covers the missing-data outbound path plus accepted, referred,
+and declined terminal connector routing.
 
 ### Audit / transcript ports
 
@@ -240,12 +241,13 @@ not change.
    sinks).** `just relay-once && just project-once`, then inspect the run in
    the BFF or frontend and in Grafana by `correlation_id`.
 
-8. **Cross-provider replay-eval (closing step).** `just eval` runs the eval
-   fixtures. Cross-provider replay-eval - re-running a captured transcript
-   against an alternate route and comparing the result - is the closing eval
-   step. R3 lands the recorded-replay subcommand and the invariant-based eval
-   suite; R4 extends that into live cross-provider replay. The target shape is
-   in
+8. **Cross-provider replay-eval (closing step).** `just eval` runs the UC1
+   invariant fixtures, including missing-data outbound communication and the
+   accepted, referred, and declined terminal connector routes. Cross-provider
+   replay-eval - re-running a captured transcript against an alternate route
+   and comparing the result - is the closing eval step. R3 lands the
+   recorded-replay subcommand and the invariant-based eval suite; R4 extends
+   that into live cross-provider replay. The target shape is in
    [`transformation/eval-reshape-directions.md`](transformation/eval-reshape-directions.md).
 
 ## Common failure modes

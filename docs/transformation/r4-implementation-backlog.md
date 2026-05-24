@@ -156,7 +156,7 @@ channel runnable status are separate claims.
 - [x] Route accepted, referred, declined, and missing-data verdicts through the
   appropriate connector paths.
 - [x] Materialise the UC1 policy snapshot row behind `policy_snapshot_ref`.
-- [ ] Add eval fixtures and invariants that prove the full UC1 connector path,
+- [x] Add eval fixtures and invariants that prove the full UC1 connector path,
   not only outbound missing-data messaging.
 
 ### P3 - Provider And Replay Hardening
@@ -770,6 +770,54 @@ channel runnable status are separate claims.
   live-provider gates were not run. DB-backed verification and migration
   execution remain blocked by the local Postgres credential failure.
 
+### 2026-05-24 - UC1 Full Connector-Path Eval Evidence
+
+- Scope: final P2 UC1 completion slice for eval fixtures and invariants
+  proving accepted, referred, and declined connector routing alongside the
+  existing missing-data outbound path.
+- Files changed: UC1 eval scenario player, common connector-authority
+  invariant, UC1 conduct invariants, invariant composition, deterministic
+  recorded-replay adapter, three UC1 terminal-routing eval fixtures, focused
+  eval tests, evidence/runbook docs, and this backlog handoff.
+- Behaviour changed:
+  - `chorus/eval/fixtures/uc1_accepted_routing.json`,
+    `chorus/eval/fixtures/uc1_referred_routing.json`, and
+    `chorus/eval/fixtures/uc1_declined_routing.json` now drive deterministic
+    recorded-replay UC1 qualification branches for `accept`, `refer`, and
+    `decline`;
+  - the offline scenario player emits Tool Gateway audit and projection
+    evidence for `crm.route_to_quoting_queue`, `referral_inbox.route`, and
+    `decline_ledger.route`, including the returned `queued_route_ref`,
+    `referral_route_ref`, or `decline_route_ref`;
+  - UC1 conduct invariants now assert the terminal route category, expected
+    connector tool, write-mode Tool Gateway authority without human approval,
+    returned broker-side route ref/status, and route projection join;
+  - the common connector-authority invariant now distinguishes internal
+    write-mode connector routes allowed by grant from approval-required
+    outbound customer communication;
+  - existing missing-data fixtures still exercise the draft/validation path,
+    proposal-mode `outbound_comms.message`, and approval-required write apply.
+- Gates run:
+  - `uv run pytest tests/eval/test_run.py -q` - green, 14 passed.
+  - `just eval` - green for five UC1 offline eval fixtures: accepted routing,
+    referred routing, declined routing, happy-path missing-data outbound, and
+    validator-redraft missing-data outbound.
+  - `just contracts-check` - green.
+  - `uv run pytest tests/connectors/test_uc1_connectors.py tests/workflows/test_uc1_workflow.py tests/workflows/test_activities.py tests/persistence/test_postgres_foundation.py -rs`
+    - 16 passed and 16 skipped; skipped cases were DB-backed because local
+    Postgres on `localhost:5432` rejected the configured `chorus` user.
+  - `uv run pytest tests/agent_runtime/test_runtime.py -q` - green, 9 passed
+    and 3 skipped because local Postgres rejected the configured `chorus`
+    user for DB-backed runtime tests.
+  - `just test-replay` - green, 2 passed and 8 deselected.
+  - `just lint` - green after fixing the scenario-player default-factory type.
+  - `git diff --check` - green.
+- Skipped gates: `just contracts-gen` was not run because no JSON Schema
+  contracts changed. Live `just db-migrate`, full `just test`, Redpanda
+  projection integration, frontend e2e, UC2 / UC3 runtime gates, and
+  live-provider gates were not run. DB-backed verification and migration
+  execution remain blocked by the local Postgres credential failure.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -817,20 +865,20 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: finish P2 UC1 Completion in Strategy order by adding eval fixtures and invariants that prove the full UC1 connector path, not only outbound missing-data messaging.
+Current target slice: close the remaining P0 verification prerequisite in Strategy order by verifying the exact OpenAI and DeepSeek model identifiers and credential names before live-provider route wiring. This unblocks P3 Provider And Replay Hardening; keep the slice focused on verification and documentation/config alignment only.
 
-Previous slice completed: the local UC1 policy snapshot ref is now materialised. `policy_snapshots` is an immutable tenant-scoped Postgres table with RLS and read grants; `infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql` materialises `policy_snapshot:uc1:default:v1` for `tenant_demo` as a safe-ref bundle covering UC1 agents/prompts, local model route refs, Tool Gateway grant refs, connector policy refs, target-market refs, and bounded conduct-hook refs. `PolicySnapshotStore.snapshot` includes policy snapshot rows, `PolicySnapshotStore.get_policy_snapshot` reads a specific ref, and successful Agent Runtime decisions that emit `policy_snapshot_ref` now carry `policy_snapshot.ref` in decision metadata. Connector contracts, Tool Gateway authority, outbound-comms approval semantics, read-connector seed data, provider route selection, verdict connector routing, UC2 / UC3 runtime scope, replay comparator code, and UI behaviour were left unchanged.
+Previous slice completed: P2 UC1 Completion is closed. The eval suite now includes `uc1_accepted_routing.json`, `uc1_referred_routing.json`, and `uc1_declined_routing.json` fixtures in addition to the existing missing-data outbound fixtures. `chorus/eval/use_cases/uc1_conduct.py` asserts the expected terminal route category, Tool Gateway write authority, returned broker-side route ref/status, and route projection join for `crm.route_to_quoting_queue`, `referral_inbox.route`, and `decline_ledger.route`. The common connector-authority invariant now distinguishes internal write-mode routes allowed by grant from approval-required outbound customer communication. Existing missing-data fixture semantics, outbound-comms approval behaviour, connector contracts, UC2 / UC3 runtime scope, replay comparator code, and UI behaviour were left unchanged.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief.md, docs/domain-model.md, docs/r1-adapter-mapping.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, docs/transformation/eval-reshape-directions.md, and the current P2 backlog items. Keep this slice focused on the final P2 item only: eval evidence for the full UC1 connector path.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/llm_provider/, infrastructure/postgres/seeds/, infrastructure/postgres/migrations/001_current_state_baseline.sql, the remaining P0 verification item, and the current P3 backlog items. Because provider model identifiers and credential names are temporally unstable, verify current OpenAI details from official OpenAI sources only and current DeepSeek details from official DeepSeek sources only; record concrete dates and source links in the relevant project docs you update.
 
-Before editing, inspect `chorus/eval/scenario_player.py`, `chorus/eval/common_invariants.py`, `chorus/eval/use_cases/uc1_conduct.py`, `chorus/eval/invariants.py`, `chorus/eval/fixtures/`, `tests/eval/test_run.py`, `chorus/workflows/uc1.py`, `chorus/llm_provider/adapter_replay.py`, `chorus/connectors/uc1.py`, `chorus/persistence/uc1_connectors.py`, `chorus/tool_gateway/gateway.py`, `tests/workflows/test_uc1_workflow.py`, `tests/connectors/test_uc1_connectors.py`, and searches for `qualification_verdict_category`, `crm.route_to_quoting_queue`, `referral_inbox.route`, `decline_ledger.route`, `queued_route_ref`, `referral_route_ref`, `decline_route_ref`, `policy_snapshot_ref`, `policy_snapshot:uc1:default:v1`, `missing_data`, `outbound_comms.message`, and `connector write authority`. Preserve the existing Tool Gateway authority path, approval-required outbound-comms behaviour, read-connector seeding, provider route selection, verdict connector routing, policy snapshot row, and current missing-data eval fixture semantics while adding the smallest eval fixture/invariant coverage needed to prove accepted, referred, and declined connector routing.
+Before editing, inspect the provider route code and governance surfaces: `chorus/llm_provider/route_catalogue.py`, `chorus/llm_provider/adapter_openai.py`, `chorus/llm_provider/adapter_replay.py`, `chorus/agent_runtime/runtime.py`, `contracts/llm_provider/provider_catalogue.schema.json`, `contracts/llm_provider/model_route_version.schema.json`, `contracts/llm_provider/samples/`, `infrastructure/postgres/seeds/002_provider_governance.sql`, `infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql`, `docs/transformation/r4-design-decisions.md`, `docs/transformation/eval-reshape-directions.md`, `docs/architecture.md`, `docs/evidence-map.md`, and `docs/runbook.md`. Search for `gpt`, `deepseek`, `OPENAI`, `DEEPSEEK`, `credential`, `model_route`, `provider_catalogue`, `default_route_catalogue`, `response_schema`, and `structured_data`.
 
-Keep this slice focused on UC1 eval fixture/invariant coverage only. Do not implement UC2 or UC3 runtime work, add new provider route wiring, add replay comparator code beyond fixture/invariant needs, change UI behaviour, change connector contracts unless the existing fixture schema cannot represent the evidence, alter approval semantics for outbound customer comms, or store real customer data. If proving the full connector path requires changing cross-port contracts, bypassing the Tool Gateway or LLM provider port, replacing the invariant-plus-replay eval model with path enumeration, or broadening into live-provider replay, stop and surface the blocking question before committing.
+Keep this slice focused on provider/model/credential verification. Do not implement UC2 or UC3 runtime work, add live-provider route wiring, change provider selection semantics, add structured-output enforcement, add replay comparator code, change UI behaviour, change connector contracts, call live providers, or store secrets. If official sources do not identify a stable model id or credential naming convention clearly enough to encode, stop and surface the blocking question before committing.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
 - Rewrite the body of the `## Next Continuation Prompt` section in the backlog with the next slice's prompt, in Strategy order. If R4 is fully closed, write the literal `R4-COMPLETE` there instead.
-- Run relevant focused gates for the files touched, likely including `just contracts-gen` and `just contracts-check` if eval or connector contracts change, focused eval / connector / workflow / persistence tests, `just test-replay` if deterministic workflow history changes, `just eval`, `just lint`, and `git diff --check`. If DB-backed gates cannot run because local Postgres or another live-stack dependency is unavailable, record the skipped gate and reason.
+- Run relevant focused gates for the files touched, likely including `just contracts-gen` and `just contracts-check` if provider contracts or samples change, focused provider/runtime/eval tests, `just eval` if route/eval selection docs or fixtures change, `just lint`, and `git diff --check`. If DB-backed or live-provider gates cannot run because local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
 - Stage everything and create one Conventional Commit (`type(scope): description`). Do not add `Co-Authored-By` or any AI attribution.
 - Leave the working tree clean.
 

@@ -20,7 +20,10 @@ from chorus.eval.common_invariants import (
 )
 from chorus.eval.scenario_player import CapturedRun
 from chorus.eval.types import EvalCheck, EvalStatus
-from chorus.eval.use_cases.uc1_conduct import assert_uc1_qualification_invariants
+from chorus.eval.use_cases.uc1_conduct import (
+    assert_uc1_qualification_invariants,
+    assert_uc1_terminal_connector_routing,
+)
 
 Invariant = Callable[[CapturedRun], list[EvalCheck]]
 
@@ -31,6 +34,7 @@ UC1_INVARIANTS: tuple[Invariant, ...] = (
     assert_audit_completeness,
     assert_observability_emission,
     assert_uc1_qualification_invariants,
+    assert_uc1_terminal_connector_routing,
     assert_connector_authority_discipline,
     assert_projection_convergence,
 )
@@ -59,5 +63,6 @@ __all__ = [
     "assert_observability_emission",
     "assert_projection_convergence",
     "assert_uc1_qualification_invariants",
+    "assert_uc1_terminal_connector_routing",
     "run_invariants",
 ]

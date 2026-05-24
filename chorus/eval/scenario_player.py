@@ -42,12 +42,23 @@ UC1_SCENARIO_HAPPY_PATH = "happy_path"
 UC1_SCENARIO_DEEPER_CONTEXT = "deeper_context"
 UC1_SCENARIO_VALIDATOR_REDRAFT = "validator_redraft"
 UC1_SCENARIO_RETRY_EXHAUSTION = "retry_exhaustion"
+UC1_SCENARIO_ACCEPTED_ROUTING = "accepted_routing"
+UC1_SCENARIO_REFERRED_ROUTING = "referred_routing"
+UC1_SCENARIO_DECLINED_ROUTING = "declined_routing"
+UC1_TERMINAL_ROUTE_SCENARIOS = frozenset(
+    {
+        UC1_SCENARIO_ACCEPTED_ROUTING,
+        UC1_SCENARIO_REFERRED_ROUTING,
+        UC1_SCENARIO_DECLINED_ROUTING,
+    }
+)
 UC1_RECORDED_REPLAY_SCENARIOS = frozenset(
     {
         UC1_SCENARIO_HAPPY_PATH,
         UC1_SCENARIO_DEEPER_CONTEXT,
         UC1_SCENARIO_VALIDATOR_REDRAFT,
         UC1_SCENARIO_RETRY_EXHAUSTION,
+        *UC1_TERMINAL_ROUTE_SCENARIOS,
     }
 )
 
@@ -59,6 +70,41 @@ PIPELINE_STAGES: tuple[tuple[str, str], ...] = (
     ("request_drafter", "missing_data_request_draft"),
     ("validator", "missing_data_request_validation"),
 )
+
+TERMINAL_ROUTE_PIPELINE_STAGES: tuple[tuple[str, str], ...] = (
+    ("classifier", "enquiry_classification"),
+    ("qualifier", "enquiry_qualification"),
+)
+
+_TERMINAL_ROUTE_EVIDENCE: dict[str, dict[str, str]] = {
+    UC1_SCENARIO_ACCEPTED_ROUTING: {
+        "category": "accept",
+        "step": "route_verdict_accept",
+        "tool_name": "crm.route_to_quoting_queue",
+        "route_ref_key": "queued_route_ref",
+        "route_ref": "qroute_eval_accept_001",
+        "route_status": "queued",
+        "connector": "sandbox_crm.local",
+    },
+    UC1_SCENARIO_REFERRED_ROUTING: {
+        "category": "refer",
+        "step": "route_verdict_refer",
+        "tool_name": "referral_inbox.route",
+        "route_ref_key": "referral_route_ref",
+        "route_ref": "rroute_eval_refer_001",
+        "route_status": "routed",
+        "connector": "sandbox_referral_inbox.local",
+    },
+    UC1_SCENARIO_DECLINED_ROUTING: {
+        "category": "decline",
+        "step": "route_verdict_decline",
+        "tool_name": "decline_ledger.route",
+        "route_ref_key": "decline_route_ref",
+        "route_ref": "droute_eval_decline_001",
+        "route_status": "recorded",
+        "connector": "sandbox_decline_ledger.local",
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -106,6 +152,10 @@ class TranscriptRecord:
     completed_at: datetime
 
 
+def _empty_tool_output() -> dict[str, Any]:
+    return {}
+
+
 @dataclass(frozen=True)
 class ToolActionRecord:
     audit_event_id: UUID
@@ -125,6 +175,7 @@ class ToolActionRecord:
     approval_required: bool
     approval_granted: bool | None
     occurred_at: datetime
+    output: dict[str, Any] = field(default_factory=_empty_tool_output)
 
 
 @dataclass(frozen=True)
@@ -230,7 +281,7 @@ def play_scenario(
 
     enquiry_input = _enquiry_input_for(scenario)
 
-    for agent_role, task_kind in PIPELINE_STAGES:
+    for agent_role, task_kind in _pipeline_stages_for(scenario):
         if scenario == UC1_SCENARIO_VALIDATOR_REDRAFT and task_kind in {
             "missing_data_request_draft",
             "missing_data_request_validation",
@@ -315,16 +366,29 @@ def play_scenario(
             enquiry_input=enquiry_input,
         )
 
-    _emit_connector_send(
-        run,
-        clock,
-        sequence_cursor,
-        correlation_id=correlation_id,
-        workflow_id=workflow_id,
-        tenant_id=tenant_id,
-        subject_id=subject_id,
-        subject_ref=subject_ref,
-    )
+    if scenario in UC1_TERMINAL_ROUTE_SCENARIOS:
+        _emit_terminal_route_connector(
+            run,
+            clock,
+            sequence_cursor,
+            scenario=scenario,
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            subject_ref=subject_ref,
+        )
+    else:
+        _emit_connector_send(
+            run,
+            clock,
+            sequence_cursor,
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            subject_ref=subject_ref,
+        )
     _emit(
         run,
         clock,
@@ -343,6 +407,27 @@ def play_scenario(
 
 
 def _enquiry_input_for(scenario: str) -> dict[str, Any]:
+    if scenario == UC1_SCENARIO_ACCEPTED_ROUTING:
+        return {
+            "enquiry_subject": "Motor cover enquiry (accepted-routing fixture)",
+            "enquiry_body_text": (
+                "Hi, I need a private car quote. Accepted-routing fixture marker."
+            ),
+        }
+    if scenario == UC1_SCENARIO_REFERRED_ROUTING:
+        return {
+            "enquiry_subject": "Motor cover enquiry (referred-routing fixture)",
+            "enquiry_body_text": (
+                "Hi, my car risk needs specialist review. Referred-routing fixture marker."
+            ),
+        }
+    if scenario == UC1_SCENARIO_DECLINED_ROUTING:
+        return {
+            "enquiry_subject": "Motor cover enquiry (declined-routing fixture)",
+            "enquiry_body_text": (
+                "Hi, the risk appears outside appetite. Declined-routing fixture marker."
+            ),
+        }
     if scenario == UC1_SCENARIO_DEEPER_CONTEXT:
         return {
             "enquiry_subject": "Motor cover enquiry (deeper-context fixture)",
@@ -367,6 +452,12 @@ def _enquiry_input_for(scenario: str) -> dict[str, Any]:
             "Hi, please could you quote me for third-party fire and theft on a 2018 hatchback."
         ),
     }
+
+
+def _pipeline_stages_for(scenario: str) -> tuple[tuple[str, str], ...]:
+    if scenario in UC1_TERMINAL_ROUTE_SCENARIOS:
+        return TERMINAL_ROUTE_PIPELINE_STAGES
+    return PIPELINE_STAGES
 
 
 def _invoke_stage(
@@ -481,6 +572,93 @@ def _invoke_stage(
             started_at=started,
             completed_at=completed,
         )
+    )
+
+
+def _emit_terminal_route_connector(
+    run: CapturedRun,
+    clock: _Clock,
+    sequence_cursor: _SequenceCursor,
+    *,
+    scenario: str,
+    correlation_id: str,
+    workflow_id: str,
+    tenant_id: str,
+    subject_id: UUID,
+    subject_ref: str,
+) -> None:
+    route = _TERMINAL_ROUTE_EVIDENCE[scenario]
+    route_ref_key = route["route_ref_key"]
+    output = {
+        "connector": route["connector"],
+        "mode": "write",
+        "enquiry_ref": subject_ref,
+        "customer_ref": "cust_demo_001",
+        "verdict_ref": f"verdict_demo_{route['category']}_001",
+        route_ref_key: route["route_ref"],
+        "route_status": route["route_status"],
+    }
+    _emit(
+        run,
+        clock,
+        sequence_cursor,
+        correlation_id=correlation_id,
+        workflow_id=workflow_id,
+        tenant_id=tenant_id,
+        subject_id=subject_id,
+        subject_ref=subject_ref,
+        event_type="workflow.step.started",
+        step=route["step"],
+        payload={
+            "subject_summary": route["step"],
+            "qualification_verdict_category": route["category"],
+            "tool_name": route["tool_name"],
+        },
+    )
+    qualifier = _last_decision_for_task(run, "enquiry_qualification")
+    decided_at = clock.tick(milliseconds=50)
+    run.tool_actions.append(
+        ToolActionRecord(
+            audit_event_id=uuid4(),
+            invocation_id=qualifier.invocation_id if qualifier is not None else None,
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            actor_type="agent",
+            actor_id="uc1.qualifier",
+            category="tool_gateway",
+            action="tool_call.decided",
+            tool_name=route["tool_name"],
+            requested_mode="write",
+            enforced_mode="write",
+            verdict="allow",
+            reason="Grant accepted for requested tool and mode.",
+            approval_required=False,
+            approval_granted=None,
+            occurred_at=decided_at,
+            output=output,
+        )
+    )
+    _emit(
+        run,
+        clock,
+        sequence_cursor,
+        correlation_id=correlation_id,
+        workflow_id=workflow_id,
+        tenant_id=tenant_id,
+        subject_id=subject_id,
+        subject_ref=subject_ref,
+        event_type="workflow.step.completed",
+        step=route["step"],
+        payload={
+            "subject_summary": route["step"],
+            "enquiry_ref": subject_ref,
+            "qualification_verdict_category": route["category"],
+            "gateway_verdict": "allow",
+            "enforced_mode": "write",
+            "tool_name": route["tool_name"],
+            "routing_ref": route["route_ref"],
+        },
     )
 
 
@@ -665,6 +843,11 @@ def _play_retry_exhaustion(
         run.terminal_outcome = "failed"
 
 
+def _last_decision_for_task(run: CapturedRun, task_kind: str) -> DecisionTrailRecord | None:
+    matches = [decision for decision in run.decisions if decision.task_kind == task_kind]
+    return matches[-1] if matches else None
+
+
 def _emit(
     run: CapturedRun,
     clock: _Clock,
@@ -733,6 +916,7 @@ __all__ = [
     "RECORDED_REPLAY_PROVIDER",
     "RECORDED_REPLAY_ROUTE",
     "UC1_RECORDED_REPLAY_SCENARIOS",
+    "UC1_TERMINAL_ROUTE_SCENARIOS",
     "UC1_WORKFLOW_TYPE",
     "CapturedRun",
     "DecisionTrailRecord",

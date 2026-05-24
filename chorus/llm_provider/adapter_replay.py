@@ -108,6 +108,9 @@ def _replay_result_for(
                 0.88,
             )
         case "enquiry_qualification":
+            terminal_route_category = _terminal_route_fixture_category(agent_input)
+            if terminal_route_category is not None:
+                return _terminal_route_qualification_result(terminal_route_category)
             return (
                 "Enquiry passes UC1 conduct hooks and proceeds with a missing-data request.",
                 "continue",
@@ -248,6 +251,104 @@ def _replay_result_for(
                 {"classification": "enquiry"},
                 0.88,
             )
+
+
+def _terminal_route_qualification_result(
+    category: str,
+) -> tuple[str, str, dict[str, Any], float]:
+    structured_data = {
+        "qualification_verdict_category": category,
+        "conduct_hooks_pass": True,
+        "customer_ref": "cust_demo_001",
+        "verdict_ref": f"verdict_demo_{category}_001",
+        "routing_policy_ref": "policy_uc1_routing_v1",
+        "best_interests_check": {
+            "status": "pass",
+            "regulatory_ref": "ICOBS 2.5.-1R",
+        },
+        "demands_and_needs_statement": {
+            "captured": True,
+            "regulatory_ref": "ICOBS 5",
+            "summary": "Customer seeks personal-lines cover within the UC1 sandbox scope.",
+        },
+        "target_market_check": {
+            "status": "pass" if category != "decline" else "out_of_market",
+            "regulatory_ref": "PROD 4",
+        },
+        "foreseeable_harm_check": {
+            "status": "no_harm_identified",
+            "regulatory_ref": "Consumer Duty PRIN 12",
+        },
+        "policy_snapshot_ref": "policy_snapshot:uc1:default:v1",
+    }
+    match category:
+        case "accept":
+            structured_data.update(
+                {
+                    "product_family_category": "motor_private_car",
+                    "qualification_summary_ref": "qsum_demo_accept_001",
+                    "rationale": (
+                        "All four UC1 conduct hooks pass; route to the broker-firm quoting queue."
+                    ),
+                }
+            )
+            return (
+                "Enquiry passes UC1 conduct hooks and routes to the quoting queue.",
+                "continue",
+                structured_data,
+                0.88,
+            )
+        case "refer":
+            structured_data.update(
+                {
+                    "referral_destination_category": "internal_complex_risk_desk",
+                    "referral_reason_category": "complex_risk_outside_appetite",
+                    "rationale": (
+                        "UC1 conduct hooks require specialist review; route to the referral inbox."
+                    ),
+                }
+            )
+            return (
+                "Enquiry is referable and routes to the specialist referral inbox.",
+                "continue",
+                structured_data,
+                0.86,
+            )
+        case "decline":
+            structured_data.update(
+                {
+                    "decline_reason_category": "outside_product_target_market",
+                    "rationale": (
+                        "Target-market evidence does not support quotation; record the "
+                        "decline through the decline ledger."
+                    ),
+                }
+            )
+            return (
+                "Enquiry is outside target market and routes to the decline ledger.",
+                "continue",
+                structured_data,
+                0.87,
+            )
+        case _:
+            raise LLMProviderInvocationError(
+                route_id="recorded-replay",
+                reason=f"unsupported_terminal_route_fixture:{category}",
+                retryable=False,
+            )
+
+
+def _terminal_route_fixture_category(agent_input: dict[str, Any]) -> str | None:
+    subject = str(agent_input.get("enquiry_subject", "")).lower()
+    body = str(agent_input.get("enquiry_body_text", "")).lower()
+    marker_text = f"{subject}\n{body}"
+    if "accepted-routing fixture" in marker_text:
+        return "accept"
+    if "referred-routing fixture" in marker_text:
+        return "refer"
+    if "declined-routing fixture" in marker_text:
+        return "decline"
+    return None
 
 
 def _is_deeper_context_fixture(agent_input: dict[str, Any]) -> bool:

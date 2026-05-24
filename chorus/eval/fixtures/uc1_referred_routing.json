@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "uc1-referred-routing-motor-private",
+  "name": "UC1 referred verdict routes to the referral inbox",
+  "workflow_type": "uc1_enquiry_qualification",
+  "scenario": "referred_routing",
+  "input": {
+    "source_fixture_path": "docs/fixtures/enquiry-motor-private.eml",
+    "subject_fixture_ref": "fixture_uc1_referred_routing",
+    "email_fixture_path": "docs/fixtures/enquiry-motor-private.eml",
+    "tenant_id": "tenant_demo"
+  },
+  "expected": {
+    "outcome_category": "propose",
+    "use_case_outcome": "referred_routed",
+    "max_cost_usd": 1.25,
+    "max_latency_ms": 120000
+  }
+}
