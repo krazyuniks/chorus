@@ -203,7 +203,7 @@ channel runnable status are separate claims.
 
 - [x] Add UC3 intake and connector contracts under the named ports.
 - [x] Add UC3 workflow definition on the shared spine.
-- [ ] Add sandbox attitude-to-risk profiler, capacity-for-loss tool,
+- [x] Add sandbox attitude-to-risk profiler, capacity-for-loss tool,
   suitability-report store, and platform-research connectors.
 - [ ] Add UC3 approval gates and conduct invariants.
 - [ ] Add UC3 projections, BFF/UI inspection, fixtures, and documented commands.
@@ -1667,6 +1667,57 @@ channel runnable status are separate claims.
   playback, local intake start path, and provider route support remain
   pending P5 work.
 
+### 2026-05-24 - UC3 Sandbox Connector Adapters
+
+- Scope: third P5 UC3 slice for connector-adapter implementation,
+  `ToolSpec` registration, generated argument-contract validation, focused
+  connector / gateway tests, and matching docs only.
+- Behaviour changed:
+  - added `chorus/connectors/uc3.py` with deterministic local sandbox
+    adapters for `attitude_to_risk.profile`, `capacity_for_loss.assess`,
+    `platform_research.run`, `suitability_report.draft`,
+    `suitability_report.issue`, `suitability_report.record_decline`, and
+    `suitability_report.route_manual_review`;
+  - wired the four UC3 connector families into `default_registry(conn)`:
+    `sandbox-attitude-to-risk-profiler`, `sandbox-capacity-for-loss-tool`,
+    `sandbox-platform-research`, and `sandbox-suitability-report-store`;
+  - each UC3 `ToolSpec` points at the generated UC3 Pydantic argument model,
+    so the Tool Gateway validates the already-declared contract surface
+    before adapter dispatch;
+  - connector outputs are bounded synthetic refs, statuses, categories,
+    policy refs, and conduct-hook refs only. Attitude-to-risk, capacity,
+    platform-research, draft, issue, decline, and manual-review responses do
+    not contain raw client financial details, vulnerability narratives,
+    suitability-report prose, platform credentials, production adviser data,
+    or production customer data;
+  - no UC3 Tool Gateway grant seed, approval-package behaviour, DB migration,
+    connector persistence, BFF/UI surface, projection, eval fixture playback,
+    provider route, local intake adapter, production FCA / client data path,
+    or broad shared-runtime rewrite was added.
+- Files changed: UC3 connector module, connector registry exports and local
+  package notes, focused UC3 connector tests, focused Tool Gateway validation
+  tests, architecture / evidence-map / runbook docs, and this backlog
+  handoff.
+- Gates run:
+  - `uv run pytest tests/connectors/test_uc3_connectors.py -q` - green,
+    7 passed.
+  - `uv run pytest tests/connectors/test_uc3_connectors.py tests/connectors/test_uc2_connectors.py tests/tool_gateway/test_gateway.py -rs`
+    - 23 passed and 12 skipped; skipped cases were DB-backed because local
+    Postgres on `localhost:5432` rejected the configured `chorus` user.
+  - `uv run pytest tests/workflows/test_uc3_workflow.py -q` - green,
+    6 passed.
+  - `just contracts-check` - green for 45 schemas, samples, and generated
+    model drift checks.
+  - `just lint` - green, including ruff, pyright, and frontend type checking.
+  - `git diff --check` - green.
+- Skipped gates: `just contracts-gen` was not run because no JSON Schema
+  contracts changed. Live `just db-migrate`, DB-backed UC3 Tool Gateway grant
+  execution, full `just test`, replay, eval, frontend/e2e, live-stack, and
+  live-provider gates were not run. DB-backed verification remains blocked by
+  the local Postgres credential failure. UC3 grant seeds, approval packages,
+  conduct invariants, projections, eval playback, local intake start path,
+  and provider route support remain pending P5 work.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -1714,17 +1765,17 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: continue P5 - UC3 IFA Suitability Intake by adding deterministic sandbox connector adapters for the already-declared UC3 connector tools. Keep the slice adapter-first and contract-backed: `ToolSpec` registration, generated UC3 argument-model validation, bounded synthetic outputs, default registry wiring, focused connector tests, focused non-DB Tool Gateway validation, and matching docs only. Do not add UC3 Tool Gateway grant seeds, approval-package behaviour, DB persistence, BFF/UI surfaces, provider routes, local intake adapters, projection breadth, eval fixture playback, production FCA/client data handling, or broad shared-runtime rewrites in this slice.
+Current target slice: continue P5 - UC3 IFA Suitability Intake by adding UC3 approval gates and conduct invariants. Keep the slice governance/eval focused and contract-backed: Tool Gateway grant constraints/seeds for the already-declared UC3 connector tools, existing generic approval-package handling for `suitability_report.issue`, focused non-DB and DB-skipping Tool Gateway tests, UC3 conduct invariants over safe synthetic captured-run artefacts, and matching docs only. Do not add UC3 projections, BFF/UI surfaces, provider routes, local intake adapters, connector persistence, eval fixture playback, production FCA/client data handling, or broad shared-runtime rewrites in this slice.
 
-Previous slice completed: P5 now has a UC3 workflow definition on the shared `WorkflowSpine`. `chorus/workflows/uc3.py` declares `Uc3IfaSuitabilityIntakeWorkflow`, `UC3_IFA_SUITABILITY_INTAKE_DEFINITION`, safe UC3 workflow DTOs, deterministic step composition, and connector-call wiring for `attitude_to_risk.profile`, `capacity_for_loss.assess`, `platform_research.run`, `suitability_report.draft`, `suitability_report.issue`, `suitability_report.record_decline`, and `suitability_report.route_manual_review`. Focused fake-activity Temporal tests cover happy path with inline replay, suitability-report approval-required, risk-profile approval handoff, decline, and manual-review branches. No UC3 connector adapters, grants, approval-package semantics, provider routes, local intake path, projections, eval playback, connector persistence, or production FCA/client data path were added.
+Previous slice completed: P5 now has deterministic UC3 sandbox connector adapters for `attitude_to_risk.profile`, `capacity_for_loss.assess`, `platform_research.run`, `suitability_report.draft`, `suitability_report.issue`, `suitability_report.record_decline`, and `suitability_report.route_manual_review`. `chorus/connectors/uc3.py` registers generated UC3 argument models through `ToolSpec`, returns bounded synthetic refs/statuses only, and is wired into `default_registry(conn)`. Focused UC3 connector tests, UC2 connector regression tests, non-DB Tool Gateway validation tests, UC3 workflow tests, `just contracts-check`, `just lint`, and `git diff --check` were green. No UC3 grants, approval-package behaviour, DB persistence, BFF/UI surfaces, provider routes, local intake path, projections, eval playback, or production FCA/client data path were added.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief-uc3.md, docs/domain-model-uc3.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/README.md, contracts/connector/uc3/, contracts/connector/tool_call.schema.json, chorus/contracts/generated/connector/uc3/, chorus/connectors/types.py, chorus/connectors/__init__.py, chorus/connectors/uc1.py, chorus/connectors/uc2.py, chorus/workflows/uc3.py, tests/connectors/test_uc1_connectors.py, tests/connectors/test_uc2_connectors.py, tests/tool_gateway/test_gateway.py, tests/workflows/test_uc3_workflow.py, and the current P5 backlog items. Use official FCA sources only if UC3 regulatory wording needs fresh verification; otherwise rely on the already verified UC3 product/domain docs.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief-uc3.md, docs/domain-model-uc3.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/README.md, contracts/connector/uc3/, contracts/connector/tool_call.schema.json, chorus/contracts/generated/connector/uc3/, chorus/connectors/types.py, chorus/connectors/__init__.py, chorus/connectors/uc3.py, chorus/tool_gateway/gateway.py, infrastructure/postgres/migrations/001_current_state_baseline.sql, infrastructure/postgres/seeds/001_demo_tenants.sql, chorus/eval/common_invariants.py, chorus/eval/use_cases/uc2_conduct.py, chorus/eval/invariants.py, tests/tool_gateway/test_gateway.py, tests/eval/test_run.py, tests/persistence/test_postgres_foundation.py, tests/connectors/test_uc3_connectors.py, tests/workflows/test_uc3_workflow.py, and the current P5 backlog items. Use official FCA sources only if UC3 regulatory wording needs fresh verification; otherwise rely on the already verified UC3 product/domain docs.
 
-Before editing, inspect the existing UC2 connector implementation and tests rather than inventing a new adapter style. Search for `chorus/connectors/uc2.py`, `default_registry`, `ToolSpec`, `argument_model`, `engagement_letter.draft`, `engagement_letter.send`, `tests/connectors/test_uc2_connectors.py`, `ToolGateway`, `approval_required`, and the UC3 tool names.
+Before editing, inspect the existing UC2 approval/conduct implementation rather than inventing a new authority style. Search for `UC2_INVARIANTS`, `uc2_conduct`, `engagement_letter.send`, `approval_required`, `approval_policy.engagement_letter_send_write.local.v1`, `tenant_demo`, `tool_grants`, `tool_action_audit`, `approval_packages`, `ToolGateway`, `apply_approved_write`, and the UC3 tool names.
 
-Expected direction: add the minimum UC3 connector module needed to register deterministic local sandbox adapters for `attitude_to_risk.profile`, `capacity_for_loss.assess`, `platform_research.run`, `suitability_report.draft`, `suitability_report.issue`, `suitability_report.record_decline`, and `suitability_report.route_manual_review`. Each `ToolSpec` should point at the generated UC3 Pydantic argument model and each adapter output should contain bounded synthetic refs/statuses only. Keep raw client financial details, vulnerability narratives, report prose, platform credentials, and production adviser/customer data out of connector outputs. Do not seed grants or implement approval-package semantics; leave `suitability_report.issue` approval authority for the later approval-gates slice.
+Expected direction: admit the declared UC3 tool names where the local Postgres governance surface constrains `tool_grants` / `tool_action_audit`, seed `tenant_demo` UC3 grants for the declared connector tools, and make `suitability_report.issue` the approval-required write using the existing generic approval-package path. Keep `attitude_to_risk.profile`, `capacity_for_loss.assess`, and `platform_research.run` read-mode grants effect-free, and keep `suitability_report.draft`, `suitability_report.record_decline`, and `suitability_report.route_manual_review` as bounded sandbox writes unless the current policy docs require otherwise. Add minimal UC3 prompt assets only if seeded agent rows require prompt refs / hashes. Add `chorus/eval/use_cases/uc3_conduct.py` and wire it into the invariant composition in the same style as UC2, using safe synthetic captured-run artefacts. Treat risk-profile override and vulnerability-handoff approvals as workflow/manual-review conduct evidence unless an exact existing declared connector request can bind a package; do not invent new tools or approval-package semantics.
 
-Run focused UC3 connector tests, relevant existing UC2 connector and non-DB Tool Gateway validation tests, `just contracts-check`, `just lint`, and `git diff --check`. Run UC3 workflow tests if connector output shapes or registry wiring touch workflow assumptions. Do not run live-stack, provider, DB-backed, frontend, or eval gates unless the connector change unexpectedly touches those surfaces; record skipped gates and reasons.
+Run focused Tool Gateway, eval, and persistence constraint tests for the UC3 grant / approval / conduct changes, plus relevant UC3 connector and UC3 workflow regressions if grant or output assumptions touch those paths. Run `just contracts-check`, `just eval` if invariant composition changes default eval execution, `just lint`, and `git diff --check`. Run broader replay, frontend, live-stack, provider, or e2e gates only if the approval/conduct change unexpectedly touches those surfaces; if local Postgres credentials still block DB-backed tests, record the skipped gate and reason.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.

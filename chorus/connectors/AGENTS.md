@@ -40,6 +40,12 @@ the gateway.
   refs and bounded statuses only; they do not call production legal, AML,
   identity, Companies House, sanctions, document-management,
   matter-management, email, or e-signature services.
+- `uc3.py` holds the four UC3 sandbox adapter families:
+  `sandbox-attitude-to-risk-profiler`, `sandbox-capacity-for-loss-tool`,
+  `sandbox-platform-research`, and `sandbox-suitability-report-store`. They
+  return deterministic synthetic refs and bounded statuses only; they do not
+  call production IFA, platform, investment-research, advice, client-record,
+  document-generation, email, portal, custody, or dealing systems.
 - `calendar.py` carries the Radicale-backed CalDAV adapter
   (`CalendarAdapter`) wrapping `RadicaleCalendarConnector` for
   approval-required write surfaces.

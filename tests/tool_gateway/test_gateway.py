@@ -22,6 +22,7 @@ from chorus.connectors import (
     default_registry,
 )
 from chorus.connectors.uc2 import SandboxConflictCheckAdapter
+from chorus.connectors.uc3 import SandboxAttitudeToRiskProfilerAdapter
 from chorus.contracts.generated.connector.uc1.outbound_comms_message_args import (
     OutboundCommsMessageArgs,
 )
@@ -325,6 +326,48 @@ def _build_uc2_engagement_letter_send_request() -> ToolGatewayRequest:
     )
 
 
+def _uc3_attitude_to_risk_arguments() -> dict[str, object]:
+    return {
+        "advice_enquiry_ref": "advice_enquiry_gateway_001",
+        "prospective_retail_client_ref": "prospective_client_gateway_001",
+        "fact_find_summary_ref": "fact_find_gateway_001_v1",
+        "questionnaire_bundle_ref": "risk_questionnaire_gateway_001",
+        "narrative_evidence_ref": "evidence_risk_gateway_001",
+        "stated_risk_preference_band": "medium",
+        "time_horizon_band": "5_to_10_years",
+        "objective_refs": ["objective_capital_growth_gateway_001"],
+        "knowledge_experience_ref": "knowledge_experience_gateway_001",
+        "risk_context_categories": ["experienced_investor"],
+        "profiler_policy_ref": "policy_uc3_attitude_to_risk_profile_v1",
+        "conduct_hook_refs": [
+            "conduct_fca_cobs_9_suitability",
+            "conduct_fca_prin_2a_consumer_duty",
+        ],
+    }
+
+
+def _build_uc3_attitude_to_risk_request(
+    *,
+    arguments: dict[str, object] | None = None,
+) -> ToolGatewayRequest:
+    workflow_id = f"uc3-ifa-suitability-risk-{uuid4().hex}"
+    return ToolGatewayRequest(
+        tenant_id="tenant_demo",
+        correlation_id=f"cor_{workflow_id.replace('-', '_')}",
+        workflow_id=workflow_id,
+        invocation_id=str(uuid4()),
+        agent_id="uc3.risk_analyst",
+        tool_name="attitude_to_risk.profile",
+        mode="read",
+        idempotency_key=f"{workflow_id}:attitude_to_risk.profile:read",
+        arguments=arguments or _uc3_attitude_to_risk_arguments(),
+        workflow_type="uc3_ifa_suitability_intake",
+        subject_id=str(uuid4()),
+        subject_ref="advice_enquiry_gateway_001",
+        subject_summary="UC3 attitude-to-risk connector request",
+    )
+
+
 def _build_registry(adapter: ConnectorAdapter) -> ConnectorRegistry:
     registry = ConnectorRegistry()
     registry.register(adapter)
@@ -617,6 +660,66 @@ def test_uc2_connector_invocation_blocks_before_adapter_on_invalid_arguments() -
     gateway = ToolGateway(
         cast(ToolGatewayStore, store),
         _build_registry(SandboxConflictCheckAdapter()),
+    )
+
+    response = gateway.invoke(request)
+
+    assert response.verdict == "block"
+    assert response.enforced_mode == "read"
+    assert response.output == {}
+    assert response.reason.startswith("Tool argument schema validation failed")
+
+
+def test_uc3_connector_invocation_uses_registered_generated_argument_contract() -> None:
+    request = _build_uc3_attitude_to_risk_request()
+    store = _InMemoryGatewayStore(
+        _ApprovalGrant(
+            agent_id="uc3.risk_analyst",
+            tool_name="attitude_to_risk.profile",
+            mode="read",
+            approval_required=False,
+            redaction_policy={},
+        )
+    )
+    gateway = ToolGateway(
+        cast(ToolGatewayStore, store),
+        _build_registry(SandboxAttitudeToRiskProfilerAdapter()),
+    )
+
+    response = gateway.invoke(request)
+
+    assert response.verdict == "allow"
+    assert response.enforced_mode == "read"
+    assert response.output["connector"] == "sandbox_attitude_to_risk_profiler.local"
+    assert response.output["advice_enquiry_ref"] == "advice_enquiry_gateway_001"
+    assert response.output["risk_profile_ref"].startswith("risk_profile_")
+    assert response.output["risk_profile_status"] == "aligned"
+    assert store.audit_events[-1].details["subject"] == {
+        "workflow_type": "uc3_ifa_suitability_intake",
+        "subject_id": request.subject_id,
+        "subject_ref": "advice_enquiry_gateway_001",
+        "subject_summary": "UC3 attitude-to-risk connector request",
+    }
+
+
+def test_uc3_connector_invocation_blocks_before_adapter_on_invalid_arguments() -> None:
+    invalid_arguments = _uc3_attitude_to_risk_arguments()
+    invalid_arguments["raw_client_financial_details"] = (
+        "Raw financial details stay outside the connector contract."
+    )
+    request = _build_uc3_attitude_to_risk_request(arguments=invalid_arguments)
+    store = _InMemoryGatewayStore(
+        _ApprovalGrant(
+            agent_id="uc3.risk_analyst",
+            tool_name="attitude_to_risk.profile",
+            mode="read",
+            approval_required=False,
+            redaction_policy={},
+        )
+    )
+    gateway = ToolGateway(
+        cast(ToolGatewayStore, store),
+        _build_registry(SandboxAttitudeToRiskProfilerAdapter()),
     )
 
     response = gateway.invoke(request)

@@ -30,10 +30,11 @@ full eval fixture playback, and a local intake start path remain later R4
 work. Read-only BFF/UI inspection can display UC2 workflow rows and
 approval-package state when those rows already exist. UC3 lands later in R4
 alongside cross-provider replay-eval breadth; its intake and connector
-contract surfaces are declared and it now has a definition-first workflow on
-the shared spine with fake-activity replay evidence, but no UC3 connector
-adapters, grants, approval-package behaviour, provider routes, projections,
-eval playback, or local intake path are active yet.
+contract surfaces are declared, it now has a definition-first workflow on the
+shared spine with fake-activity replay evidence, and the default connector
+registry has deterministic sandbox adapters for its declared connector tools.
+UC3 grants, approval-package behaviour, provider routes, projections, eval
+playback, and a local intake path remain later P5 work.
 
 ## Bring the stack up
 
@@ -208,10 +209,15 @@ same `WorkflowSpine`. The workflow routes `attitude_to_risk.profile`,
 `suitability_report.draft`, `suitability_report.issue`,
 `suitability_report.record_decline`, and
 `suitability_report.route_manual_review` through `WorkflowSpine.connector_call`
-with safe refs and bounded categories only. The runbook does not yet claim a
-runnable UC3 local intake path: UC3 connector adapters, Tool Gateway grant
-seeds, approval-package behaviour, provider routes, projections, eval
-playback, and local intake adapters remain later P5 work.
+with safe refs and bounded categories only. The default connector registry now
+registers deterministic sandbox adapters for those tool names:
+`sandbox-attitude-to-risk-profiler`, `sandbox-capacity-for-loss-tool`,
+`sandbox-platform-research`, and `sandbox-suitability-report-store`. They
+return synthetic refs and statuses only; they do not call production IFA,
+platform, research, advice, client-record, portal, custody, or dealing
+systems. The runbook does not yet claim a runnable UC3 local intake path: Tool
+Gateway grant seeds, approval-package behaviour, provider routes, projections,
+eval playback, and local intake adapters remain later P5 work.
 
 Inspect approval packages through the read-only BFF:
 

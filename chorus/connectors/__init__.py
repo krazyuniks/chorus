@@ -32,6 +32,12 @@ from chorus.connectors.uc2 import (
     SandboxEngagementLetterStoreAdapter,
     SandboxKycBeneficialOwnershipAdapter,
 )
+from chorus.connectors.uc3 import (
+    SandboxAttitudeToRiskProfilerAdapter,
+    SandboxCapacityForLossToolAdapter,
+    SandboxPlatformResearchAdapter,
+    SandboxSuitabilityReportStoreAdapter,
+)
 from chorus.persistence.uc1_connectors import (
     Uc1BrokerFirmRoutingStore,
     Uc1ConnectorReferenceDataStore,
@@ -41,7 +47,7 @@ from chorus.persistence.uc1_connectors import (
 def default_registry(conn: Connection[Any]) -> ConnectorRegistry:
     """Build the default connector registry for the local sandbox.
 
-    Registers the UC1 and UC2 sandbox adapters and the calendar adapter.
+    Registers the UC1, UC2, and UC3 sandbox adapters and the calendar adapter.
     """
 
     registry = ConnectorRegistry()
@@ -65,6 +71,10 @@ def _default_adapters(conn: Connection[Any]) -> Sequence[ConnectorAdapter]:
         SandboxKycBeneficialOwnershipAdapter(),
         SandboxAmlRecordStoreAdapter(),
         SandboxEngagementLetterStoreAdapter(),
+        SandboxAttitudeToRiskProfilerAdapter(),
+        SandboxCapacityForLossToolAdapter(),
+        SandboxPlatformResearchAdapter(),
+        SandboxSuitabilityReportStoreAdapter(),
     )
 
 
@@ -78,15 +88,19 @@ __all__ = [
     "ConnectorResult",
     "ConnectorTransientError",
     "SandboxAmlRecordStoreAdapter",
+    "SandboxAttitudeToRiskProfilerAdapter",
+    "SandboxCapacityForLossToolAdapter",
     "SandboxConflictCheckAdapter",
     "SandboxCustomerProfileAdapter",
     "SandboxDeclineLedgerAdapter",
     "SandboxEngagementLetterStoreAdapter",
     "SandboxKycBeneficialOwnershipAdapter",
     "SandboxOutboundCommsAdapter",
+    "SandboxPlatformResearchAdapter",
     "SandboxProductCatalogueAdapter",
     "SandboxQuotingQueueAdapter",
     "SandboxReferralInboxAdapter",
+    "SandboxSuitabilityReportStoreAdapter",
     "ToolSpec",
     "default_registry",
 ]
