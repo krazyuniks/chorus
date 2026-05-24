@@ -214,6 +214,7 @@ def test_replay_hard_fails_schema_invalid_output() -> None:
 def test_replay_hard_fails_missing_qualification_policy_snapshot_ref() -> None:
     transcript = _qualifier_transcript()
     structured = _qualification_structured_data()
+    structured["qualification_verdict_category"] = "accept"
     structured["policy_snapshot_ref"] = None
 
     result = replay_transcript_with_record(
@@ -222,6 +223,7 @@ def test_replay_hard_fails_missing_qualification_policy_snapshot_ref() -> None:
     )
 
     assert result.record.comparator.status.value == "fail"
+    assert result.record.comparator.result["tier"] == "hard_fail"
     assert result.record.comparator.result["reason_code"] == "missing_policy_snapshot_evidence"
     assert result.record.comparator.result["field_names"] == ["structured_data.policy_snapshot_ref"]
 
@@ -295,6 +297,71 @@ def test_replay_hard_fails_provider_port_errors() -> None:
     assert result.record.comparator.result["provider_error_reason"] == (
         "structured_output_schema_violation:structured_data"
     )
+
+
+def test_replay_decision_fails_terminal_verdict_mismatch() -> None:
+    transcript = _qualifier_transcript()
+    structured = _qualification_structured_data()
+    structured.update(
+        {
+            "qualification_verdict_category": "accept",
+            "missing_data_request_required": False,
+            "product_family_category": "motor_private_car",
+            "qualification_summary_ref": "qsum_demo_accept_001",
+        }
+    )
+
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_returning(_invocation_result(structured_data=structured)),
+    )
+
+    assert result.record.comparator.status.value == "fail"
+    assert result.record.comparator.result["tier"] == "decision_fail"
+    assert result.record.comparator.result["reason_code"] == "terminal_verdict_mismatch"
+    assert result.record.comparator.result["field_names"] == [
+        "derived.connector_action_category",
+        "structured_data.qualification_verdict_category",
+    ]
+    assert result.record.metrics.original.latency_ms == 50
+    assert "qsum_demo_accept_001" not in str(result.record.comparator.result)
+
+
+def test_replay_decision_fails_route_category_alias_mismatch() -> None:
+    expected = _qualification_structured_data()
+    expected.pop("qualification_verdict_category")
+    expected.update(
+        {
+            "route_category": "accept",
+            "missing_data_request_required": False,
+            "product_family_category": "motor_private_car",
+            "qualification_summary_ref": "qsum_demo_accept_001",
+        }
+    )
+    transcript = replace(_qualifier_transcript(), expected_structured_data=expected)
+    structured = _qualification_structured_data()
+    structured.update(
+        {
+            "qualification_verdict_category": "refer",
+            "missing_data_request_required": False,
+            "referral_destination_category": "internal_complex_risk_desk",
+            "referral_reason_category": "complex_risk_outside_appetite",
+        }
+    )
+
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_returning(_invocation_result(structured_data=structured)),
+    )
+
+    assert result.record.comparator.status.value == "fail"
+    assert result.record.comparator.result["tier"] == "decision_fail"
+    assert result.record.comparator.result["reason_code"] == "terminal_verdict_mismatch"
+    assert result.record.comparator.result["changed_field_names"] == [
+        "derived.connector_action_category",
+        "structured_data.qualification_verdict_category",
+        "structured_data.route_category",
+    ]
 
 
 def test_recorded_replay_scenario_captures_loaded_prompt_evidence() -> None:

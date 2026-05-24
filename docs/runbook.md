@@ -127,13 +127,16 @@ any connector action can be proposed. The active local route-governance rows
 now align on runtime route `recorded-replay`, provider `local`, and model
 `uc1-happy-path-v1` across routing policy, immutable route versions, provider
 catalogue rows, BFF inspection, and offline eval route selection. R4 wires
-live route activation only after the remaining comparator tiers and required
-local credentials are aligned. Replay-run evidence records now persist the
-original invocation/transcript refs, alternate route metadata, comparator
-status, lineage refs, and token/cost/latency metrics. The hard-fail comparator
-tier classifies schema, policy snapshot, conduct hook, unsafe action,
-audit/transcript linkage, route-governance, and provider-port replay defects
-with safe reason codes and field names.
+live route activation only after the remaining review/metrics comparator
+tier semantics and required local credentials are aligned. Replay-run evidence
+records now persist the original invocation/transcript refs, alternate route
+metadata, comparator status, lineage refs, and token/cost/latency metrics. The
+hard-fail comparator tier classifies schema, policy snapshot, conduct hook,
+unsafe action, audit/transcript linkage, route-governance, and provider-port
+replay defects with safe reason codes and field names. The decision-fail tier
+classifies bounded UC1 qualification verdict, routing, regulated-outcome,
+approval-decision, and connector-action category divergence under the same
+policy snapshot.
 
 ### Connector port
 
@@ -277,8 +280,9 @@ not change.
    replay-eval - re-running a captured transcript against an alternate route
    and comparing the result - is the closing eval step. The replay path now
    builds contract-shaped replay-run records for Postgres/BFF inspection and
-   classifies hard-fail defects; decision-fail, review-finding, metrics-only
-   semantics, and live route gates are still P3 work. The target
+   classifies hard-fail defects and bounded UC1 decision-fail divergence;
+   review-finding, metrics-only semantics, and live route gates are still P3
+   work. The target
    shape is in
    [`transformation/eval-reshape-directions.md`](transformation/eval-reshape-directions.md).
 

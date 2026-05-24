@@ -183,7 +183,7 @@ channel runnable status are separate claims.
 - [ ] Implement tiered replay comparison:
   - [x] hard fail for schema, policy snapshot, conduct hook, and unsafe action
     defects;
-  - [ ] decision fail for terminal verdict or routing mismatch;
+  - [x] decision fail for terminal verdict or routing mismatch;
   - [ ] review finding for rationale, confidence, field, or evidence
     divergence;
   - [ ] metrics only for token, latency, retry, and cost deltas.
@@ -1162,6 +1162,55 @@ channel runnable status are separate claims.
   credential failure; live provider gates remain out of scope until the
   remaining comparator tiers and credentials are aligned.
 
+### 2026-05-24 - Replay Comparator Decision-Fail Tier
+
+- Scope: second tiered-comparator slice for decision-fail replay
+  classification only.
+- Behaviour changed:
+  - `chorus/eval/replay_comparator.py` now classifies bounded UC1
+    qualification decision divergence after hard-fail checks and before the
+    exact structured-data placeholder;
+  - decision-fail records cover terminal verdict / route-category mismatch,
+    regulated-outcome fields, required approval decision fields where present,
+    and connector-action category evidence available in replay-safe records
+    under the same policy snapshot;
+  - `eval replay` now emits comparator version `v0.2-decision-fail` and
+    writes safe `decision_fail` result payloads with reason codes and field
+    names only;
+  - hard-fail classifications still take precedence for schema-invalid replay
+    output, missing policy snapshot evidence, missing UC1 conduct hooks,
+    unsafe action proposals, missing audit/transcript linkage,
+    route-governance mismatch, and provider-port replay errors;
+  - review-finding and metrics-only tier semantics were intentionally left
+    pending, and no live provider route, connector side effect, UC1 connector
+    behaviour, UC2 / UC3 runtime path, or DB schema was changed.
+- Files changed: replay comparator helper, eval replay wiring, replay-run
+  sample comparator version, focused eval/BFF tests, architecture / evidence /
+  runbook / eval-direction / R4 design docs, and this backlog handoff.
+- Gates run:
+  - `uv run pytest tests/eval/test_run.py -q` - green, 24 passed.
+  - `uv run pytest tests/eval/test_run.py tests/bff/test_app_unit.py tests/test_contracts.py tests/agent_runtime/test_runtime.py tests/test_route_governance_alignment.py -q`
+    - green, 51 passed and 3 skipped; skipped cases were DB-backed Agent
+    Runtime tests because local Postgres rejected the configured `chorus`
+    user.
+  - `uv run pytest tests/persistence/test_postgres_foundation.py -rs` -
+    1 passed and 17 skipped; skipped cases were DB-backed because local
+    Postgres on `localhost:5432` rejected the configured `chorus` user.
+  - `just contracts-gen` - regenerated generated contract models with no
+    schema change.
+  - `just contracts-check` - green after the replay-run sample update.
+  - `just eval` - green for five UC1 offline eval fixtures.
+  - `just test-replay` - green, 2 passed and 8 deselected.
+  - `just lint` - green after formatting the comparator helper and tightening
+    pyright casts around bounded JSON fields.
+  - `git diff --check` - green.
+- Skipped gates: live `just db-migrate`, live OpenAI / DeepSeek provider
+  calls, full `just test`, Redpanda projection integration, frontend/e2e
+  gates, and UC2 / UC3 runtime gates were not run. Live DB migration and
+  DB-backed replay-run verification remain blocked by the local Postgres
+  credential failure; live provider gates remain out of scope until the
+  remaining review-finding / metrics-only tiers and credentials are aligned.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -1209,17 +1258,17 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: continue P3 Provider And Replay Hardening by adding the decision-fail tier to the replay comparator only. Keep the slice focused on terminal verdict, regulated outcome, route category, required approval decision, and connector-action category mismatches under the same policy snapshot. Do not implement review-finding semantics for rationale, confidence, optional field, or evidence divergence, and do not broaden metrics-only semantics beyond preserving the existing token/cost/latency record fields.
+Current target slice: continue P3 Provider And Replay Hardening by adding the review-finding tier to the replay comparator only. Keep the slice focused on rationale, confidence, optional structured field, evidence-selection, and recommended-next-step divergence that does not change the regulated outcome under the same policy snapshot. Do not change hard-fail or decision-fail semantics, do not implement metrics-only tier semantics beyond preserving the existing token/cost/latency record fields, and do not activate live provider routes.
 
-Previous slice completed: the hard-fail tier now exists in `chorus/eval/replay_comparator.py` and is wired through `chorus/eval/replay.py` into `tiered_replay_comparator` replay-run records. It classifies schema-invalid replay output, missing policy snapshot evidence, missing UC1 conduct hooks, unsafe action proposals, missing audit/transcript linkage, route-governance mismatch, and provider-port replay errors using safe reason codes and field names. Provider-port replay errors are comparator `error` records, missing live API keys remain skipped gates, and deterministic recorded replay now fills nullable response-schema fields so local replay outputs remain schema-valid. No live provider was called, no live route was activated, no connector side effects were added, UC1 connector behaviour was left unchanged, and decision-fail / review-finding / metrics-only tier semantics remain pending.
+Previous slice completed: the decision-fail tier now exists in `chorus/eval/replay_comparator.py` and is wired through `chorus/eval/replay.py` into `tiered_replay_comparator` replay-run records as comparator version `v0.2-decision-fail`. It runs after hard-fail checks and before the exact structured-data placeholder, classifying bounded UC1 qualification terminal-verdict / route-category, regulated-outcome, required approval decision, and connector-action category divergence under the same policy snapshot using safe reason codes and field names only. Hard-fail classifications still take precedence. No live provider was called, no live route was activated, no connector side effect was added, UC1 connector behaviour was left unchanged, and review-finding / metrics-only tier semantics remain pending.
 
 Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/eval/replay_run_record.schema.json, contracts/llm_provider/, contracts/audit/, infrastructure/postgres/migrations/001_current_state_baseline.sql, infrastructure/postgres/seeds/002_provider_governance.sql, infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql, the current eval replay/scenario-player surfaces, replay-run persistence/BFF inspection surfaces, and the current P3 backlog items. If current provider or model-route governance details need external verification, use official provider documentation only.
 
-Before editing, inspect the comparator and replay evidence surfaces: `chorus/eval/replay_comparator.py`, `chorus/eval/replay.py`, `chorus/eval/run.py`, `chorus/eval/types.py`, `chorus/eval/scenario_player.py`, `chorus/eval/common_invariants.py`, `chorus/eval/use_cases/uc1_conduct.py`, `chorus/agent_runtime/response_schemas.py`, `chorus/agent_runtime/runtime.py`, `chorus/persistence/replay_runs.py`, `chorus/persistence/audit_port.py`, `chorus/persistence/provider_governance.py`, `chorus/bff/app.py`, `contracts/eval/replay_run_record.schema.json`, `contracts/audit/`, `contracts/llm_provider/`, `tests/eval/test_run.py`, `tests/bff/test_app_unit.py`, `tests/persistence/test_postgres_foundation.py`, `tests/test_contracts.py`, and `tests/test_route_governance_alignment.py`. Search for `replay`, `ReplayRunRecord`, `CapturedTranscript`, `InvocationResult`, `comparator`, `comparison`, `hard_fail`, `decision`, `terminal`, `qualification_verdict_category`, `route_category`, `approval`, `connector-action`, `policy_snapshot_ref`, `conduct_hooks`, `schema`, `transcript`, `route_catalogue`, `runtime_route_id`, `cost`, `latency`, `token_usage`, and `provider_metadata`.
+Before editing, inspect the comparator and replay evidence surfaces: `chorus/eval/replay_comparator.py`, `chorus/eval/replay.py`, `chorus/eval/run.py`, `chorus/eval/types.py`, `chorus/eval/scenario_player.py`, `chorus/eval/common_invariants.py`, `chorus/eval/use_cases/uc1_conduct.py`, `chorus/agent_runtime/response_schemas.py`, `chorus/agent_runtime/runtime.py`, `chorus/persistence/replay_runs.py`, `chorus/persistence/audit_port.py`, `chorus/persistence/provider_governance.py`, `chorus/bff/app.py`, `contracts/eval/replay_run_record.schema.json`, `contracts/audit/`, `contracts/llm_provider/`, `tests/eval/test_run.py`, `tests/bff/test_app_unit.py`, `tests/persistence/test_postgres_foundation.py`, `tests/test_contracts.py`, and `tests/test_route_governance_alignment.py`. Search for `replay`, `ReplayRunRecord`, `CapturedTranscript`, `InvocationResult`, `comparator`, `comparison`, `hard_fail`, `decision_fail`, `review`, `finding`, `rationale`, `confidence`, `recommended_next_step`, `optional`, `evidence`, `policy_snapshot_ref`, `conduct_hooks`, `qualification_verdict_category`, `route_category`, `approval`, `connector-action`, `schema`, `transcript`, `route_catalogue`, `runtime_route_id`, `cost`, `latency`, `token_usage`, and `provider_metadata`.
 
-Expected direction: extend the comparator helper with a decision-fail classification that runs after hard-fail checks and before the existing exact structured-data placeholder. For UC1 qualification outputs, compare safe structured fields such as `qualification_verdict_category`, route category fields, required approval decision fields where present, and connector-action category evidence available in replay-safe records. The decision-fail result should surface safe reason codes and field names, set `comparator.status` to `fail`, preserve metrics, and avoid storing raw prompts, raw outputs, credentials, or customer content. Add focused tests that fail if terminal verdict or routing mismatches cannot be represented as decision-fail replay-run records while hard-fail cases still take precedence.
+Expected direction: extend the comparator helper with a review-finding classification that runs after hard-fail and decision-fail checks and before the existing exact structured-data placeholder. For UC1 replay outputs, compare safe bounded fields such as `recommended_next_step`, confidence band / confidence delta, rationale-presence or rationale-category evidence if already safely available, optional structured fields, and evidence-selection references where those records are replay-safe. The review-finding result should surface safe reason codes and field names, avoid storing raw prompts, raw outputs, free-text rationale, credentials, or customer content, preserve metrics, and make clear that the comparator status/result is a non-terminal review finding rather than a hard or decision failure. Add focused tests that fail if rationale/recommended-next-step or confidence divergence can only be represented as the old exact-data placeholder while hard-fail and decision-fail cases still take precedence.
 
-Keep this slice focused on decision-fail comparator semantics. If the comparator cannot classify decision failures safely without raw prompts, raw outputs, credentials, personal data, or connector side effects, stop and surface the design question rather than widening the slice.
+Keep this slice focused on review-finding comparator semantics. If the comparator cannot classify review findings safely without raw prompts, raw outputs, free-text rationale, credentials, personal data, or connector side effects, stop and surface the design question rather than widening the slice.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.

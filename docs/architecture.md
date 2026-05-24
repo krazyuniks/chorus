@@ -174,9 +174,10 @@ verification, and schema-bound structured output enforcement are active in the
 provider call path. Replay-run evidence records now capture original
 invocation/transcript refs, alternate route metadata, comparator status, safe
 lineage refs, and token/cost/latency metrics. The replay comparator now
-classifies hard-fail defects before exact-output comparison; decision-fail,
-review-finding, metrics-only tier semantics, and live-provider gates remain P3
-work.
+classifies hard-fail defects first, then decision-fail divergence for bounded
+UC1 qualification verdict, routing, regulated-outcome, approval-decision, and
+connector-action category fields under the same policy snapshot. Review-finding,
+metrics-only tier semantics, and live-provider gates remain P3 work.
 
 The route catalogue plus the transcript port together make cross-provider
 replay possible. Without route metadata, replay can only target the original

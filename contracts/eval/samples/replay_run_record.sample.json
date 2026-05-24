@@ -36,7 +36,7 @@
   },
   "comparator": {
     "name": "tiered_replay_comparator",
-    "version": "v0.1-hard-fail",
+    "version": "v0.2-decision-fail",
     "status": "pass",
     "result": {
       "tier": "metrics_only",

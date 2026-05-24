@@ -216,6 +216,9 @@ invocation/transcript refs, alternate route metadata, comparator status, safe
 lineage refs, and token/cost/latency metrics. The comparator now implements
 the hard-fail tier for schema, policy snapshot, conduct hook, unsafe action,
 audit/transcript linkage, route-governance, and provider-port replay defects.
-Decision-fail, review-finding, metrics-only tier semantics, and required
-credentials remain required before any live provider route is considered
-usable.
+The decision-fail tier now classifies bounded UC1 qualification decision
+divergence under the same policy snapshot, covering terminal verdict / route
+category, regulated outcome, required approval decision fields where present,
+and connector-action category evidence available in replay-safe records.
+Review-finding, metrics-only tier semantics, and required credentials remain
+required before any live provider route is considered usable.

@@ -77,5 +77,9 @@ safe skipped/error reasons, and token/cost/latency metrics. The hard-fail
 tier is now implemented for schema-invalid replay output, missing policy
 snapshot evidence, missing required UC1 conduct hooks, unsafe action
 proposals, missing audit/transcript linkage, route-governance mismatch, and
-provider-port replay errors. Decision-fail, review-finding, and metrics-only
-tier semantics remain pending.
+provider-port replay errors. The decision-fail tier is now implemented for
+bounded UC1 qualification decision divergence under the same policy snapshot:
+terminal verdict / route category, regulated outcome, required approval
+decision fields where present, and connector-action category evidence
+available in replay-safe records. Review-finding and metrics-only tier
+semantics remain pending.

@@ -25,7 +25,9 @@ from chorus.agent_runtime.response_schemas import (
 )
 from chorus.contracts.generated.eval.replay_run_record import ReplayRunRecord
 from chorus.eval.replay_comparator import (
+    DecisionFailClassification,
     HardFailClassification,
+    classify_replay_decision_failure,
     classify_replay_input_hard_failure,
     classify_replay_result_hard_failure,
     provider_port_error_hard_failure,
@@ -44,7 +46,7 @@ from chorus.llm_provider import (
 
 _VALID_ROLES = ("system", "user", "assistant", "tool")
 _COMPARATOR_NAME = "tiered_replay_comparator"
-_COMPARATOR_VERSION = "v0.1-hard-fail"
+_COMPARATOR_VERSION = "v0.2-decision-fail"
 _UC1_PROMPT_REFERENCES = {
     "classifier": "prompts/uc1/classifier/v1.md",
     "context_gatherer": "prompts/uc1/context-gatherer/v1.md",
@@ -319,6 +321,19 @@ def _compare_structured_data(
     # because it captures the adapter's output before normalisation.
     actual_data.pop("route_catalogue", None)
 
+    decision_fail = classify_replay_decision_failure(
+        task_kind=transcript.task_kind,
+        policy_snapshot_ref=transcript.policy_snapshot_ref,
+        expected_structured_data=expected,
+        actual_structured_data=actual_data,
+    )
+    if decision_fail is not None:
+        return _decision_fail_comparison(
+            transcript=transcript,
+            target_route=route_id,
+            classification=decision_fail,
+        )
+
     if actual_data == expected:
         return _Comparison(
             checks=[
@@ -372,6 +387,30 @@ def _compare_structured_data(
             "changed_field_names": changed,
             "tier_placeholder": "decision_comparator_pending",
         },
+    )
+
+
+def _decision_fail_comparison(
+    *,
+    transcript: CapturedTranscript,
+    target_route: str,
+    classification: DecisionFailClassification,
+) -> _Comparison:
+    fields = ", ".join(classification.field_names) if classification.field_names else "none"
+    return _Comparison(
+        checks=[
+            EvalCheck(
+                "replay decision-fail tier",
+                "fail",
+                (
+                    f"replay through route {target_route!r} for invocation "
+                    f"{transcript.invocation_id!r} classified {classification.reason_code!r} "
+                    f"on fields: {fields}"
+                ),
+            )
+        ],
+        status="fail",
+        result=classification.result_payload(),
     )
 
 
