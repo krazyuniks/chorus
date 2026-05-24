@@ -9,6 +9,13 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  approvalPackages,
+  grants,
+  toolVerdicts,
+  workflowEvents,
+  workflowRuns,
+} from "./fixtures";
+import {
   getWorkflow,
   listApprovalPackages,
   listDecisionTrail,
@@ -101,5 +108,59 @@ describe("queries", () => {
       "/api/runtime/provider-models",
       "/api/runtime/route-versions",
     ]);
+  });
+
+  it("fixture inspection data includes UC3 safe approval-package refs", () => {
+    const workflow = workflowRuns.find(
+      (run) => run.workflow_type === "uc3_ifa_suitability_intake",
+    );
+    const packageEntry = approvalPackages.find(
+      (entry) => entry.requested_action === "suitability_report.issue.write",
+    );
+    const verdict = toolVerdicts.find(
+      (entry) => entry.tool_name === "suitability_report.issue",
+    );
+    const grant = grants.find(
+      (entry) =>
+        entry.tool_name === "suitability_report.issue" && entry.mode === "write",
+    );
+
+    expect(workflow).toMatchObject({
+      workflow_id: "uc3-2026-05-24-0001",
+      subject_ref: "advice_enquiry_2026_05_24_0001",
+    });
+    expect(workflowEvents["uc3-2026-05-24-0001"]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          step: "suitability_conclusion",
+          payload: expect.objectContaining({
+            suitability_conclusion_ref: "suitability_conclusion_demo_001",
+          }),
+        }),
+      ]),
+    );
+    expect(packageEntry).toMatchObject({
+      workflow_id: "uc3-2026-05-24-0001",
+      workflow_type: "uc3_ifa_suitability_intake",
+      tool_name: "suitability_report.issue",
+      latest_verdict: "approval_required",
+      grant_ref: "tool_grant:grant-uc3-suitability-report-issue-write",
+    });
+    expect(packageEntry?.subject_refs).toEqual({
+      subject_ref: "advice_enquiry_2026_05_24_0001",
+    });
+    expect(packageEntry?.action_refs).toMatchObject({
+      suitability_report_ref: "suitability_report_demo_001",
+      suitability_conclusion_ref: "suitability_conclusion_demo_001",
+      conduct_hook_refs: [
+        "conduct_fca_cobs_9_suitability",
+        "conduct_fca_prod_3_target_market",
+        "conduct_fca_prin_2a_consumer_duty",
+      ],
+    });
+    expect(packageEntry?.action_refs).not.toHaveProperty("raw_suitability_report_text");
+    expect(packageEntry?.action_refs).not.toHaveProperty("client_name");
+    expect(verdict?.verdict).toBe("approval_required");
+    expect(grant?.approval_required).toBe(true);
   });
 });

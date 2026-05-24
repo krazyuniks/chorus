@@ -206,8 +206,8 @@ channel runnable status are separate claims.
 - [x] Add sandbox attitude-to-risk profiler, capacity-for-loss tool,
   suitability-report store, and platform-research connectors.
 - [x] Add UC3 approval gates and conduct invariants.
-- [ ] Add UC3 projections, BFF/UI inspection, fixtures, and documented commands.
-- [ ] Run focused contracts, tests, replay, and eval gates for UC3.
+- [x] Add UC3 projections, BFF/UI inspection, fixtures, and documented commands.
+- [x] Run focused contracts, tests, replay, and eval gates for UC3.
 
 ### P6 - R4 Closure
 
@@ -1785,6 +1785,68 @@ channel runnable status are separate claims.
   by the local Postgres credential failure; provider, local intake,
   projection, UI, and full UC3 eval fixtures are later P5 scope.
 
+### 2026-05-25 - UC3 Projection And Inspection Surface
+
+- Scope: final P5 UC3 slice for read-only projection / BFF / UI inspection,
+  schema-only fixture evidence, documented commands, and focused gate
+  evidence.
+- Behaviour changed:
+  - Reused the existing generic approval-package projection reader and BFF
+    endpoints for UC3; no new mutation route or use-case-specific approval
+    endpoint was added.
+  - Added focused BFF unit coverage proving
+    `/api/workflows/{workflow_id}/approval-packages` can expose safe UC3
+    `suitability_report.issue.write` package state with subject refs, action
+    refs, conduct-hook refs, and grant refs only.
+  - Fixture-mode frontend data now includes a UC3 workflow row, safe UC3
+    workflow progress events, a UC3 suitability-decision row, a
+    `suitability_report.issue` approval-required Tool Gateway verdict, the
+    UC3 issue grant, and a generic UC3 approval package. The workflow detail
+    UI consumes the existing approval-package table without new mutable
+    controls.
+  - Added
+    `chorus/eval/fixtures/uc3/uc3_synthetic_suitability_conduct.json` as
+    schema-only UC3 eval fixture evidence. Default offline playback remains
+    top-level UC1 fixtures only; full UC3 fixture playback remains absent.
+  - Added a DB-backed projection assertion for
+    `ProjectionStore.list_approval_packages` over UC3
+    `suitability_report.issue.write`; it is DB-skipping under the current
+    local Postgres credential blocker.
+  - Architecture, evidence, runbook, contracts, and eval-direction docs now
+    describe UC3 read-only workflow / approval-package inspection without
+    claiming a runnable UC3 local intake path.
+  - No UC3 provider routes, local intake adapters, connector persistence,
+    production FCA / client data handling, full eval playback, live connector
+    side effects, mutable admin UI, or broad shared-runtime rewrite was added.
+- Files changed: schema-only UC3 eval fixture, BFF unit fixtures/tests,
+  frontend fixture data and API tests, DB-skipping persistence assertion,
+  eval package notes, contracts README, architecture / evidence-map /
+  runbook / eval-direction docs, and this backlog handoff.
+- Gates run:
+  - `uv run pytest tests/bff/test_app_unit.py tests/eval/test_run.py -q` -
+    green, 45 passed.
+  - `uv run pytest tests/persistence/test_postgres_foundation.py::test_projection_store_lists_uc3_approval_package_state -rs`
+    - skipped because local Postgres on `localhost:5432` rejected the
+    configured `chorus` user.
+  - `npm test -- --run src/api/queries.test.ts` from `frontend/` - green,
+    5 passed.
+  - `just contracts-check` - green for 45 schemas, samples, and generated
+    model drift checks.
+  - `just test-frontend` - green, 14 passed.
+  - `just eval` - green for the five current top-level UC1 offline eval
+    fixtures; the UC3 schema-only fixture is validated by
+    `tests/eval/test_run.py` and is not loaded by default playback.
+  - `just test-replay` - green, 4 passed and 17 deselected.
+  - `just lint` - green after Ruff-formatting the new persistence assertion.
+  - `git diff --check` - green.
+- Skipped gates: live `just db-migrate`, DB-backed generic UC3
+  approval-package verification, full `just test`, Redpanda projection
+  integration, frontend e2e/browser validation, live-stack gates, and
+  live-provider gates were not run. DB-backed verification and migration
+  execution remain blocked by the local Postgres credential failure; browser
+  validation was not needed because the frontend change is a read-only
+  fixture/table-query addition covered by the frontend test suite.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -1832,22 +1894,22 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: continue P5 - UC3 IFA Suitability Intake by adding UC3 projections, BFF/UI inspection, fixtures, and documented commands. Keep the slice read-only and inspection-focused: projection/BFF/UI surfaces should expose safe UC3 workflow progress and generic approval-package state for `suitability_report.issue`, plus schema-only UC3 fixture evidence and matching docs. Do not add UC3 provider routes, local intake adapters, connector persistence, production FCA/client data handling, full eval fixture playback, live connector side effects, mutable admin UI, or broad shared-runtime rewrites in this slice.
+Current target slice: start P6 - R4 Closure. Update `README.md`, `docs/overview.md`, `docs/architecture.md`, `docs/evidence-map.md`, `docs/runbook.md`, and this backlog with final R4 status, exit criteria, evidence notes, and checked / deferred / blocked state. Keep this slice documentation-led unless a broken reference or command requires a very small test/docs fix. Do not add provider routes, local intake adapters, connector persistence, production data handling, mutable admin UI, broad runtime rewrites, or new use-case scope during closure.
 
-Previous slice completed: P5 now has UC3 Tool Gateway governance for the already-declared connector tools. Postgres constraints admit `attitude_to_risk.profile`, `capacity_for_loss.assess`, `platform_research.run`, `suitability_report.draft`, `suitability_report.issue`, `suitability_report.record_decline`, and `suitability_report.route_manual_review`; `tenant_demo` seeds read grants for the effect-free tools, bounded sandbox write grants for draft/decline/manual-review, and approval-required write for `suitability_report.issue`. Minimal UC3 prompt assets back the seeded grant-owner agents. `chorus/eval/use_cases/uc3_conduct.py` and `UC3_INVARIANTS` assert FCA suitability / PROD / Consumer Duty evidence, risk/support manual-handoff boundaries, approval-gated `suitability_report.issue`, and safe connector refs over synthetic captured-run artefacts. Focused Tool Gateway, eval, UC3 connector, UC3 workflow, and DB-skipping persistence tests were green; DB-backed grant/apply assertions skipped because local Postgres rejected the configured `chorus` user. No UC3 projections, BFF/UI surfaces, provider routes, local intake path, eval playback, connector persistence, or production FCA/client data path were added.
+Previous slice completed: P5 UC3 now has read-only projection / BFF / UI inspection evidence and schema-only fixture evidence. The existing generic approval-package projection reader and `/api/approval-packages` BFF endpoints expose UC3 `suitability_report.issue.write` package state when rows exist. Fixture mode now includes a safe UC3 workflow row, workflow progress events, a suitability-decision row, an approval-required `suitability_report.issue` Tool Gateway verdict, the UC3 issue grant, and a generic UC3 approval package. `chorus/eval/fixtures/uc3/uc3_synthetic_suitability_conduct.json` validates the eval fixture contract without entering default playback. Focused BFF/eval/frontend tests were green; the DB-backed UC3 projection assertion skipped because local Postgres rejected the configured `chorus` user. No UC3 provider routes, local intake path, connector persistence, full eval playback, live side effects, or production FCA/client data path were added.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief-uc3.md, docs/domain-model-uc3.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/README.md, contracts/eval/, chorus/workflows/uc3.py, chorus/connectors/uc3.py, chorus/eval/use_cases/uc3_conduct.py, chorus/eval/invariants.py, chorus/eval/run.py, chorus/eval/scenario_player.py, chorus/persistence/projection.py, chorus/bff/app.py, frontend/src/api/, frontend/src/routes/workflows.$workflowId.tsx, frontend/src/fixtures/, tests/bff/test_app_unit.py, tests/eval/test_run.py, tests/persistence/test_postgres_foundation.py, frontend/src/api/queries.test.ts, and the current P5 backlog items. Use official FCA sources only if UC3 regulatory wording needs fresh verification; otherwise rely on the already verified UC3 product/domain docs.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/architecture.md, docs/overview.md, docs/evidence-map.md, docs/runbook.md, README.md, contracts/README.md, chorus/eval/AGENTS.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/product-brief-uc3.md, docs/domain-model-uc3.md, and the current P6 backlog items. Use official sources only if a regulatory or provider wording claim needs fresh verification; otherwise rely on already verified project docs.
 
-Before editing, inspect the existing UC2 projection/inspection implementation rather than inventing a new surface. Search for `uc2_synthetic_acceptance_conduct`, `uc2_legal_services_intake_conflict_check`, `engagement_letter.send`, `approval_packages`, `list_approval_packages`, `/api/approval-packages`, `workflow_read_models`, `tool_action_audit`, `frontend`, `fixture`, `approval_required`, and the UC3 workflow/tool names.
+Before editing, inspect the P6 backlog items and the existing final-status wording. Search for stale claims such as `later P4`, `later P5`, `runtime implementation is later`, `projections remain`, `eval playback remain`, `UC2 lands later`, `UC3 lands later`, `runnable`, `local intake`, `provider routes`, `R4`, and `exit criteria`. Keep the closure honest: UC1 is runnable locally; UC2 and UC3 now prove shared workflow / connector / grant / approval / projection inspection / schema-only eval surfaces, but they still do not have local intake start paths, provider route activation, or full fixture playback unless a later explicit decision changes that.
 
-Expected direction: reuse the existing generic approval-package projection reader and BFF endpoints where possible, then add the narrow UC3 inspection evidence that is missing: UC3 workflow / approval-package fixture data for the read-only UI, focused BFF/frontend tests for UC3 safe refs and `suitability_report.issue.write`, and a schema-only UC3 eval fixture under `chorus/eval/fixtures/uc3/` that validates the captured-run contract without enabling default playback. If a DB projection assertion is needed, make it DB-skipping like the current UC2 projection test and record the existing local Postgres credential blocker. Keep UI changes dense and data-first per AGENTS.md; if visible UI behaviour changes, use `playwright-cli` for browser validation after tests.
+Expected direction: close R4 documentation and evidence, not runtime breadth. Add or update R4 exit criteria and final command/evidence notes. If UC2 or UC3 do not meet the earlier "Definition Of Runnable" because local intake / provider / playback remain absent, record that as an explicit R4 closure exception or deferred item with reason instead of silently rewording the definition. If the backlog is fully closed or explicitly deferred with reasons, rewrite the `## Next Continuation Prompt` body to the literal `R4-COMPLETE`; otherwise write the next bounded continuation prompt in Strategy order.
 
-Run focused BFF, eval, persistence, and frontend tests for the UC3 projection/inspection changes. Run `just contracts-check`, `just test-frontend` if frontend code changes, `just eval` to prove default UC1 playback is unchanged if eval fixtures/composition change, `just lint`, and `git diff --check`. Run broader replay, live-stack, provider, or e2e gates only if the change unexpectedly touches those surfaces; if local Postgres credentials or another live-stack dependency still block DB-backed tests, record the skipped gate and reason.
+Run documentation-appropriate gates, likely `just contracts-check`, `just eval`, `just test-replay`, `just lint`, and `git diff --check`. Run `just test-frontend` if frontend docs/fixtures/code change, and focused Python tests if runtime-facing references are edited. Run broader live-stack, DB-backed, provider, or e2e gates only if closure unexpectedly touches those surfaces; if local Postgres, credentials, or another live dependency is unavailable, record the skipped gate and reason.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
 - Rewrite the body of the `## Next Continuation Prompt` section in the backlog with the next slice's prompt, in Strategy order. If R4 is fully closed, write the literal `R4-COMPLETE` there instead.
-- Run relevant focused gates for the files touched, likely including `just contracts-check`, focused BFF/eval/persistence/frontend tests, `just test-frontend` when frontend code changes, `just eval` when eval fixtures/composition change, `just lint`, and `git diff --check`. Run broader gates only if runtime, persistence, BFF, frontend, replay, or eval code changes require them; if local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
+- Run relevant gates for the files touched, likely including `just contracts-check`, `just eval`, `just test-replay`, `just lint`, and `git diff --check`; add `just test-frontend` or focused Python tests if code / fixture references change. Run broader gates only if runtime, persistence, BFF, frontend, replay, or eval code changes require them; if local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
 - Stage everything and create one Conventional Commit (`type(scope): description`). Do not add `Co-Authored-By` or any AI attribution.
 - Leave the working tree clean.
 

@@ -65,7 +65,8 @@ flowchart TB
 
 The adapter inventory behind each port, as defined by the R1 adapter mapping
 and R4 product/domain artefacts. UC1 is the current runnable worked set; UC2
-and UC3 are modelled for later R4 implementation.
+and UC3 now exercise shared workflow, connector, approval, projection, and
+eval surfaces without yet claiming local intake runnable status.
 
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|
@@ -89,10 +90,10 @@ drift gate move with every schema change. R3 rewrites the contract set around
 the six named ports, with use-case-specific payload schemas at the intake and
 connector ports. UC3 now has contract-declared intake payloads and connector
 argument payloads for its R4 IFA suitability inventory, plus a
-definition-first workflow on the shared spine and deterministic sandbox
-connector adapters registered behind the default registry; grants, approval
-packages, projections, provider routes, and local intake start paths remain
-later P5 work.
+definition-first workflow on the shared spine, deterministic sandbox connector
+adapters, Tool Gateway grants, read-only projection / BFF / UI inspection
+fixtures, and schema-only eval fixture evidence. Provider routes, full eval
+playback, and local intake start paths are not added by those surfaces.
 
 ## Workflow durability is not a port
 
@@ -361,7 +362,7 @@ The runtime code carries the named-port surface this document describes.
 | LLM provider port | `chorus/llm_provider/port.py` (surface), `chorus/llm_provider/adapter_openai.py` (OpenAI-SDK transport), `chorus/llm_provider/adapter_replay.py` (deterministic recorded-replay substrate), `chorus/llm_provider/route_catalogue.py` (route metadata). |
 | Audit / transcript port split | `chorus/persistence/audit_port.py`, `contracts/audit/agent_invocation_record.schema.json`, `contracts/audit/agent_invocation_transcript.schema.json`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`. The runtime writes both records on every invocation. |
 | Connector adapter registry | `chorus/connectors/types.py` (`ConnectorAdapter`, `ConnectorRegistry`, `ToolSpec`), `chorus/connectors/uc1.py` (six UC1 sandbox adapters), `chorus/persistence/uc1_connectors.py` (local UC1 quoting / referral / decline routing records plus seeded profile / catalogue read data), `chorus/connectors/uc2.py` (deterministic UC2 sandbox adapters for conflict check, KYC / beneficial ownership, AML record store, and engagement-letter store), `chorus/connectors/uc3.py` (deterministic UC3 sandbox adapters for attitude-to-risk profiling, capacity-for-loss assessment, platform research, and suitability-report store), `chorus/connectors/calendar.py`. The gateway dispatches through the registry. |
-| Workflow spine + use-case definitions | `chorus/workflows/spine.py` (`WorkflowSpine`, `WorkflowDefinition`, `WorkflowStepDefinition` over generic activity names), `chorus/workflows/uc1.py` (UC1 enquiry-qualification workflow, including Tool Gateway routing for accepted, referred, declined, and missing-data verdicts), `chorus/workflows/uc2.py` (definition-first UC2 legal-services intake and conflict-check workflow over the same primitives, with connector adapters, grant seeds, and read-only inspection surfaces now registered; provider routes and local intake remain pending), `chorus/workflows/uc3.py` (definition-first UC3 IFA suitability workflow over the same primitives, with connector adapters, grant seeds, suitability-report approval-package evidence, conduct invariants, and fake-activity workflow / replay evidence; projections, provider routes, eval playback, and local intake remain pending). |
+| Workflow spine + use-case definitions | `chorus/workflows/spine.py` (`WorkflowSpine`, `WorkflowDefinition`, `WorkflowStepDefinition` over generic activity names), `chorus/workflows/uc1.py` (UC1 enquiry-qualification workflow, including Tool Gateway routing for accepted, referred, declined, and missing-data verdicts), `chorus/workflows/uc2.py` (definition-first UC2 legal-services intake and conflict-check workflow over the same primitives, with connector adapters, grant seeds, and read-only inspection surfaces now registered; provider routes and local intake remain pending), `chorus/workflows/uc3.py` (definition-first UC3 IFA suitability workflow over the same primitives, with connector adapters, grant seeds, suitability-report approval-package evidence, conduct invariants, read-only inspection fixture evidence, and fake-activity workflow / replay evidence; provider routes, full eval playback, and local intake remain pending). |
 | Per-port persistence read surface | `chorus/persistence/projection.py` (workflow + generic approval-package inspection + calendar compatibility view), `chorus/persistence/audit_port.py`, `chorus/persistence/runtime_policy.py` (agent registry, route policy, grants, and policy snapshot rows), `chorus/persistence/provider_governance.py`, `chorus/persistence/replay_runs.py` (replay-run evidence records). The BFF binds them through `PortReaders` per request. |
 | Per-port doctor probes | `chorus/doctor/scaffold.py` (paths / executables / compose), `chorus/doctor/projection_port.py`, `chorus/doctor/connector_port.py`, `chorus/doctor/observability_port.py`, `chorus/doctor/workflow_runtime.py`, `chorus/doctor/ui.py`. CLI entry at `chorus/doctor/__main__.py`. |
 | Invariant-plus-replay eval | `chorus/eval/common_invariants.py` (architecture-wide invariant checks), `chorus/eval/use_cases/uc1_conduct.py` (UC1 conduct hooks), `chorus/eval/use_cases/uc2_conduct.py` (UC2 SRA / AML conduct and engagement-letter approval checks over captured-run artefacts), `chorus/eval/use_cases/uc3_conduct.py` (UC3 FCA suitability / PROD / Consumer Duty conduct and suitability-report approval checks over captured-run artefacts), `chorus/eval/invariants.py` (current suite composition), `chorus/eval/scenario_player.py` (drives the recorded-replay route through a fixture's scenario), `chorus/eval/replay.py` (`eval replay` subcommand plus safe replay-run record construction), `contracts/eval/replay_run_record.schema.json`, `chorus/eval/run.py` (CLI). |
@@ -382,22 +383,22 @@ check, KYC / beneficial ownership, AML assessment, engagement decision,
 approval-required handoff, engagement-letter routing, decline, manual review,
 and close. The UC2 connector adapters are registered behind the existing
 connector registry and Tool Gateway argument-validation shape with
-deterministic synthetic outputs. UC2 grant seeds and conduct invariants now
-cover the declared connector authority surface with engagement-letter send as
-the approval-required write. Provider routes, projections, eval fixtures, and
-a local intake start path remain later R4 slices. UC3 now has a
-definition-first workflow on the same spine for advice-scope classification,
-fact-find summary, attitude-to-risk profiling, risk approval handoff,
-capacity-for-loss assessment, Consumer Duty support assessment, platform
-research, suitability conclusion, report draft / issue, decline, manual
-review, and close. The UC3 connector adapters are registered behind the
-existing connector registry and Tool Gateway argument-validation shape with
-deterministic synthetic outputs. UC3 grant seeds and conduct invariants now
-cover the declared connector authority surface with suitability-report issue
-as the approval-required write; risk-profile override and vulnerability
-handoff remain workflow/manual-review conduct evidence until an exact
-connector request binds those packages. It is not locally runnable yet because
-projections, provider routes, eval playback, and local intake remain later P5
-slices. The active R4 backlog and continuation
+deterministic synthetic outputs. UC2 grant seeds, conduct invariants, and
+read-only inspection surfaces now cover the declared connector authority
+surface with engagement-letter send as the approval-required write. Provider
+routes, full eval fixture playback, and a local intake start path remain later
+R4 work. UC3 now has a definition-first workflow on the same spine for
+advice-scope classification, fact-find summary, attitude-to-risk profiling,
+risk approval handoff, capacity-for-loss assessment, Consumer Duty support
+assessment, platform research, suitability conclusion, report draft / issue,
+decline, manual review, and close. The UC3 connector adapters are registered
+behind the existing connector registry and Tool Gateway argument-validation
+shape with deterministic synthetic outputs. UC3 grant seeds, conduct
+invariants, schema-only fixture evidence, and read-only inspection surfaces now
+cover the declared connector authority surface with suitability-report issue as
+the approval-required write; risk-profile override and vulnerability handoff
+remain workflow/manual-review conduct evidence until an exact connector request
+binds those packages. It is not locally runnable yet because provider routes,
+full eval playback, and local intake remain absent. The active R4 backlog and continuation
 handoff are in
 [`transformation/r4-implementation-backlog.md`](transformation/r4-implementation-backlog.md).

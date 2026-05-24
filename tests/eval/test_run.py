@@ -293,6 +293,19 @@ def test_uc2_schema_only_eval_fixture_validates_without_default_playback() -> No
         play_scenario(fixture)
 
 
+def test_uc3_schema_only_eval_fixture_validates_without_default_playback() -> None:
+    fixture = run.load_fixture(FIXTURE_DIR / "uc3" / "uc3_synthetic_suitability_conduct.json")
+
+    assert fixture.workflow_type.value == "uc3_ifa_suitability_intake"
+    assert fixture.scenario == "synthetic_suitability_conduct"
+    assert fixture.input.source_fixture_path == (
+        "contracts/intake/uc3/samples/web_advice_enquiry.sample.json"
+    )
+    assert fixture.expected.use_case_outcome == ("suitability_report_issue_approval_gated")
+    with pytest.raises(ValueError, match="supports only 'uc1_enquiry_qualification'"):
+        play_scenario(fixture)
+
+
 def test_assert_default_loads_every_fixture() -> None:
     assert run.main(["assert"]) == 0
 

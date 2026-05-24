@@ -646,6 +646,213 @@ def test_projection_store_lists_uc2_approval_package_state(
     assert package.grant_ref == f"tool_grant:{grant_id}"
 
 
+def test_projection_store_lists_uc3_approval_package_state(
+    migrated_database_url: str,
+) -> None:
+    workflow_id = "uc3-ifa-approval-projection"
+    correlation_id = "cor_uc3_ifa_approval_projection"
+    approval_id = uuid4()
+    audit_event_id = uuid4()
+    invocation_id = uuid4()
+    tool_call_id = uuid4()
+    verdict_id = uuid4()
+
+    with psycopg.connect(migrated_database_url) as conn:
+        conn.execute("SELECT set_config('app.tenant_id', 'tenant_demo', false)")
+        grant_row = conn.execute(
+            """
+            SELECT grant_id
+            FROM tool_grants
+            WHERE tenant_id = 'tenant_demo'
+              AND agent_id = 'uc3.suitability_decider'
+              AND tool_name = 'suitability_report.issue'
+              AND mode = 'write'
+            """
+        ).fetchone()
+        assert grant_row is not None
+        grant_id = cast(UUID, grant_row[0])
+        conn.execute(
+            """
+            INSERT INTO tool_action_audit (
+                tenant_id,
+                audit_event_id,
+                correlation_id,
+                workflow_id,
+                invocation_id,
+                tool_call_id,
+                verdict_id,
+                actor_type,
+                actor_id,
+                category,
+                action,
+                tool_name,
+                requested_mode,
+                enforced_mode,
+                verdict,
+                idempotency_key,
+                arguments_redacted,
+                reason,
+                occurred_at,
+                raw_event
+            )
+            VALUES (
+                'tenant_demo',
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                'agent',
+                'uc3.suitability_decider',
+                'tool_gateway',
+                'tool_call.decided',
+                'suitability_report.issue',
+                'write',
+                'write',
+                'approval_required',
+                'uc3-approval-projection',
+                %s,
+                'Grant exists but requires adviser approval before connector execution.',
+                '2026-05-24T11:00:00Z',
+                %s
+            )
+            """,
+            (
+                audit_event_id,
+                correlation_id,
+                workflow_id,
+                invocation_id,
+                tool_call_id,
+                verdict_id,
+                Jsonb(
+                    {
+                        "advice_enquiry_ref": "advice_enquiry_projection_approval_001",
+                        "suitability_report_ref": "suitability_report_projection_001",
+                        "suitability_conclusion_ref": "suitability_conclusion_projection_001",
+                        "conduct_hook_refs": ["conduct_fca_cobs_9_suitability"],
+                    }
+                ),
+                Jsonb(
+                    {
+                        "details": {
+                            "gateway_response": {
+                                "output": {
+                                    "approval_id": str(approval_id),
+                                    "approval_state": "requested",
+                                    "requested_action": "suitability_report.issue.write",
+                                }
+                            }
+                        }
+                    }
+                ),
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO approval_packages (
+                tenant_id,
+                approval_id,
+                correlation_id,
+                workflow_id,
+                workflow_type,
+                invocation_id,
+                tool_call_id,
+                verdict_id,
+                source_audit_event_id,
+                agent_id,
+                agent_version,
+                requested_action,
+                tool_name,
+                requested_mode,
+                enforced_mode,
+                idempotency_key_ref,
+                redaction_policy_ref,
+                requested_at,
+                decision_due_at,
+                expires_at,
+                sla_policy_ref,
+                grant_id,
+                policy_version_refs,
+                trace_join,
+                metadata
+            )
+            VALUES (
+                'tenant_demo',
+                %s,
+                %s,
+                %s,
+                'uc3_ifa_suitability_intake',
+                %s,
+                %s,
+                %s,
+                %s,
+                'uc3.suitability_decider',
+                'v1',
+                'suitability_report.issue.write',
+                'suitability_report.issue',
+                'write',
+                'write',
+                %s,
+                'tool_grant:uc3-issue:redaction_policy',
+                '2026-05-24T11:00:00Z',
+                '2026-05-24T12:00:00Z',
+                '2026-05-24T13:00:00Z',
+                'approval_sla.suitability_report_issue_write.local.v1',
+                %s,
+                %s,
+                %s,
+                %s
+            )
+            """,
+            (
+                approval_id,
+                correlation_id,
+                workflow_id,
+                invocation_id,
+                tool_call_id,
+                verdict_id,
+                audit_event_id,
+                "sha256:" + "4" * 64,
+                grant_id,
+                Jsonb(
+                    {
+                        "approval_policy_ref": (
+                            "approval_policy.suitability_report_issue_write.local.v1"
+                        )
+                    }
+                ),
+                Jsonb({"trace_id": "trace_uc3_projection"}),
+                Jsonb(
+                    {
+                        "subject_refs": {"subject_ref": "advice_enquiry_projection_approval_001"},
+                        "action_refs": {
+                            "suitability_report_ref": "suitability_report_projection_001",
+                            "suitability_conclusion_ref": ("suitability_conclusion_projection_001"),
+                            "conduct_hook_refs": ["conduct_fca_cobs_9_suitability"],
+                        },
+                    }
+                ),
+            ),
+        )
+        conn.commit()
+
+        package = ProjectionStore(conn).list_approval_packages(
+            "tenant_demo", workflow_id=workflow_id
+        )[0]
+
+    assert package.workflow_type == "uc3_ifa_suitability_intake"
+    assert package.requested_action == "suitability_report.issue.write"
+    assert package.tool_name == "suitability_report.issue"
+    assert package.approval_state == "requested"
+    assert package.latest_verdict == "approval_required"
+    assert package.subject_refs["subject_ref"] == "advice_enquiry_projection_approval_001"
+    assert package.action_refs["conduct_hook_refs"] == ["conduct_fca_cobs_9_suitability"]
+    assert "raw_suitability_report_text" not in package.action_refs
+    assert "client_name" not in package.action_refs
+    assert package.grant_ref == f"tool_grant:{grant_id}"
+
+
 def test_outbox_claim_sent_and_failed_transitions(migrated_database_url: str) -> None:
     workflow_id = "uc1-enq-outbox"
     with psycopg.connect(migrated_database_url) as conn:

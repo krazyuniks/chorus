@@ -27,6 +27,26 @@ const iso = (offsetSeconds: number) =>
 
 export const workflowRuns: WorkflowRunSummary[] = [
   {
+    workflow_id: "uc3-2026-05-24-0001",
+    run_id: null,
+    workflow_type: "uc3_ifa_suitability_intake",
+    status: "completed",
+    current_step: "close",
+    started_at: iso(-5400),
+    closed_at: iso(-4920),
+    updated_at: iso(-4920),
+    correlation_id: "cor_uc3_ifa_demo_001",
+    subject_id: "00000000-0000-4000-8000-000000000301",
+    subject_ref: "advice_enquiry_2026_05_24_0001",
+    subject_summary: "ISA investment advice - suitability report approval",
+    subject_from: "web-advice@example.test",
+    metadata: {
+      source: "fixture",
+      channel: "web-form",
+      source_payload_ref: "payload_uc3_demo_001",
+    },
+  },
+  {
     workflow_id: "uc2-2026-05-24-0001",
     run_id: null,
     workflow_type: "uc2_legal_services_intake_conflict_check",
@@ -97,6 +117,81 @@ export const workflowRuns: WorkflowRunSummary[] = [
 ];
 
 export const workflowEvents: Record<string, WorkflowEvent[]> = {
+  "uc3-2026-05-24-0001": [
+    {
+      id: "evt-uc3-001",
+      workflow_id: "uc3-2026-05-24-0001",
+      event_type: "enquiry.received",
+      sequence: 1,
+      step: "intake",
+      occurred_at: iso(-5400),
+      correlation_id: "cor_uc3_ifa_demo_001",
+      payload: {
+        advice_enquiry_ref: "advice_enquiry_2026_05_24_0001",
+        subject_summary: "ISA investment advice - suitability report approval",
+        channel: "web-form",
+        source_payload_ref: "payload_uc3_demo_001",
+      },
+    },
+    {
+      id: "evt-uc3-002",
+      workflow_id: "uc3-2026-05-24-0001",
+      event_type: "workflow.step.completed",
+      sequence: 8,
+      step: "attitude_to_risk_profile",
+      occurred_at: iso(-5300),
+      correlation_id: "cor_uc3_ifa_demo_001",
+      payload: {
+        advice_enquiry_ref: "advice_enquiry_2026_05_24_0001",
+        tool_name: "attitude_to_risk.profile",
+        gateway_verdict: "allow",
+        risk_profile_ref: "risk_profile_demo_001_v1",
+      },
+    },
+    {
+      id: "evt-uc3-003",
+      workflow_id: "uc3-2026-05-24-0001",
+      event_type: "workflow.step.completed",
+      sequence: 11,
+      step: "platform_research",
+      occurred_at: iso(-5200),
+      correlation_id: "cor_uc3_ifa_demo_001",
+      payload: {
+        advice_enquiry_ref: "advice_enquiry_2026_05_24_0001",
+        tool_name: "platform_research.run",
+        gateway_verdict: "allow",
+        platform_research_ref: "platform_research_demo_001_v1",
+      },
+    },
+    {
+      id: "evt-uc3-004",
+      workflow_id: "uc3-2026-05-24-0001",
+      event_type: "workflow.step.completed",
+      sequence: 13,
+      step: "suitability_conclusion",
+      occurred_at: iso(-5020),
+      correlation_id: "cor_uc3_ifa_demo_001",
+      payload: {
+        advice_enquiry_ref: "advice_enquiry_2026_05_24_0001",
+        suitability_conclusion_ref: "suitability_conclusion_demo_001",
+        suitability_outcome: "suitable_subject_to_adviser_approval",
+        policy_snapshot_ref: "policy_snapshot:uc3:default:v1",
+      },
+    },
+    {
+      id: "evt-uc3-005",
+      workflow_id: "uc3-2026-05-24-0001",
+      event_type: "workflow.completed",
+      sequence: 15,
+      step: "close",
+      occurred_at: iso(-4920),
+      correlation_id: "cor_uc3_ifa_demo_001",
+      payload: {
+        advice_enquiry_ref: "advice_enquiry_2026_05_24_0001",
+        outcome: "approval_required",
+      },
+    },
+  ],
   "uc2-2026-05-24-0001": [
     {
       id: "evt-uc2-001",
@@ -203,6 +298,31 @@ export const workflowEvents: Record<string, WorkflowEvent[]> = {
 
 export const decisionTrail: DecisionTrailEntry[] = [
   {
+    id: "dec-uc3-001",
+    workflow_id: "uc3-2026-05-24-0001",
+    agent_id: "uc3.suitability_decider",
+    agent_role: "suitability_decider",
+    invocation_id: "inv-uc3-001",
+    prompt_ref: "prompts/uc3/suitability-decider/v1.md",
+    prompt_hash: "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    model_route: "local/uc3-synthetic-v1",
+    route_id: null,
+    route_version: null,
+    provider: "local",
+    model: "uc3-synthetic-v1",
+    fallback_reason: null,
+    fallback_applied: false,
+    task_kind: "uc3_suitability_conclusion",
+    outcome: "succeeded",
+    reasoning_summary:
+      "Suitability evidence refs are present and report issue requires adviser approval.",
+    cost_usd: 0,
+    latency_ms: 55,
+    occurred_at: iso(-5020),
+    correlation_id: "cor_uc3_ifa_demo_001",
+    contract_refs: ["contracts/llm_provider/uc3_agent_io.schema.json"],
+  },
+  {
     id: "dec-uc2-001",
     workflow_id: "uc2-2026-05-24-0001",
     agent_id: "uc2.engagement_decider",
@@ -273,6 +393,19 @@ export const decisionTrail: DecisionTrailEntry[] = [
 
 export const toolVerdicts: ToolVerdictEntry[] = [
   {
+    id: "ver-uc3-001",
+    workflow_id: "uc3-2026-05-24-0001",
+    tool_name: "suitability_report.issue",
+    requested_mode: "write",
+    enforced_mode: "write",
+    verdict: "approval_required",
+    reason: "Grant exists but requires adviser approval before connector execution.",
+    redactions: [],
+    caller_agent_id: "uc3.suitability_decider",
+    correlation_id: "cor_uc3_ifa_demo_001",
+    occurred_at: iso(-4960),
+  },
+  {
     id: "ver-uc2-001",
     workflow_id: "uc2-2026-05-24-0001",
     tool_name: "engagement_letter.send",
@@ -332,6 +465,17 @@ export const registry: RegistryEntry[] = [
 
 export const grants: GrantEntry[] = [
   {
+    grant_id: "grant-uc3-suitability-report-issue-write",
+    agent_id: "uc3.suitability_decider",
+    agent_version: "v1",
+    tool_name: "suitability_report.issue",
+    mode: "write",
+    allowed: true,
+    approval_required: true,
+    redaction_policy: { redact_fields: [] },
+    granted_at: iso(-2_592_000),
+  },
+  {
     grant_id: "grant-uc2-engagement-send-write",
     agent_id: "uc2.engagement_decider",
     agent_version: "v1",
@@ -361,6 +505,60 @@ export const grants: GrantEntry[] = [
 ];
 
 export const approvalPackages: ApprovalPackageEntry[] = [
+  {
+    id: "approval-uc3-001",
+    workflow_id: "uc3-2026-05-24-0001",
+    workflow_type: "uc3_ifa_suitability_intake",
+    correlation_id: "cor_uc3_ifa_demo_001",
+    approval_package_version: 1,
+    approval_state: "requested",
+    decision: null,
+    reason_category: "tool_write_risk",
+    agent_id: "uc3.suitability_decider",
+    agent_version: "v1",
+    requested_action: "suitability_report.issue.write",
+    tool_name: "suitability_report.issue",
+    requested_mode: "write",
+    enforced_mode: "write",
+    idempotency_key_ref:
+      "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    redaction_summary: {
+      redaction_policy_ref:
+        "tool_grant:grant-uc3-suitability-report-issue-write:redaction_policy",
+      redacted_field_count: 0,
+      redacted_field_refs: [],
+    },
+    subject_refs: {
+      subject_ref: "advice_enquiry_2026_05_24_0001",
+    },
+    action_refs: {
+      advice_enquiry_ref: "advice_enquiry_2026_05_24_0001",
+      suitability_report_ref: "suitability_report_demo_001",
+      suitability_conclusion_ref: "suitability_conclusion_demo_001",
+      consumer_understanding_check_ref: "consumer_understanding_demo_001",
+      conduct_hook_refs: [
+        "conduct_fca_cobs_9_suitability",
+        "conduct_fca_prod_3_target_market",
+        "conduct_fca_prin_2a_consumer_duty",
+      ],
+    },
+    requested_at: iso(-4960),
+    decision_due_at: iso(5400),
+    expires_at: iso(9000),
+    decision_at: null,
+    source_audit_event_id: "ver-uc3-001",
+    latest_audit_event_id: "ver-uc3-001",
+    latest_verdict: "approval_required",
+    latest_reason: "Grant exists but requires adviser approval before connector execution.",
+    connector_invocation_id: null,
+    grant_ref: "tool_grant:grant-uc3-suitability-report-issue-write",
+    policy_version_refs: {
+      approval_policy_ref: "approval_policy.suitability_report_issue_write.local.v1",
+      sla_policy_ref: "approval_sla.suitability_report_issue_write.local.v1",
+    },
+    trace_join: {},
+    updated_at: iso(-4960),
+  },
   {
     id: "approval-uc2-001",
     workflow_id: "uc2-2026-05-24-0001",

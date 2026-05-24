@@ -34,7 +34,9 @@ Per-use-case conduct invariants sit on top of the common suite:
 - UC3: FCA COBS 9 suitability, PROD, Consumer Duty, vulnerability, and advice
   boundary hooks, plus the approval-gated `suitability_report.issue` conduct
   boundary. Focused invariant code exists over safe synthetic captured-run
-  artefacts; full UC3 fixture playback remains a later P5 slice.
+  artefacts, and a schema-only synthetic UC3 fixture is present under
+  `chorus/eval/fixtures/uc3/`; full UC3 fixture playback remains a later
+  slice.
 
 ## Scenario Coverage
 

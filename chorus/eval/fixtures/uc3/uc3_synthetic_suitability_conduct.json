@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "uc3-synthetic-suitability-conduct",
+  "name": "UC3 synthetic suitability conduct evidence",
+  "workflow_type": "uc3_ifa_suitability_intake",
+  "scenario": "synthetic_suitability_conduct",
+  "input": {
+    "source_fixture_path": "contracts/intake/uc3/samples/web_advice_enquiry.sample.json",
+    "subject_fixture_ref": "fixture_uc3_synthetic_suitability",
+    "tenant_id": "tenant_demo"
+  },
+  "expected": {
+    "outcome_category": "propose",
+    "use_case_outcome": "suitability_report_issue_approval_gated",
+    "max_cost_usd": 1.5,
+    "max_latency_ms": 120000
+  }
+}

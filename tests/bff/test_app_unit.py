@@ -49,7 +49,11 @@ class FakeProjectionStore:
 
     def list_workflows(self, tenant_id: str, *, limit: int = 100) -> list[WorkflowRunReadModel]:
         del tenant_id, limit
-        return [self._fixture.workflow(), self._fixture.uc2_workflow()]
+        return [
+            self._fixture.workflow(),
+            self._fixture.uc2_workflow(),
+            self._fixture.uc3_workflow(),
+        ]
 
     def get_workflow(self, tenant_id: str, workflow_id: str) -> WorkflowRunReadModel | None:
         del tenant_id
@@ -57,6 +61,8 @@ class FakeProjectionStore:
             return self._fixture.workflow()
         if workflow_id == self._fixture.uc2_workflow_id:
             return self._fixture.uc2_workflow()
+        if workflow_id == self._fixture.uc3_workflow_id:
+            return self._fixture.uc3_workflow()
         return None
 
     def list_workflow_history(
@@ -97,10 +103,10 @@ class FakeProjectionStore:
         limit: int = 100,
     ) -> list[ApprovalPackageReadModel]:
         del tenant_id, limit
-        row = self._fixture.approval_package()
-        if workflow_id is not None and workflow_id != row.workflow_id:
-            return []
-        return [row]
+        rows = [self._fixture.approval_package(), self._fixture.uc3_approval_package()]
+        if workflow_id is not None:
+            return [row for row in rows if row.workflow_id == workflow_id]
+        return rows
 
 
 class FakeAuditPortStore:
@@ -195,12 +201,15 @@ class BffFixture:
     def __init__(self) -> None:
         self.workflow_id = "uc1-enq-bff-unit"
         self.uc2_workflow_id = "uc2-legal-bff-unit"
+        self.uc3_workflow_id = "uc3-ifa-bff-unit"
         self.correlation_id = "cor_bff_unit"
         self.subject_id = uuid4()
         self.event_id = uuid4()
         self.invocation_id = uuid4()
         self.audit_event_id = uuid4()
         self.approval_id = uuid4()
+        self.uc3_approval_id = uuid4()
+        self.uc3_audit_event_id = uuid4()
         self.calendar_apply_audit_event_id = uuid4()
         self.transcript_id = uuid4()
         self.replay_run_id = uuid4()
@@ -242,6 +251,25 @@ class BffFixture:
             completed_at=self.now,
             updated_at=self.now,
             metadata={"subject_from": "legal-intake@example.test", "channel": "email"},
+        )
+
+    def uc3_workflow(self) -> WorkflowRunReadModel:
+        return WorkflowRunReadModel(
+            tenant_id="tenant_demo",
+            workflow_id=self.uc3_workflow_id,
+            workflow_type="uc3_ifa_suitability_intake",
+            correlation_id=self.correlation_id,
+            subject_id=self.subject_id,
+            subject_ref="advice_enquiry_bff_unit_001",
+            status="completed",
+            current_step="close",
+            subject_summary="ISA investment advice suitability enquiry",
+            last_event_id=self.event_id,
+            last_event_sequence=15,
+            started_at=self.now,
+            completed_at=self.now,
+            updated_at=self.now,
+            metadata={"subject_from": "web-advice@example.test", "channel": "web-form"},
         )
 
     def event(self) -> WorkflowHistoryEventReadModel:
@@ -401,6 +429,61 @@ class BffFixture:
             grant_ref="tool_grant:" + str(uuid4()),
             policy_version_refs={
                 "approval_policy_ref": "approval_policy.engagement_letter_send_write.local.v1"
+            },
+            trace_join={},
+            updated_at=self.now,
+        )
+
+    def uc3_approval_package(self) -> ApprovalPackageReadModel:
+        return ApprovalPackageReadModel(
+            tenant_id="tenant_demo",
+            approval_id=self.uc3_approval_id,
+            approval_package_version=1,
+            workflow_id=self.uc3_workflow_id,
+            workflow_type="uc3_ifa_suitability_intake",
+            correlation_id=self.correlation_id,
+            approval_state="requested",
+            decision=None,
+            reason_category="tool_write_risk",
+            agent_id="uc3.suitability_decider",
+            agent_version="v1",
+            requested_action="suitability_report.issue.write",
+            tool_name="suitability_report.issue",
+            requested_mode="write",
+            enforced_mode="write",
+            idempotency_key_ref="sha256:" + "3" * 64,
+            redaction_summary={
+                "redaction_policy_ref": "tool_grant:uc3:redaction_policy",
+                "redacted_field_count": 0,
+                "redacted_field_refs": [],
+            },
+            subject_refs={
+                "subject_id": str(self.subject_id),
+                "subject_ref": "advice_enquiry_bff_unit_001",
+            },
+            action_refs={
+                "advice_enquiry_ref": "advice_enquiry_bff_unit_001",
+                "suitability_report_ref": "suitability_report_bff_unit_001",
+                "suitability_conclusion_ref": "suitability_conclusion_bff_unit_001",
+                "consumer_understanding_check_ref": "consumer_understanding_bff_unit_001",
+                "conduct_hook_refs": [
+                    "conduct_fca_cobs_9_suitability",
+                    "conduct_fca_prod_3_target_market",
+                    "conduct_fca_prin_2a_consumer_duty",
+                ],
+            },
+            requested_at=self.now,
+            decision_due_at=self.now,
+            expires_at=self.now,
+            decision_at=None,
+            source_audit_event_id=self.uc3_audit_event_id,
+            latest_audit_event_id=self.uc3_audit_event_id,
+            latest_verdict="approval_required",
+            latest_reason="Grant exists but requires adviser approval before connector execution.",
+            connector_invocation_id=None,
+            grant_ref="tool_grant:" + str(uuid4()),
+            policy_version_refs={
+                "approval_policy_ref": "approval_policy.suitability_report_issue_write.local.v1"
             },
             trace_join={},
             updated_at=self.now,
@@ -706,6 +789,9 @@ def test_audit_and_runtime_policy_endpoints_are_read_only_views() -> None:
     approval_packages = client.get(
         f"/api/workflows/{fixture.uc2_workflow_id}/approval-packages"
     ).json()
+    uc3_approval_packages = client.get(
+        f"/api/workflows/{fixture.uc3_workflow_id}/approval-packages"
+    ).json()
     all_approval_packages = client.get("/api/approval-packages").json()
     registry = client.get("/api/runtime/registry").json()
     grants = client.get("/api/runtime/grants").json()
@@ -723,7 +809,23 @@ def test_audit_and_runtime_policy_endpoints_are_read_only_views() -> None:
         "conduct_sra_conflict_6_1_6_2",
         "conduct_mlr_cdd_reg_27_28",
     ]
-    assert all_approval_packages[0]["id"] == str(fixture.approval_id)
+    assert uc3_approval_packages[0]["workflow_type"] == "uc3_ifa_suitability_intake"
+    assert uc3_approval_packages[0]["requested_action"] == "suitability_report.issue.write"
+    assert uc3_approval_packages[0]["latest_verdict"] == "approval_required"
+    assert uc3_approval_packages[0]["subject_refs"]["subject_ref"] == (
+        "advice_enquiry_bff_unit_001"
+    )
+    assert uc3_approval_packages[0]["action_refs"]["conduct_hook_refs"] == [
+        "conduct_fca_cobs_9_suitability",
+        "conduct_fca_prod_3_target_market",
+        "conduct_fca_prin_2a_consumer_duty",
+    ]
+    assert "raw_suitability_report_text" not in uc3_approval_packages[0]["action_refs"]
+    assert "client_name" not in uc3_approval_packages[0]["action_refs"]
+    assert {row["id"] for row in all_approval_packages} == {
+        str(fixture.approval_id),
+        str(fixture.uc3_approval_id),
+    }
     assert registry[0]["lifecycle_state"] == "approved"
     assert grants[0]["tool_name"] == "outbound_comms.message"
     assert routing[0]["budget_usd"] == 0.01

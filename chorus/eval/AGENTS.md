@@ -51,6 +51,6 @@ R3 G; the invariants now do the asserting.
   persistence / BFF inspection.
 - `fixtures/` carries the active top-level UC1 fixtures plus the captured
   transcript fixtures under `fixtures/transcripts/` the replay subcommand
-  re-executes. `fixtures/uc2/` currently carries schema-only synthetic UC2
-  fixture evidence; default offline playback remains UC1-only until the UC2
-  runtime playback slice lands.
+  re-executes. `fixtures/uc2/` and `fixtures/uc3/` currently carry
+  schema-only synthetic fixture evidence; default offline playback remains
+  UC1-only until the UC2 and UC3 runtime playback slices land.

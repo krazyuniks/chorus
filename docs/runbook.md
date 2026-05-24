@@ -25,16 +25,18 @@ same spine with focused fake-activity workflow / replay tests, plus
 registered deterministic sandbox connector adapters for conflict check, KYC /
 beneficial ownership, AML record-store, and engagement-letter-store tools.
 UC2 grants now exist for the declared sandbox tools, with
-`engagement_letter.send` as the approval-required write. Provider route support,
-full eval fixture playback, and a local intake start path remain later R4
-work. Read-only BFF/UI inspection can display UC2 workflow rows and
+`engagement_letter.send` as the approval-required write. Provider route
+support, full eval fixture playback, and a local intake start path remain
+later R4 work. Read-only BFF/UI inspection can display UC2 workflow rows and
 approval-package state when those rows already exist. UC3 lands later in R4
 alongside cross-provider replay-eval breadth; its intake and connector
 contract surfaces are declared, it now has a definition-first workflow on the
 shared spine with fake-activity replay evidence, and the default connector
 registry has deterministic sandbox adapters for its declared connector tools.
-UC3 grants, approval-package behaviour, provider routes, projections, eval
-playback, and a local intake path remain later P5 work.
+UC3 grants now exist for those tools, with `suitability_report.issue` as the
+approval-required write. Read-only BFF/UI inspection can display UC3 workflow
+rows and approval-package state when those rows already exist. Provider
+routes, full eval fixture playback, and a local intake path remain absent.
 
 ## Bring the stack up
 
@@ -219,9 +221,11 @@ systems. The local Postgres governance seed now expresses UC3 Tool Gateway
 grants for those tool names; `suitability_report.issue` is the
 approval-required write, while risk-profile override and vulnerability
 handoff remain workflow/manual-review conduct evidence until a later slice
-adds exact connector request shapes for those packages. The runbook does not
-yet claim a runnable UC3 local intake path: provider routes, projections,
-eval playback, and local intake adapters remain later P5 work.
+adds exact connector request shapes for those packages. Read-only projection,
+BFF, and UI fixture evidence can show safe UC3 workflow progress and generic
+approval-package state for `suitability_report.issue` when rows exist. The
+runbook does not yet claim a runnable UC3 local intake path: provider routes,
+full eval playback, and local intake adapters remain absent.
 
 Inspect approval packages through the read-only BFF:
 
@@ -233,6 +237,12 @@ For a known UC2 workflow ID, narrow the same view:
 
 ```bash
 curl -s http://localhost:8000/api/workflows/<workflow-id>/approval-packages | jq '.[] | select(.workflow_type == "uc2_legal_services_intake_conflict_check")'
+```
+
+For a known UC3 workflow ID, inspect suitability report issue approvals:
+
+```bash
+curl -s http://localhost:8000/api/workflows/<workflow-id>/approval-packages | jq '.[] | select(.requested_action == "suitability_report.issue.write") | {workflow_id, workflow_type, approval_state, latest_verdict, subject_refs, action_refs, grant_ref}'
 ```
 
 ### Audit / transcript ports
@@ -285,6 +295,12 @@ Filter projected UC2 workflow rows through the BFF:
 
 ```bash
 curl -s http://localhost:8000/api/workflows | jq '.[] | select(.workflow_type == "uc2_legal_services_intake_conflict_check") | {workflow_id, status, current_step, subject_ref, subject_summary}'
+```
+
+Filter projected UC3 workflow rows through the BFF:
+
+```bash
+curl -s http://localhost:8000/api/workflows | jq '.[] | select(.workflow_type == "uc3_ifa_suitability_intake") | {workflow_id, status, current_step, subject_ref, subject_summary}'
 ```
 
 ### Observability sink
