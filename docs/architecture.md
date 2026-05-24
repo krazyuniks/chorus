@@ -1,7 +1,7 @@
 ---
 type: project-doc
 status: active
-date: 2026-05-20
+date: 2026-05-24
 ---
 
 # Chorus - Architecture
@@ -20,10 +20,10 @@ worked use case see [`product-brief.md`](product-brief.md) and
 [`domain-model.md`](domain-model.md); for how each use case exercises the
 ports see [`r1-adapter-mapping.md`](r1-adapter-mapping.md).
 
-This document describes the architecture the project is being refactored
-towards. The runtime code is still the pre-reset implementation; the
-[implementation status](#implementation-status) section at the end is honest
-about what runs today and what R3 and R4 land.
+This document describes the architecture the project carries today. R3
+landed the named-port surface in code; the
+[implementation status](#implementation-status) section at the end records
+which checkpoints landed which pieces and what R4 picks up.
 
 ## The hexagon and the six named ports
 
@@ -296,32 +296,36 @@ That is what makes the architecture a thesis rather than a vocabulary.
 
 ## Implementation status
 
-R2 is documentation-only. The runtime code in the repository is the pre-reset
-implementation; this document describes the architecture the code is being
-refactored towards.
+R3 (contract and code terminology refactor) closed 2026-05-24. The runtime
+code now carries the named-port surface this document describes.
 
-The pre-reset code already exercises all six ports: inbound email through a
-Mailpit channel, model invocations through an Agent Runtime, connector calls
-through the Tool Gateway, a Postgres audit store, a Redpanda-fed projection
-into a read-only BFF, and an OpenTelemetry and Grafana observability stack. The
-named-port reframe is faithful to what the code does; what it does not yet do
-is carry the names, the two-port audit split, the adapter registry, or the UC1
-adapter inventory.
+| Surface | Where in code |
+|---|---|
+| Six-port contract layout | `contracts/intake/`, `contracts/llm_provider/`, `contracts/connector/`, `contracts/audit/`, `contracts/projection/`, `contracts/observability/`, `contracts/eval/`; the intake and connector ports carry a `uc1/` subdirectory (R3 A). |
+| LLM provider port | `chorus/llm_provider/port.py` (surface), `chorus/llm_provider/adapter_openai.py` (OpenAI-SDK transport), `chorus/llm_provider/adapter_replay.py` (deterministic recorded-replay substrate), `chorus/llm_provider/route_catalogue.py` (route metadata). LangGraph retired (R3 B). |
+| Audit / transcript port split | `chorus/persistence/audit_port.py`, `contracts/audit/agent_invocation_record.schema.json`, `contracts/audit/agent_invocation_transcript.schema.json`, `infrastructure/postgres/migrations/010_audit_transcript_port.sql`. The runtime writes both records on every invocation (R3 C). |
+| Connector adapter registry | `chorus/connectors/types.py` (`ConnectorAdapter`, `ConnectorRegistry`, `ToolSpec`), `chorus/connectors/uc1.py` (six UC1 sandbox adapters), `chorus/connectors/calendar.py`. The gateway dispatches through the registry; the hardcoded match block retired (R3 D). |
+| Workflow spine + UC1 on the spine | `chorus/workflows/spine.py` (`WorkflowSpine`, `WorkflowDefinition`, `WorkflowStepDefinition` over generic activity names), `chorus/workflows/uc1.py` (UC1 enquiry-qualification workflow). Lighthouse and Support Triage retired (R3 E). |
+| Per-port persistence read surface | `chorus/persistence/projection.py` (workflow + calendar), `chorus/persistence/audit_port.py`, `chorus/persistence/runtime_policy.py`, `chorus/persistence/provider_governance.py`. The BFF binds them through `PortReaders` per request (R3 F). |
+| Per-port doctor probes | `chorus/doctor/scaffold.py` (paths / executables / compose), `chorus/doctor/projection_port.py`, `chorus/doctor/connector_port.py`, `chorus/doctor/observability_port.py`, `chorus/doctor/workflow_runtime.py`, `chorus/doctor/ui.py`. CLI entry at `chorus/doctor/__main__.py` (R3 F). |
+| Invariant-plus-replay eval | `chorus/eval/invariants.py` (the UC1 invariant suite), `chorus/eval/scenario_player.py` (drives the recorded-replay route through a fixture's scenario), `chorus/eval/replay.py` (`eval replay` subcommand), `chorus/eval/run.py` (CLI). Path-enumeration fixtures retired (R3 G). |
 
-R3 (contract and code terminology refactor) lands the named-port surface in
-code: the contract rewrite around the six ports, the connector adapter
-registry, the audit store split into the decision-trail and transcript ports,
-the removal of LangGraph from the agent execution path, and the decomposition
-of the oversized modules. The ADR writing pass recorded those decisions in
-[ADR 0017](../adrs/0017-langgraph-removed-from-agent-execution.md) (LangGraph
-removal), [ADR 0018](../adrs/0018-llm-provider-port.md) (LLM provider port),
+R3 sign-off is in [`r3-exit-criteria.md`](r3-exit-criteria.md). The ADRs
+that govern the named-port surface are
+[ADR 0017](../adrs/0017-langgraph-removed-from-agent-execution.md)
+(LangGraph removal),
+[ADR 0018](../adrs/0018-llm-provider-port.md) (LLM provider port),
 [ADR 0019](../adrs/0019-audit-ports-and-replay-eval.md) (audit ports and
 replay-eval), and
 [ADR 0020](../adrs/0020-domain-refocus-uk-regulated-use-cases.md) (domain
-refocus). R4 wires UC1, UC2, and UC3 for local POC readiness with
-cross-provider replay-eval. The four engineering smells that R3 resolves are
-named in
-[`transformation/code-refactor-directions.md`](transformation/code-refactor-directions.md).
+refocus).
+
+R4 (local POC readiness across UC1, UC2, and UC3 with cross-provider
+replay-eval) is the next phase. It wires the UC2 and UC3 workflow
+definitions alongside UC1 on the same spine, stands up the OpenAI-SDK
+adapter against gpt-5.4-mini (canonical demo / eval) and DeepSeek V4-Flash
+(dev), and runs the cross-provider replay-eval ADR 0019 names as a
+first-class mode.
 
 The pre-reset phase history (Phase 0 through Phase 2E) is preserved in
 [`transformation/phase-2-archive.md`](transformation/phase-2-archive.md).

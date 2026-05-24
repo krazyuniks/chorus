@@ -22,9 +22,9 @@ Architecture and docs move with code. If behaviour, boundaries, contracts, comma
 
 Chorus is a hexagonal, ports-and-adapters exemplar for governed agentic systems, with data-contract-first design at every port. Six named ports - intake, LLM provider, connector, audit / transcript, projection sink, observability sink - separate the domain core from the outside world. The thesis is in [docs/transformation/engineering-thesis.md](./docs/transformation/engineering-thesis.md); the architecture reference is [docs/architecture.md](./docs/architecture.md).
 
-The project is in a transformation reset. R0.5 (the design codification of the thesis), R1 (product and domain reframing), R2 (documentation architecture refactor), and the ADR writing pass are complete; the reset decisions are recorded in ADRs 0017 to 0020. The next phase is R3 (contract and code terminology refactor), then R4 (local POC readiness across UC1, UC2, UC3). Work from the reset bundle and [docs/transformation/engineering-reset-roadmap.md](./docs/transformation/engineering-reset-roadmap.md); do not resume any pre-reset continuation cadence.
+The project is in a transformation reset. R0.5 (the design codification of the thesis), R1 (product and domain reframing), R2 (documentation architecture refactor), the ADR writing pass (ADRs 0017 to 0020), and R3 (contract and code terminology refactor) are all complete. R3 sign-off is in [docs/r3-exit-criteria.md](./docs/r3-exit-criteria.md). The next phase is R4 (local POC readiness across UC1, UC2, UC3 with cross-provider replay-eval). Work from the reset bundle and [docs/transformation/engineering-reset-roadmap.md](./docs/transformation/engineering-reset-roadmap.md); do not resume any pre-reset continuation cadence.
 
-The runtime code is the pre-reset implementation: a durable Temporal workflow (Lighthouse), an Agent Runtime, a Tool Gateway, Postgres audit and projections, Redpanda events, a read-only BFF and UI, and an OpenTelemetry and Grafana stack. It exercises all six ports but still carries pre-reset names. R3 moves the code onto the named-port surface; the four engineering smells R3 resolves are in [docs/transformation/code-refactor-directions.md](./docs/transformation/code-refactor-directions.md). The pre-reset phase history (Phase 0 through Phase 2E) is preserved in [docs/transformation/phase-2-archive.md](./docs/transformation/phase-2-archive.md). Do not broaden scope into a top-level agent framework replacing Temporal, a SaaS product, a production customer-data path, production deployment, production SSO, credential entry, or a workflow DSL unless the project docs and ADRs explicitly change.
+The runtime code carries the post-R3 named-port surface: the LLM provider port behind `chorus/llm_provider/`, the connector adapter registry behind `chorus/connectors/`, the audit / transcript port split behind `chorus/persistence/audit_port.py`, the workflow spine in `chorus/workflows/spine.py` with the UC1 enquiry-qualification workflow on it (`chorus/workflows/uc1.py`), the per-port projection / doctor decomposition (`chorus/persistence/*.py`, `chorus/doctor/*.py`), and the invariant-plus-replay eval in `chorus/eval/`. The pre-reset Lighthouse and Support Triage workflows retire in R3 E; LangGraph retired in R3 B. The pre-reset phase history (Phase 0 through Phase 2E) is preserved in [docs/transformation/phase-2-archive.md](./docs/transformation/phase-2-archive.md). Do not broaden scope into a top-level agent framework replacing Temporal, a SaaS product, a production customer-data path, production deployment, production SSO, credential entry, or a workflow DSL unless the project docs and ADRs explicitly change.
 
 ## How To Run Commands
 
@@ -66,23 +66,24 @@ Do not run `just down-volumes` unless explicitly requested; it destroys local da
 
 | Concern | Technology |
 |---|---|
-| Durable orchestration | Temporal Python SDK |
-| Agent runtime | Python, FastAPI boundary, LangGraph inside Agent Runtime |
-| Tool mediation | FastAPI Tool Gateway |
+| Durable orchestration | Temporal Python SDK, on the shared `WorkflowSpine` (`chorus/workflows/spine.py`) |
+| Agent runtime | Python sequential five-step pipeline (`chorus/agent_runtime/runtime.py`); LangGraph retired in R3 B |
+| LLM provider port | OpenAI Python SDK against any OpenAI-compatible endpoint plus a deterministic recorded-replay route (`chorus/llm_provider/`) |
+| Tool mediation | FastAPI Tool Gateway with a `ConnectorRegistry` (`chorus/connectors/types.py`) |
 | Storage | Postgres |
 | Events | Redpanda Community Edition + Schema Registry |
-| Contracts | JSON Schema -> generated Pydantic |
+| Contracts | JSON Schema -> generated Pydantic; regrouped around the six named ports plus `eval/` |
 | Frontend | React, Vite, TypeScript, TanStack, Tailwind |
-| BFF | FastAPI + server-sent events |
-| Local connectors | Mailpit, Companies House/public APIs, Postgres-backed local CRM, Radicale-backed local CalDAV sandbox, Postgres-backed local ticket desk sandbox |
+| BFF | FastAPI + server-sent events; per-port `PortReaders` dependency (`chorus/bff/app.py`) |
+| Local connectors | Mailpit (UC1 sandbox-outbound-comms backing) and Radicale-backed CalDAV (UC2/UC3 approval-required write surfaces). Six UC1 sandbox adapters in `chorus/connectors/uc1.py`. |
 | Observability | OpenTelemetry + Grafana stack |
-| Assurance | pytest, Vitest, Playwright, Temporal replay, trace/eval fixtures |
+| Assurance | pytest, Vitest, Playwright, Temporal replay, invariant-plus-replay eval |
 
 ## Core Rules
 
-**Evidence before breadth.** Build the narrow Lighthouse slice with inspectable controls before adding generic framework capability.
+**Evidence before breadth.** Build the narrow UC1 enquiry-qualification slice with inspectable controls before adding generic framework capability. UC2 and UC3 land alongside in R4 to prove adapter reuse, not to widen the framework.
 
-**No mocks for architecture evidence.** Infrastructure and connector behaviour must use real software in sandbox/local mode. Mailpit, Postgres, Redpanda, Temporal, and local connector services are part of the proof.
+**No mocks for architecture evidence.** Infrastructure and connector behaviour must use real software in sandbox/local mode. Mailpit, Postgres, Redpanda, Temporal, Radicale, and the UC1 sandbox connector adapters are part of the proof.
 
 **Contracts are canonical.** Cross-boundary payloads belong in `contracts/` as JSON Schema. Generated Pydantic models, samples, and drift checks move with schema changes.
 
@@ -98,15 +99,16 @@ Do not run `just down-volumes` unless explicitly requested; it destroys local da
 
 | Component | Owns | Does not own |
 |---|---|---|
-| Lighthouse UI | Workflow progress, decision trail, tool verdict, registry/grants/routing inspection, eval views. | Workflow state, policy mutation, connector calls. |
-| BFF | Read endpoints, SSE progress stream, UI-facing projections. | Orchestration, model calls, connector calls. |
-| Intake poller | Mailpit polling, Message-ID dedupe, lead parsing, workflow start. | Business decisions after workflow start. |
-| Temporal workflow | Durable state machine, retries, timers, waits, branches, escalation flow. | IO, model calls, database writes, connector calls inside deterministic workflow code. |
-| Agent Runtime | Agent registry resolution, prompt references, model routing, budgets, invocation IDs, decision-trail capture. | External action authority. |
-| Tool Gateway | Grants, schemas, modes, redaction, idempotency, approvals, verdicts, action audit. | Agent reasoning, model routing, workflow state. |
-| Local connectors | Contract-faithful CRM, research, email proposal/send in sandbox/local mode. | Production writes to closed third-party systems. |
-| Projection worker | Redpanda consumption and Postgres read-model updates. | Critical workflow state. |
-| Eval harness | Fixture execution and assertions over path, outcome, authority, cost, latency, and evidence. | Runtime policy mutation. |
+| UC1 enquiry UI | Workflow progress, decision trail, tool verdict, registry/grants/routing inspection, calendar status. | Workflow state, policy mutation, connector calls. |
+| BFF | Read endpoints via the `PortReaders` per-port dependency, SSE progress stream, UI-facing projections. | Orchestration, model calls, connector calls. |
+| Intake poller | Mailpit polling, Message-ID dedupe, UC1 enquiry parsing, workflow start. | Business decisions after workflow start. |
+| Workflow spine | Shared `WorkflowDefinition` + `WorkflowSpine` primitives over generic activity names; durable state machine, retries, timers, escalation. | IO, model calls, database writes, connector calls inside deterministic workflow code. |
+| Agent Runtime | Agent registry resolution, prompt references, model routing through the LLM provider port, budgets, invocation IDs, decision-trail and transcript capture. | External action authority. Provider SDK calls outside the port. |
+| LLM provider port | The OpenAI-SDK adapter and the deterministic recorded-replay adapter; the route catalogue. | Reasoning logic, prompt content. |
+| Tool Gateway | Grants, schemas, modes, redaction, idempotency, approvals, verdicts, action audit. Dispatch through the `ConnectorRegistry`. | Agent reasoning, model routing, workflow state. |
+| Connector adapters | One adapter per connector, declaring its `ToolSpec`s and serving them in sandbox/local mode. UC1 inventory in `chorus/connectors/uc1.py`. | Production writes to closed third-party systems. |
+| Projection worker | Redpanda consumption and Postgres read-model updates through the projection port. | Audit ports' content. |
+| Eval harness | Invariant assertions over captured-run artefacts (decision trail, transcripts, tool-action audit, projection events) plus a captured-transcript replay subcommand. | Runtime policy mutation. |
 
 ## Frontend Guidance
 

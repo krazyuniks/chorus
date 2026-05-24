@@ -17,12 +17,11 @@ bring up and inspect each of the six named ports; every command in it runs
 today. The **UC1 happy-path walk-through** threads the ports into one
 end-to-end run and closes with cross-provider replay-eval.
 
-A note on what runs today. The runtime code is the pre-reset implementation.
-It exercises all six ports, but the currently runnable workflow is the
-pre-reset Lighthouse slice, not the UC1 insurance-broking domain. R3 lands the
-named-port refactor and the UC1 adapters; R4 wires UC1, UC2, and UC3. Where a
-command runs the pre-reset slice, the runbook says so, and it marks the steps
-that R3 and R4 complete.
+A note on what runs today. R3 (contract and code terminology refactor)
+closed 2026-05-24. The runtime code carries the named-port surface, and
+the runnable workflow is the UC1 enquiry-qualification workflow on the
+shared `WorkflowSpine`. UC2 and UC3 land in R4 alongside cross-provider
+replay-eval.
 
 ## Bring the stack up
 
@@ -180,32 +179,38 @@ span attributes, baggage, or dashboard labels.
 ## UC1 happy-path walk-through
 
 This is the end-to-end happy path threaded through the six ports. The port
-sequence is stable; it is the UC1 workflow spine. The runnable instance today
-is the pre-reset Lighthouse fixture. R3 and R4 swap in the UC1 insurance
-enquiry fixtures and the UC1 adapters; the sequence does not change.
+sequence is stable; the UC1 enquiry-qualification workflow runs it
+end-to-end on the shared `WorkflowSpine`. UC2 and UC3 land alongside in R4
+with their own workflow definitions on the same spine; the sequence does
+not change.
 
 1. **Bring the stack up (all ports).** Run the bring-up commands above:
    `just up && just db-migrate && just schemas-register && just doctor`.
 
 2. **Inject a synthetic enquiry (intake port).** `just demo && just intake-once`.
-   The intake port accepts the inbound work and a workflow starts. Capture the
-   `correlation_id` from the Mailpit-derived workflow or from the BFF.
+   The intake port accepts the inbound work through one of the UC1 channel
+   adapters (email-channel, web-form-channel, partner-portal-channel) and a
+   workflow starts. Capture the `correlation_id` from the Mailpit-derived
+   workflow or from the BFF.
 
-3. **Classification and context (LLM provider port).** The workflow runs its
-   reasoning steps through the LLM provider port. Each invocation writes a
-   decision-trail row and, after R3, a transcript row. In the UC1 domain these
-   steps are classification and context gathering; in the pre-reset slice they
-   are the research and qualification steps.
+3. **Classification and context (LLM provider port).** The workflow runs the
+   classifier and context-gatherer through the LLM provider port. Each
+   invocation writes a decision-trail row and a transcript row paired on
+   `invocation_id`.
 
-4. **Qualification verdict (LLM provider port).** The workflow produces a
-   structured verdict carrying the policy snapshot reference, the inputs
-   considered, and the conduct-hook trace. R3 lands the UC1 verdict shape; the
-   pre-reset slice produces the Lighthouse draft-and-validate output.
+4. **Qualification verdict (LLM provider port).** The qualifier produces a
+   structured verdict carrying `qualification_verdict_category`,
+   `policy_snapshot_ref`, the four FCA conduct hooks
+   (`best_interests_check`, `demands_and_needs_statement`,
+   `target_market_check`, `foreseeable_harm_check`), and an explicit
+   rationale.
 
-5. **Routing (connector port).** The verdict is routed through the Tool
-   Gateway to a connector adapter. Every call carries a grant check, a mode
-   decision, an argument validation, and a verdict. In the pre-reset slice the
-   gated outbound action is captured by Mailpit.
+5. **Routing (connector port).** The drafter and validator produce a missing-
+   data request; the validator routes it through the Tool Gateway as a
+   `propose`-mode `outbound_comms.message` call. Every call carries a grant
+   check, a mode decision, an argument validation, and a verdict. The
+   `sandbox-outbound-comms` adapter holds the proposal for adviser approval
+   before a `write`-mode send through Mailpit.
 
 6. **Inspect the decision-trail and transcript (audit ports).** Run the
    decision-trail and `tool_action_audit` SQL from the audit port section with

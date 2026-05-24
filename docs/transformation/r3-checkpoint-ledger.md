@@ -290,8 +290,10 @@ Order is settled by Phase 1 decision 6.
 | C | Audit ports: decision-trail port and transcript port split. | done |
 | D | Connector adapter registry replacing the hardcoded match dispatch. | done |
 | E | Shared workflow spine factored out of the Lighthouse / Support duplication. | done |
-| F | `projection.py` and `doctor.py` decomposed along port boundaries. | pending |
-| G | Eval reshape: invariants plus one happy path per use case, `eval replay`. | pending |
+| F | `projection.py` and `doctor.py` decomposed along port boundaries. | done |
+| G | Eval reshape: invariants plus one happy path per use case, `eval replay`. | done |
+
+**R3 closed 2026-05-24.** Sign-off lives in `docs/r3-exit-criteria.md`.
 
 Per-checkpoint detail (files, gates run, not-done boundary, next-step
 note) is appended below as each checkpoint lands.
@@ -797,3 +799,231 @@ support seed paths that caused it are deleted), `just test-replay`
 2 passed (the new inline-replay tests on the UC1 workflow), `just eval`
 the UC1 happy-path fixture passes offline (live persisted-evidence
 checks are flagged skip until G).
+
+### Checkpoint F - projection.py and doctor.py decomposed per port
+
+**Outcome.** `chorus/persistence/projection.py` decomposed along port
+boundaries. The projection port keeps the workflow event outbox + history
+write side (`record_workflow_event`, `apply_workflow_event`,
+`append_outbox_event`), the workflow read surface (`list_workflows`,
+`get_workflow`, `list_workflow_history`, `list_recent_workflow_history`),
+and the calendar projection (`list_calendar_projections`) that derives
+from approval packages joined with tool-action audit. The audit-port
+read surface moves to `chorus/persistence/audit_port.py`
+(`AuditPortStore` with `list_decision_trail` and
+`list_tool_action_audit`; types `DecisionTrailEntryReadModel`,
+`ToolActionAuditReadModel`). The runtime-policy snapshot moves to
+`chorus/persistence/runtime_policy.py` (`PolicySnapshotStore.snapshot`
+composes agent registry + model routing policies + tool grants for a
+tenant; types `AgentRegistryEntry`, `ModelRoutingPolicy`, `ToolGrant`,
+`RuntimePolicySnapshot`). The provider-governance snapshot moves to
+`chorus/persistence/provider_governance.py`
+(`ProviderGovernanceStore.snapshot`; types `ProviderCatalogueEntry`,
+`ProviderCatalogueProvider`, `ProviderCatalogueModel`,
+`ModelRouteVersion`, `ProviderGovernanceSnapshot`). Shared row-fetch and
+tenant-context helpers move to `chorus/persistence/_query.py`. The
+`chorus/persistence/__init__.py` re-exports the migration / outbox /
+projection-write entry points only; audit, policy, and
+provider-governance read stores must be imported from their port-named
+module directly so the F port boundaries stay visible at every callsite.
+The BFF binds the four per-port read stores through a single
+request-scoped `PortReaders` dependency (`chorus/bff/app.py`); each
+endpoint reads from the right port.
+
+`chorus/doctor.py` decomposed into a package `chorus/doctor/` with one
+module per probe class: `scaffold.py` (paths / executables / compose -
+the offline checks), `projection_port.py` (Postgres migrations + Redpanda
+schema registry), `connector_port.py` (Mailpit - the UC1
+sandbox-outbound-comms backing), `observability_port.py` (OTel collector
++ Tempo + Loki + Prometheus), `workflow_runtime.py` (Temporal task queue
+discovery), `ui.py` (BFF + frontend dev server). Reporting helpers
+(`_reporting.py`) and network probe helpers (`_net.py`) share across the
+probe modules. The CLI entry lives in `__main__.py` so
+`python -m chorus.doctor` continues to work without a justfile change.
+
+**Not-done boundary.** F is a code-layout change; runtime behaviour is
+unchanged. The audit / policy / governance stores share the same Postgres
+tables they have always lived against; no new migrations land in F. The
+BFF's request-shape and response-shape stays identical. The doctor CLI
+prints the same sections, in the same order, with the same skip / fail /
+ok semantics.
+
+**Gates.** `just contracts-check`, `just lint`, `just test`,
+`just test-replay`, `just eval`.
+
+**Evidence (2026-05-24, Session 3).** New persistence modules:
+`chorus/persistence/_query.py` (shared `fetch_models` + tenant-context
+helpers), `chorus/persistence/audit_port.py`,
+`chorus/persistence/runtime_policy.py`,
+`chorus/persistence/provider_governance.py`. `chorus/persistence/projection.py`
+slims to the workflow + calendar surface. `chorus/persistence/__init__.py`
+drops the lazy re-exports for audit / policy / governance types and
+stores; callers import directly from the port-named module.
+`chorus/bff/app.py` rewrites the dependency layer: a single `PortReaders`
+dataclass binds the four per-port stores to one request-scoped
+connection; each endpoint declares `Depends(readers_dependency)` and
+reads through the right field. The provider-governance / runtime-policy
+method on the BFF endpoints renames from
+`store.runtime_policy_snapshot()` / `store.provider_governance_snapshot()`
+to `readers.policy.snapshot()` / `readers.governance.snapshot()` (clean
+rename per Phase 1 decision 5).
+
+`chorus/doctor.py` deleted; `chorus/doctor/` package replaces it
+(`__init__.py`, `__main__.py`, `_reporting.py`, `_net.py`, `scaffold.py`,
+`projection_port.py`, `connector_port.py`, `observability_port.py`,
+`workflow_runtime.py`, `ui.py`). `PHASE_0_PATHS` updated to drop the
+pre-reset docs that R3 closing retires and to add the R3 ADRs + the
+post-F persistence modules.
+
+`tests/bff/test_app_unit.py` rewrites around per-port fakes
+(`FakeProjectionStore`, `FakeAuditPortStore`, `FakePolicySnapshotStore`,
+`FakeProviderGovernanceStore`, all composed via the new
+`BffFixture` constructors). `tests/bff/test_app.py` continues to use
+`ProjectionStore` for seeding (workflow + calendar projection lives there).
+`tests/persistence/test_postgres_foundation.py::test_runtime_policy_snapshot_is_tenant_scoped`
+updates to call `PolicySnapshotStore(conn).snapshot("tenant_demo")`.
+`tests/persistence/test_redpanda_projection.py` continues to use
+`ProjectionStore` (workflow projection apply / get).
+
+`chorus/persistence/AGENTS.md` and `chorus/connectors/AGENTS.md` updated
+to describe the post-R3 surface.
+
+Gates run on this checkpoint: `just contracts-check` ok (24 schemas, 24
+samples, generated models current), `just lint` clean (ruff, ruff format,
+pyright strict, frontend `tsc --noEmit` all clean), `just doctor --quick`
+ok, `just test` green (`tests/bff` + `tests/persistence` pass offline; the
+live-stack-dependent persistence tests skip without Postgres, baseline
+behaviour), `just test-replay` 2 passed.
+
+### Checkpoint G - eval reshape: invariants + eval replay
+
+**Outcome.** The path-enumeration eval era retires (ADR 0019). The eval
+runner becomes a CLI with two subcommands: `assert` (default) runs the
+UC1 invariant suite over fixture-driven captured runs; `replay`
+re-executes a captured transcript through the route catalogue and
+verifies the structured output matches.
+
+`chorus/eval/invariants.py` holds the UC1 invariant suite: cross-port
+payload validity, governed-decision provenance, audit completeness
+(every LLM invocation pairs a decision-trail row with a transcript row),
+observability emission (route catalogue surface on every transcript),
+UC1 qualification invariants (the four conduct hooks present:
+`best_interests_check` / ICOBS 2.5.-1R, `demands_and_needs_statement` /
+ICOBS 5, `target_market_check` / PROD 4, `foreseeable_harm_check` /
+Consumer Duty PRIN 12; rationale + policy_snapshot_ref + transcript_ref
+present), connector authority discipline (write-mode tool calls carry
+adviser approval; every tool call records a verdict), and projection
+convergence (terminal workflow event matches the fixture's expected
+outcome category).
+
+`chorus/eval/scenario_player.py` drives the recorded-replay route through
+a fixture's scenario (`happy_path`, `deeper_context`,
+`validator_redraft`, `retry_exhaustion`) and synthesises the
+captured-run artefacts the invariants consume: decision-trail rows,
+transcripts, tool-action audit rows, projection events. The output
+shape mirrors what a live run on the local stack persists.
+
+`chorus/eval/replay.py` is the captured-transcript replay surface: load
+a transcript JSON fixture, reconstruct the `InvocationArgs`, re-invoke
+through the route catalogue, compare the structured output. The
+subcommand carries `--route` so R4 can re-point replay against the
+OpenAI-SDK adapter without a CLI rewrite.
+
+The eval fixture contract (`contracts/eval/eval_fixture.schema.json`)
+reshapes: drop path enumeration (`workflow_path`, `final_outcome`,
+`allowed_tool_actions`, `blocked_tool_actions`, `required_audit_fields`,
+`required_event_types`, `phase`); add `scenario` (which branch the
+recorded-replay adapter exercises) and `expected.outcome_category`
+(final disposition: `propose` / `escalate` / `dlq`). The sample and
+generated model regenerate; schema count stays at 24 (the eval fixture
+schema reshapes in place).
+
+`chorus/eval/fixtures/uc1_happy_path.json` reshapes to the new schema;
+`chorus/eval/fixtures/uc1_validator_redraft.json` is the representative
+non-happy fixture (the recorded-replay adapter's validator-redraft
+branch); `chorus/eval/fixtures/transcripts/uc1_classifier_happy.json` is
+the captured transcript fixture the `replay` subcommand replays.
+
+`chorus/llm_provider/adapter_replay.py` extended in passing: the
+`enquiry_qualification` task's structured response now carries the four
+FCA conduct hooks (`best_interests_check`,
+`demands_and_needs_statement`, `target_market_check`,
+`foreseeable_harm_check`) with their regulatory references, plus
+`policy_snapshot_ref` and an explicit `rationale`. This discharges the
+R1-deferred regulatory-citation item.
+
+`chorus/eval/AGENTS.md` rewrites around the invariant-plus-replay shape.
+
+**Not-done boundary.** G ships the recorded-replay route only. R4 wires
+the OpenAI-SDK adapter against gpt-5.4-mini (canonical demo / eval) and
+DeepSeek V4-Flash (dev) and runs cross-provider replay through the same
+subcommand. G also does not stand up the materialised policy-snapshot
+DB row; the qualification structured output binds a
+`policy_snapshot_ref` so R4 can wire the snapshot through without a
+contract change.
+
+**Gates.** `just contracts-check`, `just lint`, `just test`,
+`just test-replay`, `just eval`.
+
+**Evidence (2026-05-24, Session 3).** New modules: `chorus/eval/invariants.py`,
+`chorus/eval/scenario_player.py`, `chorus/eval/replay.py`. `chorus/eval/run.py`
+rewrites around the `assert` / `replay` subcommands with no compat shim
+for `--require-live` or `should_run_live_checks`. New fixtures:
+`chorus/eval/fixtures/uc1_validator_redraft.json` and
+`chorus/eval/fixtures/transcripts/uc1_classifier_happy.json`. The
+fixture `chorus/eval/fixtures/uc1_happy_path.json` rotates to the new
+schema. `contracts/eval/eval_fixture.schema.json` and its sample rotate;
+the generated `chorus/contracts/generated/eval/eval_fixture.py`
+regenerates with the `Scenario` and `OutcomeCategory` enums.
+
+`tests/eval/test_run.py` rewrites: `test_assert_default_loads_every_fixture`,
+`test_assert_uc1_happy_path_fixture_passes_offline`,
+`test_assert_uc1_validator_redraft_fixture_passes_offline`,
+`test_replay_classifier_transcript_matches`,
+`test_qualification_invariants_capture_conduct_hooks`.
+
+Gates run on this checkpoint: `just contracts-check` ok (24 schemas),
+`just lint` clean, `just test` green (28 passed, 21 skipped offline -
+baseline + 2 new eval tests), `just test-replay` 2 passed, `just eval`
+both UC1 fixtures pass every invariant, `just eval replay --transcript
+chorus/eval/fixtures/transcripts/uc1_classifier_happy.json` reports
+`replay stability: pass`.
+
+### R3 close (2026-05-24)
+
+The R3 closing tasks landed in Session 3:
+
+- `docs/r3-exit-criteria.md` written in the shape of `r1-exit-criteria.md`
+  and `r2-exit-criteria.md`. Records scope completed, gates passed,
+  R1-deferred items discharged, cross-checkpoint watch items discharged,
+  and the supersession of the R0.5 "compatibility aliases" clause per
+  Phase 1 decision 5.
+- `docs/architecture.md` Implementation Status section updated to reflect
+  the post-R3 code shape with a checkpoint-to-code map.
+- `docs/evidence-map.md` rewritten status columns: every port now
+  references the post-R3 implementation in code rather than the pre-reset
+  surface.
+- `docs/runbook.md` UC1 happy-path walk-through rewritten to describe
+  the runnable UC1 enquiry-qualification workflow on the spine.
+- `AGENTS.md` updated: Project Shape now reflects R3 closed; Stack
+  table reflects the post-R3 component shape; Component Boundaries
+  reflect the per-port surfaces.
+- Pre-reset docs retired: `docs/governance-guardrails.md`,
+  `docs/governance-evidence.md`, `docs/demo-script.md`, and the
+  `docs/components/` directory all deleted. The doctor scaffold path
+  list rotates to match.
+- Vault Chorus `README.md` pivoted to R4 as the next-up; the rolling
+  continuation prompt `next-session-prompt.md` is deleted.
+- Clean-sweep grep across `chorus/`, `contracts/`, `tests/`,
+  `frontend/src/`, and `infrastructure/postgres/` (excluding the
+  `transformation/` archive, the ADRs that recorded the supersession,
+  and the applied migrations whose schema objects migration 011
+  forward-retires) confirms no `lighthouse`, `support_triage`,
+  `ticket.`, `MailpitEmail`, `LegacyCrm`, `LegacyResearch`,
+  `LighthouseAgentIO`, `SupportAgentIO`, `LighthouseWorkflow`,
+  `SupportTriageWorkflow`, `lead_id`, or `lead_summary` identifiers
+  remain in runtime code or contracts.
+- Project memory `project_chorus_reset` updated to reflect R3 closed.
+
+R3 is closed. R4 is the next phase; the rolling continuation prompt for
+R3 is consumed.
