@@ -1,5 +1,5 @@
 # pyright: reportUnusedFunction=false
-"""Projection-backed FastAPI BFF for the Chorus UC1 enquiry-qualification UI."""
+"""Projection-backed FastAPI BFF for Chorus local POC inspection surfaces."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from chorus.observability import set_current_span_attributes
 from chorus.persistence import (
+    ApprovalPackageReadModel,
     CalendarProjectionReadModel,
     ProjectionStore,
     WorkflowHistoryEventReadModel,
@@ -182,6 +183,40 @@ class CalendarStatusEntryView(BaseModel):
     retry_category: str | None
     compensation_category: str | None
     failure_category: str | None
+    grant_ref: str | None
+    policy_version_refs: dict[str, Any]
+    trace_join: dict[str, Any]
+    updated_at: str
+
+
+class ApprovalPackageEntryView(BaseModel):
+    id: str
+    workflow_id: str
+    workflow_type: str
+    correlation_id: str
+    approval_package_version: int
+    approval_state: str
+    decision: str | None
+    reason_category: str
+    agent_id: str
+    agent_version: str
+    requested_action: str
+    tool_name: str
+    requested_mode: str
+    enforced_mode: str
+    idempotency_key_ref: str
+    redaction_summary: dict[str, Any]
+    subject_refs: dict[str, Any]
+    action_refs: dict[str, Any]
+    requested_at: str
+    decision_due_at: str
+    expires_at: str
+    decision_at: str | None
+    source_audit_event_id: str
+    latest_audit_event_id: str | None
+    latest_verdict: str | None
+    latest_reason: str | None
+    connector_invocation_id: str | None
     grant_ref: str | None
     policy_version_refs: dict[str, Any]
     trace_join: dict[str, Any]
@@ -421,6 +456,27 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
             resolved.tenant_id, workflow_id=workflow_id
         )
         return [_calendar_status_view(row) for row in entries]
+
+    @app.get("/api/approval-packages", response_model=list[ApprovalPackageEntryView])
+    def list_approval_packages(
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
+        limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    ) -> list[ApprovalPackageEntryView]:
+        entries = readers.projection.list_approval_packages(resolved.tenant_id, limit=limit)
+        return [_approval_package_view(row) for row in entries]
+
+    @app.get(
+        "/api/workflows/{workflow_id}/approval-packages",
+        response_model=list[ApprovalPackageEntryView],
+    )
+    def list_workflow_approval_packages(
+        workflow_id: str,
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
+    ) -> list[ApprovalPackageEntryView]:
+        entries = readers.projection.list_approval_packages(
+            resolved.tenant_id, workflow_id=workflow_id
+        )
+        return [_approval_package_view(row) for row in entries]
 
     @app.get("/api/runtime/registry", response_model=list[RegistryEntryView])
     def list_registry(
@@ -773,6 +829,46 @@ def _calendar_status_view(row: CalendarProjectionReadModel) -> CalendarStatusEnt
         retry_category=row.retry_category,
         compensation_category=row.compensation_category,
         failure_category=row.failure_category,
+        grant_ref=row.grant_ref,
+        policy_version_refs=row.policy_version_refs,
+        trace_join=row.trace_join,
+        updated_at=row.updated_at.isoformat(),
+    )
+
+
+def _approval_package_view(row: ApprovalPackageReadModel) -> ApprovalPackageEntryView:
+    return ApprovalPackageEntryView(
+        id=str(row.approval_id),
+        workflow_id=row.workflow_id,
+        workflow_type=row.workflow_type,
+        correlation_id=row.correlation_id,
+        approval_package_version=row.approval_package_version,
+        approval_state=row.approval_state,
+        decision=row.decision,
+        reason_category=row.reason_category,
+        agent_id=row.agent_id,
+        agent_version=row.agent_version,
+        requested_action=row.requested_action,
+        tool_name=row.tool_name,
+        requested_mode=row.requested_mode,
+        enforced_mode=row.enforced_mode,
+        idempotency_key_ref=row.idempotency_key_ref,
+        redaction_summary=row.redaction_summary,
+        subject_refs=row.subject_refs,
+        action_refs=row.action_refs,
+        requested_at=row.requested_at.isoformat(),
+        decision_due_at=row.decision_due_at.isoformat(),
+        expires_at=row.expires_at.isoformat(),
+        decision_at=row.decision_at.isoformat() if row.decision_at is not None else None,
+        source_audit_event_id=str(row.source_audit_event_id),
+        latest_audit_event_id=(
+            str(row.latest_audit_event_id) if row.latest_audit_event_id is not None else None
+        ),
+        latest_verdict=row.latest_verdict,
+        latest_reason=row.latest_reason,
+        connector_invocation_id=(
+            str(row.connector_invocation_id) if row.connector_invocation_id is not None else None
+        ),
         grant_ref=row.grant_ref,
         policy_version_refs=row.policy_version_refs,
         trace_join=row.trace_join,

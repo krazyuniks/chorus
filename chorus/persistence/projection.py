@@ -3,9 +3,9 @@
 The projection port owns the workflow event outbox + history + read-model
 write side (`record_workflow_event` / `apply_workflow_event`), the workflow
 read surface consumed by the BFF (`list_workflows`, `get_workflow`,
-`list_workflow_history`, `list_recent_workflow_history`), and the calendar
-projection that derives from approval packages + tool-action audit
-(`list_calendar_projections`).
+`list_workflow_history`, `list_recent_workflow_history`), the generic approval
+package read surface, and the calendar projection that derives from approval
+packages + tool-action audit (`list_calendar_projections`).
 
 The audit ports (decision-trail + tool-action audit), the runtime-policy
 snapshot, and the provider-governance snapshot each live in their own
@@ -98,6 +98,45 @@ class CalendarProjectionReadModel(BaseModel):
     retry_category: str | None
     compensation_category: str | None
     failure_category: str | None
+    grant_ref: str | None
+    policy_version_refs: dict[str, Any]
+    trace_join: dict[str, Any]
+    updated_at: datetime
+
+
+class ApprovalPackageReadModel(BaseModel):
+    """Safe approval-package state for read-only BFF/UI inspection."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: str
+    approval_id: UUID
+    approval_package_version: int
+    workflow_id: str
+    workflow_type: str
+    correlation_id: str
+    approval_state: str
+    decision: str | None
+    reason_category: str
+    agent_id: str
+    agent_version: str
+    requested_action: str
+    tool_name: str
+    requested_mode: str
+    enforced_mode: str
+    idempotency_key_ref: str
+    redaction_summary: dict[str, Any]
+    subject_refs: dict[str, Any]
+    action_refs: dict[str, Any]
+    requested_at: datetime
+    decision_due_at: datetime
+    expires_at: datetime
+    decision_at: datetime | None
+    source_audit_event_id: UUID
+    latest_audit_event_id: UUID | None
+    latest_verdict: str | None
+    latest_reason: str | None
+    connector_invocation_id: UUID | None
     grant_ref: str | None
     policy_version_refs: dict[str, Any]
     trace_join: dict[str, Any]
@@ -598,6 +637,79 @@ class ProjectionStore:
                 FROM tool_action_audit
                 WHERE tenant_id = p.tenant_id
                   AND tool_name = p.tool_name
+                  AND raw_event->'details'->'approval_apply'->>'approval_id'
+                    = p.approval_id::text
+                ORDER BY occurred_at DESC, audit_event_id DESC
+                LIMIT 1
+            ) latest ON true
+            WHERE p.tenant_id = %s
+              AND (%s::text IS NULL OR p.workflow_id = %s)
+            ORDER BY COALESCE(latest.occurred_at, p.updated_at) DESC, p.approval_id
+            LIMIT %s
+            """,
+            (tenant_id, workflow_id, workflow_id, limit),
+        )
+
+    def list_approval_packages(
+        self,
+        tenant_id: str,
+        *,
+        workflow_id: str | None = None,
+        limit: int = 100,
+    ) -> list[ApprovalPackageReadModel]:
+        return fetch_models(
+            self._conn,
+            ApprovalPackageReadModel,
+            """
+            SELECT
+                p.tenant_id,
+                p.approval_id,
+                p.approval_package_version,
+                p.workflow_id,
+                p.workflow_type,
+                p.correlation_id,
+                p.approval_state,
+                p.decision,
+                p.reason_category,
+                p.agent_id,
+                p.agent_version,
+                p.requested_action,
+                p.tool_name,
+                p.requested_mode,
+                p.enforced_mode,
+                p.idempotency_key_ref,
+                p.redaction_summary,
+                COALESCE(p.metadata->'subject_refs', '{}'::jsonb) AS subject_refs,
+                COALESCE(p.metadata->'action_refs', '{}'::jsonb) AS action_refs,
+                p.requested_at,
+                p.decision_due_at,
+                p.expires_at,
+                p.decision_at,
+                p.source_audit_event_id,
+                COALESCE(latest.audit_event_id, source.audit_event_id) AS latest_audit_event_id,
+                COALESCE(latest.verdict, source.verdict) AS latest_verdict,
+                COALESCE(latest.reason, source.reason) AS latest_reason,
+                latest.connector_invocation_id,
+                CASE
+                    WHEN p.grant_id IS NULL THEN NULL
+                    ELSE 'tool_grant:' || p.grant_id::text
+                END AS grant_ref,
+                p.policy_version_refs,
+                p.trace_join,
+                COALESCE(latest.occurred_at, p.updated_at) AS updated_at
+            FROM approval_packages p
+            JOIN tool_action_audit source
+              ON source.tenant_id = p.tenant_id
+             AND source.audit_event_id = p.source_audit_event_id
+            LEFT JOIN LATERAL (
+                SELECT
+                    audit_event_id,
+                    verdict,
+                    reason,
+                    connector_invocation_id,
+                    occurred_at
+                FROM tool_action_audit
+                WHERE tenant_id = p.tenant_id
                   AND raw_event->'details'->'approval_apply'->>'approval_id'
                     = p.approval_id::text
                 ORDER BY occurred_at DESC, audit_event_id DESC

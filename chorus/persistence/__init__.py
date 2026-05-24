@@ -3,7 +3,7 @@
 After the R3 F decomposition the persistence package exposes one module per
 port-shaped read surface:
 
-- :mod:`chorus.persistence.projection` - workflow + calendar projection
+- :mod:`chorus.persistence.projection` - workflow + approval/calendar projection
   (read surface + write side for the projection port).
 - :mod:`chorus.persistence.audit_port` - decision-trail and tool-action
   audit read surface (audit ports).
@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     )
     from chorus.persistence.outbox import OutboxStore, OutboxWorkflowEvent
     from chorus.persistence.projection import (
+        ApprovalPackageReadModel,
         CalendarProjectionReadModel,
         ProjectionStore,
         WorkflowHistoryEventReadModel,
@@ -46,6 +47,7 @@ __all__ = [
     "DEFAULT_DATABASE_URL",
     "MIGRATIONS_DIR",
     "SEEDS_DIR",
+    "ApprovalPackageReadModel",
     "CalendarProjectionReadModel",
     "OutboxStore",
     "OutboxWorkflowEvent",
@@ -68,6 +70,7 @@ def __getattr__(name: str) -> Any:
 
     if name in {
         "CalendarProjectionReadModel",
+        "ApprovalPackageReadModel",
         "ProjectionStore",
         "WorkflowHistoryEventReadModel",
         "WorkflowRunReadModel",

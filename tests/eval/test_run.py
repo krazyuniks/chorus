@@ -195,6 +195,19 @@ def test_scenario_player_rejects_non_uc1_fixtures_until_runtime_playback_lands()
         play_scenario(fixture)
 
 
+def test_uc2_schema_only_eval_fixture_validates_without_default_playback() -> None:
+    fixture = run.load_fixture(FIXTURE_DIR / "uc2" / "uc2_synthetic_acceptance_conduct.json")
+
+    assert fixture.workflow_type.value == "uc2_legal_services_intake_conflict_check"
+    assert fixture.scenario == "synthetic_acceptance_conduct"
+    assert fixture.input.source_fixture_path == (
+        "contracts/intake/uc2/samples/email_legal_intake.sample.json"
+    )
+    assert fixture.expected.use_case_outcome == ("accepted_engagement_letter_send_approval_gated")
+    with pytest.raises(ValueError, match="supports only 'uc1_enquiry_qualification'"):
+        play_scenario(fixture)
+
+
 def test_assert_default_loads_every_fixture() -> None:
     assert run.main(["assert"]) == 0
 

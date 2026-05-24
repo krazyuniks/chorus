@@ -45,12 +45,12 @@ function RootComponent() {
       <TopBar
         logo={
           <span className="mono text-xs">
-            chorus<span className="text-text-muted">/uc1</span>
+            chorus<span className="text-text-muted">/r4</span>
           </span>
         }
         actions={
           <span className="text-[10px] uppercase tracking-wide text-text-subtle">
-            phase 2a · sandbox
+            local POC · sandbox
           </span>
         }
       >

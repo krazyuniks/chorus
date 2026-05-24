@@ -20,6 +20,7 @@ from chorus.persistence.audit_port import (
     ToolActionAuditReadModel,
 )
 from chorus.persistence.projection import (
+    ApprovalPackageReadModel,
     CalendarProjectionReadModel,
     WorkflowHistoryEventReadModel,
     WorkflowRunReadModel,
@@ -48,13 +49,15 @@ class FakeProjectionStore:
 
     def list_workflows(self, tenant_id: str, *, limit: int = 100) -> list[WorkflowRunReadModel]:
         del tenant_id, limit
-        return [self._fixture.workflow()]
+        return [self._fixture.workflow(), self._fixture.uc2_workflow()]
 
     def get_workflow(self, tenant_id: str, workflow_id: str) -> WorkflowRunReadModel | None:
         del tenant_id
-        if workflow_id != self._fixture.workflow_id:
-            return None
-        return self._fixture.workflow()
+        if workflow_id == self._fixture.workflow_id:
+            return self._fixture.workflow()
+        if workflow_id == self._fixture.uc2_workflow_id:
+            return self._fixture.uc2_workflow()
+        return None
 
     def list_workflow_history(
         self,
@@ -85,6 +88,19 @@ class FakeProjectionStore:
     ) -> list[CalendarProjectionReadModel]:
         del tenant_id, workflow_id, limit
         return [self._fixture.calendar_projection()]
+
+    def list_approval_packages(
+        self,
+        tenant_id: str,
+        *,
+        workflow_id: str | None = None,
+        limit: int = 100,
+    ) -> list[ApprovalPackageReadModel]:
+        del tenant_id, limit
+        row = self._fixture.approval_package()
+        if workflow_id is not None and workflow_id != row.workflow_id:
+            return []
+        return [row]
 
 
 class FakeAuditPortStore:
@@ -178,6 +194,7 @@ class BffFixture:
 
     def __init__(self) -> None:
         self.workflow_id = "uc1-enq-bff-unit"
+        self.uc2_workflow_id = "uc2-legal-bff-unit"
         self.correlation_id = "cor_bff_unit"
         self.subject_id = uuid4()
         self.event_id = uuid4()
@@ -206,6 +223,25 @@ class BffFixture:
             completed_at=self.now,
             updated_at=self.now,
             metadata={"subject_from": "enquiry@example.com", "sender": "enquiry@example.com"},
+        )
+
+    def uc2_workflow(self) -> WorkflowRunReadModel:
+        return WorkflowRunReadModel(
+            tenant_id="tenant_demo",
+            workflow_id=self.uc2_workflow_id,
+            workflow_type="uc2_legal_services_intake_conflict_check",
+            correlation_id=self.correlation_id,
+            subject_id=self.subject_id,
+            subject_ref="legal_intake_bff_unit_001",
+            status="completed",
+            current_step="close",
+            subject_summary="Commercial contract review enquiry",
+            last_event_id=self.event_id,
+            last_event_sequence=12,
+            started_at=self.now,
+            completed_at=self.now,
+            updated_at=self.now,
+            metadata={"subject_from": "legal-intake@example.test", "channel": "email"},
         )
 
     def event(self) -> WorkflowHistoryEventReadModel:
@@ -314,6 +350,58 @@ class BffFixture:
             failure_category=None,
             grant_ref="tool_grant:" + str(uuid4()),
             policy_version_refs={},
+            trace_join={},
+            updated_at=self.now,
+        )
+
+    def approval_package(self) -> ApprovalPackageReadModel:
+        return ApprovalPackageReadModel(
+            tenant_id="tenant_demo",
+            approval_id=self.approval_id,
+            approval_package_version=1,
+            workflow_id=self.uc2_workflow_id,
+            workflow_type="uc2_legal_services_intake_conflict_check",
+            correlation_id=self.correlation_id,
+            approval_state="requested",
+            decision=None,
+            reason_category="tool_write_risk",
+            agent_id="uc2.engagement_decider",
+            agent_version="v1",
+            requested_action="engagement_letter.send.write",
+            tool_name="engagement_letter.send",
+            requested_mode="write",
+            enforced_mode="write",
+            idempotency_key_ref="sha256:" + "2" * 64,
+            redaction_summary={
+                "redaction_policy_ref": "tool_grant:uc2:redaction_policy",
+                "redacted_field_count": 0,
+                "redacted_field_refs": [],
+            },
+            subject_refs={
+                "subject_id": str(self.subject_id),
+                "subject_ref": "legal_intake_bff_unit_001",
+            },
+            action_refs={
+                "legal_intake_ref": "legal_intake_bff_unit_001",
+                "engagement_letter_ref": "engagement_letter_bff_unit_001",
+                "conduct_hook_refs": [
+                    "conduct_sra_conflict_6_1_6_2",
+                    "conduct_mlr_cdd_reg_27_28",
+                ],
+            },
+            requested_at=self.now,
+            decision_due_at=self.now,
+            expires_at=self.now,
+            decision_at=None,
+            source_audit_event_id=self.audit_event_id,
+            latest_audit_event_id=self.audit_event_id,
+            latest_verdict="approval_required",
+            latest_reason="Grant exists but requires approval before connector execution.",
+            connector_invocation_id=None,
+            grant_ref="tool_grant:" + str(uuid4()),
+            policy_version_refs={
+                "approval_policy_ref": "approval_policy.engagement_letter_send_write.local.v1"
+            },
             trace_join={},
             updated_at=self.now,
         )
@@ -615,6 +703,10 @@ def test_audit_and_runtime_policy_endpoints_are_read_only_views() -> None:
     decisions = client.get(f"/api/workflows/{fixture.workflow_id}/decision-trail").json()
     verdicts = client.get(f"/api/workflows/{fixture.workflow_id}/tool-verdicts").json()
     calendar_status = client.get(f"/api/workflows/{fixture.workflow_id}/calendar/status").json()
+    approval_packages = client.get(
+        f"/api/workflows/{fixture.uc2_workflow_id}/approval-packages"
+    ).json()
+    all_approval_packages = client.get("/api/approval-packages").json()
     registry = client.get("/api/runtime/registry").json()
     grants = client.get("/api/runtime/grants").json()
     routing = client.get("/api/runtime/routing").json()
@@ -624,6 +716,14 @@ def test_audit_and_runtime_policy_endpoints_are_read_only_views() -> None:
     assert verdicts[0]["redactions"] == ["body_text"]
     assert calendar_status[0]["projection_status"] == "calendar_hold_created"
     assert calendar_status[0]["calendar_refs"]["calendar_ref"] == "cal_uc1_local_followup"
+    assert approval_packages[0]["workflow_type"] == "uc2_legal_services_intake_conflict_check"
+    assert approval_packages[0]["requested_action"] == "engagement_letter.send.write"
+    assert approval_packages[0]["latest_verdict"] == "approval_required"
+    assert approval_packages[0]["action_refs"]["conduct_hook_refs"] == [
+        "conduct_sra_conflict_6_1_6_2",
+        "conduct_mlr_cdd_reg_27_28",
+    ]
+    assert all_approval_packages[0]["id"] == str(fixture.approval_id)
     assert registry[0]["lifecycle_state"] == "approved"
     assert grants[0]["tool_name"] == "outbound_comms.message"
     assert routing[0]["budget_usd"] == 0.01

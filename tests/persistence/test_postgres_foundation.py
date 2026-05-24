@@ -4,8 +4,9 @@ import json
 import os
 from collections.abc import Iterator
 from pathlib import Path
+from typing import cast
 from urllib.parse import urlsplit, urlunsplit
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import psycopg
 import pytest
@@ -372,6 +373,207 @@ def test_approval_package_constraints_are_generic_for_connector_writes(
         "requested_action = ((tool_name || '.'::text) || requested_mode)"
         in constraints["approval_packages_requested_action_check"]
     )
+
+
+def test_projection_store_lists_uc2_approval_package_state(
+    migrated_database_url: str,
+) -> None:
+    workflow_id = "uc2-legal-approval-projection"
+    correlation_id = "cor_uc2_legal_approval_projection"
+    approval_id = uuid4()
+    audit_event_id = uuid4()
+    invocation_id = uuid4()
+    tool_call_id = uuid4()
+    verdict_id = uuid4()
+
+    with psycopg.connect(migrated_database_url) as conn:
+        conn.execute("SELECT set_config('app.tenant_id', 'tenant_demo', false)")
+        grant_row = conn.execute(
+            """
+            SELECT grant_id
+            FROM tool_grants
+            WHERE tenant_id = 'tenant_demo'
+              AND agent_id = 'uc2.engagement_decider'
+              AND tool_name = 'engagement_letter.send'
+              AND mode = 'write'
+            """
+        ).fetchone()
+        assert grant_row is not None
+        grant_id = cast(UUID, grant_row[0])
+        conn.execute(
+            """
+            INSERT INTO tool_action_audit (
+                tenant_id,
+                audit_event_id,
+                correlation_id,
+                workflow_id,
+                invocation_id,
+                tool_call_id,
+                verdict_id,
+                actor_type,
+                actor_id,
+                category,
+                action,
+                tool_name,
+                requested_mode,
+                enforced_mode,
+                verdict,
+                idempotency_key,
+                arguments_redacted,
+                reason,
+                occurred_at,
+                raw_event
+            )
+            VALUES (
+                'tenant_demo',
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                'agent',
+                'uc2.engagement_decider',
+                'tool_gateway',
+                'tool_call.decided',
+                'engagement_letter.send',
+                'write',
+                'write',
+                'approval_required',
+                'uc2-approval-projection',
+                %s,
+                'Grant exists but requires approval before connector execution.',
+                '2026-05-24T10:00:00Z',
+                %s
+            )
+            """,
+            (
+                audit_event_id,
+                correlation_id,
+                workflow_id,
+                invocation_id,
+                tool_call_id,
+                verdict_id,
+                Jsonb(
+                    {
+                        "legal_intake_ref": "legal_intake_projection_approval_001",
+                        "engagement_letter_ref": "engagement_letter_projection_001",
+                        "conduct_hook_refs": ["conduct_mlr_cdd_reg_27_28"],
+                    }
+                ),
+                Jsonb(
+                    {
+                        "details": {
+                            "gateway_response": {
+                                "output": {
+                                    "approval_id": str(approval_id),
+                                    "approval_state": "requested",
+                                    "requested_action": "engagement_letter.send.write",
+                                }
+                            }
+                        }
+                    }
+                ),
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO approval_packages (
+                tenant_id,
+                approval_id,
+                correlation_id,
+                workflow_id,
+                workflow_type,
+                invocation_id,
+                tool_call_id,
+                verdict_id,
+                source_audit_event_id,
+                agent_id,
+                agent_version,
+                requested_action,
+                tool_name,
+                requested_mode,
+                enforced_mode,
+                idempotency_key_ref,
+                redaction_policy_ref,
+                requested_at,
+                decision_due_at,
+                expires_at,
+                sla_policy_ref,
+                grant_id,
+                policy_version_refs,
+                trace_join,
+                metadata
+            )
+            VALUES (
+                'tenant_demo',
+                %s,
+                %s,
+                %s,
+                'uc2_legal_services_intake_conflict_check',
+                %s,
+                %s,
+                %s,
+                %s,
+                'uc2.engagement_decider',
+                'v1',
+                'engagement_letter.send.write',
+                'engagement_letter.send',
+                'write',
+                'write',
+                %s,
+                'tool_grant:uc2-send:redaction_policy',
+                '2026-05-24T10:00:00Z',
+                '2026-05-24T11:00:00Z',
+                '2026-05-24T12:00:00Z',
+                'approval_sla.engagement_letter_send_write.local.v1',
+                %s,
+                %s,
+                %s,
+                %s
+            )
+            """,
+            (
+                approval_id,
+                correlation_id,
+                workflow_id,
+                invocation_id,
+                tool_call_id,
+                verdict_id,
+                audit_event_id,
+                "sha256:" + "3" * 64,
+                grant_id,
+                Jsonb(
+                    {
+                        "approval_policy_ref": (
+                            "approval_policy.engagement_letter_send_write.local.v1"
+                        )
+                    }
+                ),
+                Jsonb({"trace_id": "trace_uc2_projection"}),
+                Jsonb(
+                    {
+                        "subject_refs": {"subject_ref": "legal_intake_projection_approval_001"},
+                        "action_refs": {
+                            "engagement_letter_ref": "engagement_letter_projection_001",
+                            "conduct_hook_refs": ["conduct_mlr_cdd_reg_27_28"],
+                        },
+                    }
+                ),
+            ),
+        )
+        conn.commit()
+
+        package = ProjectionStore(conn).list_approval_packages(
+            "tenant_demo", workflow_id=workflow_id
+        )[0]
+
+    assert package.workflow_type == "uc2_legal_services_intake_conflict_check"
+    assert package.requested_action == "engagement_letter.send.write"
+    assert package.approval_state == "requested"
+    assert package.latest_verdict == "approval_required"
+    assert package.action_refs["conduct_hook_refs"] == ["conduct_mlr_cdd_reg_27_28"]
+    assert package.grant_ref == f"tool_grant:{grant_id}"
 
 
 def test_outbox_claim_sent_and_failed_transitions(migrated_database_url: str) -> None:

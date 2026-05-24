@@ -49,6 +49,8 @@ R3 G; the invariants now do the asserting.
 - `replay.py` loads a captured transcript fixture, re-executes it through
   the route catalogue, and builds the safe replay-run evidence record used by
   persistence / BFF inspection.
-- `fixtures/` carries the active fixtures (`uc1_happy_path.json`,
-  `uc1_validator_redraft.json`) plus the captured transcript fixtures
-  under `fixtures/transcripts/` the replay subcommand re-executes.
+- `fixtures/` carries the active top-level UC1 fixtures plus the captured
+  transcript fixtures under `fixtures/transcripts/` the replay subcommand
+  re-executes. `fixtures/uc2/` currently carries schema-only synthetic UC2
+  fixture evidence; default offline playback remains UC1-only until the UC2
+  runtime playback slice lands.

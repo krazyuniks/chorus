@@ -86,6 +86,40 @@ export interface ToolVerdictEntry {
   occurred_at: string;
 }
 
+export interface ApprovalPackageEntry {
+  id: string;
+  workflow_id: string;
+  workflow_type: string;
+  correlation_id: string;
+  approval_package_version: number;
+  approval_state: string;
+  decision: string | null;
+  reason_category: string;
+  agent_id: string;
+  agent_version: string;
+  requested_action: string;
+  tool_name: string;
+  requested_mode: "read" | "propose" | "write";
+  enforced_mode: "read" | "propose" | "write";
+  idempotency_key_ref: string;
+  redaction_summary: Record<string, unknown>;
+  subject_refs: Record<string, unknown>;
+  action_refs: Record<string, unknown>;
+  requested_at: string;
+  decision_due_at: string;
+  expires_at: string;
+  decision_at: string | null;
+  source_audit_event_id: string;
+  latest_audit_event_id: string | null;
+  latest_verdict: ToolVerdict | null;
+  latest_reason: string | null;
+  connector_invocation_id: string | null;
+  grant_ref: string | null;
+  policy_version_refs: Record<string, unknown>;
+  trace_join: Record<string, unknown>;
+  updated_at: string;
+}
+
 export interface RegistryEntry {
   agent_id: string;
   role?: string;

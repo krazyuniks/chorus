@@ -6,6 +6,7 @@
  * BFF-backed query functions unless VITE_USE_FIXTURES is explicitly set.
  */
 import type {
+  ApprovalPackageEntry,
   DecisionTrailEntry,
   EvalRunSummary,
   GrantEntry,
@@ -25,6 +26,26 @@ const iso = (offsetSeconds: number) =>
   new Date(NOW + offsetSeconds * 1000).toISOString();
 
 export const workflowRuns: WorkflowRunSummary[] = [
+  {
+    workflow_id: "uc2-2026-05-24-0001",
+    run_id: null,
+    workflow_type: "uc2_legal_services_intake_conflict_check",
+    status: "completed",
+    current_step: "close",
+    started_at: iso(-3600),
+    closed_at: iso(-3240),
+    updated_at: iso(-3240),
+    correlation_id: "cor_uc2_legal_demo_001",
+    subject_id: "00000000-0000-4000-8000-000000000201",
+    subject_ref: "legal_intake_2026_05_24_0001",
+    subject_summary: "Commercial contract review - standard risk",
+    subject_from: "legal-intake@example.test",
+    metadata: {
+      source: "fixture",
+      channel: "email",
+      source_payload_ref: "payload_uc2_demo_001",
+    },
+  },
   {
     workflow_id: "uc1-2026-04-29-0001",
     run_id: "01JT9VR1H6V7RZK1H6MB7VM3WX",
@@ -76,6 +97,66 @@ export const workflowRuns: WorkflowRunSummary[] = [
 ];
 
 export const workflowEvents: Record<string, WorkflowEvent[]> = {
+  "uc2-2026-05-24-0001": [
+    {
+      id: "evt-uc2-001",
+      workflow_id: "uc2-2026-05-24-0001",
+      event_type: "enquiry.received",
+      sequence: 1,
+      step: "intake",
+      occurred_at: iso(-3600),
+      correlation_id: "cor_uc2_legal_demo_001",
+      payload: {
+        legal_intake_ref: "legal_intake_2026_05_24_0001",
+        subject_summary: "Commercial contract review - standard risk",
+        channel: "email",
+        source_payload_ref: "payload_uc2_demo_001",
+      },
+    },
+    {
+      id: "evt-uc2-002",
+      workflow_id: "uc2-2026-05-24-0001",
+      event_type: "workflow.step.completed",
+      sequence: 6,
+      step: "conflict_check",
+      occurred_at: iso(-3500),
+      correlation_id: "cor_uc2_legal_demo_001",
+      payload: {
+        legal_intake_ref: "legal_intake_2026_05_24_0001",
+        tool_name: "conflict_check.search",
+        gateway_verdict: "allow",
+        conflict_check_ref: "conflict_check_demo_001",
+      },
+    },
+    {
+      id: "evt-uc2-003",
+      workflow_id: "uc2-2026-05-24-0001",
+      event_type: "workflow.step.completed",
+      sequence: 10,
+      step: "engagement_decision",
+      occurred_at: iso(-3340),
+      correlation_id: "cor_uc2_legal_demo_001",
+      payload: {
+        legal_intake_ref: "legal_intake_2026_05_24_0001",
+        engagement_decision_ref: "engagement_decision_demo_001",
+        engagement_outcome: "accept_for_engagement",
+        policy_snapshot_ref: "policy_snapshot:uc2:default:v1",
+      },
+    },
+    {
+      id: "evt-uc2-004",
+      workflow_id: "uc2-2026-05-24-0001",
+      event_type: "workflow.completed",
+      sequence: 12,
+      step: "close",
+      occurred_at: iso(-3240),
+      correlation_id: "cor_uc2_legal_demo_001",
+      payload: {
+        legal_intake_ref: "legal_intake_2026_05_24_0001",
+        outcome: "approval_required",
+      },
+    },
+  ],
   "uc1-2026-04-29-0001": [
     {
       id: "evt-001",
@@ -122,6 +203,31 @@ export const workflowEvents: Record<string, WorkflowEvent[]> = {
 
 export const decisionTrail: DecisionTrailEntry[] = [
   {
+    id: "dec-uc2-001",
+    workflow_id: "uc2-2026-05-24-0001",
+    agent_id: "uc2.engagement_decider",
+    agent_role: "engagement_decider",
+    invocation_id: "inv-uc2-001",
+    prompt_ref: "prompts/uc2/engagement-decider/v1.md",
+    prompt_hash: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    model_route: "local/uc2-synthetic-v1",
+    route_id: null,
+    route_version: null,
+    provider: "local",
+    model: "uc2-synthetic-v1",
+    fallback_reason: null,
+    fallback_applied: false,
+    task_kind: "uc2_engagement_decision",
+    outcome: "succeeded",
+    reasoning_summary:
+      "No conflict, standard AML risk, and required SRA/AML evidence refs are present.",
+    cost_usd: 0,
+    latency_ms: 50,
+    occurred_at: iso(-3340),
+    correlation_id: "cor_uc2_legal_demo_001",
+    contract_refs: ["contracts/llm_provider/uc2_agent_io.schema.json"],
+  },
+  {
     id: "dec-001",
     workflow_id: "uc1-2026-04-29-0001",
     agent_id: "intake.classifier",
@@ -166,6 +272,19 @@ export const decisionTrail: DecisionTrailEntry[] = [
 ];
 
 export const toolVerdicts: ToolVerdictEntry[] = [
+  {
+    id: "ver-uc2-001",
+    workflow_id: "uc2-2026-05-24-0001",
+    tool_name: "engagement_letter.send",
+    requested_mode: "write",
+    enforced_mode: "write",
+    verdict: "approval_required",
+    reason: "Grant exists but requires approval before connector execution.",
+    redactions: [],
+    caller_agent_id: "uc2.engagement_decider",
+    correlation_id: "cor_uc2_legal_demo_001",
+    occurred_at: iso(-3280),
+  },
   {
     id: "ver-001",
     workflow_id: "uc1-2026-04-29-0001",
@@ -213,6 +332,17 @@ export const registry: RegistryEntry[] = [
 
 export const grants: GrantEntry[] = [
   {
+    grant_id: "grant-uc2-engagement-send-write",
+    agent_id: "uc2.engagement_decider",
+    agent_version: "v1",
+    tool_name: "engagement_letter.send",
+    mode: "write",
+    allowed: true,
+    approval_required: true,
+    redaction_policy: { redact_fields: [] },
+    granted_at: iso(-2_592_000),
+  },
+  {
     agent_id: "intake.classifier",
     tool_name: "customer_profile.lookup",
     mode: "local",
@@ -227,6 +357,60 @@ export const grants: GrantEntry[] = [
     scope: "send:outbound",
     approval_required: true,
     granted_at: iso(-2_592_000),
+  },
+];
+
+export const approvalPackages: ApprovalPackageEntry[] = [
+  {
+    id: "approval-uc2-001",
+    workflow_id: "uc2-2026-05-24-0001",
+    workflow_type: "uc2_legal_services_intake_conflict_check",
+    correlation_id: "cor_uc2_legal_demo_001",
+    approval_package_version: 1,
+    approval_state: "requested",
+    decision: null,
+    reason_category: "tool_write_risk",
+    agent_id: "uc2.engagement_decider",
+    agent_version: "v1",
+    requested_action: "engagement_letter.send.write",
+    tool_name: "engagement_letter.send",
+    requested_mode: "write",
+    enforced_mode: "write",
+    idempotency_key_ref:
+      "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    redaction_summary: {
+      redaction_policy_ref: "tool_grant:grant-uc2-engagement-send-write:redaction_policy",
+      redacted_field_count: 0,
+      redacted_field_refs: [],
+    },
+    subject_refs: {
+      subject_ref: "legal_intake_2026_05_24_0001",
+    },
+    action_refs: {
+      legal_intake_ref: "legal_intake_2026_05_24_0001",
+      engagement_letter_ref: "engagement_letter_demo_001",
+      engagement_decision_ref: "engagement_decision_demo_001",
+      conduct_hook_refs: [
+        "conduct_sra_conflict_6_1_6_2",
+        "conduct_mlr_cdd_reg_27_28",
+      ],
+    },
+    requested_at: iso(-3280),
+    decision_due_at: iso(3600),
+    expires_at: iso(7200),
+    decision_at: null,
+    source_audit_event_id: "ver-uc2-001",
+    latest_audit_event_id: "ver-uc2-001",
+    latest_verdict: "approval_required",
+    latest_reason: "Grant exists but requires approval before connector execution.",
+    connector_invocation_id: null,
+    grant_ref: "tool_grant:grant-uc2-engagement-send-write",
+    policy_version_refs: {
+      approval_policy_ref: "approval_policy.engagement_letter_send_write.local.v1",
+      sla_policy_ref: "approval_sla.engagement_letter_send_write.local.v1",
+    },
+    trace_join: {},
+    updated_at: iso(-3280),
   },
 ];
 

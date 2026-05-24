@@ -26,8 +26,10 @@ registered deterministic sandbox connector adapters for conflict check, KYC /
 beneficial ownership, AML record-store, and engagement-letter-store tools.
 UC2 grants now exist for the declared sandbox tools, with
 `engagement_letter.send` as the approval-required write. Provider route support,
-projections, full eval fixtures, and a local intake start path remain later R4
-work. UC3 lands later in R4 alongside cross-provider replay-eval breadth.
+full eval fixture playback, and a local intake start path remain later R4
+work. Read-only BFF/UI inspection can display UC2 workflow rows and
+approval-package state when those rows already exist. UC3 lands later in R4
+alongside cross-provider replay-eval breadth.
 
 ## Bring the stack up
 
@@ -196,6 +198,18 @@ remain conduct-gated/manual-review evidence until a later slice adds an exact
 connector request shape for those packages. The runbook does not yet claim a
 runnable UC2 local intake path.
 
+Inspect approval packages through the read-only BFF:
+
+```bash
+curl -s http://localhost:8000/api/approval-packages | jq '.[] | {workflow_id, workflow_type, requested_action, approval_state, latest_verdict, action_refs}'
+```
+
+For a known UC2 workflow ID, narrow the same view:
+
+```bash
+curl -s http://localhost:8000/api/workflows/<workflow-id>/approval-packages | jq '.[] | select(.workflow_type == "uc2_legal_services_intake_conflict_check")'
+```
+
 ### Audit / transcript ports
 
 The audit surface answers accountability questions. On the local stack it is a
@@ -241,6 +255,12 @@ just project-once   # project Redpanda events into Postgres read models
 Inspect the read models through the BFF at `localhost:8000` or the frontend at
 `http://localhost:5173`. The read model is the source of truth for the UI; the
 progress stream is a convenience, not authoritative.
+
+Filter projected UC2 workflow rows through the BFF:
+
+```bash
+curl -s http://localhost:8000/api/workflows | jq '.[] | select(.workflow_type == "uc2_legal_services_intake_conflict_check") | {workflow_id, status, current_step, subject_ref, subject_summary}'
+```
 
 ### Observability sink
 

@@ -28,8 +28,9 @@ Per-use-case conduct invariants sit on top of the common suite:
 - UC1: FCA general-insurance-distribution conduct hooks.
 - UC2: SRA conflict, KYC, AML, engagement-boundary hooks, and the
   approval-gated `engagement_letter.send` conduct boundary. Focused invariant
-  code exists over safe synthetic captured-run artefacts; full UC2 fixture
-  playback remains a later P4 slice.
+  code exists over safe synthetic captured-run artefacts, and a schema-only
+  synthetic UC2 fixture is present under `chorus/eval/fixtures/uc2/`; full UC2
+  fixture playback remains a later P4 slice.
 - UC3: FCA COBS 9 suitability, PROD, Consumer Duty, vulnerability, and advice
   boundary hooks.
 

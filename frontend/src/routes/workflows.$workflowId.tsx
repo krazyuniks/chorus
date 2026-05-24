@@ -7,12 +7,17 @@ import { DataTable, type DataTableColumn } from "@/components/DataTable";
 import { StatusPill } from "@/components/StatusPill";
 import {
   getWorkflow,
+  listWorkflowApprovalPackages,
   listWorkflowDecisionTrail,
   listWorkflowEvents,
   listWorkflowToolVerdicts,
 } from "@/api/queries";
 import { subscribeProgress } from "@/api/sse";
-import type { DecisionTrailEntry, ToolVerdictEntry } from "@/api/types";
+import type {
+  ApprovalPackageEntry,
+  DecisionTrailEntry,
+  ToolVerdictEntry,
+} from "@/api/types";
 import { formatCorrelationId, formatDurationMs, formatTimestamp } from "@/lib/utils";
 
 export const Route = createFileRoute("/workflows/$workflowId")({
@@ -41,6 +46,11 @@ function WorkflowDetail() {
   const { data: verdicts = [] } = useQuery({
     queryKey: ["workflow", workflowId, "verdicts"],
     queryFn: () => listWorkflowToolVerdicts(workflowId),
+  });
+
+  const { data: approvalPackages = [] } = useQuery({
+    queryKey: ["workflow", workflowId, "approval-packages"],
+    queryFn: () => listWorkflowApprovalPackages(workflowId),
   });
 
   useEffect(() => {
@@ -131,6 +141,54 @@ function WorkflowDetail() {
     },
   ];
 
+  const approvalPackageColumns: DataTableColumn<ApprovalPackageEntry>[] = [
+    {
+      key: "requested_action",
+      header: "Action",
+      mono: true,
+      cell: (r) => r.requested_action,
+    },
+    {
+      key: "approval_state",
+      header: "State",
+      cell: (r) => <StatusPill value={r.approval_state} />,
+      width: "8rem",
+    },
+    {
+      key: "latest_verdict",
+      header: "Latest",
+      cell: (r) => <StatusPill value={r.latest_verdict ?? "requested"} />,
+      width: "8rem",
+    },
+    {
+      key: "agent_id",
+      header: "Agent",
+      mono: true,
+      cell: (r) => r.agent_id,
+    },
+    {
+      key: "evidence_refs",
+      header: "Evidence refs",
+      mono: true,
+      cell: (r) => (
+        <code className="mono text-[11px] text-text-muted">
+          {JSON.stringify({
+            subject_refs: r.subject_refs,
+            action_refs: r.action_refs,
+            grant_ref: r.grant_ref,
+          })}
+        </code>
+      ),
+    },
+    {
+      key: "decision_due_at",
+      header: "Due",
+      mono: true,
+      cell: (r) => formatTimestamp(r.decision_due_at),
+      width: "12rem",
+    },
+  ];
+
   if (!run) {
     return (
       <div className="flex h-full flex-col">
@@ -176,6 +234,15 @@ function WorkflowDetail() {
         <DataTable
           rows={decisions}
           columns={decisionColumns}
+          rowKey={(row) => row.id}
+        />
+      </section>
+
+      <section className="border-b border-border">
+        <SectionLabel>Approval packages</SectionLabel>
+        <DataTable
+          rows={approvalPackages}
+          columns={approvalPackageColumns}
           rowKey={(row) => row.id}
         />
       </section>

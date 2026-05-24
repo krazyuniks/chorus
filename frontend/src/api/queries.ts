@@ -1,5 +1,6 @@
 import { apiGet } from "./client";
 import {
+  approvalPackages,
   decisionTrail,
   grants,
   providerModels,
@@ -12,6 +13,7 @@ import {
   workflowRuns,
 } from "./fixtures";
 import type {
+  ApprovalPackageEntry,
   DecisionTrailEntry,
   GrantEntry,
   ProviderEntry,
@@ -78,6 +80,22 @@ export async function listWorkflowToolVerdicts(
   }
   return apiGet<ToolVerdictEntry[]>(
     `/workflows/${encodeURIComponent(workflowId)}/tool-verdicts`,
+  );
+}
+
+export async function listApprovalPackages(): Promise<ApprovalPackageEntry[]> {
+  if (USE_FIXTURES) return approvalPackages;
+  return apiGet<ApprovalPackageEntry[]>("/approval-packages");
+}
+
+export async function listWorkflowApprovalPackages(
+  workflowId: string,
+): Promise<ApprovalPackageEntry[]> {
+  if (USE_FIXTURES) {
+    return approvalPackages.filter((entry) => entry.workflow_id === workflowId);
+  }
+  return apiGet<ApprovalPackageEntry[]>(
+    `/workflows/${encodeURIComponent(workflowId)}/approval-packages`,
   );
 }
 

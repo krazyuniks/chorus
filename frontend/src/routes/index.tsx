@@ -110,8 +110,7 @@ function WorkflowsList() {
         rowKey={(row) => row.workflow_id}
         empty={
           <span>
-            No runs yet - send a fixture enquiry via{" "}
-            <code className="mono text-text">just demo</code>.
+            No projected workflow runs yet.
           </span>
         }
       />
