@@ -87,7 +87,7 @@ DEVEX_PATHS = [
 # Persistence, projection, and audit storage surface.
 PERSISTENCE_PATHS = [
     "infrastructure/postgres/README.md",
-    "infrastructure/postgres/migrations/001_phase_1a_persistence_foundation.sql",
+    "infrastructure/postgres/migrations/001_current_state_baseline.sql",
     "infrastructure/postgres/seeds/001_demo_tenants.sql",
     "chorus/persistence/__init__.py",
     "chorus/persistence/migrate.py",

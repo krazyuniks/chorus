@@ -102,7 +102,7 @@ Unless a later R4 design decision narrows scope, a use case is runnable when:
 - [x] Remove retrospective/stub documentation and old ADRs from the working tree.
 - [x] Align top-level README, runbook, evidence map, task-runner comments, and
   scaffold checks with the current living-docs state.
-- [ ] Decide and execute the database baseline strategy so migration filenames
+- [x] Decide and execute the database baseline strategy so migration filenames
   and SQL comments also read as current-state artefacts. The current migration
   chain still contains old executable SQL and should be squashed or replaced in
   a dedicated DB-baseline slice rather than edited casually.
@@ -219,9 +219,36 @@ Unless a later R4 design decision narrows scope, a use case is runnable when:
     `leading-*` class names.
 - Skipped gates: live stack, provider, replay, and full `just test` are not
   relevant to this documentation/scaffold setup.
-- Remaining known current-state cleanup: Postgres migration chain still carries
-  old executable SQL identifiers/comments; handle through a deliberate baseline
-  strategy.
+- Remaining known current-state cleanup from that session: Postgres migration
+  baseline strategy, resolved by the evidence note below.
+
+### 2026-05-24 - Postgres Current-State Baseline
+
+- Scope: database baseline cleanup for `infrastructure/postgres/migrations`.
+- Strategy: squashed the executable migration chain into
+  `001_current_state_baseline.sql`; previous migration history remains in git
+  history, while the live migration directory now starts from the current R4
+  local POC schema baseline. The baseline is idempotent for a local database
+  that already recorded the previous chain; a fresh local database or local
+  volume reset is the clean path for removing pre-baseline experimental extra
+  tables.
+- Files changed: Postgres migration baseline, Postgres README, scaffold doctor
+  path, migration runner docstring, architecture/evidence migration references,
+  and this backlog handoff.
+- Gates run:
+  - `just doctor-quick` - green.
+  - `just contracts-check` - green.
+  - `uv run pytest tests/test_scaffold.py tests/test_contracts.py tests/persistence/test_postgres_foundation.py tests/tool_gateway/test_gateway.py`
+    - green, 5 passed and 15 skipped.
+  - `uv run pytest tests/persistence/test_postgres_foundation.py tests/tool_gateway/test_gateway.py -rs`
+    - skipped all 15 database-backed tests because local Postgres on
+    `localhost:5432` rejected the configured `chorus` user.
+  - `just lint` - green.
+  - `git diff --check` - green.
+- Skipped gates: live `just db-migrate`, full `just test`, replay, eval, and
+  frontend/e2e gates were not run; this slice changed the DB baseline and docs
+  only, and the local Postgres service was not available with the configured
+  credentials for migration execution.
 
 ## Session Cadence
 
@@ -270,9 +297,16 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: finish the living-current-state cleanup by deciding and executing the database baseline strategy for infrastructure/postgres/migrations. The migration chain still contains old executable SQL filenames/comments/identifiers; do not casually edit applied migrations. Decide whether to squash to a current baseline migration or keep the chain with a narrow documented exception, then implement the chosen path and update docs/transformation/r4-implementation-backlog.md.
+Current target slice: write the R4 design decisions note in Strategy order. Create the note under docs/transformation/ and update docs/transformation/README.md if needed so it is part of the current design-control set.
 
-Use the architecture authority order from AGENTS.md. Keep this slice focused on the DB baseline cleanup. Do not implement UC2, UC3, provider routes, or replay code in this slice.
+The note must cover these decisions:
+- whether R4 completes UC1 broker-firm-side persistence before UC2/UC3;
+- what counts as "runnable" for channel coverage;
+- what cross-provider replay compares;
+- how generic approval packages work beyond calendar writes;
+- how provider route catalogue, DB policy, provider catalogue rows, UI, and eval route selection stay aligned.
+
+Use the architecture authority order from AGENTS.md. Keep this slice focused on design decisions and matching backlog/docs updates. Do not implement UC2, UC3, provider routes, replay code, or database schema changes in this slice.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.

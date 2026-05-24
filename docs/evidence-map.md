@@ -43,7 +43,7 @@ by construction.
 | Claim | Artefacts | Status |
 |---|---|---|
 | Reasoning runs behind a provider boundary, not a direct SDK call | `chorus/llm_provider/port.py` (surface), `chorus/llm_provider/adapter_openai.py` (OpenAI-SDK transport), `chorus/llm_provider/adapter_replay.py` (recorded-replay substrate), `chorus/agent_runtime/runtime.py` (sequential five-step pipeline), `contracts/llm_provider/uc1_agent_io.schema.json`, `tests/agent_runtime/test_runtime.py` | The port is the only path to a provider SDK. |
-| Every invocation records provider and model metadata | `chorus/llm_provider/route_catalogue.py`, `contracts/llm_provider/provider_catalogue.schema.json`, `contracts/llm_provider/model_route_version.schema.json`, `infrastructure/postgres/migrations/005_provider_governance_catalogue.sql` | Implementation in code. |
+| Every invocation records provider and model metadata | `chorus/llm_provider/route_catalogue.py`, `contracts/llm_provider/provider_catalogue.schema.json`, `contracts/llm_provider/model_route_version.schema.json`, `infrastructure/postgres/migrations/001_current_state_baseline.sql` (`provider_catalogues`, `provider_catalogue_models`, `model_route_versions`) | Implementation in code. |
 | Provider neutrality and the route catalogue are specified | [`transformation/engineering-thesis.md`](transformation/engineering-thesis.md) (LLM provider port section) | Design complete. |
 
 Decision records: [ADR 0018](../adrs/0018-llm-provider-port.md) and
@@ -71,8 +71,8 @@ full-fidelity transcript port.
 
 | Claim | Artefacts | Status |
 |---|---|---|
-| Every governed decision has a structured decision-trail record | `chorus/persistence/audit_port.py` (`AuditPortStore.list_decision_trail`), `contracts/audit/agent_invocation_record.schema.json`, `infrastructure/postgres/migrations/001_phase_1a_persistence_foundation.sql` (`decision_trail_entries`), `chorus/agent_runtime/runtime.py` (`record_decision`) | Implementation in code. |
-| The transcript carries enough to replay an invocation | `chorus/persistence/audit_port.py`, `contracts/audit/agent_invocation_transcript.schema.json`, `infrastructure/postgres/migrations/010_audit_transcript_port.sql`, `chorus/agent_runtime/runtime.py` (`record_transcript`) | The transcript port records replay inputs. |
+| Every governed decision has a structured decision-trail record | `chorus/persistence/audit_port.py` (`AuditPortStore.list_decision_trail`), `contracts/audit/agent_invocation_record.schema.json`, `infrastructure/postgres/migrations/001_current_state_baseline.sql` (`decision_trail_entries`), `chorus/agent_runtime/runtime.py` (`record_decision`) | Implementation in code. |
+| The transcript carries enough to replay an invocation | `chorus/persistence/audit_port.py`, `contracts/audit/agent_invocation_transcript.schema.json`, `infrastructure/postgres/migrations/001_current_state_baseline.sql` (`agent_invocation_transcripts`), `chorus/agent_runtime/runtime.py` (`record_transcript`) | The transcript port records replay inputs. |
 | Audit completeness: no LLM invocation or connector call is unattributed | `chorus/eval/invariants.py` (`assert_audit_completeness`), [`transformation/eval-reshape-directions.md`](transformation/eval-reshape-directions.md) | The invariant suite asserts it. |
 
 Decision record: [ADR 0019](../adrs/0019-audit-ports-and-replay-eval.md).

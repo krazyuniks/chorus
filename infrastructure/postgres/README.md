@@ -1,20 +1,33 @@
 # Postgres Persistence
 
-Postgres stores policy materialisation, audit evidence, read models, episodic
-workflow history, transactional outbox rows, provider catalogue rows, and
-immutable route-version evidence for local governance inspection.
+Postgres stores policy materialisation, audit evidence, transcript records,
+read models, episodic workflow history, transactional outbox rows, provider
+catalogue rows, approval package records, and immutable route-version evidence
+for local governance inspection.
 
-- `migrations/` contains ordered SQL migrations.
+- `migrations/` starts from `001_current_state_baseline.sql`, the current R4
+  local POC schema baseline. Earlier experimental migration history lives in
+  git history, not in the executable migration directory.
 - `seeds/` contains idempotent local demo data. The initial seed creates
   `tenant_demo` and `tenant_demo_alt` for tenant-isolation evidence. The
   provider-governance seed mirrors local route materialisation into
   route-version rows and keeps non-runnable provider placeholders disabled.
 
-Run `just db-migrate` after the local Postgres service is running. The migration runner reads `CHORUS_DATABASE_URL` and defaults to `postgresql://chorus:chorus@localhost:5432/chorus`.
+Run `just db-migrate` after the local Postgres service is running. The
+migration runner reads `CHORUS_DATABASE_URL` and defaults to
+`postgresql://chorus:chorus@localhost:5432/chorus`.
 
-RLS policies use `app.tenant_id` as the session tenant context and fail closed when it is unset. Application services should set the tenant context before reading or writing tenant-owned tables.
+The baseline is idempotent enough to be applied once to a local database that
+already recorded the previous migration chain; it records the current baseline
+without rewriting tenant data. For a schema with no pre-baseline experimental
+leftovers, create a fresh local database or reset local volumes before running
+`just db-migrate`.
 
-## Workstream A interfaces
+RLS policies use `app.tenant_id` as the session tenant context and fail closed
+when it is unset. Application services should set the tenant context before
+reading or writing tenant-owned tables.
+
+## Persistence Interfaces
 
 `ProjectionStore.record_workflow_event()` appends canonical `workflow_event` payloads to `outbox_events` and is the interface later Temporal activities should call after their service-owned state changes. The method is idempotent by `event_id` and by `(tenant_id, workflow_id, sequence)`.
 
