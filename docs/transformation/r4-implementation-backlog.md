@@ -173,7 +173,7 @@ channel runnable status are separate claims.
 
 - [x] Load registered prompt references and prompt hashes into the live provider
   call path.
-- [ ] Pass task-specific response schemas to OpenAI-compatible routes and reject
+- [x] Pass task-specific response schemas to OpenAI-compatible routes and reject
   malformed or empty `structured_data`.
 - [ ] Align `default_route_catalogue`, `model_routing_policies`,
   `model_route_versions`, provider catalogue seeds, BFF provider views, and
@@ -929,6 +929,67 @@ channel runnable status are separate claims.
   DB-backed verification and migration execution remain blocked by the local
   Postgres credential failure.
 
+### 2026-05-24 - Provider Structured Output Enforcement
+
+- Scope: second P3 provider hardening slice for schema-bound structured-output
+  enforcement only.
+- Official provider details checked:
+  - OpenAI official Structured Outputs / Chat Completions docs on
+    2026-05-24: Chat Completions support
+    `response_format: {"type": "json_schema", "json_schema": ...}` with
+    strict JSON Schema adherence on supported models.
+  - DeepSeek official JSON Output / Chat Completions docs on 2026-05-24:
+    the OpenAI-compatible route supports
+    `response_format: {"type": "json_object"}`, requires an in-message JSON
+    instruction / example, and may occasionally return empty content, so
+    Chorus validates the same task schema locally for DeepSeek.
+- Behaviour changed:
+  - added `chorus/agent_runtime/response_schemas.py` with UC1
+    task-specific provider response shapes for classifier, context gatherer,
+    qualifier, request drafter, and validator outputs;
+  - Agent Runtime now passes `InvocationArgs.response_shape`, adds a
+    generated JSON-only schema instruction after the approved prompt system
+    message, and records safe response-schema name / contract / task / hash
+    metadata with the decision trail;
+  - the OpenAI-compatible adapter now requests OpenAI `json_schema`
+    structured output for the canonical OpenAI route and DeepSeek
+    `json_object` mode for the dev route, parses the provider JSON into
+    `InvocationResult.structured_data`, locally validates it against the task
+    schema, and raises non-retryable provider-port errors for malformed JSON,
+    provider refusals, missing choices / messages, empty provider content, or
+    empty `structured_data`;
+  - the deterministic recorded-replay adapter ignores response shaping for
+    output generation while carrying safe response-schema metadata, preserving
+    offline eval semantics;
+  - eval replay and the recorded-replay scenario player now pass the same UC1
+    response shapes without adding comparator code, live provider calls,
+    provider selection changes, UC1 connector changes, UC2 / UC3 runtime work,
+    or UI changes.
+- Files changed: Agent Runtime response-schema helper and runtime wiring,
+  OpenAI-compatible and recorded-replay adapters, route catalogue response
+  format mode for DeepSeek, eval replay / scenario-player wiring, focused
+  runtime and eval tests, architecture / evidence / runbook / R4 design docs,
+  and this backlog handoff.
+- Gates run:
+  - `uv run pytest tests/agent_runtime/test_runtime.py tests/eval/test_run.py tests/workflows/test_uc1_workflow.py -rs`
+    - green, 37 passed and 3 skipped; skipped cases were DB-backed Agent
+    Runtime tests because local Postgres on `localhost:5432` rejected the
+    configured `chorus` user.
+  - `just eval` - green for five UC1 offline eval fixtures with the generated
+    response-schema instruction in recorded-replay-safe transcripts.
+  - `just test-replay` - green, 2 passed and 8 deselected.
+  - `just contracts-check` - green.
+  - `just lint` - green after formatting touched Python and fixing pyright
+    narrowing in the schema / adapter helpers.
+  - `git diff --check` - green.
+- Skipped gates: `just contracts-gen` was not run because no JSON Schema
+  contracts or samples changed. Live OpenAI / DeepSeek provider calls, live
+  `just db-migrate`, full `just test`, Redpanda projection integration,
+  frontend e2e, UC2 / UC3 runtime gates, and live-stack gates were not run.
+  This slice did not activate live routes or require credentials, and
+  DB-backed verification and migration execution remain blocked by the local
+  Postgres credential failure.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -976,17 +1037,17 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: continue P3 Provider And Replay Hardening by passing task-specific response schemas to OpenAI-compatible routes and rejecting malformed or empty `structured_data`. Keep the slice focused on schema-bound structured-output enforcement only.
+Current target slice: continue P3 Provider And Replay Hardening by aligning `default_route_catalogue`, active `model_routing_policies`, `model_route_versions`, provider catalogue seeds, BFF provider views, and eval route selection. Keep the slice focused on route-governance alignment and inspection only.
 
-Previous slice completed: registered prompt references and hashes now load into the provider call path. The repo has UC1 prompt assets under `prompts/uc1/`; Agent Runtime verifies the loaded file bytes against the approved `agent_registry.prompt_hash`, prepends the prompt as a system message, records safe prompt ref/hash metadata, and fails before provider invocation on prompt mismatch or unsafe/missing prompt references. The recorded-replay eval scenario player now uses the same prompt loader. UC1 demo tenant seeds and `policy_snapshot:uc1:default:v1` carry deterministic prompt hashes. No live provider was called, no provider selection semantics changed, no structured-output enforcement was added, no replay comparator code was added, and UC1 connector/UI behaviour was left unchanged.
+Previous slice completed: schema-bound structured-output enforcement is now active in the provider call path. Agent Runtime builds UC1 task-specific `InvocationArgs.response_shape`, adds a generated JSON-only schema instruction after the approved prompt system message, records safe response-schema name / contract / task / hash metadata, and still leaves active provider selection unchanged. The OpenAI-compatible adapter requests OpenAI `json_schema` structured output for the canonical OpenAI route and DeepSeek `json_object` mode for the dev route, parses provider JSON into `InvocationResult.structured_data`, validates it locally against the task schema, and raises non-retryable provider-port errors for malformed JSON, provider refusals, missing choices / messages, empty provider content, or empty `structured_data`. The recorded-replay adapter ignores response shaping for deterministic output while carrying safe response-schema metadata. Eval replay and scenario playback pass the same UC1 response shapes. No live provider was called, no active provider route was changed, no replay comparator records were added, and UC1 connector/UI behaviour was left unchanged.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/llm_provider/, contracts/audit/, infrastructure/postgres/seeds/001_demo_tenants.sql, infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql, infrastructure/postgres/migrations/001_current_state_baseline.sql, and the current P3 backlog items. If current OpenAI-compatible structured-output parameter details are needed, verify them from official provider documentation only before encoding them.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/llm_provider/, contracts/audit/, infrastructure/postgres/seeds/001_demo_tenants.sql, infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql, infrastructure/postgres/migrations/001_current_state_baseline.sql, frontend/provider governance fixtures/views if present, and the current P3 backlog items. If current provider catalogue or model-route governance details need external verification, use official provider documentation only.
 
-Before editing, inspect the structured-output and provider surfaces: `chorus/agent_runtime/runtime.py`, `chorus/agent_runtime/prompt_loader.py`, `chorus/llm_provider/port.py`, `chorus/llm_provider/route_catalogue.py`, `chorus/llm_provider/adapter_openai.py`, `chorus/llm_provider/adapter_replay.py`, `chorus/eval/replay.py`, `chorus/eval/scenario_player.py`, `chorus/persistence/audit_port.py`, `contracts/llm_provider/uc1_agent_io.schema.json`, `contracts/audit/agent_invocation_record.schema.json`, `contracts/audit/agent_invocation_transcript.schema.json`, `tests/agent_runtime/test_runtime.py`, `tests/eval/test_run.py`, and relevant docs. Search for `response_shape`, `response_schema`, `response_format`, `structured_data`, `json_schema`, `InvocationArgs`, `InvocationResult`, `raw_messages`, `record_transcript`, `decision_metadata`, and `malformed`.
+Before editing, inspect the route-governance and provider inspection surfaces: `chorus/llm_provider/route_catalogue.py`, `chorus/agent_runtime/runtime.py`, `chorus/persistence/runtime_policy.py`, `chorus/persistence/provider_governance.py`, `chorus/bff/app.py`, `contracts/llm_provider/provider_catalogue.schema.json`, `contracts/llm_provider/model_route_version.schema.json`, `contracts/llm_provider/samples/provider_catalogue.sample.json`, `contracts/llm_provider/samples/model_route_version.sample.json`, `infrastructure/postgres/seeds/001_demo_tenants.sql`, `infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`, `tests/agent_runtime/test_runtime.py`, `tests/bff/test_app_unit.py`, `tests/persistence/test_postgres_foundation.py`, `tests/test_contracts.py`, and relevant frontend tests / fixtures. Search for `default_route_catalogue`, `model_routing_policies`, `model_route_versions`, `provider_catalogue`, `provider_catalogues`, `supports_structured_output`, `response_schema`, `response_format`, `provider_id`, `model_id`, `eval_required`, `eval_fixture_refs`, `route_version`, `provider view`, and `route selection`.
 
-Expected direction: keep `InvocationArgs.response_shape` as the provider-port field and make Agent Runtime pass the UC1 task response schema to OpenAI-compatible routes without changing active provider selection. Add provider adapter handling that requests structured JSON from OpenAI-compatible chat completions, extracts the structured object into `InvocationResult.structured_data`, and raises a non-retryable provider/runtime error when the provider returns malformed JSON or an empty structured payload. Preserve the deterministic recorded-replay adapter and offline eval semantics; it may ignore `response_shape` while continuing to return valid structured data. Record enough safe metadata for audit/transcript replay, but do not store raw provider response bodies in decision metadata. If task-specific schemas cannot be represented without changing JSON Schema contracts, stop and surface the design question instead of widening the slice.
+Expected direction: keep the active runtime route selection on local recorded replay unless the docs and seeds already define an approved local-only alignment move. Align the executable route catalogue metadata with DB route policy, route-version rows, provider catalogue rows / samples, BFF provider inspection views, and eval route-selection assumptions so a reviewer sees one coherent governed route matrix. Preserve the newly landed structured-output capability metadata where relevant. Add or update focused checks that fail on mismatches between route catalogue entries, route policies, route versions, provider catalogue support, and BFF/eval inspection data. Do not activate live-provider routes, call live providers, add replay comparator records, alter UC1 connector behaviour, implement UC2 / UC3 runtime work, change UI behaviour beyond read-only provider inspection consistency, or store secrets. If route-governance alignment requires a DB contract shape that cannot represent the required response-schema support or eval eligibility fields, stop and surface that design question rather than widening the slice.
 
-Keep this slice focused. Do not activate live-provider routes, call live providers, change provider selection semantics, add replay comparator code, alter UC1 connector behaviour, implement UC2 / UC3 runtime work, change UI behaviour, or store secrets.
+Keep this slice focused on route governance alignment. Do not change provider selection semantics unless the existing R4 design docs explicitly require the selected local route metadata to be normalised without live-provider activation.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.

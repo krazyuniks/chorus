@@ -141,6 +141,15 @@ message. Decision-trail metadata records only safe prompt references and
 hashes; the transcript port records the full message sequence needed for
 replay.
 
+The Agent Runtime also builds a UC1 task-specific `response_shape` before the
+call leaves the domain side of the provider port. The OpenAI-compatible
+adapter sends that shape through OpenAI `json_schema` structured output where
+the route supports it, and uses provider JSON mode plus local JSON Schema
+validation where the route only exposes JSON-object mode. Malformed provider
+JSON or an empty `structured_data` payload is a non-retryable provider-port
+failure, recorded through the decision trail without raw provider response
+bodies in decision metadata.
+
 ### The route catalogue
 
 The route catalogue is the LLM provider port's metadata layer. Every captured
@@ -159,8 +168,9 @@ route-governance rule are recorded in
 [`transformation/r4-design-decisions.md`](transformation/r4-design-decisions.md).
 The active seeded runtime routes still select the local recorded-replay model.
 Prompt loading and prompt-hash verification are active for both live routes
-and the recorded-replay-safe path; schema-bound structured output, route
-governance alignment, and replay comparison records remain P3 work.
+and the recorded-replay-safe path. Schema-bound structured output enforcement
+is active in the provider call path; route governance alignment and replay
+comparison records remain P3 work.
 
 The route catalogue plus the transcript port together make cross-provider
 replay possible. Without route metadata, replay can only target the original

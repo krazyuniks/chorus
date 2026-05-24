@@ -118,9 +118,14 @@ in [`transformation/r4-design-decisions.md`](transformation/r4-design-decisions.
 The runtime now loads the approved repo-local `prompt_reference`, verifies the
 file bytes against `prompt_hash`, and sends the prompt as the system message
 before the user task input for both live routes and recorded-replay-safe runs.
-R4 wires live route activation only after schema-bound structured output,
-route-governance rows, eval route selection, and required local credentials are
-aligned.
+It also attaches the UC1 task response schema to each provider-port call. The
+OpenAI route requests `json_schema` structured output; the DeepSeek route
+requests JSON-object mode and the adapter validates the returned object
+against the same task schema locally. Malformed JSON or an empty
+`structured_data` object fails as a non-retryable provider-port error before
+any connector action can be proposed. R4 wires live route activation only
+after route-governance rows, eval route selection, and required local
+credentials are aligned.
 
 ### Connector port
 

@@ -27,6 +27,11 @@ from chorus.agent_runtime.prompt_loader import (
     PromptReferenceError,
     load_registered_prompt,
 )
+from chorus.agent_runtime.response_schemas import (
+    response_shape_instruction,
+    response_shape_metadata,
+    uc1_response_shape_for_task,
+)
 from chorus.contracts.generated.audit.agent_invocation_record import AgentInvocationRecord
 from chorus.contracts.generated.audit.agent_invocation_transcript import (
     AgentInvocationTranscript,
@@ -309,8 +314,11 @@ class SequentialAgentExecutionEngine:
             input_summary=input_summary,
             step_path=tuple(step_path),
             route_entry=route_entry,
-            decision_metadata=_execution_metadata(route_entry, tuple(step_path))
-            | _prompt_invocation_metadata(args),
+            decision_metadata=(
+                _execution_metadata(route_entry, tuple(step_path))
+                | _prompt_invocation_metadata(args)
+                | _response_shape_invocation_metadata(args)
+            ),
             request_messages=args.messages,
         )
 
@@ -322,6 +330,8 @@ class SequentialAgentExecutionEngine:
         route_entry: RouteCatalogueEntry,
     ) -> InvocationArgs:
         prompt = _load_prompt(resolution.agent)
+        response_shape = _response_shape_for_request(request)
+        response_schema_metadata = response_shape_metadata(response_shape)
         return InvocationArgs(
             route_id=route_entry.route_id,
             messages=(
@@ -330,10 +340,15 @@ class SequentialAgentExecutionEngine:
                     content=prompt.content,
                 ),
                 InvocationMessage(
+                    role="system",
+                    content=response_shape_instruction(response_shape),
+                ),
+                InvocationMessage(
                     role="user",
                     content=_summarise_mapping(request.input),
                 ),
             ),
+            response_shape=response_shape,
             metadata={
                 "task_kind": request.task_kind,
                 "input": dict(request.input),
@@ -345,6 +360,7 @@ class SequentialAgentExecutionEngine:
                     **resolution.model_route.parameters,
                 },
                 "prompt": prompt.metadata,
+                "response_schema": response_schema_metadata,
             },
         )
 
@@ -1103,6 +1119,13 @@ def _prompt_invocation_metadata(args: InvocationArgs) -> dict[str, Any]:
     return {}
 
 
+def _response_shape_invocation_metadata(args: InvocationArgs) -> dict[str, Any]:
+    response_schema_metadata = args.metadata.get("response_schema")
+    if isinstance(response_schema_metadata, dict):
+        return cast(dict[str, Any], response_schema_metadata).copy()
+    return {}
+
+
 def _failure_decision_metadata(exc: Exception) -> dict[str, Any]:
     step_path = getattr(exc, "execution_step_path", ())
     metadata: dict[str, Any] = {
@@ -1285,6 +1308,14 @@ def _policy_snapshot_metadata(contract: AgentOutputContract) -> dict[str, Any]:
     if not isinstance(policy_snapshot_ref, str) or not policy_snapshot_ref:
         return {}
     return {"policy_snapshot.ref": policy_snapshot_ref}
+
+
+def _response_shape_for_request(request: AgentInvocationRequest) -> dict[str, Any]:
+    if request.expected_output_contract == UC1_AGENT_CONTRACT_REF:
+        return uc1_response_shape_for_task(request.task_kind)
+    raise AgentRuntimeError(
+        f"Unsupported agent output contract {request.expected_output_contract!r}"
+    )
 
 
 __all__ = [

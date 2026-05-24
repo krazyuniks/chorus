@@ -95,6 +95,7 @@ def default_route_catalogue() -> RouteCatalogue:
                 adapter=OpenAICompatibleAdapter(
                     base_url=os.environ.get("CHORUS_LLM_DEV_BASE_URL", "https://api.deepseek.com"),
                     api_key_env="DEEPSEEK_API_KEY",
+                    response_format_mode="json_object",
                 ),
                 parameters={
                     "reasoning_effort": "high",

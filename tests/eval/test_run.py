@@ -160,6 +160,9 @@ def test_recorded_replay_scenario_captures_loaded_prompt_evidence() -> None:
     assert decision.prompt_hash != "sha256:" + "0" * 64
     assert transcript.request_messages[0]["role"] == "system"
     assert str(transcript.request_messages[0]["content"]).startswith("# UC1 classifier v1")
+    assert transcript.request_messages[1]["role"] == "system"
+    assert "Return JSON only" in str(transcript.request_messages[1]["content"])
+    assert "uc1_enquiry_classification_response" in str(transcript.request_messages[1]["content"])
 
 
 def test_qualification_invariants_capture_conduct_hooks() -> None:

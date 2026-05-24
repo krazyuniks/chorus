@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from chorus.agent_runtime.response_schemas import uc1_response_shape_for_task
 from chorus.eval.types import EvalCheck
 from chorus.llm_provider import (
     InvocationArgs,
@@ -91,6 +92,7 @@ def replay_transcript(
     args = InvocationArgs(
         route_id=target_route,
         messages=tuple(_invocation_message(message) for message in transcript.request_messages),
+        response_shape=uc1_response_shape_for_task(transcript.task_kind),
         metadata={
             "task_kind": transcript.task_kind,
             "input": transcript.enquiry_input,

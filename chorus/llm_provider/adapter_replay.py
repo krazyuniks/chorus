@@ -14,6 +14,8 @@ that the runtime passes through.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, cast
@@ -62,7 +64,8 @@ class RecordedReplayAdapter:
                 "decision; external actions remain behind the Tool Gateway."
             ),
             cost_amount_usd=Decimal("0.000000"),
-            provider_metadata={"adapter": ADAPTER_VERSION},
+            provider_metadata={"adapter": ADAPTER_VERSION}
+            | _safe_response_schema_metadata(args.response_shape),
         )
 
 
@@ -251,6 +254,29 @@ def _replay_result_for(
                 {"classification": "enquiry"},
                 0.88,
             )
+
+
+def _safe_response_schema_metadata(response_shape: dict[str, Any] | None) -> dict[str, Any]:
+    if response_shape is None:
+        return {}
+    schema = response_shape.get("schema")
+    if not isinstance(schema, dict):
+        return {}
+    metadata: dict[str, Any] = {"response_schema": {}}
+    response_schema = cast(dict[str, Any], metadata["response_schema"])
+    for key in ("name", "contract_ref", "task_kind", "source"):
+        value = response_shape.get(key)
+        if isinstance(value, str) and value:
+            response_schema[key] = value
+    response_schema["strict"] = bool(response_shape.get("strict", False))
+    response_schema["hash"] = _schema_hash(cast(dict[str, Any], schema))
+    response_schema["response_format_type"] = "recorded_replay"
+    return metadata
+
+
+def _schema_hash(schema: dict[str, Any]) -> str:
+    schema_json = json.dumps(schema, sort_keys=True, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(schema_json.encode("utf-8")).hexdigest()
 
 
 def _terminal_route_qualification_result(

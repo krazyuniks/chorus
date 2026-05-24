@@ -22,6 +22,11 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from chorus.agent_runtime.prompt_loader import LoadedPrompt, load_registered_prompt
+from chorus.agent_runtime.response_schemas import (
+    response_shape_instruction,
+    response_shape_metadata,
+    uc1_response_shape_for_task,
+)
 from chorus.contracts.generated.eval.eval_fixture import EvalFixture
 from chorus.llm_provider import (
     InvocationArgs,
@@ -492,18 +497,22 @@ def _invoke_stage(
 ) -> None:
     started = clock.tick(milliseconds=20)
     prompt = _prompt_for_agent_role(agent_role)
+    response_shape = uc1_response_shape_for_task(task_kind)
     args = InvocationArgs(
         route_id=RECORDED_REPLAY_ROUTE,
         messages=(
             InvocationMessage(role="system", content=prompt.content),
+            InvocationMessage(role="system", content=response_shape_instruction(response_shape)),
             InvocationMessage(role="user", content=f"{task_kind} input"),
         ),
+        response_shape=response_shape,
         metadata={
             "task_kind": task_kind,
             "input": enquiry_input,
             "agent_role": agent_role,
             "tenant_id": tenant_id,
             "prompt": prompt.metadata,
+            "response_schema": response_shape_metadata(response_shape),
         },
     )
     result = catalogue.invoke(args)
@@ -785,18 +794,22 @@ def _play_retry_exhaustion(
     }
     started = clock.tick(milliseconds=20)
     prompt = _prompt_for_agent_role("classifier")
+    response_shape = uc1_response_shape_for_task("enquiry_classification")
     args = InvocationArgs(
         route_id=RECORDED_REPLAY_ROUTE,
         messages=(
             InvocationMessage(role="system", content=prompt.content),
+            InvocationMessage(role="system", content=response_shape_instruction(response_shape)),
             InvocationMessage(role="user", content="enquiry_classification input"),
         ),
+        response_shape=response_shape,
         metadata={
             "task_kind": "enquiry_classification",
             "input": enquiry_input,
             "agent_role": "classifier",
             "tenant_id": tenant_id,
             "prompt": prompt.metadata,
+            "response_schema": response_shape_metadata(response_shape),
         },
     )
     try:
