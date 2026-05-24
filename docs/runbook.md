@@ -125,9 +125,10 @@ Inspect the grants for an agent:
 ```
 
 Every gateway call writes an audit row regardless of verdict; see the audit
-port section below. R3 replaces the hardcoded dispatch with an adapter registry
-and lands the UC1 connector adapters. R4 completes the broker-firm-side
-persistence and full verdict routing behind those adapters.
+port section below. The UC1 quoting queue, referral inbox, and decline ledger
+adapters now persist their local sandbox refs in Postgres. Customer
+profile/product-catalogue persistence, full verdict routing, and connector-path
+eval fixtures remain P2 work.
 
 ### Audit / transcript ports
 

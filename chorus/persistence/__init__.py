@@ -10,6 +10,8 @@ port-shaped read surface:
 - :mod:`chorus.persistence.runtime_policy` - runtime-policy snapshot.
 - :mod:`chorus.persistence.provider_governance` - provider catalogue and
   route-version snapshot.
+- :mod:`chorus.persistence.uc1_connectors` - local UC1 connector-side routing
+  records for broker-firm sandbox refs.
 
 This package init re-exports the migration + outbox + projection-write
 entry points, which are the common shared surface. Audit, policy, and

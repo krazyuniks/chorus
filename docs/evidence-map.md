@@ -59,9 +59,9 @@ authority layer.
 | Claim | Artefacts | Status |
 |---|---|---|
 | Every connector call passes grant, mode, argument validation, verdict, and audit | `chorus/tool_gateway/gateway.py`, `chorus/connectors/types.py` (`ConnectorAdapter`, `ConnectorRegistry`, `ToolSpec`), `contracts/connector/`, `tests/tool_gateway/test_gateway.py` | Implementation in code. |
-| Connectors are real software in sandbox or local mode, not mocks | `chorus/connectors/uc1.py` (six UC1 sandbox adapters), `chorus/connectors/calendar.py` (Radicale-backed CalDAV adapter) | Implementation in code. |
+| Connectors are real software in sandbox or local mode, not mocks | `chorus/connectors/uc1.py` (six UC1 sandbox adapters), `chorus/persistence/uc1_connectors.py` (UC1 broker-firm-side routing records), `chorus/connectors/calendar.py` (Radicale-backed CalDAV adapter) | Implementation in code. |
 | Dispatch is an adapter registry, not a hardcoded match block | `chorus/connectors/types.py` + `chorus/connectors/__init__.py` (`default_registry`), `chorus/tool_gateway/gateway.py` | New adapters register without editing the gateway. |
-| UC1 connector inventory is specified and live | [`r1-adapter-mapping.md`](r1-adapter-mapping.md), `chorus/connectors/uc1.py` | UC1 adapters exist. R4 completes broker-firm-side persistence and full verdict routing behind those adapters. |
+| UC1 connector inventory is specified and live | [`r1-adapter-mapping.md`](r1-adapter-mapping.md), `chorus/connectors/uc1.py`, `chorus/persistence/uc1_connectors.py` | UC1 adapters exist. Quoting queue, referral inbox, and decline ledger refs now persist in local Postgres; customer profile/product catalogue seeding, full verdict routing, and connector-path eval fixtures remain P2 work. |
 
 Decision records: [ADR 0020](../adrs/0020-domain-refocus-uk-regulated-use-cases.md)
 and [ADR 0019](../adrs/0019-audit-ports-and-replay-eval.md).

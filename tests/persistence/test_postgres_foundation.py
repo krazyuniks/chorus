@@ -136,6 +136,9 @@ def test_migration_applies_schema_and_demo_seed_data(migrated_database_url: str)
     assert ("provider_catalogues",) in tables
     assert ("model_route_versions",) in tables
     assert ("approval_packages",) in tables
+    assert ("local_quoting_queue_routes",) in tables
+    assert ("local_referral_inbox_routes",) in tables
+    assert ("local_decline_ledger_routes",) in tables
     assert ("workflow_read_models",) in tables
     assert local_ticket_present == []
 

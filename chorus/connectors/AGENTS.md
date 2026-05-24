@@ -27,11 +27,12 @@ the gateway.
 - `__init__.py` exposes the registry plus the `default_registry(conn)`
   factory wiring all adapters at the composition root.
 - `uc1.py` holds the six UC1 sandbox adapters: `sandbox-crm`
-  (quoting-queue routing), `sandbox-referral-inbox`,
-  `sandbox-decline-ledger`, `sandbox-outbound-comms` (Mailpit-backed
-  missing-data-request send, gated in write mode), `sandbox-customer-profile`
-  (read-only profile + vulnerability markers), `sandbox-product-catalogue`
-  (read-only target-market data).
+  (persistence-backed quoting-queue routing), `sandbox-referral-inbox`
+  (persistence-backed referral routing), `sandbox-decline-ledger`
+  (persistence-backed decline records), `sandbox-outbound-comms`
+  (Mailpit-backed missing-data-request send, gated in write mode),
+  `sandbox-customer-profile` (read-only profile + vulnerability markers),
+  `sandbox-product-catalogue` (read-only target-market data).
 - `calendar.py` carries the Radicale-backed CalDAV adapter
   (`CalendarAdapter`) wrapping `RadicaleCalendarConnector` for
   approval-required write surfaces.

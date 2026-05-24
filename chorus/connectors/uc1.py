@@ -4,15 +4,11 @@ Six sandbox adapters cover the UC1 connector inventory: quoting queue,
 referral inbox, decline ledger, outbound comms, customer profile, product
 catalogue.
 
-The R3 surface is deliberately thin: each adapter validates against its
-UC1 connector contract, computes a deterministic verdict reference for
-audit, and returns a shape that proves the registry round-trip. The
-broker-firm-side persistence (`local_quoting_queue_routes`,
-`local_referral_inbox_routes`, `local_decline_ledger_routes`,
-`local_customer_profiles`, `local_product_catalogue`) is wired in R4
-when UC1 runs end-to-end against the local POC sandbox. Until then the
-read adapters return canned target-market / vulnerability data per the
-domain model fixture set.
+The broker-firm-side write adapters persist local sandbox records for routing
+refs (`local_quoting_queue_routes`, `local_referral_inbox_routes`,
+`local_decline_ledger_routes`) and return those refs as connector evidence.
+The read adapters still return canned target-market / vulnerability data until
+their P2 persistence/seeding slice lands.
 """
 
 from __future__ import annotations
@@ -21,7 +17,6 @@ import os
 import smtplib
 from collections.abc import Sequence
 from email.message import EmailMessage
-from hashlib import sha256
 from typing import Any
 from uuid import uuid4
 
@@ -52,11 +47,12 @@ from chorus.contracts.generated.connector.uc1.quoting_queue_route_args import (
 from chorus.contracts.generated.connector.uc1.referral_inbox_route_args import (
     ReferralInboxRouteArgs,
 )
-
-
-def _ref(prefix: str, *parts: str) -> str:
-    digest = sha256("|".join(parts).encode("utf-8")).hexdigest()[:16]
-    return f"{prefix}_{digest}"
+from chorus.persistence.uc1_connectors import (
+    DeclineLedgerRouteWrite,
+    QuotingQueueRouteWrite,
+    ReferralInboxRouteWrite,
+    Uc1BrokerFirmRoutingWriter,
+)
 
 
 class SandboxQuotingQueueAdapter:
@@ -67,6 +63,9 @@ class SandboxQuotingQueueAdapter:
     """
 
     adapter_id = "sandbox_crm"
+
+    def __init__(self, routing_store: Uc1BrokerFirmRoutingWriter) -> None:
+        self._routing_store = routing_store
 
     def tool_specs(self) -> Sequence[ToolSpec]:
         return (
@@ -87,7 +86,6 @@ class SandboxQuotingQueueAdapter:
         context: ConnectorContext,
         arguments: BaseModel,
     ) -> ConnectorResult:
-        del context
         if tool_name != "crm.route_to_quoting_queue":
             raise ConnectorError(
                 f"SandboxQuotingQueueAdapter received unsupported tool {tool_name!r}"
@@ -96,8 +94,24 @@ class SandboxQuotingQueueAdapter:
             raise TypeError(
                 f"SandboxQuotingQueueAdapter expected QuotingQueueRouteArgs for {tool_name!r}"
             )
+        connector_invocation_id = uuid4()
+        route = self._routing_store.record_quoting_queue_route(
+            QuotingQueueRouteWrite(
+                tenant_id=context.tenant_id,
+                correlation_id=context.correlation_id,
+                workflow_id=context.workflow_id,
+                connector_invocation_id=connector_invocation_id,
+                mode=mode,
+                enquiry_ref=arguments.enquiry_ref,
+                customer_ref=arguments.customer_ref,
+                verdict_ref=arguments.verdict_ref,
+                product_family_category=arguments.product_family_category.value,
+                qualification_summary_ref=arguments.qualification_summary_ref,
+                routing_policy_ref=arguments.routing_policy_ref,
+            )
+        )
         return ConnectorResult(
-            connector_invocation_id=uuid4(),
+            connector_invocation_id=connector_invocation_id,
             output={
                 "connector": "sandbox_crm.local",
                 "mode": mode,
@@ -106,7 +120,8 @@ class SandboxQuotingQueueAdapter:
                 "verdict_ref": arguments.verdict_ref,
                 "product_family_category": arguments.product_family_category.value,
                 "routing_destination_category": "broker_firm_quoting_queue",
-                "queued_route_ref": _ref("qroute", arguments.enquiry_ref, arguments.verdict_ref),
+                "queued_route_ref": route.queued_route_ref,
+                "route_status": route.route_status,
             },
         )
 
@@ -124,6 +139,9 @@ class SandboxReferralInboxAdapter:
     """
 
     adapter_id = "sandbox_referral_inbox"
+
+    def __init__(self, routing_store: Uc1BrokerFirmRoutingWriter) -> None:
+        self._routing_store = routing_store
 
     def tool_specs(self) -> Sequence[ToolSpec]:
         return (
@@ -144,7 +162,6 @@ class SandboxReferralInboxAdapter:
         context: ConnectorContext,
         arguments: BaseModel,
     ) -> ConnectorResult:
-        del context
         if tool_name != "referral_inbox.route":
             raise ConnectorError(
                 f"SandboxReferralInboxAdapter received unsupported tool {tool_name!r}"
@@ -153,8 +170,24 @@ class SandboxReferralInboxAdapter:
             raise TypeError(
                 f"SandboxReferralInboxAdapter expected ReferralInboxRouteArgs for {tool_name!r}"
             )
+        connector_invocation_id = uuid4()
+        route = self._routing_store.record_referral_inbox_route(
+            ReferralInboxRouteWrite(
+                tenant_id=context.tenant_id,
+                correlation_id=context.correlation_id,
+                workflow_id=context.workflow_id,
+                connector_invocation_id=connector_invocation_id,
+                mode=mode,
+                enquiry_ref=arguments.enquiry_ref,
+                customer_ref=arguments.customer_ref,
+                verdict_ref=arguments.verdict_ref,
+                referral_destination_category=arguments.referral_destination_category.value,
+                referral_reason_category=arguments.referral_reason_category.value,
+                routing_policy_ref=arguments.routing_policy_ref,
+            )
+        )
         return ConnectorResult(
-            connector_invocation_id=uuid4(),
+            connector_invocation_id=connector_invocation_id,
             output={
                 "connector": "sandbox_referral_inbox.local",
                 "mode": mode,
@@ -163,7 +196,8 @@ class SandboxReferralInboxAdapter:
                 "verdict_ref": arguments.verdict_ref,
                 "referral_destination_category": arguments.referral_destination_category.value,
                 "referral_reason_category": arguments.referral_reason_category.value,
-                "referral_route_ref": _ref("rroute", arguments.enquiry_ref, arguments.verdict_ref),
+                "referral_route_ref": route.referral_route_ref,
+                "route_status": route.route_status,
             },
         )
 
@@ -172,6 +206,9 @@ class SandboxDeclineLedgerAdapter:
     """`sandbox-decline-ledger` adapter; receives the UC1 `decline` verdict."""
 
     adapter_id = "sandbox_decline_ledger"
+
+    def __init__(self, routing_store: Uc1BrokerFirmRoutingWriter) -> None:
+        self._routing_store = routing_store
 
     def tool_specs(self) -> Sequence[ToolSpec]:
         return (
@@ -192,7 +229,6 @@ class SandboxDeclineLedgerAdapter:
         context: ConnectorContext,
         arguments: BaseModel,
     ) -> ConnectorResult:
-        del context
         if tool_name != "decline_ledger.route":
             raise ConnectorError(
                 f"SandboxDeclineLedgerAdapter received unsupported tool {tool_name!r}"
@@ -201,8 +237,23 @@ class SandboxDeclineLedgerAdapter:
             raise TypeError(
                 f"SandboxDeclineLedgerAdapter expected DeclineLedgerRouteArgs for {tool_name!r}"
             )
+        connector_invocation_id = uuid4()
+        route = self._routing_store.record_decline_ledger_route(
+            DeclineLedgerRouteWrite(
+                tenant_id=context.tenant_id,
+                correlation_id=context.correlation_id,
+                workflow_id=context.workflow_id,
+                connector_invocation_id=connector_invocation_id,
+                mode=mode,
+                enquiry_ref=arguments.enquiry_ref,
+                customer_ref=arguments.customer_ref,
+                verdict_ref=arguments.verdict_ref,
+                decline_reason_category=arguments.decline_reason_category.value,
+                routing_policy_ref=arguments.routing_policy_ref,
+            )
+        )
         return ConnectorResult(
-            connector_invocation_id=uuid4(),
+            connector_invocation_id=connector_invocation_id,
             output={
                 "connector": "sandbox_decline_ledger.local",
                 "mode": mode,
@@ -210,7 +261,8 @@ class SandboxDeclineLedgerAdapter:
                 "customer_ref": arguments.customer_ref,
                 "verdict_ref": arguments.verdict_ref,
                 "decline_reason_category": arguments.decline_reason_category.value,
-                "decline_route_ref": _ref("droute", arguments.enquiry_ref, arguments.verdict_ref),
+                "decline_route_ref": route.decline_route_ref,
+                "route_status": route.route_status,
             },
         )
 

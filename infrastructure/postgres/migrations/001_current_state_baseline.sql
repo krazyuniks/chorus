@@ -279,6 +279,173 @@ CREATE TABLE IF NOT EXISTS tool_action_audit (
     )
 );
 
+CREATE TABLE IF NOT EXISTS local_quoting_queue_routes (
+    tenant_id text NOT NULL REFERENCES tenants (tenant_id) ON DELETE RESTRICT,
+    queued_route_ref text NOT NULL,
+    correlation_id text NOT NULL,
+    workflow_id text NOT NULL,
+    connector_invocation_id uuid NOT NULL,
+    mode text NOT NULL,
+    enquiry_ref text NOT NULL,
+    customer_ref text NOT NULL,
+    verdict_ref text NOT NULL,
+    product_family_category text NOT NULL,
+    qualification_summary_ref text NOT NULL,
+    routing_policy_ref text NOT NULL,
+    route_status text NOT NULL DEFAULT 'queued',
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, queued_route_ref),
+    CONSTRAINT local_quoting_queue_ref_shape CHECK (
+        queued_route_ref ~ '^qroute_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_quoting_queue_correlation_shape CHECK (
+        correlation_id ~ '^cor_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_quoting_queue_mode_check CHECK (mode IN ('read', 'propose', 'write')),
+    CONSTRAINT local_quoting_queue_enquiry_ref_shape CHECK (
+        enquiry_ref ~ '^enq_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_quoting_queue_customer_ref_shape CHECK (
+        customer_ref ~ '^cust_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_quoting_queue_verdict_ref_shape CHECK (
+        verdict_ref ~ '^verdict_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_quoting_queue_product_family_check CHECK (
+        product_family_category IN (
+            'motor_private_car',
+            'motor_commercial_vehicle',
+            'home_buildings',
+            'home_contents',
+            'home_combined',
+            'travel_single_trip',
+            'travel_annual_multi_trip',
+            'pet'
+        )
+    ),
+    CONSTRAINT local_quoting_queue_summary_ref_shape CHECK (
+        qualification_summary_ref ~ '^qsum_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_quoting_queue_policy_ref_shape CHECK (
+        routing_policy_ref ~ '^policy_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_quoting_queue_status_check CHECK (route_status IN ('queued')),
+    UNIQUE (tenant_id, verdict_ref)
+);
+
+CREATE TABLE IF NOT EXISTS local_referral_inbox_routes (
+    tenant_id text NOT NULL REFERENCES tenants (tenant_id) ON DELETE RESTRICT,
+    referral_route_ref text NOT NULL,
+    correlation_id text NOT NULL,
+    workflow_id text NOT NULL,
+    connector_invocation_id uuid NOT NULL,
+    mode text NOT NULL,
+    enquiry_ref text NOT NULL,
+    customer_ref text NOT NULL,
+    verdict_ref text NOT NULL,
+    referral_destination_category text NOT NULL,
+    referral_reason_category text NOT NULL,
+    routing_policy_ref text NOT NULL,
+    route_status text NOT NULL DEFAULT 'routed',
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, referral_route_ref),
+    CONSTRAINT local_referral_inbox_ref_shape CHECK (
+        referral_route_ref ~ '^rroute_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_referral_inbox_correlation_shape CHECK (
+        correlation_id ~ '^cor_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_referral_inbox_mode_check CHECK (mode IN ('read', 'propose', 'write')),
+    CONSTRAINT local_referral_inbox_enquiry_ref_shape CHECK (
+        enquiry_ref ~ '^enq_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_referral_inbox_customer_ref_shape CHECK (
+        customer_ref ~ '^cust_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_referral_inbox_verdict_ref_shape CHECK (
+        verdict_ref ~ '^verdict_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_referral_inbox_destination_check CHECK (
+        referral_destination_category IN (
+            'specialist_broker_panel',
+            'managing_general_agent',
+            'subscription_market',
+            'partner_intermediary',
+            'internal_complex_risk_desk'
+        )
+    ),
+    CONSTRAINT local_referral_inbox_reason_check CHECK (
+        referral_reason_category IN (
+            'customer_outside_target_market',
+            'complex_risk_outside_appetite',
+            'capacity_constraint',
+            'regulatory_restriction',
+            'customer_vulnerability_handoff',
+            'partner_owns_relationship'
+        )
+    ),
+    CONSTRAINT local_referral_inbox_policy_ref_shape CHECK (
+        routing_policy_ref ~ '^policy_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_referral_inbox_status_check CHECK (route_status IN ('routed')),
+    UNIQUE (tenant_id, verdict_ref)
+);
+
+CREATE TABLE IF NOT EXISTS local_decline_ledger_routes (
+    tenant_id text NOT NULL REFERENCES tenants (tenant_id) ON DELETE RESTRICT,
+    decline_route_ref text NOT NULL,
+    correlation_id text NOT NULL,
+    workflow_id text NOT NULL,
+    connector_invocation_id uuid NOT NULL,
+    mode text NOT NULL,
+    enquiry_ref text NOT NULL,
+    customer_ref text NOT NULL,
+    verdict_ref text NOT NULL,
+    decline_reason_category text NOT NULL,
+    routing_policy_ref text NOT NULL,
+    route_status text NOT NULL DEFAULT 'recorded',
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, decline_route_ref),
+    CONSTRAINT local_decline_ledger_ref_shape CHECK (
+        decline_route_ref ~ '^droute_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_decline_ledger_correlation_shape CHECK (
+        correlation_id ~ '^cor_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_decline_ledger_mode_check CHECK (mode IN ('read', 'propose', 'write')),
+    CONSTRAINT local_decline_ledger_enquiry_ref_shape CHECK (
+        enquiry_ref ~ '^enq_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_decline_ledger_customer_ref_shape CHECK (
+        customer_ref ~ '^cust_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_decline_ledger_verdict_ref_shape CHECK (
+        verdict_ref ~ '^verdict_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_decline_ledger_reason_check CHECK (
+        decline_reason_category IN (
+            'no_appetite_for_risk',
+            'sanctions_or_pep_hit',
+            'fraud_marker_present',
+            'kyc_failure',
+            'duplicate_active_enquiry',
+            'customer_unreachable_after_attempts',
+            'outside_product_target_market'
+        )
+    ),
+    CONSTRAINT local_decline_ledger_policy_ref_shape CHECK (
+        routing_policy_ref ~ '^policy_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_decline_ledger_status_check CHECK (route_status IN ('recorded')),
+    UNIQUE (tenant_id, verdict_ref)
+);
+
 CREATE TABLE IF NOT EXISTS workflow_history_events (
     tenant_id text NOT NULL REFERENCES tenants (tenant_id) ON DELETE RESTRICT,
     history_event_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -857,6 +1024,15 @@ CREATE INDEX IF NOT EXISTS decision_trail_workflow_idx
 CREATE INDEX IF NOT EXISTS tool_action_audit_workflow_idx
     ON tool_action_audit (tenant_id, workflow_id, occurred_at);
 
+CREATE INDEX IF NOT EXISTS local_quoting_queue_workflow_idx
+    ON local_quoting_queue_routes (tenant_id, workflow_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS local_referral_inbox_workflow_idx
+    ON local_referral_inbox_routes (tenant_id, workflow_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS local_decline_ledger_workflow_idx
+    ON local_decline_ledger_routes (tenant_id, workflow_id, created_at DESC);
+
 CREATE INDEX IF NOT EXISTS workflow_history_workflow_idx
     ON workflow_history_events (tenant_id, workflow_id, sequence);
 
@@ -921,6 +1097,9 @@ ALTER TABLE tool_grants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workflow_read_models ENABLE ROW LEVEL SECURITY;
 ALTER TABLE decision_trail_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tool_action_audit ENABLE ROW LEVEL SECURITY;
+ALTER TABLE local_quoting_queue_routes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE local_referral_inbox_routes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE local_decline_ledger_routes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workflow_history_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE model_route_versions ENABLE ROW LEVEL SECURITY;
@@ -969,6 +1148,27 @@ CREATE POLICY tool_action_audit_tenant_isolation ON tool_action_audit
     USING (tenant_id = chorus_current_tenant_id())
     WITH CHECK (tenant_id = chorus_current_tenant_id());
 
+DROP POLICY IF EXISTS local_quoting_queue_routes_tenant_isolation
+    ON local_quoting_queue_routes;
+CREATE POLICY local_quoting_queue_routes_tenant_isolation ON local_quoting_queue_routes
+    FOR ALL TO chorus_app
+    USING (tenant_id = chorus_current_tenant_id())
+    WITH CHECK (tenant_id = chorus_current_tenant_id());
+
+DROP POLICY IF EXISTS local_referral_inbox_routes_tenant_isolation
+    ON local_referral_inbox_routes;
+CREATE POLICY local_referral_inbox_routes_tenant_isolation ON local_referral_inbox_routes
+    FOR ALL TO chorus_app
+    USING (tenant_id = chorus_current_tenant_id())
+    WITH CHECK (tenant_id = chorus_current_tenant_id());
+
+DROP POLICY IF EXISTS local_decline_ledger_routes_tenant_isolation
+    ON local_decline_ledger_routes;
+CREATE POLICY local_decline_ledger_routes_tenant_isolation ON local_decline_ledger_routes
+    FOR ALL TO chorus_app
+    USING (tenant_id = chorus_current_tenant_id())
+    WITH CHECK (tenant_id = chorus_current_tenant_id());
+
 DROP POLICY IF EXISTS workflow_history_tenant_isolation ON workflow_history_events;
 CREATE POLICY workflow_history_tenant_isolation ON workflow_history_events
     FOR ALL TO chorus_app
@@ -1009,6 +1209,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
     workflow_read_models,
     decision_trail_entries,
     tool_action_audit,
+    local_quoting_queue_routes,
+    local_referral_inbox_routes,
+    local_decline_ledger_routes,
     workflow_history_events,
     outbox_events
 TO chorus_app;
@@ -1033,6 +1236,12 @@ COMMENT ON TABLE decision_trail_entries IS
     'Durable Agent Runtime decision trail aligned with the agent_invocation_record contract.';
 COMMENT ON TABLE tool_action_audit IS
     'Authority-sensitive Tool Gateway and connector audit trail aligned with audit/tool contracts.';
+COMMENT ON TABLE local_quoting_queue_routes IS
+    'Local UC1 sandbox CRM records for accept verdicts routed to the quoting queue.';
+COMMENT ON TABLE local_referral_inbox_routes IS
+    'Local UC1 sandbox referral-inbox records for refer verdicts routed to specialist review.';
+COMMENT ON TABLE local_decline_ledger_routes IS
+    'Local UC1 sandbox decline-ledger records for declined enquiries.';
 COMMENT ON TABLE workflow_history_events IS
     'Append-only UC1 enquiry-qualification workflow event history.';
 COMMENT ON TABLE outbox_events IS

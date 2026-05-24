@@ -2,8 +2,8 @@
 
 Postgres stores policy materialisation, audit evidence, transcript records,
 read models, episodic workflow history, transactional outbox rows, provider
-catalogue rows, approval package records, and immutable route-version evidence
-for local governance inspection.
+catalogue rows, approval package records, local UC1 connector-side routing
+records, and immutable route-version evidence for local governance inspection.
 
 - `migrations/` starts from `001_current_state_baseline.sql`, the current R4
   local POC schema baseline. Earlier experimental migration history lives in

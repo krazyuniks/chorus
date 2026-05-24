@@ -19,6 +19,7 @@ from chorus.connectors import (
     ConnectorResult,
     ConnectorTransientError,
     ToolSpec,
+    default_registry,
 )
 from chorus.contracts.generated.connector.uc1.outbound_comms_message_args import (
     OutboundCommsMessageArgs,
@@ -166,6 +167,30 @@ def _build_request(
         subject_id=str(subject_id),
         subject_ref=f"enq_gateway_{subject_id.hex[:12]}",
         subject_summary="Motor cover gateway request",
+    )
+
+
+def _build_uc1_routing_request(
+    *,
+    tool_name: str,
+    arguments: dict[str, object],
+) -> ToolGatewayRequest:
+    workflow_id = f"uc1-enq-routing-{uuid4().hex}"
+    verdict_ref = arguments["verdict_ref"]
+    return ToolGatewayRequest(
+        tenant_id="tenant_demo",
+        correlation_id=f"cor_{workflow_id.replace('-', '_')}",
+        workflow_id=workflow_id,
+        invocation_id=str(uuid4()),
+        agent_id="uc1.qualifier",
+        tool_name=tool_name,
+        mode="write",
+        idempotency_key=str(verdict_ref),
+        arguments=arguments,
+        workflow_type="uc1_enquiry_qualification",
+        subject_id=str(uuid4()),
+        subject_ref=f"enq_gateway_{uuid4().hex[:12]}",
+        subject_summary="UC1 routing connector request",
     )
 
 
@@ -497,6 +522,88 @@ def test_approved_write_apply_invokes_generic_connector_path(
     assert adapter.calls[0]["mode"] == "write"
 
 
+@pytest.mark.parametrize(
+    ("tool_name", "arguments", "table_name", "ref_column", "status"),
+    [
+        (
+            "crm.route_to_quoting_queue",
+            {
+                "enquiry_ref": "enq_gateway_accept_001",
+                "customer_ref": "cust_gateway_accept_001",
+                "product_family_category": "motor_private_car",
+                "qualification_summary_ref": "qsum_gateway_accept_001",
+                "verdict_ref": "verdict_gateway_accept_001",
+                "routing_policy_ref": "policy_uc1_routing_v1",
+            },
+            "local_quoting_queue_routes",
+            "queued_route_ref",
+            "queued",
+        ),
+        (
+            "referral_inbox.route",
+            {
+                "enquiry_ref": "enq_gateway_refer_001",
+                "customer_ref": "cust_gateway_refer_001",
+                "referral_destination_category": "specialist_broker_panel",
+                "referral_reason_category": "complex_risk_outside_appetite",
+                "verdict_ref": "verdict_gateway_refer_001",
+                "routing_policy_ref": "policy_uc1_routing_v1",
+            },
+            "local_referral_inbox_routes",
+            "referral_route_ref",
+            "routed",
+        ),
+        (
+            "decline_ledger.route",
+            {
+                "enquiry_ref": "enq_gateway_decline_001",
+                "customer_ref": "cust_gateway_decline_001",
+                "decline_reason_category": "outside_product_target_market",
+                "verdict_ref": "verdict_gateway_decline_001",
+                "routing_policy_ref": "policy_uc1_routing_v1",
+            },
+            "local_decline_ledger_routes",
+            "decline_route_ref",
+            "recorded",
+        ),
+    ],
+)
+def test_uc1_routing_connectors_persist_broker_firm_refs(
+    migrated_database_url: str,
+    tool_name: str,
+    arguments: dict[str, object],
+    table_name: str,
+    ref_column: str,
+    status: str,
+) -> None:
+    request = _build_uc1_routing_request(tool_name=tool_name, arguments=arguments)
+
+    with psycopg.connect(migrated_database_url) as conn:
+        gateway = ToolGateway(ToolGatewayStore(conn), default_registry(conn))
+        response = gateway.invoke(request)
+        conn.commit()
+        persisted = _fetch_uc1_route_row(
+            conn,
+            table_name=table_name,
+            ref_column=ref_column,
+            verdict_ref=str(arguments["verdict_ref"]),
+        )
+
+    assert response.verdict == "allow"
+    assert response.enforced_mode == "write"
+    assert response.output[ref_column] == persisted[0]
+    assert response.output["route_status"] == status
+    assert persisted[1:] == (
+        request.tenant_id,
+        request.workflow_id,
+        request.correlation_id,
+        str(arguments["enquiry_ref"]),
+        str(arguments["customer_ref"]),
+        str(arguments["verdict_ref"]),
+        status,
+    )
+
+
 def test_missing_grant_blocks_without_connector_call(
     migrated_database_url: str,
 ) -> None:
@@ -550,3 +657,69 @@ def test_idempotent_response_is_replayed_without_second_connector_call(
 
     assert first.verdict_id == second.verdict_id
     assert len(adapter.calls) == 1
+
+
+def _fetch_uc1_route_row(
+    conn: psycopg.Connection[object],
+    *,
+    table_name: str,
+    ref_column: str,
+    verdict_ref: str,
+) -> tuple[str, str, str, str, str, str, str, str]:
+    match (table_name, ref_column):
+        case ("local_quoting_queue_routes", "queued_route_ref"):
+            row = conn.execute(
+                """
+                SELECT
+                    queued_route_ref,
+                    tenant_id,
+                    workflow_id,
+                    correlation_id,
+                    enquiry_ref,
+                    customer_ref,
+                    verdict_ref,
+                    route_status
+                FROM local_quoting_queue_routes
+                WHERE verdict_ref = %s
+                """,
+                (verdict_ref,),
+            ).fetchone()
+        case ("local_referral_inbox_routes", "referral_route_ref"):
+            row = conn.execute(
+                """
+                SELECT
+                    referral_route_ref,
+                    tenant_id,
+                    workflow_id,
+                    correlation_id,
+                    enquiry_ref,
+                    customer_ref,
+                    verdict_ref,
+                    route_status
+                FROM local_referral_inbox_routes
+                WHERE verdict_ref = %s
+                """,
+                (verdict_ref,),
+            ).fetchone()
+        case ("local_decline_ledger_routes", "decline_route_ref"):
+            row = conn.execute(
+                """
+                SELECT
+                    decline_route_ref,
+                    tenant_id,
+                    workflow_id,
+                    correlation_id,
+                    enquiry_ref,
+                    customer_ref,
+                    verdict_ref,
+                    route_status
+                FROM local_decline_ledger_routes
+                WHERE verdict_ref = %s
+                """,
+                (verdict_ref,),
+            ).fetchone()
+        case _:
+            raise AssertionError(f"unexpected UC1 route table/ref pair: {table_name}/{ref_column}")
+    if row is None:
+        raise AssertionError(f"route row for verdict_ref={verdict_ref!r} was not persisted")
+    return cast(tuple[str, str, str, str, str, str, str, str], row)
