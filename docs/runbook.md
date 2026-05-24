@@ -24,9 +24,10 @@ on the shared `WorkflowSpine`. UC2 now has a definition-first workflow on the
 same spine with focused fake-activity workflow / replay tests, plus
 registered deterministic sandbox connector adapters for conflict check, KYC /
 beneficial ownership, AML record-store, and engagement-letter-store tools.
-UC2 grants, provider route support, projections, eval fixtures, and a local
-intake start path remain later R4 work. UC3 lands later in R4 alongside
-cross-provider replay-eval breadth.
+UC2 grants now exist for the declared sandbox tools, with
+`engagement_letter.send` as the approval-required write. Provider route support,
+projections, full eval fixtures, and a local intake start path remain later R4
+work. UC3 lands later in R4 alongside cross-provider replay-eval breadth.
 
 ## Bring the stack up
 
@@ -188,9 +189,12 @@ UC2 connector adapters are registered in the default connector registry for
 `engagement_letter.route_manual_review`. They return deterministic synthetic
 refs and bounded statuses only; they do not call production legal, AML,
 identity, Companies House, sanctions, document-management, matter-management,
-email, or e-signature systems. UC2 Tool Gateway grants and approval/conduct
-evidence are still pending later P4 slices, so the runbook does not yet claim
-a runnable UC2 local intake path.
+email, or e-signature systems. The local Postgres governance seed now
+expresses UC2 Tool Gateway grants for those tool names; `engagement_letter.send`
+is the approval-required write, while conflict exception and AML EDD approval
+remain conduct-gated/manual-review evidence until a later slice adds an exact
+connector request shape for those packages. The runbook does not yet claim a
+runnable UC2 local intake path.
 
 ### Audit / transcript ports
 

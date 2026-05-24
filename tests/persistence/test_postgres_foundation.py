@@ -176,7 +176,7 @@ def test_migrations_and_seeds_are_idempotent(migrated_database_url: str) -> None
         "004_uc1_policy_snapshots.sql",
     ]
     assert tenant_count == (2,)
-    assert seed_agents == (10,)
+    assert seed_agents == (13,)
 
 
 def test_uc1_connector_reference_data_is_seeded(migrated_database_url: str) -> None:
@@ -222,12 +222,17 @@ def test_uc1_connector_reference_data_is_seeded(migrated_database_url: str) -> N
     )
 
 
-def test_uc1_agent_registry_roles_are_constrained(migrated_database_url: str) -> None:
+def test_agent_registry_roles_are_constrained_for_seeded_r4_agents(
+    migrated_database_url: str,
+) -> None:
     with psycopg.connect(migrated_database_url) as conn:
         roles = conn.execute("SELECT DISTINCT role FROM agent_registry ORDER BY role").fetchall()
     assert roles == [
+        ("aml_assessor",),
         ("classifier",),
+        ("conflict_analyst",),
         ("context_gatherer",),
+        ("engagement_decider",),
         ("qualifier",),
         ("request_drafter",),
         ("validator",),
@@ -242,6 +247,39 @@ def test_uc1_tool_grants_are_seeded(migrated_database_url: str) -> None:
     assert ("customer_profile.lookup",) in tools
     assert ("outbound_comms.message",) in tools
     assert ("crm.route_to_quoting_queue",) in tools
+
+
+def test_uc2_tool_grants_are_seeded_with_send_approval_gate(
+    migrated_database_url: str,
+) -> None:
+    with psycopg.connect(migrated_database_url) as conn:
+        grants = conn.execute(
+            """
+            SELECT agent_id, tool_name, mode, approval_required
+            FROM tool_grants
+            WHERE tenant_id = 'tenant_demo'
+              AND tool_name IN (
+                'conflict_check.search',
+                'kyc_bo.lookup',
+                'aml_record_store.record_assessment',
+                'engagement_letter.draft',
+                'engagement_letter.send',
+                'engagement_letter.record_decline',
+                'engagement_letter.route_manual_review'
+              )
+            ORDER BY tool_name
+            """
+        ).fetchall()
+
+    assert grants == [
+        ("uc2.aml_assessor", "aml_record_store.record_assessment", "write", False),
+        ("uc2.conflict_analyst", "conflict_check.search", "read", False),
+        ("uc2.engagement_decider", "engagement_letter.draft", "write", False),
+        ("uc2.engagement_decider", "engagement_letter.record_decline", "write", False),
+        ("uc2.engagement_decider", "engagement_letter.route_manual_review", "write", False),
+        ("uc2.engagement_decider", "engagement_letter.send", "write", True),
+        ("uc2.aml_assessor", "kyc_bo.lookup", "read", False),
+    ]
 
 
 def test_projection_store_records_read_model_history_and_outbox(

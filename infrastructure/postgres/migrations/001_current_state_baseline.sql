@@ -53,8 +53,11 @@ CREATE TABLE IF NOT EXISTS agent_registry (
     PRIMARY KEY (tenant_id, agent_id, version),
     CONSTRAINT agent_registry_role_check CHECK (
         role IN (
+            'aml_assessor',
             'classifier',
+            'conflict_analyst',
             'context_gatherer',
+            'engagement_decider',
             'qualifier',
             'request_drafter',
             'validator'
@@ -129,7 +132,14 @@ CREATE TABLE IF NOT EXISTS tool_grants (
             'decline_ledger.route',
             'outbound_comms.message',
             'customer_profile.lookup',
-            'product_catalogue.lookup'
+            'product_catalogue.lookup',
+            'conflict_check.search',
+            'kyc_bo.lookup',
+            'aml_record_store.record_assessment',
+            'engagement_letter.draft',
+            'engagement_letter.send',
+            'engagement_letter.record_decline',
+            'engagement_letter.route_manual_review'
         )
     ),
     CONSTRAINT tool_grants_mode_check CHECK (mode IN ('read', 'propose', 'write')),
@@ -269,7 +279,14 @@ CREATE TABLE IF NOT EXISTS tool_action_audit (
             'decline_ledger.route',
             'outbound_comms.message',
             'customer_profile.lookup',
-            'product_catalogue.lookup'
+            'product_catalogue.lookup',
+            'conflict_check.search',
+            'kyc_bo.lookup',
+            'aml_record_store.record_assessment',
+            'engagement_letter.draft',
+            'engagement_letter.send',
+            'engagement_letter.record_decline',
+            'engagement_letter.route_manual_review'
         )
     ),
     CONSTRAINT tool_action_requested_mode_check CHECK (
@@ -1184,6 +1201,20 @@ WHERE provider_id = 'local'
       OR array_length(eval_fixture_refs, 1) IS NULL
   );
 
+ALTER TABLE agent_registry DROP CONSTRAINT IF EXISTS agent_registry_role_check;
+ALTER TABLE agent_registry ADD CONSTRAINT agent_registry_role_check CHECK (
+    role IN (
+        'aml_assessor',
+        'classifier',
+        'conflict_analyst',
+        'context_gatherer',
+        'engagement_decider',
+        'qualifier',
+        'request_drafter',
+        'validator'
+    )
+);
+
 ALTER TABLE tool_grants DROP CONSTRAINT IF EXISTS tool_grants_tool_name_check;
 ALTER TABLE tool_grants ADD CONSTRAINT tool_grants_tool_name_check CHECK (
     tool_name IN (
@@ -1196,7 +1227,14 @@ ALTER TABLE tool_grants ADD CONSTRAINT tool_grants_tool_name_check CHECK (
         'decline_ledger.route',
         'outbound_comms.message',
         'customer_profile.lookup',
-        'product_catalogue.lookup'
+        'product_catalogue.lookup',
+        'conflict_check.search',
+        'kyc_bo.lookup',
+        'aml_record_store.record_assessment',
+        'engagement_letter.draft',
+        'engagement_letter.send',
+        'engagement_letter.record_decline',
+        'engagement_letter.route_manual_review'
     )
 );
 
@@ -1213,7 +1251,14 @@ ALTER TABLE tool_action_audit ADD CONSTRAINT tool_action_tool_name_check CHECK (
         'decline_ledger.route',
         'outbound_comms.message',
         'customer_profile.lookup',
-        'product_catalogue.lookup'
+        'product_catalogue.lookup',
+        'conflict_check.search',
+        'kyc_bo.lookup',
+        'aml_record_store.record_assessment',
+        'engagement_letter.draft',
+        'engagement_letter.send',
+        'engagement_letter.record_decline',
+        'engagement_letter.route_manual_review'
     )
 );
 

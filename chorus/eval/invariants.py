@@ -24,6 +24,11 @@ from chorus.eval.use_cases.uc1_conduct import (
     assert_uc1_qualification_invariants,
     assert_uc1_terminal_connector_routing,
 )
+from chorus.eval.use_cases.uc2_conduct import (
+    assert_uc2_connector_ref_evidence,
+    assert_uc2_engagement_decision_conduct,
+    assert_uc2_engagement_letter_send_approval_gate,
+)
 
 Invariant = Callable[[CapturedRun], list[EvalCheck]]
 
@@ -35,6 +40,18 @@ UC1_INVARIANTS: tuple[Invariant, ...] = (
     assert_observability_emission,
     assert_uc1_qualification_invariants,
     assert_uc1_terminal_connector_routing,
+    assert_connector_authority_discipline,
+    assert_projection_convergence,
+)
+
+UC2_INVARIANTS: tuple[Invariant, ...] = (
+    assert_cross_port_payload_validity,
+    assert_governed_decision_provenance,
+    assert_audit_completeness,
+    assert_observability_emission,
+    assert_uc2_engagement_decision_conduct,
+    assert_uc2_engagement_letter_send_approval_gate,
+    assert_uc2_connector_ref_evidence,
     assert_connector_authority_discipline,
     assert_projection_convergence,
 )
@@ -53,6 +70,7 @@ def run_invariants(
 
 __all__ = [
     "UC1_INVARIANTS",
+    "UC2_INVARIANTS",
     "EvalCheck",
     "EvalStatus",
     "Invariant",
@@ -64,5 +82,8 @@ __all__ = [
     "assert_projection_convergence",
     "assert_uc1_qualification_invariants",
     "assert_uc1_terminal_connector_routing",
+    "assert_uc2_connector_ref_evidence",
+    "assert_uc2_engagement_decision_conduct",
+    "assert_uc2_engagement_letter_send_approval_gate",
     "run_invariants",
 ]

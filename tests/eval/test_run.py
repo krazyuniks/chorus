@@ -2,19 +2,29 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
+from uuid import UUID, uuid4
 
 import pytest
 
 from chorus.contracts.generated.eval.eval_fixture import EvalFixture
 from chorus.eval import run
 from chorus.eval.common_invariants import COMMON_INVARIANTS
-from chorus.eval.invariants import UC1_INVARIANTS
+from chorus.eval.invariants import UC1_INVARIANTS, UC2_INVARIANTS, run_invariants
 from chorus.eval.replay import load_transcript, replay_transcript_with_record
-from chorus.eval.scenario_player import play_scenario
+from chorus.eval.scenario_player import (
+    CapturedRun,
+    DecisionTrailRecord,
+    ProjectionEvent,
+    ToolActionRecord,
+    TranscriptRecord,
+    play_scenario,
+)
 from chorus.eval.use_cases.uc1_conduct import UC1_CONDUCT_INVARIANTS
+from chorus.eval.use_cases.uc2_conduct import UC2_CONDUCT_INVARIANTS
 from chorus.llm_provider import (
     InvocationArgs,
     InvocationResult,
@@ -45,6 +55,68 @@ def test_uc1_invariant_suite_composes_common_and_conduct_modules() -> None:
     ]
     assert set(UC1_CONDUCT_INVARIANTS).issubset(UC1_INVARIANTS)
     assert set(COMMON_INVARIANTS).issubset(UC1_INVARIANTS)
+
+
+def test_uc2_invariant_suite_composes_common_and_conduct_modules() -> None:
+    assert [invariant.__name__ for invariant in UC2_INVARIANTS] == [
+        "assert_cross_port_payload_validity",
+        "assert_governed_decision_provenance",
+        "assert_audit_completeness",
+        "assert_observability_emission",
+        "assert_uc2_engagement_decision_conduct",
+        "assert_uc2_engagement_letter_send_approval_gate",
+        "assert_uc2_connector_ref_evidence",
+        "assert_connector_authority_discipline",
+        "assert_projection_convergence",
+    ]
+    assert [invariant.__name__ for invariant in UC2_CONDUCT_INVARIANTS] == [
+        "assert_uc2_engagement_decision_conduct",
+        "assert_uc2_engagement_letter_send_approval_gate",
+        "assert_uc2_connector_ref_evidence",
+    ]
+    assert set(UC2_CONDUCT_INVARIANTS).issubset(UC2_INVARIANTS)
+    assert set(COMMON_INVARIANTS).issubset(UC2_INVARIANTS)
+
+
+def test_uc2_conduct_invariants_pass_safe_synthetic_acceptance_run() -> None:
+    captured = _uc2_captured_run()
+
+    checks = run_invariants(captured, invariants=UC2_INVARIANTS)
+
+    assert [check for check in checks if check.status == "fail"] == []
+    assert any(check.name == "UC2 engagement decision conduct" for check in checks)
+    assert any(check.name == "UC2 engagement-letter send approval gate" for check in checks)
+    assert any(check.name == "UC2 connector ref evidence" for check in checks)
+
+
+def test_uc2_conduct_invariants_fail_completed_acceptance_without_send_apply() -> None:
+    captured = _uc2_captured_run(include_send_apply=False)
+
+    checks = [
+        check
+        for invariant in UC2_CONDUCT_INVARIANTS
+        for check in invariant(captured)
+        if check.status == "fail"
+    ]
+
+    assert checks
+    assert checks[0].name == "UC2 engagement-letter send approval gate"
+    assert "lacks approved engagement_letter.send apply" in checks[0].detail
+
+
+def test_uc2_conduct_invariants_fail_acceptance_with_blocked_conflict() -> None:
+    captured = _uc2_captured_run(engagement_data={"conflict_status": "own_interest_conflict"})
+
+    checks = [
+        check
+        for invariant in UC2_CONDUCT_INVARIANTS
+        for check in invariant(captured)
+        if check.status == "fail"
+    ]
+
+    assert checks
+    assert checks[0].name == "UC2 engagement decision conduct"
+    assert "own_interest_conflict" in checks[0].detail
 
 
 def test_eval_fixture_contract_accepts_r4_workflow_specific_scenarios() -> None:
@@ -664,6 +736,330 @@ def test_terminal_routing_fixtures_capture_connector_path(
         and event.payload.get("tool_name") == tool_name
     )
     assert completed_route_step.payload["routing_ref"] == action.output[route_ref_key]
+
+
+def _uc2_captured_run(
+    *,
+    include_send_apply: bool = True,
+    engagement_data: dict[str, Any] | None = None,
+) -> CapturedRun:
+    fixture = EvalFixture.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "fixture_id": "uc2-synthetic-acceptance",
+            "name": "UC2 synthetic acceptance conduct evidence",
+            "workflow_type": "uc2_legal_services_intake_conflict_check",
+            "scenario": "synthetic_acceptance_conduct",
+            "input": {
+                "tenant_id": "tenant_demo",
+                "subject_fixture_ref": "fixture_uc2_synthetic_acceptance",
+                "source_fixture_path": "fixtures/uc2/synthetic-acceptance.json",
+            },
+            "expected": {
+                "outcome_category": "propose",
+                "use_case_outcome": "accepted_engagement_letter_sent",
+            },
+        }
+    )
+    now = datetime(2026, 5, 24, 10, 0, tzinfo=UTC)
+    invocation_id = uuid4()
+    correlation_id = "cor_eval_uc2_synthetic_acceptance"
+    workflow_id = "uc2-eval-synthetic-acceptance"
+    tenant_id = "tenant_demo"
+    subject_id = uuid4()
+    subject_ref = "legal_intake_eval_001"
+    structured_data: dict[str, Any] = {
+        "engagement_outcome": "accept_for_engagement",
+        "engagement_decision_ref": "engagement_decision_eval_accept_001",
+        "policy_snapshot_ref": "policy_snapshot:uc2:default:v1",
+        "prospective_client_ref": "prospective_client_eval_001",
+        "instructing_contact_ref": "contact_eval_001",
+        "authority_status": "confirmed",
+        "matter_scope_ref": "mscope_eval_001",
+        "conflict_status": "no_conflict",
+        "confidentiality_safeguard_status": "not_required",
+        "cdd_status": "complete_standard",
+        "beneficial_ownership_status": "complete",
+        "aml_risk_rating": "standard",
+        "aml_risk_assessment_ref": "aml_risk_eval_001_v1",
+        "cdd_record_ref": "cdd_record_eval_001",
+        "conflict_determination_ref": "conflict_determination_eval_001",
+        "conduct_hook_refs": [
+            "conduct_sra_identify_client_8_1",
+            "conduct_sra_conflict_6_1_6_2",
+            "conduct_sra_confidentiality_6_3_6_5",
+            "conduct_mlr_cdd_reg_27_28",
+            "conduct_sra_accountability_7_1_7_2",
+        ],
+    }
+    if engagement_data is not None:
+        structured_data.update(engagement_data)
+
+    run_capture = CapturedRun(
+        fixture=fixture,
+        decisions=[
+            DecisionTrailRecord(
+                invocation_id=invocation_id,
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                tenant_id=tenant_id,
+                agent_id="uc2.engagement_decider",
+                agent_role="engagement_decider",
+                agent_version="v1",
+                prompt_reference="prompts/uc2/engagement-decider/v1.md",
+                prompt_hash="sha256:" + "1" * 64,
+                provider="local",
+                model="uc2-synthetic-v1",
+                task_kind="uc2_engagement_decision",
+                input_summary="safe UC2 synthetic engagement decision input",
+                output_summary="safe UC2 synthetic engagement decision output",
+                justification="safe synthetic conduct rationale",
+                outcome="succeeded",
+                cost_amount_usd=Decimal("0.000000"),
+                duration_ms=50,
+                started_at=now,
+                completed_at=now + timedelta(milliseconds=50),
+                contract_refs=["contracts/llm_provider/uc2_agent_io.schema.json"],
+                structured_data=structured_data,
+            )
+        ],
+        transcripts=[
+            TranscriptRecord(
+                transcript_id=uuid4(),
+                invocation_id=invocation_id,
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                tenant_id=tenant_id,
+                route_id="recorded-replay",
+                provider_id="local",
+                model_id="uc2-synthetic-v1",
+                adapter_version="synthetic-test-v1",
+                parameters={"temperature": 0},
+                request_messages=[],
+                response_messages=[],
+                structured_data=structured_data,
+                started_at=now,
+                completed_at=now + timedelta(milliseconds=50),
+            )
+        ],
+        tool_actions=_uc2_tool_actions(
+            invocation_id=invocation_id,
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            now=now,
+            include_send_apply=include_send_apply,
+        ),
+        projection_events=[
+            _uc2_projection_event(
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                subject_ref=subject_ref,
+                sequence=1,
+                event_type="workflow.started",
+                step="intake",
+                occurred_at=now,
+            ),
+            _uc2_projection_event(
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                subject_ref=subject_ref,
+                sequence=2,
+                event_type="workflow.completed",
+                step="close",
+                occurred_at=now + timedelta(seconds=1),
+            ),
+        ],
+        terminal_outcome="completed",
+    )
+    return run_capture
+
+
+def _uc2_tool_actions(
+    *,
+    invocation_id: UUID,
+    correlation_id: str,
+    workflow_id: str,
+    tenant_id: str,
+    now: datetime,
+    include_send_apply: bool,
+) -> list[ToolActionRecord]:
+    actions = [
+        _uc2_tool_action(
+            invocation_id=invocation_id,
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            tool_name="conflict_check.search",
+            mode="read",
+            actor_id="uc2.conflict_analyst",
+            verdict="allow",
+            approval_required=False,
+            approval_granted=None,
+            occurred_at=now + timedelta(milliseconds=100),
+            output={"conflict_check_ref": "conflict_check_eval_001"},
+        ),
+        _uc2_tool_action(
+            invocation_id=invocation_id,
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            tool_name="kyc_bo.lookup",
+            mode="read",
+            actor_id="uc2.aml_assessor",
+            verdict="allow",
+            approval_required=False,
+            approval_granted=None,
+            occurred_at=now + timedelta(milliseconds=150),
+            output={
+                "cdd_record_ref": "cdd_record_eval_001",
+                "beneficial_ownership_snapshot_ref": "bo_snapshot_eval_001",
+            },
+        ),
+        _uc2_tool_action(
+            invocation_id=invocation_id,
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            tool_name="aml_record_store.record_assessment",
+            mode="write",
+            actor_id="uc2.aml_assessor",
+            verdict="allow",
+            approval_required=False,
+            approval_granted=None,
+            occurred_at=now + timedelta(milliseconds=200),
+            output={"aml_risk_assessment_ref": "aml_risk_eval_001_v1"},
+        ),
+        _uc2_tool_action(
+            invocation_id=invocation_id,
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            tool_name="engagement_letter.draft",
+            mode="write",
+            actor_id="uc2.engagement_decider",
+            verdict="allow",
+            approval_required=False,
+            approval_granted=None,
+            occurred_at=now + timedelta(milliseconds=250),
+            output={
+                "engagement_letter_ref": "engagement_letter_eval_001",
+                "draft_ref": "engagement_letter_draft_eval_001",
+            },
+        ),
+        _uc2_tool_action(
+            invocation_id=invocation_id,
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            tool_name="engagement_letter.send",
+            mode="write",
+            actor_id="uc2.engagement_decider",
+            verdict="approval_required",
+            approval_required=True,
+            approval_granted=None,
+            occurred_at=now + timedelta(milliseconds=300),
+            output={
+                "approval_id": str(uuid4()),
+                "approval_state": "requested",
+                "requested_action": "engagement_letter.send.write",
+            },
+        ),
+    ]
+    if include_send_apply:
+        actions.append(
+            _uc2_tool_action(
+                invocation_id=invocation_id,
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                tenant_id=tenant_id,
+                tool_name="engagement_letter.send",
+                mode="write",
+                actor_id="matter_owner_demo",
+                actor_type="human",
+                action="approval.apply",
+                verdict="allow",
+                approval_required=True,
+                approval_granted=True,
+                occurred_at=now + timedelta(milliseconds=350),
+                output={
+                    "approval_apply_status": "applied",
+                    "send_record_ref": "engagement_letter_send_eval_001",
+                },
+            )
+        )
+    return actions
+
+
+def _uc2_tool_action(
+    *,
+    invocation_id: UUID,
+    correlation_id: str,
+    workflow_id: str,
+    tenant_id: str,
+    tool_name: str,
+    mode: str,
+    actor_id: str,
+    verdict: str,
+    approval_required: bool,
+    approval_granted: bool | None,
+    occurred_at: datetime,
+    output: dict[str, Any],
+    actor_type: str = "agent",
+    action: str = "tool_call.decided",
+) -> ToolActionRecord:
+    return ToolActionRecord(
+        audit_event_id=uuid4(),
+        invocation_id=invocation_id,
+        correlation_id=correlation_id,
+        workflow_id=workflow_id,
+        tenant_id=tenant_id,
+        actor_type=actor_type,
+        actor_id=actor_id,
+        category="tool_gateway",
+        action=action,
+        tool_name=tool_name,
+        requested_mode=mode,
+        enforced_mode=mode,
+        verdict=verdict,
+        reason=f"synthetic UC2 {tool_name} {verdict}",
+        approval_required=approval_required,
+        approval_granted=approval_granted,
+        occurred_at=occurred_at,
+        output=output,
+    )
+
+
+def _uc2_projection_event(
+    *,
+    correlation_id: str,
+    workflow_id: str,
+    tenant_id: str,
+    subject_id: UUID,
+    subject_ref: str,
+    sequence: int,
+    event_type: str,
+    step: str,
+    occurred_at: datetime,
+) -> ProjectionEvent:
+    return ProjectionEvent(
+        event_id=uuid4(),
+        correlation_id=correlation_id,
+        workflow_id=workflow_id,
+        tenant_id=tenant_id,
+        workflow_type="uc2_legal_services_intake_conflict_check",
+        subject_id=subject_id,
+        subject_ref=subject_ref,
+        sequence=sequence,
+        event_type=event_type,
+        step=step,
+        occurred_at=occurred_at,
+        payload={"subject_summary": "safe UC2 synthetic intake", "outcome": "completed"},
+    )
 
 
 class _StaticAdapter:

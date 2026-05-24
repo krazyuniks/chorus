@@ -25,6 +25,9 @@ from chorus.connectors.uc2 import SandboxConflictCheckAdapter
 from chorus.contracts.generated.connector.uc1.outbound_comms_message_args import (
     OutboundCommsMessageArgs,
 )
+from chorus.contracts.generated.connector.uc2.engagement_letter_send_args import (
+    EngagementLetterSendArgs,
+)
 from chorus.persistence import apply_migrations
 from chorus.tool_gateway import ToolGateway, ToolGatewayStore
 from chorus.workflows.types import ToolGatewayRequest
@@ -131,6 +134,14 @@ def _outbound_comms_spec() -> ToolSpec:
         tool_name="outbound_comms.message",
         argument_contract=OutboundCommsMessageArgs,
         return_contract_ref="contracts/connector/uc1/outbound_comms_message_args.schema.json",
+    )
+
+
+def _uc2_engagement_letter_send_spec() -> ToolSpec:
+    return ToolSpec(
+        tool_name="engagement_letter.send",
+        argument_contract=EngagementLetterSendArgs,
+        return_contract_ref="contracts/connector/uc2/engagement_letter_send_args.schema.json",
     )
 
 
@@ -270,6 +281,47 @@ def _build_uc2_conflict_request(
         subject_id=str(uuid4()),
         subject_ref="legal_intake_gateway_001",
         subject_summary="UC2 conflict-check connector request",
+    )
+
+
+def _uc2_engagement_letter_send_arguments() -> dict[str, object]:
+    return {
+        "legal_intake_ref": "legal_intake_gateway_001",
+        "engagement_letter_ref": "engagement_letter_gateway_001",
+        "engagement_decision_ref": "engagement_decision_gateway_accept_001",
+        "approval_package_ref": "approval_engagement_letter_gateway_001",
+        "send_instruction_ref": "send_instruction_gateway_001",
+        "prospective_client_ref": "prospective_client_gateway_001",
+        "matter_scope_ref": "mscope_gateway_001",
+        "conflict_determination_ref": "conflict_determination_gateway_001",
+        "aml_risk_assessment_ref": "aml_risk_gateway_001_v1",
+        "cdd_record_ref": "cdd_record_gateway_001",
+        "send_channel_category": "email",
+        "send_policy_ref": "policy_uc2_engagement_letter_send_v1",
+        "conduct_hook_refs": [
+            "conduct_sra_identify_client_8_1",
+            "conduct_mlr_cdd_reg_27_28",
+            "conduct_sra_accountability_7_1_7_2",
+        ],
+    }
+
+
+def _build_uc2_engagement_letter_send_request() -> ToolGatewayRequest:
+    workflow_id = f"uc2-legal-intake-send-{uuid4().hex}"
+    return ToolGatewayRequest(
+        tenant_id="tenant_demo",
+        correlation_id=f"cor_{workflow_id.replace('-', '_')}",
+        workflow_id=workflow_id,
+        invocation_id=str(uuid4()),
+        agent_id="uc2.engagement_decider",
+        tool_name="engagement_letter.send",
+        mode="write",
+        idempotency_key=f"{workflow_id}:engagement_letter.send:write",
+        arguments=_uc2_engagement_letter_send_arguments(),
+        workflow_type="uc2_legal_services_intake_conflict_check",
+        subject_id=str(uuid4()),
+        subject_ref="legal_intake_gateway_001",
+        subject_summary="UC2 engagement-letter send request",
     )
 
 
@@ -575,6 +627,66 @@ def test_uc2_connector_invocation_blocks_before_adapter_on_invalid_arguments() -
     assert response.reason.startswith("Tool argument schema validation failed")
 
 
+def test_uc2_engagement_letter_send_requires_approval_package_with_safe_refs() -> None:
+    request = _build_uc2_engagement_letter_send_request()
+    adapter = _RecordingAdapter([_uc2_engagement_letter_send_spec()])
+    store = _InMemoryGatewayStore(
+        _ApprovalGrant(
+            agent_id="uc2.engagement_decider",
+            tool_name="engagement_letter.send",
+            mode="write",
+            approval_required=True,
+            redaction_policy={},
+        )
+    )
+    gateway = ToolGateway(cast(ToolGatewayStore, store), _build_registry(adapter))
+
+    requested = gateway.invoke(request)
+    package = store.approval_package
+    store.approve_package()
+    applied = gateway.apply_approved_write(
+        request,
+        approval_id=requested.output["approval_id"],
+    )
+
+    assert requested.verdict == "approval_required"
+    assert requested.output["requested_action"] == "engagement_letter.send.write"
+    assert package is not None
+    assert package.workflow_type == "uc2_legal_services_intake_conflict_check"
+    assert package.requested_action == "engagement_letter.send.write"
+    assert package.policy_version_refs["approval_policy_ref"] == (
+        "approval_policy.engagement_letter_send_write.local.v1"
+    )
+    assert package.metadata["subject_refs"] == {
+        "subject_id": request.subject_id,
+        "subject_ref": "legal_intake_gateway_001",
+    }
+    assert package.metadata["action_refs"] == {
+        "aml_risk_assessment_ref": "aml_risk_gateway_001_v1",
+        "approval_package_ref": "approval_engagement_letter_gateway_001",
+        "cdd_record_ref": "cdd_record_gateway_001",
+        "conduct_hook_refs": [
+            "conduct_sra_identify_client_8_1",
+            "conduct_mlr_cdd_reg_27_28",
+            "conduct_sra_accountability_7_1_7_2",
+        ],
+        "conflict_determination_ref": "conflict_determination_gateway_001",
+        "engagement_decision_ref": "engagement_decision_gateway_accept_001",
+        "engagement_letter_ref": "engagement_letter_gateway_001",
+        "legal_intake_ref": "legal_intake_gateway_001",
+        "matter_scope_ref": "mscope_gateway_001",
+        "prospective_client_ref": "prospective_client_gateway_001",
+        "send_instruction_ref": "send_instruction_gateway_001",
+        "send_policy_ref": "policy_uc2_engagement_letter_send_v1",
+    }
+    assert "send_channel_category" not in package.metadata["action_refs"]
+    assert applied.verdict == "allow"
+    assert applied.output["approval_apply_status"] == "applied"
+    assert len(adapter.calls) == 1
+    assert adapter.calls[0]["tool_name"] == "engagement_letter.send"
+    assert adapter.calls[0]["mode"] == "write"
+
+
 def test_propose_grant_invokes_adapter_and_persists_audit(
     migrated_database_url: str,
 ) -> None:
@@ -666,6 +778,54 @@ def test_approved_write_apply_invokes_generic_connector_path(
     assert len(adapter.calls) == 1
     assert adapter.calls[0]["tool_name"] == "outbound_comms.message"
     assert adapter.calls[0]["mode"] == "write"
+
+
+def test_uc2_seeded_engagement_letter_send_requires_approval_and_applies(
+    migrated_database_url: str,
+) -> None:
+    request = _build_uc2_engagement_letter_send_request()
+
+    with psycopg.connect(migrated_database_url) as conn:
+        gateway = ToolGateway(ToolGatewayStore(conn), default_registry(conn))
+        requested = gateway.invoke(request)
+        approval = conn.execute(
+            """
+            SELECT requested_action, workflow_type, metadata, policy_version_refs
+            FROM approval_packages
+            WHERE workflow_id = %s
+            """,
+            (request.workflow_id,),
+        ).fetchone()
+        approval_id = requested.output["approval_id"]
+        conn.execute(
+            """
+            UPDATE approval_packages
+            SET approval_state = 'approved',
+                decision = 'approved',
+                decision_at = now(),
+                updated_at = now()
+            WHERE tenant_id = %s
+              AND approval_id = %s
+            """,
+            (request.tenant_id, approval_id),
+        )
+        applied = gateway.apply_approved_write(request, approval_id=approval_id)
+        conn.commit()
+
+    assert requested.verdict == "approval_required"
+    assert requested.output["requested_action"] == "engagement_letter.send.write"
+    assert approval is not None
+    assert approval[0] == "engagement_letter.send.write"
+    assert approval[1] == "uc2_legal_services_intake_conflict_check"
+    assert approval[2]["subject_refs"]["subject_ref"] == "legal_intake_gateway_001"
+    assert approval[2]["action_refs"]["engagement_letter_ref"] == "engagement_letter_gateway_001"
+    assert approval[3]["approval_policy_ref"] == (
+        "approval_policy.engagement_letter_send_write.local.v1"
+    )
+    assert applied.verdict == "allow"
+    assert applied.output["approval_apply_status"] == "applied"
+    assert applied.output["send_record_ref"].startswith("engagement_letter_send_")
+    assert applied.output["send_status"] == "send_recorded"
 
 
 @pytest.mark.parametrize(

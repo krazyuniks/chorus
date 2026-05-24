@@ -1,4 +1,4 @@
--- Demo tenant seed data for the UC1 enquiry-qualification workflow.
+-- Demo tenant seed data for local R4 governance and connector authority.
 --
 -- Two tenants are intentionally present so RLS and fail-closed tests can prove
 -- tenant-owned tables do not leak rows across the runtime boundary.
@@ -159,6 +159,42 @@ VALUES
         'sha256:157b1c9e3b0916bed7814bd01e912c62d38b87d4ceee9af25807f7b062fc0743',
         ARRAY['uc1', 'validation']::text[],
         '{"seed": true}'::jsonb
+    ),
+    (
+        'tenant_demo',
+        'uc2.conflict_analyst',
+        'conflict_analyst',
+        'v1',
+        'approved',
+        'agent-runtime',
+        'prompts/uc2/conflict-analyst/v1.md',
+        'sha256:dbcaf349e3a5184d036c07560706207c6c0e8ef5630e1ead1a7cc77152290bec',
+        ARRAY['uc2', 'conflict_check', 'tool_gateway_grant_owner']::text[],
+        '{"seed": true, "evidence": "UC2 Tool Gateway grant owner; provider route pending"}'::jsonb
+    ),
+    (
+        'tenant_demo',
+        'uc2.aml_assessor',
+        'aml_assessor',
+        'v1',
+        'approved',
+        'agent-runtime',
+        'prompts/uc2/aml-assessor/v1.md',
+        'sha256:64d3092ca8f9d7c6431318799c3532f877dc74b47c72ccfb238dcb8f5d0af1ef',
+        ARRAY['uc2', 'kyc_bo', 'aml_record_store', 'tool_gateway_grant_owner']::text[],
+        '{"seed": true, "evidence": "UC2 Tool Gateway grant owner; provider route pending"}'::jsonb
+    ),
+    (
+        'tenant_demo',
+        'uc2.engagement_decider',
+        'engagement_decider',
+        'v1',
+        'approved',
+        'agent-runtime',
+        'prompts/uc2/engagement-decider/v1.md',
+        'sha256:8f793f9105211157a8f2faead42229753d9b7574efc491515816cda7aecf58e2',
+        ARRAY['uc2', 'engagement_letter', 'tool_gateway_grant_owner']::text[],
+        '{"seed": true, "evidence": "UC2 Tool Gateway grant owner; provider route pending"}'::jsonb
     )
 ON CONFLICT (tenant_id, agent_id, version) DO UPDATE
 SET
@@ -467,6 +503,90 @@ VALUES
         true,
         '{"redact_fields": []}'::jsonb,
         '{"seed": true, "evidence": "calendar cancellation remains approval-required"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000013',
+        'tenant_demo',
+        'uc2.conflict_analyst',
+        'v1',
+        'conflict_check.search',
+        'read',
+        true,
+        false,
+        '{"redact_fields": []}'::jsonb,
+        '{"seed": true, "evidence": "UC2 conflict-check read through Tool Gateway"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000014',
+        'tenant_demo',
+        'uc2.aml_assessor',
+        'v1',
+        'kyc_bo.lookup',
+        'read',
+        true,
+        false,
+        '{"redact_fields": []}'::jsonb,
+        '{"seed": true, "evidence": "UC2 KYC and beneficial-ownership read through Tool Gateway"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000015',
+        'tenant_demo',
+        'uc2.aml_assessor',
+        'v1',
+        'aml_record_store.record_assessment',
+        'write',
+        true,
+        false,
+        '{"redact_fields": []}'::jsonb,
+        '{"seed": true, "evidence": "UC2 AML risk-assessment record write; EDD approval package remains pending workflow semantics"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000016',
+        'tenant_demo',
+        'uc2.engagement_decider',
+        'v1',
+        'engagement_letter.draft',
+        'write',
+        true,
+        false,
+        '{"redact_fields": []}'::jsonb,
+        '{"seed": true, "evidence": "UC2 engagement-letter draft record write"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000017',
+        'tenant_demo',
+        'uc2.engagement_decider',
+        'v1',
+        'engagement_letter.send',
+        'write',
+        true,
+        true,
+        '{"redact_fields": []}'::jsonb,
+        '{"seed": true, "evidence": "UC2 engagement-letter send is approval-required"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000018',
+        'tenant_demo',
+        'uc2.engagement_decider',
+        'v1',
+        'engagement_letter.record_decline',
+        'write',
+        true,
+        false,
+        '{"redact_fields": []}'::jsonb,
+        '{"seed": true, "evidence": "UC2 decline-to-act routing record write"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000019',
+        'tenant_demo',
+        'uc2.engagement_decider',
+        'v1',
+        'engagement_letter.route_manual_review',
+        'write',
+        true,
+        false,
+        '{"redact_fields": []}'::jsonb,
+        '{"seed": true, "evidence": "UC2 manual-review handoff routing record write"}'::jsonb
     ),
     (
         '12000000-0000-4000-8000-000000000012',

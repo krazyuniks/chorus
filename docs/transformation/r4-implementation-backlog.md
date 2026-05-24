@@ -195,7 +195,7 @@ channel runnable status are separate claims.
 - [x] Add UC2 workflow definition on the shared spine.
 - [x] Add sandbox conflict-check, KYC/beneficial-ownership, AML record-store,
   and engagement-letter-store connectors.
-- [ ] Add UC2 approval gates and conduct invariants.
+- [x] Add UC2 approval gates and conduct invariants.
 - [ ] Add UC2 projections, BFF/UI inspection, fixtures, and documented commands.
 - [ ] Run focused contracts, tests, replay, and eval gates for UC2.
 
@@ -1448,8 +1448,68 @@ channel runnable status are separate claims.
   execution, full `just test`, replay, eval, frontend/e2e, live-stack, and
   live-provider gates were not run. This slice added deterministic local
   adapters and focused non-DB gateway validation only; DB-backed verification
-  remains blocked by the local Postgres credential failure, and UC2 grants /
-  approval packages / conduct invariants are the next P4 slice.
+  remains blocked by the local Postgres credential failure. UC2 approval
+  packages and conduct invariants were left for the following P4 slice,
+  recorded below.
+
+### 2026-05-24 - UC2 Approval Gates And Conduct Invariants
+
+- Scope: fourth P4 UC2 slice for Tool Gateway grant / approval-package
+  authority and conduct invariant evidence only.
+- Behaviour changed:
+  - Postgres current-state baseline constraints now admit the already-declared
+    UC2 connector tool names in `tool_grants` and `tool_action_audit`, and the
+    local agent registry constraint admits the UC2 grant-owner roles used by
+    the workflow.
+  - `tenant_demo` seeds UC2 Tool Gateway grants for
+    `conflict_check.search`, `kyc_bo.lookup`,
+    `aml_record_store.record_assessment`, `engagement_letter.draft`,
+    `engagement_letter.send`, `engagement_letter.record_decline`, and
+    `engagement_letter.route_manual_review`; only
+    `engagement_letter.send` is approval-required in this slice.
+  - Minimal UC2 prompt files back the seeded grant-owner agent rows so their
+    prompt refs and hashes are not dangling; no UC2 model route policy was
+    added.
+  - Focused Tool Gateway tests prove `engagement_letter.send` creates a
+    generic approval package with safe subject/action refs and that approved
+    apply re-enters the same gateway path before connector execution.
+  - Added `chorus/eval/use_cases/uc2_conduct.py` and `UC2_INVARIANTS` so UC2
+    can assert SRA / AML engagement-decision evidence, no-conflict /
+    standard-risk acceptance boundaries, approval-gated engagement-letter
+    send, and safe connector refs over synthetic captured-run artefacts.
+  - The common connector-authority invariant now treats a write-mode
+    `approval_required` verdict as a passed package-request control when no
+    connector execution has occurred.
+  - Conflict-exception and AML EDD approval packages were intentionally not
+    added: the current workflow / gateway model cannot bind those approvals to
+    exact connector requests without inventing new tools or changing workflow
+    semantics. Those paths remain conduct-gated manual-review evidence for a
+    later design slice.
+  - No UC2 BFF/UI surface, projection breadth, full eval fixture suite, live
+    provider route, local intake adapter, production legal / AML data
+    handling, connector persistence, or broad workflow rewrite was added.
+- Files changed: Postgres baseline and demo seed, minimal UC2 prompt assets,
+  UC2 conduct invariants and invariant composition, focused Tool Gateway /
+  eval / persistence tests, connector-authority common invariant,
+  architecture / evidence / runbook / eval-direction / Postgres docs, and
+  this backlog handoff.
+- Gates run:
+  - `uv run pytest tests/tool_gateway/test_gateway.py tests/eval/test_run.py tests/persistence/test_postgres_foundation.py -rs`
+    - green, 40 passed and 30 skipped; skipped cases were DB-backed because
+    local Postgres on `localhost:5432` rejected the configured `chorus` user.
+  - `just contracts-check` - green for 35 schemas, samples, and generated
+    model drift checks.
+  - `just eval` - green for the five current UC1 offline eval fixtures; UC2
+    fixture playback is still intentionally absent.
+  - `just lint` - green after formatting `tests/eval/test_run.py` and fixing
+    pyright casts in the UC2 conduct module.
+  - `git diff --check` - green.
+- Skipped gates: live `just db-migrate`, DB-backed UC2 grant / approval apply
+  verification, full `just test`, `just test-replay`, Redpanda projection
+  integration, frontend/e2e, live-stack, and live-provider gates were not run.
+  DB-backed verification and migration execution remain blocked by the local
+  Postgres credential failure; provider, local intake, projection, UI, and
+  full UC2 eval fixtures are later P4 scope.
 
 ## Session Cadence
 
@@ -1498,24 +1558,24 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: continue P4 - UC2 Legal Services Intake And Conflict Check by adding UC2 approval gates and conduct invariants. Keep the slice focused on Tool Gateway grant / approval-package authority for the UC2 tools, Postgres grant / constraint seed alignment if needed, UC2 conduct invariant module(s) and focused tests over safe synthetic artefacts. Do not add UC2 BFF/UI surfaces, projection breadth, full eval fixtures, live provider routes, local intake adapters, production legal / AML data handling, or broad workflow rewrites in this slice.
+Current target slice: continue P4 - UC2 Legal Services Intake And Conflict Check by adding the first UC2 read-only projection / BFF / UI inspection and minimal fixture / command evidence. Keep the slice focused on safe UC2 inspection surfaces for already-declared workflow events, Tool Gateway audit, approval-package state, and conduct evidence. Do not add live provider routes, local intake adapters, production legal / AML data handling, connector persistence breadth, new approval semantics, or broad workflow rewrites in this slice.
 
-Previous slice completed: P4's UC2 sandbox connector-adapter slice is complete. UC2 now has `chorus/connectors/uc2.py` with deterministic local adapters for `conflict_check.search`, `kyc_bo.lookup`, `aml_record_store.record_assessment`, `engagement_letter.draft`, `engagement_letter.send`, `engagement_letter.record_decline`, and `engagement_letter.route_manual_review`, all registered through `default_registry(conn)`. Focused connector tests cover deterministic safe refs/statuses and engagement-letter ref-only metadata; focused Tool Gateway tests prove generated UC2 argument models are the validation boundary before adapter dispatch. No UC2 Tool Gateway grant seed, DB migration, connector persistence, BFF/UI surface, projection, eval fixture, live provider route, local intake adapter, production legal / AML data handling, or workflow rewrite was added.
+Previous slice completed: P4's UC2 approval gates and conduct invariants are complete. The Postgres baseline and `tenant_demo` seeds now express UC2 Tool Gateway grants for `conflict_check.search`, `kyc_bo.lookup`, `aml_record_store.record_assessment`, `engagement_letter.draft`, `engagement_letter.send`, `engagement_letter.record_decline`, and `engagement_letter.route_manual_review`; only `engagement_letter.send` is approval-required. `tool_grants` and `tool_action_audit` constraints admit the already-declared UC2 tool names, and agent-registry role constraints admit the UC2 grant-owner roles. Minimal UC2 prompt files back the seeded grant-owner agent rows, but no UC2 model route policy was added. Focused Tool Gateway tests prove `engagement_letter.send` approval-package creation uses safe subject/action refs and that approved apply re-enters the gateway. `chorus/eval/use_cases/uc2_conduct.py` and `UC2_INVARIANTS` now validate safe synthetic captured-run artefacts for SRA / AML engagement-decision evidence, no-conflict / standard-risk acceptance boundaries, approval-gated engagement-letter send, and safe connector refs. The common connector-authority invariant treats write-mode `approval_required` as package-request evidence without connector execution. Conflict-exception and AML EDD approval packages were intentionally not added because the current workflow / gateway model cannot bind them to exact connector requests without new tools or broader workflow semantics.
 
-Earlier P4 workflow-definition and contract slices remain complete. UC2 has `chorus/workflows/uc2.py` with `Uc2LegalServicesIntakeConflictCheckWorkflow` and `UC2_LEGAL_SERVICES_INTAKE_CONFLICT_CHECK_DEFINITION` over the shared `WorkflowSpine`; fake-activity Temporal tests cover happy path, inline replay, engagement-letter approval-required, decline, and manual-review branches. UC2 also has intake schemas / samples under `contracts/intake/uc2/` and connector argument schemas / samples under `contracts/connector/uc2/`; `contracts/connector/tool_call.schema.json` admits the UC2 tool names; generated Pydantic models are committed; and `tests/test_contracts.py` validates the samples and tool names.
+Earlier P4 slices remain complete. UC2 has intake schemas / samples under `contracts/intake/uc2/`, connector argument schemas / samples under `contracts/connector/uc2/`, generated Pydantic models, `chorus/workflows/uc2.py` with `Uc2LegalServicesIntakeConflictCheckWorkflow` over the shared `WorkflowSpine`, deterministic sandbox connectors in `chorus/connectors/uc2.py`, and focused workflow / connector / gateway / eval tests. No UC2 BFF/UI projection surface, full eval fixture suite, live provider route, local intake adapter, connector persistence, production legal / AML data path, or end-to-end runnable claim has been added.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/README.md, contracts/connector/uc2/, contracts/connector/tool_call.schema.json, infrastructure/postgres/migrations/001_current_state_baseline.sql, infrastructure/postgres/seeds/, chorus/connectors/types.py, chorus/connectors/uc2.py, chorus/connectors/__init__.py, chorus/tool_gateway/gateway.py, chorus/workflows/uc2.py, chorus/eval/common_invariants.py, chorus/eval/use_cases/, chorus/eval/invariants.py, tests/connectors/test_uc2_connectors.py, tests/tool_gateway/test_gateway.py, tests/eval/test_run.py, tests/persistence/test_postgres_foundation.py, and the current P4 backlog items. Use official SRA/GOV.UK sources only if UC2 regulatory wording needs fresh verification; otherwise rely on the already verified UC2 product/domain docs.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/README.md, contracts/intake/uc2/, contracts/connector/uc2/, contracts/projection/workflow_event.schema.json, infrastructure/postgres/migrations/001_current_state_baseline.sql, infrastructure/postgres/seeds/, chorus/workflows/uc2.py, chorus/persistence/projection.py, chorus/persistence/audit_port.py, chorus/persistence/runtime_policy.py, chorus/tool_gateway/gateway.py, chorus/bff/app.py, frontend/src/routes/, frontend/src/api/, chorus/eval/common_invariants.py, chorus/eval/use_cases/uc2_conduct.py, chorus/eval/invariants.py, tests/workflows/test_uc2_workflow.py, tests/tool_gateway/test_gateway.py, tests/eval/test_run.py, tests/bff/test_app_unit.py, tests/persistence/test_postgres_foundation.py, frontend tests, and the current P4 backlog items. Use official SRA/GOV.UK sources only if UC2 regulatory wording needs fresh verification; otherwise rely on the already verified UC2 product/domain docs.
 
-Before editing, inspect the approval and eval patterns. Search for `approval_required`, `ApprovalPackage`, `ToolGrant`, `tool_grants`, `approval_packages`, `apply_approved_write`, `approval_package_metadata`, `policy_snapshot_ref`, `conduct_hook`, `UC1_INVARIANTS`, `run_invariants`, `uc1_conduct`, `conflict_check.search`, `kyc_bo.lookup`, `aml_record_store.record_assessment`, `engagement_letter.send`, `engagement_letter.record_decline`, `engagement_letter.route_manual_review`, and `uc2`.
+Before editing, inspect the existing projection, BFF, UI, and eval-fixture patterns. Search for `workflow_read_models`, `workflow_history_events`, `subject_summary`, `PortReaders`, `list_workflows`, `list_workflow_history`, `list_tool_action_audit`, `approval_packages`, `calendar_projections`, `provider views`, `useWorkflows`, `grants`, `workflow detail`, `UC2_INVARIANTS`, `uc2_conduct`, `play_scenario`, `EvalFixture`, `workflow.completed`, `legal_intake_ref`, `engagement_letter.send`, and `approval_required`.
 
-Expected direction: add the minimum UC2 Tool Gateway grant / approval-package alignment needed for the declared UC2 tools to be expressible in the local Postgres governance surface, and add UC2 conduct invariant code/tests that can validate safe synthetic captured-run artefacts without adding the full UC2 eval fixture suite yet. The likely approval-gated UC2 write surface is `engagement_letter.send`; conflict-exception and AML EDD gates should be represented only if the current workflow/gateway model can bind them cleanly to safe refs and existing connector tools. If the existing workflow approval-policy shape cannot faithfully represent permitted conflict-exception and EDD approvals without inventing new connector tools or broad workflow semantics, stop and surface the design question rather than widening the slice.
+Expected direction: add the minimum safe UC2 projection/BFF/UI inspection needed to show UC2 workflow progress, Tool Gateway grant / approval state, and conduct evidence without claiming a fully runnable UC2 path. Prefer reusing the generic projection and audit read models already present; widen labels, filters, tests, fixtures, and docs only where current UC1 wording blocks UC2 inspection. If full UC2 eval fixture playback would require runtime provider routes or intake adapters, keep this slice to fixture/schema or synthetic captured-run evidence and record that full playback remains pending. If frontend changes are made, follow AGENTS.md frontend guidance and use the project’s existing frontend tests; use browser validation only if the change affects interactive behaviour that tests cannot cover.
 
-Keep this slice approval/conduct-first and narrow. Do not make UC2 runnable end-to-end, do not add BFF/UI/projection inspection, do not add live provider routes, and do not add local intake adapters. If DB-backed grant tests require local Postgres and it is unavailable, record the skipped gate and reason. If adding grant seeds requires widening Postgres tool-name constraints to the already-declared UC2 tool names, keep the migration baseline/docs/tests update in this slice.
+Keep this slice projection/inspection-first and narrow. Do not add live provider routes, local intake adapters, production legal / AML data handling, connector persistence breadth, new approval tools, or broad workflow rewrites. If DB-backed projection or approval-package tests require local Postgres and it is unavailable, record the skipped gate and reason.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
 - Rewrite the body of the `## Next Continuation Prompt` section in the backlog with the next slice's prompt, in Strategy order. If R4 is fully closed, write the literal `R4-COMPLETE` there instead.
-- Run relevant focused gates for the files touched, likely including focused Tool Gateway / persistence / eval tests, `just contracts-check`, `just lint`, and `git diff --check`. Run DB-backed tests if grant seeds, constraints, approval packages, or migration baseline change; if local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
+- Run relevant focused gates for the files touched, likely including focused persistence / BFF / frontend / eval tests, `just contracts-check`, `just lint`, `just test-frontend` if frontend changes, and `git diff --check`. Run DB-backed tests if projection, approval packages, migrations, or seed data change; if local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
 - Stage everything and create one Conventional Commit (`type(scope): description`). Do not add `Co-Authored-By` or any AI attribution.
 - Leave the working tree clean.
 
