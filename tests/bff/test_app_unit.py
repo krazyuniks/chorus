@@ -31,6 +31,7 @@ from chorus.persistence.provider_governance import (
     ProviderCatalogueProvider,
     ProviderGovernanceSnapshot,
 )
+from chorus.persistence.replay_runs import ReplayRunRecordReadModel
 from chorus.persistence.runtime_policy import (
     AgentRegistryEntry,
     ModelRoutingPolicy,
@@ -155,6 +156,23 @@ class FakeProviderGovernanceStore:
         )
 
 
+class FakeReplayRunStore:
+    """Stand-in for the replay-eval evidence read surface."""
+
+    def __init__(self, fixture: BffFixture) -> None:
+        self._fixture = fixture
+
+    def list_replay_runs(
+        self,
+        tenant_id: str,
+        *,
+        workflow_id: str | None = None,
+        limit: int = 500,
+    ) -> list[ReplayRunRecordReadModel]:
+        del tenant_id, workflow_id, limit
+        return [self._fixture.replay_run()]
+
+
 class BffFixture:
     """Shared state and constructors for BFF unit-test stand-ins."""
 
@@ -167,6 +185,8 @@ class BffFixture:
         self.audit_event_id = uuid4()
         self.approval_id = uuid4()
         self.calendar_apply_audit_event_id = uuid4()
+        self.transcript_id = uuid4()
+        self.replay_run_id = uuid4()
         self.now = datetime(2026, 4, 29, 12, 0, tzinfo=UTC)
 
     def workflow(self) -> WorkflowRunReadModel:
@@ -480,6 +500,68 @@ class BffFixture:
             created_at=self.now,
         )
 
+    def replay_run(self) -> ReplayRunRecordReadModel:
+        return ReplayRunRecordReadModel(
+            tenant_id="tenant_demo",
+            replay_run_id=self.replay_run_id,
+            correlation_id=self.correlation_id,
+            workflow_id=self.workflow_id,
+            original_invocation_id=self.invocation_id,
+            original_transcript_id=self.transcript_id,
+            original_runtime_route_id="recorded-replay",
+            original_provider_id="local",
+            original_model_id="uc1-happy-path-v1",
+            original_adapter_version="recorded-replay-v1",
+            original_parameters={},
+            alternate_runtime_route_id="recorded-replay",
+            alternate_provider_id="local",
+            alternate_model_id="uc1-happy-path-v1",
+            alternate_adapter_version="recorded-replay-v1",
+            alternate_parameters={},
+            agent_role="request_drafter",
+            task_kind="missing_data_request_draft",
+            policy_snapshot_ref="policy_snapshot:uc1:default:v1",
+            prompt_reference="prompts/uc1/request-drafter/v1.md",
+            prompt_hash="sha256:" + "0" * 64,
+            response_schema_name="uc1_missing_data_request_draft_response",
+            response_schema_contract_ref="contracts/llm_provider/uc1_agent_io.schema.json",
+            response_schema_hash="sha256:" + "1" * 64,
+            route_version_ref="model_route_versions:11000000-0000-4000-8000-000000000004:1",
+            provider_catalogue_id="provider-catalogue.local.seed",
+            eval_fixture_ref="chorus/eval/fixtures/uc1_happy_path.json",
+            transcript_source_ref="fixture:uc1_happy_path",
+            comparator_name="exact_structured_data_placeholder",
+            comparator_version="v1",
+            comparator_status="pass",
+            comparator_result={
+                "reason_code": "structured_data_matched",
+                "changed_field_names": [],
+            },
+            safe_error_reason=None,
+            safe_skipped_reason=None,
+            original_cost_amount=Decimal("0.001"),
+            original_cost_currency="USD",
+            original_latency_ms=120,
+            original_token_usage={"prompt_tokens": 5, "completion_tokens": 2, "total_tokens": 7},
+            alternate_cost_amount=Decimal("0.000"),
+            alternate_cost_currency="USD",
+            alternate_latency_ms=40,
+            alternate_token_usage={"prompt_tokens": 5, "completion_tokens": 2, "total_tokens": 7},
+            metric_deltas={
+                "cost_amount_usd": -0.001,
+                "latency_ms": -80,
+                "token_usage": {
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0,
+                },
+            },
+            started_at=self.now,
+            completed_at=self.now,
+            raw_record={},
+            created_at=self.now,
+        )
+
 
 def _client() -> tuple[TestClient, BffFixture]:
     fixture = BffFixture()
@@ -491,6 +573,7 @@ def _client() -> tuple[TestClient, BffFixture]:
         audit=FakeAuditPortStore(fixture),  # type: ignore[arg-type]
         policy=FakePolicySnapshotStore(fixture),  # type: ignore[arg-type]
         governance=FakeProviderGovernanceStore(fixture),  # type: ignore[arg-type]
+        replay=FakeReplayRunStore(fixture),  # type: ignore[arg-type]
     )
 
     def fake_readers_dependency() -> Iterator[PortReaders]:
@@ -552,6 +635,21 @@ def test_provider_endpoints_are_read_only_views() -> None:
     assert route_versions[0]["route_version"] == 1
     assert route_versions[0]["runtime_route_id"] == "recorded-replay"
     assert route_versions[0]["provider_catalogue_id"] == "provider-catalogue.local.seed"
+
+
+def test_replay_run_endpoints_are_read_only_views() -> None:
+    client, fixture = _client()
+
+    replay_runs = client.get("/api/eval/replay-runs").json()
+    workflow_replay_runs = client.get(f"/api/workflows/{fixture.workflow_id}/replay-runs").json()
+
+    assert replay_runs[0]["original_invocation_id"] == str(fixture.invocation_id)
+    assert replay_runs[0]["original_transcript_id"] == str(fixture.transcript_id)
+    assert replay_runs[0]["alternate_route"] == "recorded-replay (local/uc1-happy-path-v1)"
+    assert replay_runs[0]["comparator_status"] == "pass"
+    assert replay_runs[0]["cost_delta_usd"] == -0.001
+    assert replay_runs[0]["latency_delta_ms"] == -80
+    assert workflow_replay_runs[0]["id"] == str(fixture.replay_run_id)
 
 
 def test_progress_sse_is_projection_backed() -> None:

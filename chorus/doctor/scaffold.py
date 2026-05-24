@@ -99,6 +99,7 @@ PERSISTENCE_PATHS = [
     "chorus/persistence/audit_port.py",
     "chorus/persistence/runtime_policy.py",
     "chorus/persistence/provider_governance.py",
+    "chorus/persistence/replay_runs.py",
     "chorus/persistence/uc1_connectors.py",
     "chorus/persistence/redpanda.py",
     "tests/persistence/test_postgres_foundation.py",

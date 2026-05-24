@@ -1,11 +1,28 @@
 {
   "description": "UC1 classifier captured transcript for the recorded-replay smoke test (ADR 0019). Run `python -m chorus.eval.run replay --transcript chorus/eval/fixtures/transcripts/uc1_classifier_happy.json` to verify the deterministic recorded-replay route still returns the captured structured output.",
   "invocation_id": "11000000-0000-4000-8000-000000000001",
+  "transcript_id": "21000000-0000-4000-8000-000000000101",
+  "correlation_id": "cor_replay_uc1_classifier_001",
+  "workflow_id": "uc1-eval-replay-classifier-001",
   "route_id": "recorded-replay",
   "provider_id": "local",
   "model_id": "uc1-happy-path-v1",
   "adapter_version": "recorded-replay-v1",
   "parameters": {},
+  "prompt_reference": "prompts/uc1/classifier/v1.md",
+  "prompt_hash": "sha256:6e25aca95c76a38b089fedbcac94316a47e18a9d2575089363f5c35f1cbcd67e",
+  "policy_snapshot_ref": "policy_snapshot:uc1:default:v1",
+  "route_version_ref": "model_route_versions:11000000-0000-4000-8000-000000000001:1",
+  "provider_catalogue_id": "provider-catalogue.local.seed",
+  "eval_fixture_ref": "chorus/eval/fixtures/transcripts/uc1_classifier_happy.json",
+  "transcript_source_ref": "fixture:uc1_classifier_happy",
+  "original_cost_amount_usd": 0,
+  "original_latency_ms": 50,
+  "token_usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0
+  },
   "request_messages": [
     {
       "role": "user",

@@ -8,6 +8,7 @@ from chorus.contracts.generated.eval.eval_fixture import EvalFixture
 from chorus.eval import run
 from chorus.eval.common_invariants import COMMON_INVARIANTS
 from chorus.eval.invariants import UC1_INVARIANTS
+from chorus.eval.replay import load_transcript, replay_transcript_with_record
 from chorus.eval.scenario_player import play_scenario
 from chorus.eval.use_cases.uc1_conduct import UC1_CONDUCT_INVARIANTS
 
@@ -147,6 +148,30 @@ def test_assert_uc1_terminal_routing_fixtures_pass_offline(fixture_name: str) ->
 
 def test_replay_classifier_transcript_matches() -> None:
     assert run.main(["replay", "--transcript", TRANSCRIPT_FIXTURE]) == 0
+
+
+def test_replay_classifier_transcript_builds_safe_run_record() -> None:
+    result = replay_transcript_with_record(load_transcript(ROOT / TRANSCRIPT_FIXTURE))
+
+    assert result.checks[0].status == "pass"
+    record = result.record
+    assert str(record.original.invocation_id) == "11000000-0000-4000-8000-000000000001"
+    assert str(record.original.transcript_id) == "21000000-0000-4000-8000-000000000101"
+    assert record.original.runtime_route_id == "recorded-replay"
+    assert record.alternate.runtime_route_id == "recorded-replay"
+    assert record.alternate.provider_id == "local"
+    assert record.alternate.model_id == "uc1-happy-path-v1"
+    assert record.lineage.policy_snapshot_ref == "policy_snapshot:uc1:default:v1"
+    assert record.lineage.prompt_reference == "prompts/uc1/classifier/v1.md"
+    assert record.lineage.response_schema_contract_ref == (
+        "contracts/llm_provider/uc1_agent_io.schema.json"
+    )
+    assert record.comparator.status.value == "pass"
+    assert record.comparator.result["reason_code"] == "structured_data_matched"
+    assert record.metrics.original.latency_ms == 50
+    assert record.metrics.alternate.cost_amount_usd == 0
+    assert isinstance(record.metrics.alternate.latency_ms, int)
+    assert "enquiry_body_text" not in str(record.comparator.result)
 
 
 def test_recorded_replay_scenario_captures_loaded_prompt_evidence() -> None:

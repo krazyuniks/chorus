@@ -127,8 +127,10 @@ any connector action can be proposed. The active local route-governance rows
 now align on runtime route `recorded-replay`, provider `local`, and model
 `uc1-happy-path-v1` across routing policy, immutable route versions, provider
 catalogue rows, BFF inspection, and offline eval route selection. R4 wires
-live route activation only after replay comparison records and required local
-credentials are aligned.
+live route activation only after the tiered comparator and required local
+credentials are aligned. Replay-run evidence records now persist the original
+invocation/transcript refs, alternate route metadata, comparator status,
+lineage refs, and token/cost/latency metrics.
 
 ### Connector port
 
@@ -187,6 +189,13 @@ Read the Tool Gateway audit for a run:
 `block`, or `recorded`. If a verdict is unexpected, the grant policy or the
 connector argument schema is the place to look, never the agent prompt: agents
 have no ambient authority by design.
+
+Read replay-run evidence for a run:
+
+```bash
+./scripts/dc exec postgres psql -U chorus -d chorus -c \
+  "SELECT original_invocation_id, original_runtime_route_id, alternate_runtime_route_id, comparator_status, original_cost_amount, alternate_cost_amount, original_latency_ms, alternate_latency_ms FROM replay_run_records WHERE correlation_id = '<correlation-id>' ORDER BY completed_at;"
+```
 
 ### Projection sink
 
@@ -263,9 +272,10 @@ not change.
    invariant fixtures, including missing-data outbound communication and the
    accepted, referred, and declined terminal connector routes. Cross-provider
    replay-eval - re-running a captured transcript against an alternate route
-   and comparing the result - is the closing eval step. R3 lands the
-   recorded-replay subcommand and the invariant-based eval suite; R4 extends
-   that into live cross-provider replay. The target shape is in
+   and comparing the result - is the closing eval step. The replay path now
+   builds contract-shaped replay-run records for Postgres/BFF inspection; the
+   full tiered comparator and live route gates are still P3 work. The target
+   shape is in
    [`transformation/eval-reshape-directions.md`](transformation/eval-reshape-directions.md).
 
 ## Common failure modes

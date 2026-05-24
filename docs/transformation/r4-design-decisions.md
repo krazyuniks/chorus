@@ -211,5 +211,8 @@ the provider call path, and the runtime now passes task-specific UC1 response
 shapes into the provider port. The OpenAI-compatible adapter requests OpenAI
 `json_schema` structured output where supported and JSON-object mode plus
 local JSON Schema validation for DeepSeek's current route. Replay comparison
-records remain required before any live provider route is considered usable.
+records now exist as safe replay-run evidence linking original
+invocation/transcript refs, alternate route metadata, comparator status, safe
+lineage refs, and token/cost/latency metrics. The full tiered comparator
+semantics remain required before any live provider route is considered usable.
 Required credentials must also be present.

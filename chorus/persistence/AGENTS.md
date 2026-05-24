@@ -36,6 +36,9 @@ After the R3 F decomposition the read surfaces are split per port.
 - `provider_governance.py` owns the provider catalogue + route-version
   snapshot: `ProviderGovernanceStore.snapshot` composes provider catalogues +
   providers + provider models + route versions.
+- `replay_runs.py` owns replay-eval evidence persistence and read inspection:
+  `ReplayRunStore.record_replay_run` persists the contract-shaped replay-run
+  record, and `ReplayRunStore.list_replay_runs` serves BFF inspection.
 - `uc1_connectors.py` owns the local UC1 connector-side records for quoting
   queue, referral inbox, decline ledger, customer-profile lookup data, and
   product-catalogue lookup data.

@@ -171,7 +171,10 @@ policy rows, immutable route-version rows, provider catalogue rows, BFF
 inspection views, and eval replay fixtures all expose the governed local
 `local` / `uc1-happy-path-v1` route matrix. Prompt loading, prompt-hash
 verification, and schema-bound structured output enforcement are active in the
-provider call path. Replay comparison records remain P3 work.
+provider call path. Replay-run evidence records now capture original
+invocation/transcript refs, alternate route metadata, comparator status, safe
+lineage refs, and token/cost/latency metrics; the full tiered comparator
+semantics remain P3 work.
 
 The route catalogue plus the transcript port together make cross-provider
 replay possible. Without route metadata, replay can only target the original
@@ -263,6 +266,10 @@ A captured transcript can be loaded, re-routed through the LLM provider port
 against a different provider and model, and compared to the original on
 contract validity, decision agreement under the same policy snapshot,
 tool-call divergence, response-shape divergence, and cost and latency deltas.
+Every replay builds a contract-shaped replay-run evidence record for Postgres
+and BFF inspection, linking the original invocation/transcript to the
+alternate route and comparator outcome without storing raw prompts, raw
+outputs, credentials, or customer content in the replay-run record.
 Cross-provider replay is a first-class eval mode, not a research afterthought.
 It bounds the standard objection to a provider-agnostic architecture -
 hallucination and quality risk on cheaper providers - because the divergence
@@ -341,9 +348,9 @@ The runtime code carries the named-port surface this document describes.
 | Audit / transcript port split | `chorus/persistence/audit_port.py`, `contracts/audit/agent_invocation_record.schema.json`, `contracts/audit/agent_invocation_transcript.schema.json`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`. The runtime writes both records on every invocation. |
 | Connector adapter registry | `chorus/connectors/types.py` (`ConnectorAdapter`, `ConnectorRegistry`, `ToolSpec`), `chorus/connectors/uc1.py` (six UC1 sandbox adapters), `chorus/persistence/uc1_connectors.py` (local UC1 quoting / referral / decline routing records plus seeded profile / catalogue read data), `chorus/connectors/calendar.py`. The gateway dispatches through the registry. |
 | Workflow spine + UC1 on the spine | `chorus/workflows/spine.py` (`WorkflowSpine`, `WorkflowDefinition`, `WorkflowStepDefinition` over generic activity names), `chorus/workflows/uc1.py` (UC1 enquiry-qualification workflow, including Tool Gateway routing for accepted, referred, declined, and missing-data verdicts). |
-| Per-port persistence read surface | `chorus/persistence/projection.py` (workflow + calendar), `chorus/persistence/audit_port.py`, `chorus/persistence/runtime_policy.py` (agent registry, route policy, grants, and policy snapshot rows), `chorus/persistence/provider_governance.py`. The BFF binds them through `PortReaders` per request. |
+| Per-port persistence read surface | `chorus/persistence/projection.py` (workflow + calendar), `chorus/persistence/audit_port.py`, `chorus/persistence/runtime_policy.py` (agent registry, route policy, grants, and policy snapshot rows), `chorus/persistence/provider_governance.py`, `chorus/persistence/replay_runs.py` (replay-run evidence records). The BFF binds them through `PortReaders` per request. |
 | Per-port doctor probes | `chorus/doctor/scaffold.py` (paths / executables / compose), `chorus/doctor/projection_port.py`, `chorus/doctor/connector_port.py`, `chorus/doctor/observability_port.py`, `chorus/doctor/workflow_runtime.py`, `chorus/doctor/ui.py`. CLI entry at `chorus/doctor/__main__.py`. |
-| Invariant-plus-replay eval | `chorus/eval/common_invariants.py` (architecture-wide invariant checks), `chorus/eval/use_cases/uc1_conduct.py` (UC1 conduct hooks), `chorus/eval/invariants.py` (current suite composition), `chorus/eval/scenario_player.py` (drives the recorded-replay route through a fixture's scenario), `chorus/eval/replay.py` (`eval replay` subcommand), `chorus/eval/run.py` (CLI). |
+| Invariant-plus-replay eval | `chorus/eval/common_invariants.py` (architecture-wide invariant checks), `chorus/eval/use_cases/uc1_conduct.py` (UC1 conduct hooks), `chorus/eval/invariants.py` (current suite composition), `chorus/eval/scenario_player.py` (drives the recorded-replay route through a fixture's scenario), `chorus/eval/replay.py` (`eval replay` subcommand plus safe replay-run record construction), `contracts/eval/replay_run_record.schema.json`, `chorus/eval/run.py` (CLI). |
 
 The ADRs that govern the named-port surface are
 [ADR 0017](../adrs/0017-langgraph-removed-from-agent-execution.md)

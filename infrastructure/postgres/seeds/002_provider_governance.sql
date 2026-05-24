@@ -3,7 +3,7 @@
 -- Mirrors the contract samples and the model_routing_policies seeded in
 -- 001_demo_tenants.sql. The local recorded-replay route stays the runnable
 -- structured boundary for UC1. The DeepSeek and OpenAI rows are verified but
--- disabled until live-provider gates and replay comparison records are
+-- disabled until live-provider gates and the tiered replay comparator are
 -- complete.
 
 INSERT INTO provider_catalogues (

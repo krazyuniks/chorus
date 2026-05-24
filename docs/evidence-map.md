@@ -120,7 +120,7 @@ Decision records: [ADR 0018](../adrs/0018-llm-provider-port.md) and
 | Claim | Artefacts | Status |
 |---|---|---|
 | Eval runs over the audit ports, not in-test bookkeeping | `chorus/eval/common_invariants.py`, `chorus/eval/use_cases/uc1_conduct.py`, `chorus/eval/invariants.py`, `chorus/eval/scenario_player.py`, `chorus/eval/fixtures/uc1_happy_path.json`, `chorus/eval/fixtures/uc1_validator_redraft.json`, `tests/eval/test_run.py` | Invariants assert over captured-run artefacts. |
-| Cross-provider replay is a first-class eval mode | `chorus/eval/replay.py`, `chorus/eval/fixtures/transcripts/uc1_classifier_happy.json` | Recorded-replay exists today; live cross-provider replay lands in R4. |
+| Cross-provider replay is a first-class eval mode | `chorus/eval/replay.py`, `contracts/eval/replay_run_record.schema.json`, `chorus/persistence/replay_runs.py`, `infrastructure/postgres/migrations/001_current_state_baseline.sql` (`replay_run_records`), `chorus/bff/app.py` (`/api/eval/replay-runs`), `chorus/eval/fixtures/transcripts/uc1_classifier_happy.json`, `tests/eval/test_run.py`, `tests/persistence/test_postgres_foundation.py`, `tests/bff/test_app_unit.py` | Recorded-replay exists today and now builds/persists replay-run evidence records linking the original invocation/transcript, alternate route, comparator status/result, lineage refs, and token/cost/latency metrics. Full tiered comparator semantics and live-provider activation remain later P3 work. |
 
 Decision record: [ADR 0019](../adrs/0019-audit-ports-and-replay-eval.md).
 

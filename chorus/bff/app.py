@@ -38,6 +38,7 @@ from chorus.persistence.provider_governance import (
     ProviderCatalogueProvider,
     ProviderGovernanceStore,
 )
+from chorus.persistence.replay_runs import ReplayRunRecordReadModel, ReplayRunStore
 from chorus.persistence.runtime_policy import PolicySnapshotStore
 
 DEFAULT_TENANT_ID = "tenant_demo"
@@ -86,6 +87,7 @@ class PortReaders:
     audit: AuditPortStore
     policy: PolicySnapshotStore
     governance: ProviderGovernanceStore
+    replay: ReplayRunStore
 
 
 class HealthResponse(BaseModel):
@@ -268,6 +270,36 @@ class RouteVersionEntryView(BaseModel):
     eval_fixture_refs: list[str]
     promotion: dict[str, Any]
     created_at: str
+
+
+class ReplayRunEntryView(BaseModel):
+    id: str
+    workflow_id: str
+    correlation_id: str
+    original_invocation_id: str
+    original_transcript_id: str
+    original_route: str
+    alternate_route: str
+    comparator_status: str
+    comparator_result: dict[str, Any]
+    safe_error_reason: str | None
+    safe_skipped_reason: str | None
+    agent_role: str
+    task_kind: str
+    policy_snapshot_ref: str | None
+    prompt_ref: str
+    prompt_hash: str
+    response_schema_ref: str
+    response_schema_hash: str
+    original_cost_usd: float
+    alternate_cost_usd: float
+    cost_delta_usd: float | None
+    original_latency_ms: int
+    alternate_latency_ms: int
+    latency_delta_ms: int | None
+    token_delta: dict[str, Any]
+    started_at: str
+    completed_at: str
 
 
 class ProgressEvent(BaseModel):
@@ -472,6 +504,25 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
         snapshot = readers.governance.snapshot(resolved.tenant_id)
         return [_route_version_view(row) for row in snapshot.route_versions]
 
+    @app.get("/api/eval/replay-runs", response_model=list[ReplayRunEntryView])
+    def list_replay_runs(
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
+        limit: Annotated[int, Query(ge=1, le=1_000)] = 500,
+    ) -> list[ReplayRunEntryView]:
+        rows = readers.replay.list_replay_runs(resolved.tenant_id, limit=limit)
+        return [_replay_run_view(row) for row in rows]
+
+    @app.get(
+        "/api/workflows/{workflow_id}/replay-runs",
+        response_model=list[ReplayRunEntryView],
+    )
+    def list_workflow_replay_runs(
+        workflow_id: str,
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
+    ) -> list[ReplayRunEntryView]:
+        rows = readers.replay.list_replay_runs(resolved.tenant_id, workflow_id=workflow_id)
+        return [_replay_run_view(row) for row in rows]
+
     @app.get("/api/progress")
     async def progress(
         request: Request,
@@ -535,6 +586,7 @@ def _port_readers(settings: BffSettings) -> Generator[PortReaders]:
             audit=AuditPortStore(conn),
             policy=PolicySnapshotStore(conn),
             governance=ProviderGovernanceStore(conn),
+            replay=ReplayRunStore(conn),
         )
 
 
@@ -783,6 +835,55 @@ def _route_version_view(row: ModelRouteVersion) -> RouteVersionEntryView:
         promotion=row.promotion,
         created_at=row.created_at.isoformat(),
     )
+
+
+def _replay_run_view(row: ReplayRunRecordReadModel) -> ReplayRunEntryView:
+    return ReplayRunEntryView(
+        id=str(row.replay_run_id),
+        workflow_id=row.workflow_id,
+        correlation_id=row.correlation_id,
+        original_invocation_id=str(row.original_invocation_id),
+        original_transcript_id=str(row.original_transcript_id),
+        original_route=(
+            f"{row.original_runtime_route_id} ({row.original_provider_id}/{row.original_model_id})"
+        ),
+        alternate_route=(
+            f"{row.alternate_runtime_route_id} "
+            f"({row.alternate_provider_id}/{row.alternate_model_id})"
+        ),
+        comparator_status=row.comparator_status,
+        comparator_result=row.comparator_result,
+        safe_error_reason=row.safe_error_reason,
+        safe_skipped_reason=row.safe_skipped_reason,
+        agent_role=row.agent_role,
+        task_kind=row.task_kind,
+        policy_snapshot_ref=row.policy_snapshot_ref,
+        prompt_ref=row.prompt_reference,
+        prompt_hash=row.prompt_hash,
+        response_schema_ref=row.response_schema_contract_ref,
+        response_schema_hash=row.response_schema_hash,
+        original_cost_usd=_decimal_to_float(row.original_cost_amount),
+        alternate_cost_usd=_decimal_to_float(row.alternate_cost_amount),
+        cost_delta_usd=_numeric_delta(row.metric_deltas, "cost_amount_usd"),
+        original_latency_ms=row.original_latency_ms,
+        alternate_latency_ms=row.alternate_latency_ms,
+        latency_delta_ms=_integer_delta(row.metric_deltas, "latency_ms"),
+        token_delta=row.metric_deltas.get("token_usage", {}),
+        started_at=row.started_at.isoformat(),
+        completed_at=row.completed_at.isoformat(),
+    )
+
+
+def _numeric_delta(metadata: dict[str, Any], key: str) -> float | None:
+    value = metadata.get(key)
+    if isinstance(value, int | float):
+        return float(value)
+    return None
+
+
+def _integer_delta(metadata: dict[str, Any], key: str) -> int | None:
+    value = metadata.get(key)
+    return value if isinstance(value, int) else None
 
 
 def _decimal_to_float(value: Decimal) -> float:

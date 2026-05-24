@@ -38,6 +38,7 @@ from chorus.contracts.generated.connector.uc1.quoting_queue_route_args import (
 from chorus.contracts.generated.connector.uc1.referral_inbox_route_args import (
     ReferralInboxRouteArgs,
 )
+from chorus.contracts.generated.eval.replay_run_record import ReplayRunRecord
 from chorus.contracts.generated.intake.uc1.email_channel_enquiry import EmailChannelEnquiry
 from chorus.contracts.generated.intake.uc1.partner_portal_channel_enquiry import (
     PartnerPortalChannelEnquiry,
@@ -60,7 +61,7 @@ def test_contract_gate_passes() -> None:
 def test_contract_schemas_have_samples_and_generated_models() -> None:
     schemas = schema_files()
 
-    assert len(schemas) == 24
+    assert len(schemas) == 25
     for schema in schemas:
         name = schema.name.removesuffix(".schema.json")
         assert (schema.parent / "samples" / f"{name}.sample.json").exists()
@@ -115,6 +116,7 @@ def test_generated_models_validate_representative_samples() -> None:
         "contracts/llm_provider/samples/provider_catalogue.sample.json"
     )
     route_version_sample = _sample("contracts/llm_provider/samples/model_route_version.sample.json")
+    replay_run_sample = _sample("contracts/eval/samples/replay_run_record.sample.json")
     availability_sample = _sample(
         "contracts/connector/samples/calendar_availability_lookup_args.sample.json"
     )
@@ -162,6 +164,7 @@ def test_generated_models_validate_representative_samples() -> None:
     assert GatewayVerdict.model_validate(verdict_sample).verdict.value == "allow"
     catalogue = ProviderCatalogue.model_validate(provider_catalogue_sample)
     route_version = ModelRouteVersion.model_validate(route_version_sample)
+    replay_run = ReplayRunRecord.model_validate(replay_run_sample)
     assert [provider.provider_id for provider in catalogue.providers] == [
         "local",
         "deepseek",
@@ -169,6 +172,9 @@ def test_generated_models_validate_representative_samples() -> None:
     ]
     assert route_version.selected_model.runtime_route_id == "recorded-replay"
     assert route_version.selected_model.provider_id == "local"
+    assert str(replay_run.original.invocation_id).startswith("11000000-")
+    assert replay_run.alternate.runtime_route_id == "recorded-replay"
+    assert replay_run.comparator.status.value == "pass"
     assert (
         CalendarAvailabilityLookupArgs.model_validate(availability_sample).calendar_ref
         == "cal_uc1_local_followup"

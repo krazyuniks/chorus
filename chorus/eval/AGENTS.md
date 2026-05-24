@@ -46,8 +46,9 @@ R3 G; the invariants now do the asserting.
   runtime slices land.
 - `invariants.py` composes the current UC1 suite and keeps the runner-facing
   imports stable.
-- `replay.py` loads a captured transcript fixture and re-executes it
-  through the route catalogue.
+- `replay.py` loads a captured transcript fixture, re-executes it through
+  the route catalogue, and builds the safe replay-run evidence record used by
+  persistence / BFF inspection.
 - `fixtures/` carries the active fixtures (`uc1_happy_path.json`,
   `uc1_validator_redraft.json`) plus the captured transcript fixtures
   under `fixtures/transcripts/` the replay subcommand re-executes.

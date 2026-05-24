@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Iterator
+from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
 
 import psycopg
 import pytest
 from psycopg import sql
+from psycopg.types.json import Jsonb
 
+from chorus.contracts.generated.eval.replay_run_record import ReplayRunRecord
 from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
 from chorus.persistence import (
     OutboxStore,
@@ -16,6 +20,7 @@ from chorus.persistence import (
     apply_migrations,
 )
 from chorus.persistence.projection import metadata_for_event, subject_summary_for_event
+from chorus.persistence.replay_runs import ReplayRunStore
 from chorus.persistence.runtime_policy import PolicySnapshotStore
 from chorus.workflows.activities import record_retry_exhaustion_dlq
 from chorus.workflows.types import RetryExhaustionDlqCommand
@@ -24,6 +29,7 @@ ADMIN_DATABASE_URL = os.environ.get(
     "CHORUS_TEST_ADMIN_DATABASE_URL",
     "postgresql://chorus:chorus@localhost:5432/postgres",
 )
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _database_url(dbname: str) -> str:
@@ -137,6 +143,7 @@ def test_migration_applies_schema_and_demo_seed_data(migrated_database_url: str)
     assert ("model_route_versions",) in tables
     assert ("policy_snapshots",) in tables
     assert ("approval_packages",) in tables
+    assert ("replay_run_records",) in tables
     assert ("local_customer_profiles",) in tables
     assert ("local_product_catalogue_entries",) in tables
     assert ("local_quoting_queue_routes",) in tables
@@ -538,3 +545,169 @@ def test_uc1_policy_snapshot_ref_is_materialised(migrated_database_url: str) -> 
         and grant["approval_required"] is True
         for grant in snapshot.policy_bundle["tool_grants"]
     )
+
+
+def test_replay_run_records_link_invocation_transcript_route_and_metrics(
+    migrated_database_url: str,
+) -> None:
+    record = ReplayRunRecord.model_validate(
+        json.loads(
+            (ROOT / "contracts/eval/samples/replay_run_record.sample.json").read_text(
+                encoding="utf-8"
+            )
+        )
+    )
+    original = record.original
+
+    with psycopg.connect(migrated_database_url) as conn:
+        conn.execute("SELECT set_config('app.tenant_id', 'tenant_demo', false)")
+        conn.execute(
+            """
+            INSERT INTO decision_trail_entries (
+                tenant_id,
+                invocation_id,
+                correlation_id,
+                workflow_id,
+                agent_id,
+                agent_role,
+                agent_version,
+                lifecycle_state,
+                prompt_reference,
+                prompt_hash,
+                provider,
+                model,
+                task_kind,
+                budget_cap_usd,
+                input_summary,
+                output_summary,
+                justification,
+                outcome,
+                tool_call_ids,
+                cost_amount,
+                cost_currency,
+                duration_ms,
+                started_at,
+                completed_at,
+                contract_refs,
+                raw_record,
+                metadata
+            )
+            VALUES (
+                'tenant_demo',
+                %s,
+                %s,
+                %s,
+                'uc1.classifier',
+                'classifier',
+                'v1',
+                'approved',
+                %s,
+                %s,
+                'local',
+                'uc1-happy-path-v1',
+                'enquiry_classification',
+                0.0100,
+                'fixture input summary',
+                'fixture output summary',
+                'fixture rationale',
+                'succeeded',
+                ARRAY[]::uuid[],
+                0.000000,
+                'USD',
+                50,
+                '2026-05-24T12:00:00Z',
+                '2026-05-24T12:00:01Z',
+                ARRAY['contracts/llm_provider/uc1_agent_io.schema.json'],
+                %s,
+                %s
+            )
+            ON CONFLICT (tenant_id, invocation_id) DO NOTHING
+            """,
+            (
+                original.invocation_id,
+                record.correlation_id,
+                record.workflow_id,
+                record.lineage.prompt_reference,
+                record.lineage.prompt_hash,
+                Jsonb({}),
+                Jsonb({}),
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO agent_invocation_transcripts (
+                tenant_id,
+                transcript_id,
+                invocation_id,
+                correlation_id,
+                workflow_id,
+                route_id,
+                provider_id,
+                model_id,
+                adapter_version,
+                parameters,
+                messages,
+                tool_calls,
+                response_body,
+                token_usage,
+                provider_metadata,
+                started_at,
+                completed_at,
+                raw_record
+            )
+            VALUES (
+                'tenant_demo',
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                '[]'::jsonb,
+                %s,
+                %s,
+                %s,
+                '2026-05-24T12:00:00Z',
+                '2026-05-24T12:00:01Z',
+                %s
+            )
+            ON CONFLICT (tenant_id, transcript_id) DO NOTHING
+            """,
+            (
+                original.transcript_id,
+                original.invocation_id,
+                record.correlation_id,
+                record.workflow_id,
+                original.runtime_route_id,
+                original.provider_id,
+                original.model_id,
+                original.adapter_version,
+                Jsonb(original.parameters),
+                Jsonb([{"role": "user", "content": "fixture input"}]),
+                Jsonb({}),
+                Jsonb(record.metrics.original.token_usage.model_dump(exclude_none=True)),
+                Jsonb({}),
+                Jsonb({}),
+            ),
+        )
+        store = ReplayRunStore(conn)
+        store.record_replay_run(record)
+        conn.commit()
+
+        rows = store.list_replay_runs("tenant_demo", workflow_id=record.workflow_id)
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row.original_invocation_id == original.invocation_id
+    assert row.original_transcript_id == original.transcript_id
+    assert row.alternate_runtime_route_id == "recorded-replay"
+    assert row.alternate_provider_id == "local"
+    assert row.comparator_status == "pass"
+    assert row.comparator_result["reason_code"] == "structured_data_matched"
+    assert row.original_latency_ms == 50
+    assert row.alternate_latency_ms == 12
+    assert row.metric_deltas["latency_ms"] == -38

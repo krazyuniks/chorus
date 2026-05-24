@@ -912,6 +912,109 @@ CREATE TABLE IF NOT EXISTS agent_invocation_transcripts (
     CONSTRAINT transcript_tool_calls_is_array CHECK (jsonb_typeof(tool_calls) = 'array')
 );
 
+CREATE TABLE IF NOT EXISTS replay_run_records (
+    tenant_id text NOT NULL REFERENCES tenants (tenant_id) ON DELETE RESTRICT,
+    replay_run_id uuid NOT NULL,
+    correlation_id text NOT NULL,
+    workflow_id text NOT NULL,
+    original_invocation_id uuid NOT NULL,
+    original_transcript_id uuid NOT NULL,
+    original_runtime_route_id text NOT NULL,
+    original_provider_id text NOT NULL,
+    original_model_id text NOT NULL,
+    original_adapter_version text NOT NULL,
+    original_parameters jsonb NOT NULL DEFAULT '{}'::jsonb,
+    alternate_runtime_route_id text NOT NULL,
+    alternate_provider_id text NOT NULL,
+    alternate_model_id text NOT NULL,
+    alternate_adapter_version text NOT NULL,
+    alternate_parameters jsonb NOT NULL DEFAULT '{}'::jsonb,
+    agent_role text NOT NULL,
+    task_kind text NOT NULL,
+    policy_snapshot_ref text,
+    prompt_reference text NOT NULL,
+    prompt_hash text NOT NULL,
+    response_schema_name text NOT NULL,
+    response_schema_contract_ref text NOT NULL,
+    response_schema_hash text NOT NULL,
+    route_version_ref text,
+    provider_catalogue_id text,
+    eval_fixture_ref text,
+    transcript_source_ref text,
+    comparator_name text NOT NULL,
+    comparator_version text NOT NULL,
+    comparator_status text NOT NULL,
+    comparator_result jsonb NOT NULL,
+    safe_error_reason text,
+    safe_skipped_reason text,
+    original_cost_amount numeric(12, 6) NOT NULL,
+    original_cost_currency text NOT NULL DEFAULT 'USD',
+    original_latency_ms integer NOT NULL,
+    original_token_usage jsonb NOT NULL DEFAULT '{}'::jsonb,
+    alternate_cost_amount numeric(12, 6) NOT NULL,
+    alternate_cost_currency text NOT NULL DEFAULT 'USD',
+    alternate_latency_ms integer NOT NULL,
+    alternate_token_usage jsonb NOT NULL DEFAULT '{}'::jsonb,
+    metric_deltas jsonb NOT NULL DEFAULT '{}'::jsonb,
+    started_at timestamptz NOT NULL,
+    completed_at timestamptz NOT NULL,
+    raw_record jsonb NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, replay_run_id),
+    FOREIGN KEY (tenant_id, original_invocation_id)
+        REFERENCES decision_trail_entries (tenant_id, invocation_id)
+        ON DELETE RESTRICT,
+    FOREIGN KEY (tenant_id, original_transcript_id)
+        REFERENCES agent_invocation_transcripts (tenant_id, transcript_id)
+        ON DELETE RESTRICT,
+    CONSTRAINT replay_run_correlation_shape CHECK (correlation_id ~ '^cor_[A-Za-z0-9_-]+$'),
+    CONSTRAINT replay_run_original_route_shape CHECK (
+        original_runtime_route_id ~ '^[a-z][a-z0-9_.-]*$'
+    ),
+    CONSTRAINT replay_run_alternate_route_shape CHECK (
+        alternate_runtime_route_id ~ '^[a-z][a-z0-9_.-]*$'
+    ),
+    CONSTRAINT replay_run_agent_role_check CHECK (
+        agent_role IN (
+            'classifier',
+            'context_gatherer',
+            'qualifier',
+            'request_drafter',
+            'validator'
+        )
+    ),
+    CONSTRAINT replay_run_prompt_hash_shape CHECK (prompt_hash ~ '^sha256:[a-f0-9]{64}$'),
+    CONSTRAINT replay_run_response_schema_hash_shape CHECK (
+        response_schema_hash ~ '^sha256:[a-f0-9]{64}$'
+    ),
+    CONSTRAINT replay_run_comparator_status_check CHECK (
+        comparator_status IN ('pass', 'fail', 'skipped', 'error')
+    ),
+    CONSTRAINT replay_run_original_currency_check CHECK (original_cost_currency = 'USD'),
+    CONSTRAINT replay_run_alternate_currency_check CHECK (alternate_cost_currency = 'USD'),
+    CONSTRAINT replay_run_original_cost_non_negative CHECK (original_cost_amount >= 0),
+    CONSTRAINT replay_run_alternate_cost_non_negative CHECK (alternate_cost_amount >= 0),
+    CONSTRAINT replay_run_original_latency_non_negative CHECK (original_latency_ms >= 0),
+    CONSTRAINT replay_run_alternate_latency_non_negative CHECK (alternate_latency_ms >= 0),
+    CONSTRAINT replay_run_original_parameters_is_object CHECK (
+        jsonb_typeof(original_parameters) = 'object'
+    ),
+    CONSTRAINT replay_run_alternate_parameters_is_object CHECK (
+        jsonb_typeof(alternate_parameters) = 'object'
+    ),
+    CONSTRAINT replay_run_comparator_result_is_object CHECK (
+        jsonb_typeof(comparator_result) = 'object'
+    ),
+    CONSTRAINT replay_run_metric_deltas_is_object CHECK (jsonb_typeof(metric_deltas) = 'object'),
+    CONSTRAINT replay_run_original_token_usage_is_object CHECK (
+        jsonb_typeof(original_token_usage) = 'object'
+    ),
+    CONSTRAINT replay_run_alternate_token_usage_is_object CHECK (
+        jsonb_typeof(alternate_token_usage) = 'object'
+    ),
+    CONSTRAINT replay_run_raw_record_is_object CHECK (jsonb_typeof(raw_record) = 'object')
+);
+
 -- Bring already-created local databases forward to the current projection
 -- column names without rewriting data.
 
@@ -1270,6 +1373,15 @@ CREATE INDEX IF NOT EXISTS agent_invocation_transcripts_workflow_idx
 CREATE INDEX IF NOT EXISTS agent_invocation_transcripts_route_idx
     ON agent_invocation_transcripts (tenant_id, route_id, completed_at);
 
+CREATE INDEX IF NOT EXISTS replay_run_records_workflow_idx
+    ON replay_run_records (tenant_id, workflow_id, completed_at DESC);
+
+CREATE INDEX IF NOT EXISTS replay_run_records_original_invocation_idx
+    ON replay_run_records (tenant_id, original_invocation_id, completed_at DESC);
+
+CREATE INDEX IF NOT EXISTS replay_run_records_alternate_route_idx
+    ON replay_run_records (tenant_id, alternate_runtime_route_id, comparator_status);
+
 CREATE OR REPLACE FUNCTION prevent_model_route_version_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -1318,6 +1430,7 @@ ALTER TABLE model_route_versions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE policy_snapshots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE approval_packages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_invocation_transcripts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE replay_run_records ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS tenants_tenant_isolation ON tenants;
 CREATE POLICY tenants_tenant_isolation ON tenants
@@ -1431,6 +1544,14 @@ CREATE POLICY agent_invocation_transcripts_tenant_isolation
     USING (tenant_id = chorus_current_tenant_id())
     WITH CHECK (tenant_id = chorus_current_tenant_id());
 
+DROP POLICY IF EXISTS replay_run_records_tenant_isolation
+    ON replay_run_records;
+CREATE POLICY replay_run_records_tenant_isolation
+    ON replay_run_records
+    FOR ALL TO chorus_app
+    USING (tenant_id = chorus_current_tenant_id())
+    WITH CHECK (tenant_id = chorus_current_tenant_id());
+
 GRANT USAGE ON SCHEMA public TO chorus_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     tenants,
@@ -1462,6 +1583,7 @@ TO chorus_app;
 
 GRANT SELECT, INSERT, UPDATE ON approval_packages TO chorus_app;
 GRANT SELECT, INSERT ON agent_invocation_transcripts TO chorus_app;
+GRANT SELECT, INSERT, UPDATE ON replay_run_records TO chorus_app;
 
 COMMENT ON TABLE tenants IS 'Seeded local tenant boundary for tenant-isolation evidence.';
 COMMENT ON TABLE agent_registry IS 'Tenant-scoped governed agent registry materialised for runtime resolution.';
@@ -1501,3 +1623,5 @@ COMMENT ON TABLE approval_packages IS
     'Local approval package evidence for Tool Gateway approval-required connector writes.';
 COMMENT ON TABLE agent_invocation_transcripts IS
     'Full-fidelity transcript port records for replayable governed agent invocations.';
+COMMENT ON TABLE replay_run_records IS
+    'Replay-eval evidence records linking captured invocations and transcripts to alternate route comparator outcomes and metrics.';
