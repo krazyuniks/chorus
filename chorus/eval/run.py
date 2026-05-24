@@ -1,9 +1,9 @@
-"""UC1 invariant + replay eval runner (ADR 0019).
+"""Invariant + replay eval runner (ADR 0019).
 
 `assert` (default) loads each fixture, plays its scenario through the
-recorded-replay route, and asserts the UC1 invariant suite over the
-captured-run artefacts. Per ADR 0019 the path-enumeration era is retired
-and the invariants are the substrate.
+recorded-replay route, and asserts the current UC1 invariant suite over
+the captured-run artefacts. Per ADR 0019 the path-enumeration era is
+retired and the invariants are the substrate.
 
 `replay` loads a captured transcript fixture (or, in future R4 cross-
 provider mode, a captured transcript by id from the audit-port transcripts
@@ -20,9 +20,10 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from chorus.contracts.generated.eval.eval_fixture import EvalFixture
-from chorus.eval.invariants import EvalCheck, run_invariants
+from chorus.eval.invariants import run_invariants
 from chorus.eval.replay import load_transcript, replay_transcript
 from chorus.eval.scenario_player import play_scenario
+from chorus.eval.types import EvalCheck
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
 

@@ -3,11 +3,28 @@ from __future__ import annotations
 from pathlib import Path
 
 from chorus.eval import run
+from chorus.eval.common_invariants import COMMON_INVARIANTS
+from chorus.eval.invariants import UC1_INVARIANTS
 from chorus.eval.scenario_player import play_scenario
+from chorus.eval.use_cases.uc1_conduct import UC1_CONDUCT_INVARIANTS
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_DIR = ROOT / "chorus" / "eval" / "fixtures"
 TRANSCRIPT_FIXTURE = "chorus/eval/fixtures/transcripts/uc1_classifier_happy.json"
+
+
+def test_uc1_invariant_suite_composes_common_and_conduct_modules() -> None:
+    assert [invariant.__name__ for invariant in UC1_INVARIANTS] == [
+        "assert_cross_port_payload_validity",
+        "assert_governed_decision_provenance",
+        "assert_audit_completeness",
+        "assert_observability_emission",
+        "assert_uc1_qualification_invariants",
+        "assert_connector_authority_discipline",
+        "assert_projection_convergence",
+    ]
+    assert UC1_CONDUCT_INVARIANTS[0] in UC1_INVARIANTS
+    assert set(COMMON_INVARIANTS).issubset(UC1_INVARIANTS)
 
 
 def test_assert_default_loads_every_fixture() -> None:

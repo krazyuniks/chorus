@@ -142,7 +142,7 @@ channel runnable status are separate claims.
   beyond the current calendar-shaped path.
 - [x] Introduce use-case-neutral subject summary vocabulary across projection,
   DLQ, and audit payloads.
-- [ ] Refactor eval into common invariants plus per-use-case conduct invariant
+- [x] Refactor eval into common invariants plus per-use-case conduct invariant
   modules.
 - [ ] Update fixture schema so UC1, UC2, and UC3 scenarios can be represented
   without copying UC1-only enum names.
@@ -500,6 +500,39 @@ channel runnable status are separate claims.
   slice did not implement runtime use-case breadth, connector adapters,
   provider routes, replay comparator code, or business-specific UI breadth.
 
+### 2026-05-24 - Eval Invariant Module Decomposition
+
+- Scope: fifth P1 multi-use-case foundation slice for eval module
+  decomposition only.
+- Files changed: eval invariant composition, new common invariant module,
+  new shared eval result types, new UC1 conduct invariant module, eval replay
+  / runner imports, focused eval tests, eval package instructions,
+  architecture / evidence-map references, and this backlog handoff.
+- Behaviour preserved:
+  - `chorus/eval/invariants.py` still exposes the current `UC1_INVARIANTS`
+    suite and `run_invariants` runner surface;
+  - current UC1 invariant order, check names, check details, and CLI report
+    outcomes are preserved;
+  - architecture-wide checks now live in `chorus/eval/common_invariants.py`;
+  - UC1 qualification conduct hooks now live in
+    `chorus/eval/use_cases/uc1_conduct.py`, giving UC2 and UC3 a module shape
+    to mirror later;
+  - eval fixture schema breadth, UC2 / UC3 fixtures, replay comparator code,
+    provider route selection, workflows, connectors, UI behaviour, and UC1
+    broker-firm-side connector persistence were intentionally left untouched.
+- Gates run:
+  - `uv run pytest tests/eval/test_run.py -rs` - green, 6 passed.
+  - `just eval` - green for the two current UC1 offline eval fixtures with
+    unchanged invariant names and outcomes.
+  - `just lint` - green, including ruff, ruff format check, pyright, and
+    frontend type checking.
+  - `just contracts-check` - green via the commit hook.
+  - `git diff --check` - green.
+- Skipped gates: live stack, DB-backed tests, full `just test`, replay beyond
+  the focused eval replay test, frontend e2e, UC2 / UC3 runtime gates, and
+  live-provider gates were not run because this slice only decomposed eval
+  modules and docs.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -547,20 +580,20 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: continue P1 multi-use-case foundation in Strategy order by refactoring eval into common invariants plus per-use-case conduct invariant modules.
+Current target slice: continue P1 multi-use-case foundation in Strategy order by updating the eval fixture schema so UC1, UC2, and UC3 scenarios can be represented without copying UC1-only enum names.
 
-Previous slice completed: shared workflow correlation now carries a safe `subject_summary`; `WorkflowSpine` injects it into workflow-event payloads; active UC1 events use `subject_summary`, `subject_from`, and `source_message_id` while projection keeps legacy `enquiry_summary`, `sender`, and `message_id` fallbacks; retry-DLQ payloads separate root `subject_summary` from `dlq_summary`; workflow retry-DLQ, connector-failure compensation, and Tool Gateway audit details now include generic `subject` context; offline eval projection events now use `subject_summary`.
+Previous slice completed: eval invariants are decomposed into `chorus/eval/common_invariants.py` for architecture-wide checks, `chorus/eval/use_cases/uc1_conduct.py` for UC1 qualification conduct hooks, and `chorus/eval/invariants.py` for the current UC1 suite composition. Current UC1 eval CLI output, invariant order, check names, and outcomes were preserved.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/transformation/eval-reshape-directions.md, docs/product-brief.md, docs/domain-model.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/product-brief-uc3.md, and docs/domain-model-uc3.md. Keep this slice focused on eval invariant module decomposition and current UC1 behaviour preservation.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/transformation/eval-reshape-directions.md, docs/product-brief.md, docs/domain-model.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/product-brief-uc3.md, and docs/domain-model-uc3.md. Keep this slice focused on eval fixture schema breadth and current UC1 eval behaviour preservation.
 
-Before editing, inspect `chorus/eval/invariants.py`, `chorus/eval/scenario_player.py`, `chorus/eval/run.py`, `chorus/eval/AGENTS.md`, `contracts/eval/eval_fixture.schema.json`, `tests/eval/test_run.py`, and searches for UC1-specific invariant names, `UC1`, `qualification`, `conduct`, `Scenario`, `CapturedRun`, `EvalCheck`, and fixture enum coupling. Preserve the current UC1 eval CLI output and invariant outcomes while moving architecture-wide checks into common eval modules and UC1 conduct checks into a per-use-case module that UC2 and UC3 can later mirror.
+Before editing, inspect `contracts/eval/eval_fixture.schema.json`, `contracts/eval/samples/eval_fixture.sample.json`, `chorus/contracts/generated/eval/eval_fixture.py`, `chorus/eval/scenario_player.py`, `chorus/eval/run.py`, `chorus/eval/common_invariants.py`, `chorus/eval/use_cases/uc1_conduct.py`, `chorus/eval/invariants.py`, `chorus/eval/AGENTS.md`, `tests/eval/test_run.py`, the current eval fixtures under `chorus/eval/fixtures/`, and searches for `WorkflowType`, `Scenario`, `OutcomeCategory`, `workflow_type`, `scenario`, `uc1_enquiry_qualification`, `happy_path`, `validator_redraft`, `retry_exhaustion`, and fixture enum coupling. Preserve the current UC1 eval CLI output and invariant outcomes while widening only the fixture contract/model vocabulary needed for UC2 and UC3 representation.
 
-Keep this slice focused on eval module decomposition only. Do not update eval fixture schema breadth, add UC2 or UC3 fixtures, implement replay comparator code, wire provider route selection, implement UC2 or UC3 workflows/intake/connectors, broaden UI behaviour, or complete UC1 broker-firm-side connector persistence in this slice.
+Keep this slice focused on eval fixture schema breadth only. Do not add UC2 or UC3 runtime fixtures, implement UC2 or UC3 scenario playback, add replay comparator code, wire provider route selection, implement UC2 or UC3 workflows/intake/connectors, broaden UI behaviour, or complete UC1 broker-firm-side connector persistence in this slice. If the schema change requires renaming generated enum classes or changing scenario-player comparisons, keep compatibility shims or focused test coverage so existing UC1 fixtures and CLI reports remain unchanged.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
 - Rewrite the body of the `## Next Continuation Prompt` section in the backlog with the next slice's prompt, in Strategy order. If R4 is fully closed, write the literal `R4-COMPLETE` there instead.
-- Run relevant focused gates for the files touched, including `git diff --check`. Run `just contracts-check` if contract files change. If a documented gate cannot run because the live stack is unavailable, record the skipped gate and reason.
+- Run relevant focused gates for the files touched, including `just contracts-gen`, `just contracts-check`, focused eval tests, `just eval`, and `git diff --check`. If a documented gate cannot run because the live stack is unavailable, record the skipped gate and reason.
 - Stage everything and create one Conventional Commit (`type(scope): description`). Do not add `Co-Authored-By` or any AI attribution.
 - Leave the working tree clean.
 

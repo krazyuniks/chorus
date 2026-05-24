@@ -75,7 +75,7 @@ full-fidelity transcript port.
 |---|---|---|
 | Every governed decision has a structured decision-trail record | `chorus/persistence/audit_port.py` (`AuditPortStore.list_decision_trail`), `contracts/audit/agent_invocation_record.schema.json`, `infrastructure/postgres/migrations/001_current_state_baseline.sql` (`decision_trail_entries`), `chorus/agent_runtime/runtime.py` (`record_decision`) | Implementation in code. |
 | The transcript carries enough to replay an invocation | `chorus/persistence/audit_port.py`, `contracts/audit/agent_invocation_transcript.schema.json`, `infrastructure/postgres/migrations/001_current_state_baseline.sql` (`agent_invocation_transcripts`), `chorus/agent_runtime/runtime.py` (`record_transcript`) | The transcript port records replay inputs. |
-| Audit completeness: no LLM invocation or connector call is unattributed | `chorus/eval/invariants.py` (`assert_audit_completeness`), [`transformation/eval-reshape-directions.md`](transformation/eval-reshape-directions.md) | The invariant suite asserts it. |
+| Audit completeness: no LLM invocation or connector call is unattributed | `chorus/eval/common_invariants.py` (`assert_audit_completeness`), [`transformation/eval-reshape-directions.md`](transformation/eval-reshape-directions.md) | The invariant suite asserts it. |
 
 Decision record: [ADR 0019](../adrs/0019-audit-ports-and-replay-eval.md).
 
@@ -87,7 +87,7 @@ The projection sink derives read models for inspection.
 |---|---|---|
 | Domain events project into read models | `chorus/persistence/projection.py` (workflow + calendar projection), `chorus/persistence/redpanda.py`, `contracts/projection/workflow_event.schema.json`, `tests/persistence/test_redpanda_projection.py` | The projection port keeps the workflow + calendar surface. Its shared event contract and Postgres checks now admit the declared UC1, UC2, and UC3 workflow families; runtime projection remains UC1 until later R4 slices add UC2 and UC3 workflows. |
 | The read surface is read-only | `chorus/bff/app.py` (per-port `PortReaders` dependency), `frontend/src/routes/` | Implementation in code. |
-| Replaying the same events twice converges | `tests/persistence/test_redpanda_projection.py`, `chorus/eval/invariants.py` (`assert_projection_convergence`) | Implementation in code. |
+| Replaying the same events twice converges | `tests/persistence/test_redpanda_projection.py`, `chorus/eval/common_invariants.py` (`assert_projection_convergence`) | Implementation in code. |
 
 Decision record: [ADR 0019](../adrs/0019-audit-ports-and-replay-eval.md).
 
@@ -119,7 +119,7 @@ Decision records: [ADR 0018](../adrs/0018-llm-provider-port.md) and
 
 | Claim | Artefacts | Status |
 |---|---|---|
-| Eval runs over the audit ports, not in-test bookkeeping | `chorus/eval/invariants.py`, `chorus/eval/scenario_player.py`, `chorus/eval/fixtures/uc1_happy_path.json`, `chorus/eval/fixtures/uc1_validator_redraft.json`, `tests/eval/test_run.py` | Invariants assert over captured-run artefacts. |
+| Eval runs over the audit ports, not in-test bookkeeping | `chorus/eval/common_invariants.py`, `chorus/eval/use_cases/uc1_conduct.py`, `chorus/eval/invariants.py`, `chorus/eval/scenario_player.py`, `chorus/eval/fixtures/uc1_happy_path.json`, `chorus/eval/fixtures/uc1_validator_redraft.json`, `tests/eval/test_run.py` | Invariants assert over captured-run artefacts. |
 | Cross-provider replay is a first-class eval mode | `chorus/eval/replay.py`, `chorus/eval/fixtures/transcripts/uc1_classifier_happy.json` | Recorded-replay exists today; live cross-provider replay lands in R4. |
 
 Decision record: [ADR 0019](../adrs/0019-audit-ports-and-replay-eval.md).

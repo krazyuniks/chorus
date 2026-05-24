@@ -11,8 +11,11 @@ R3 G; the invariants now do the asserting.
   `validator_redraft` | `retry_exhaustion`) plus the expected
   `outcome_category` (`propose` | `escalate` | `dlq`). The invariants
   assert audit, transcript, connector, and projection shape directly.
-- Add or update invariants in `invariants.py` when a new conduct hook,
-  audit field, or replay property becomes load-bearing for UC1/UC2/UC3.
+- Add or update architecture-wide checks in `common_invariants.py` when an
+  audit field, port boundary, or replay property becomes load-bearing across
+  use cases.
+- Add or update conduct hooks in per-use-case modules under `use_cases/`
+  (`uc1_conduct.py` today; UC2 and UC3 should mirror that shape later).
 - Keep deterministic fixture execution available without live provider calls.
   The scenario player drives the recorded-replay route only.
 - Live persisted-evidence assertions should plug into the same invariant
@@ -30,10 +33,15 @@ R3 G; the invariants now do the asserting.
   replay adapter and assembles the captured-run artefacts (decision-trail
   rows, transcripts, tool-action audit, projection events) the invariants
   consume.
-- `invariants.py` holds the UC1 invariant suite: cross-port payload
-  validity, governed-decision provenance, audit completeness, observability
-  emission, UC1 conduct hooks, connector authority discipline, projection
-  convergence.
+- `common_invariants.py` holds the architecture-wide invariant checks:
+  cross-port payload validity, governed-decision provenance, audit
+  completeness, observability emission, connector authority discipline, and
+  projection convergence.
+- `use_cases/uc1_conduct.py` holds the current UC1 conduct hooks for enquiry
+  qualification. UC2 and UC3 conduct modules should sit beside it when their
+  runtime slices land.
+- `invariants.py` composes the current UC1 suite and keeps the runner-facing
+  imports stable.
 - `replay.py` loads a captured transcript fixture and re-executes it
   through the route catalogue.
 - `fixtures/` carries the active fixtures (`uc1_happy_path.json`,

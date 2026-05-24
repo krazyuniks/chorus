@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from chorus.eval.invariants import EvalCheck
+from chorus.eval.types import EvalCheck
 from chorus.llm_provider import (
     InvocationArgs,
     InvocationMessage,

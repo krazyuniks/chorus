@@ -311,7 +311,7 @@ The runtime code carries the named-port surface this document describes.
 | Workflow spine + UC1 on the spine | `chorus/workflows/spine.py` (`WorkflowSpine`, `WorkflowDefinition`, `WorkflowStepDefinition` over generic activity names), `chorus/workflows/uc1.py` (UC1 enquiry-qualification workflow). |
 | Per-port persistence read surface | `chorus/persistence/projection.py` (workflow + calendar), `chorus/persistence/audit_port.py`, `chorus/persistence/runtime_policy.py`, `chorus/persistence/provider_governance.py`. The BFF binds them through `PortReaders` per request. |
 | Per-port doctor probes | `chorus/doctor/scaffold.py` (paths / executables / compose), `chorus/doctor/projection_port.py`, `chorus/doctor/connector_port.py`, `chorus/doctor/observability_port.py`, `chorus/doctor/workflow_runtime.py`, `chorus/doctor/ui.py`. CLI entry at `chorus/doctor/__main__.py`. |
-| Invariant-plus-replay eval | `chorus/eval/invariants.py` (the UC1 invariant suite), `chorus/eval/scenario_player.py` (drives the recorded-replay route through a fixture's scenario), `chorus/eval/replay.py` (`eval replay` subcommand), `chorus/eval/run.py` (CLI). |
+| Invariant-plus-replay eval | `chorus/eval/common_invariants.py` (architecture-wide invariant checks), `chorus/eval/use_cases/uc1_conduct.py` (UC1 conduct hooks), `chorus/eval/invariants.py` (current suite composition), `chorus/eval/scenario_player.py` (drives the recorded-replay route through a fixture's scenario), `chorus/eval/replay.py` (`eval replay` subcommand), `chorus/eval/run.py` (CLI). |
 
 The ADRs that govern the named-port surface are
 [ADR 0017](../adrs/0017-langgraph-removed-from-agent-execution.md)
