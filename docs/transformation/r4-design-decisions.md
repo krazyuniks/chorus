@@ -220,5 +220,9 @@ The decision-fail tier now classifies bounded UC1 qualification decision
 divergence under the same policy snapshot, covering terminal verdict / route
 category, regulated outcome, required approval decision fields where present,
 and connector-action category evidence available in replay-safe records.
-Review-finding, metrics-only tier semantics, and required credentials remain
-required before any live provider route is considered usable.
+The review-finding tier now records non-terminal UC1 qualification divergence
+for recommended-next-step, confidence band / material confidence delta,
+rationale presence or text-change evidence without storing free-text
+rationale, optional structured fields, and safe evidence-selection refs.
+Metrics-only tier semantics and required credentials remain required before
+any live provider route is considered usable.

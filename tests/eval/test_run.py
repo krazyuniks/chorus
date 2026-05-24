@@ -364,6 +364,136 @@ def test_replay_decision_fails_route_category_alias_mismatch() -> None:
     ]
 
 
+def test_replay_review_finds_recommended_next_step_rationale_and_confidence() -> None:
+    transcript = replace(
+        _qualifier_transcript(),
+        expected_recommended_next_step="continue",
+        expected_confidence=0.88,
+        expected_rationale="Captured qualification rationale.",
+    )
+
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_returning(
+            _invocation_result(
+                structured_data=_qualification_structured_data(),
+                recommended_next_step="escalate",
+                confidence=0.52,
+                rationale="Alternate qualification rationale.",
+            )
+        ),
+    )
+
+    assert result.checks[0].status == "pass"
+    assert result.checks[0].name == "replay review-finding tier"
+    assert result.record.comparator.status.value == "pass"
+    assert result.record.comparator.result["tier"] == "review_finding"
+    assert result.record.comparator.result["non_terminal"] is True
+    assert result.record.comparator.result["reason_codes"] == [
+        "recommended_next_step_mismatch",
+        "confidence_band_mismatch",
+        "rationale_text_mismatch",
+    ]
+    assert result.record.comparator.result["changed_field_names"] == [
+        "confidence",
+        "rationale",
+        "recommended_next_step",
+    ]
+    assert "Alternate qualification rationale" not in str(result.record.comparator.result)
+    assert result.record.comparator.result["reason_code"] != "structured_data_diverged"
+    assert "tier_placeholder" not in result.record.comparator.result
+
+
+def test_replay_review_finds_optional_structured_and_evidence_selection_fields() -> None:
+    expected = _qualification_structured_data()
+    expected["qualification_summary_ref"] = "qsum_demo_missing_data_001"
+    transcript = replace(_qualifier_transcript(), expected_structured_data=expected)
+    structured = _qualification_structured_data()
+    structured["qualification_summary_ref"] = "qsum_demo_missing_data_002"
+    structured["best_interests_check"] = {
+        **structured["best_interests_check"],
+        "regulatory_ref": "ICOBS 2.1.1R",
+    }
+
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_returning(_invocation_result(structured_data=structured)),
+    )
+
+    assert result.record.comparator.status.value == "pass"
+    assert result.record.comparator.result["tier"] == "review_finding"
+    assert result.record.comparator.result["reason_codes"] == [
+        "optional_structured_field_mismatch",
+        "evidence_selection_mismatch",
+    ]
+    assert result.record.comparator.result["changed_field_names"] == [
+        "structured_data.best_interests_check.regulatory_ref",
+        "structured_data.qualification_summary_ref",
+    ]
+    assert "qsum_demo_missing_data_002" not in str(result.record.comparator.result)
+
+
+def test_replay_hard_fail_takes_precedence_over_review_finding() -> None:
+    transcript = replace(
+        _qualifier_transcript(),
+        expected_recommended_next_step="continue",
+        expected_confidence=0.88,
+        expected_rationale="Captured qualification rationale.",
+    )
+    structured = _qualification_structured_data()
+    del structured["best_interests_check"]
+
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_returning(
+            _invocation_result(
+                structured_data=structured,
+                recommended_next_step="escalate",
+                confidence=0.52,
+                rationale="Alternate qualification rationale.",
+            )
+        ),
+    )
+
+    assert result.record.comparator.status.value == "fail"
+    assert result.record.comparator.result["tier"] == "hard_fail"
+    assert result.record.comparator.result["reason_code"] == "missing_conduct_hooks"
+
+
+def test_replay_decision_fail_takes_precedence_over_review_finding() -> None:
+    transcript = replace(
+        _qualifier_transcript(),
+        expected_recommended_next_step="continue",
+        expected_confidence=0.88,
+        expected_rationale="Captured qualification rationale.",
+    )
+    structured = _qualification_structured_data()
+    structured.update(
+        {
+            "qualification_verdict_category": "accept",
+            "missing_data_request_required": False,
+            "product_family_category": "motor_private_car",
+            "qualification_summary_ref": "qsum_demo_accept_001",
+        }
+    )
+
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_returning(
+            _invocation_result(
+                structured_data=structured,
+                recommended_next_step="escalate",
+                confidence=0.52,
+                rationale="Alternate qualification rationale.",
+            )
+        ),
+    )
+
+    assert result.record.comparator.status.value == "fail"
+    assert result.record.comparator.result["tier"] == "decision_fail"
+    assert result.record.comparator.result["reason_code"] == "terminal_verdict_mismatch"
+
+
 def test_recorded_replay_scenario_captures_loaded_prompt_evidence() -> None:
     fixture = run.load_fixture(FIXTURE_DIR / "uc1_happy_path.json")
     captured = play_scenario(fixture)
@@ -505,13 +635,16 @@ def _invocation_result(
     *,
     structured_data: dict[str, Any] | None = None,
     tool_calls: tuple[dict[str, Any], ...] = (),
+    confidence: float = 0.88,
+    recommended_next_step: str = "continue",
+    rationale: str = "Replay fixture rationale.",
 ) -> InvocationResult:
     return InvocationResult(
         summary="Replay fixture response.",
         structured_data=structured_data or _classification_structured_data(),
-        confidence=0.88,
-        recommended_next_step="continue",
-        rationale="Replay fixture rationale.",
+        confidence=confidence,
+        recommended_next_step=recommended_next_step,
+        rationale=rationale,
         cost_amount_usd=Decimal("0.000000"),
         tool_calls=tool_calls,
         token_usage={"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},

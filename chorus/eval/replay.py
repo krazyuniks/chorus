@@ -27,9 +27,11 @@ from chorus.contracts.generated.eval.replay_run_record import ReplayRunRecord
 from chorus.eval.replay_comparator import (
     DecisionFailClassification,
     HardFailClassification,
+    ReviewFindingClassification,
     classify_replay_decision_failure,
     classify_replay_input_hard_failure,
     classify_replay_result_hard_failure,
+    classify_replay_review_finding,
     provider_port_error_hard_failure,
     safe_reason_code,
 )
@@ -46,7 +48,7 @@ from chorus.llm_provider import (
 
 _VALID_ROLES = ("system", "user", "assistant", "tool")
 _COMPARATOR_NAME = "tiered_replay_comparator"
-_COMPARATOR_VERSION = "v0.2-decision-fail"
+_COMPARATOR_VERSION = "v0.3-review-finding"
 _UC1_PROMPT_REFERENCES = {
     "classifier": "prompts/uc1/classifier/v1.md",
     "context_gatherer": "prompts/uc1/context-gatherer/v1.md",
@@ -107,6 +109,9 @@ class CapturedTranscript:
     original_cost_amount_usd: Decimal
     original_latency_ms: int
     token_usage: dict[str, int]
+    expected_recommended_next_step: str | None = None
+    expected_confidence: float | None = None
+    expected_rationale: str | None = None
     evidence_missing_fields: tuple[str, ...] = ()
 
 
@@ -165,6 +170,9 @@ def load_transcript(path: Path) -> CapturedTranscript:
         original_cost_amount_usd=Decimal(str(data.get("original_cost_amount_usd", "0"))),
         original_latency_ms=int(data.get("original_latency_ms", 0)),
         token_usage=_token_usage(data.get("token_usage")),
+        expected_recommended_next_step=_optional_str(data.get("expected_recommended_next_step")),
+        expected_confidence=_optional_float(data.get("expected_confidence")),
+        expected_rationale=_optional_str(data.get("expected_rationale")),
         evidence_missing_fields=evidence_missing_fields,
     )
 
@@ -334,6 +342,25 @@ def _compare_structured_data(
             classification=decision_fail,
         )
 
+    review_finding = classify_replay_review_finding(
+        task_kind=transcript.task_kind,
+        policy_snapshot_ref=transcript.policy_snapshot_ref,
+        expected_structured_data=expected,
+        actual_structured_data=actual_data,
+        expected_recommended_next_step=transcript.expected_recommended_next_step,
+        actual_recommended_next_step=actual.recommended_next_step,
+        expected_confidence=transcript.expected_confidence,
+        actual_confidence=actual.confidence,
+        expected_rationale=transcript.expected_rationale,
+        actual_rationale=actual.rationale,
+    )
+    if review_finding is not None:
+        return _review_finding_comparison(
+            transcript=transcript,
+            target_route=route_id,
+            classification=review_finding,
+        )
+
     if actual_data == expected:
         return _Comparison(
             checks=[
@@ -410,6 +437,30 @@ def _decision_fail_comparison(
             )
         ],
         status="fail",
+        result=classification.result_payload(),
+    )
+
+
+def _review_finding_comparison(
+    *,
+    transcript: CapturedTranscript,
+    target_route: str,
+    classification: ReviewFindingClassification,
+) -> _Comparison:
+    fields = ", ".join(classification.field_names) if classification.field_names else "none"
+    return _Comparison(
+        checks=[
+            EvalCheck(
+                "replay review-finding tier",
+                "pass",
+                (
+                    f"replay through route {target_route!r} for invocation "
+                    f"{transcript.invocation_id!r} recorded non-terminal "
+                    f"{classification.reason_code!r} on fields: {fields}"
+                ),
+            )
+        ],
+        status="pass",
         result=classification.result_payload(),
     )
 
@@ -637,6 +688,14 @@ def _duration_ms(started: float) -> int:
 
 def _optional_str(value: Any) -> str | None:
     return value if isinstance(value, str) and value else None
+
+
+def _optional_float(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int | float):
+        return float(value)
+    return None
 
 
 def _evidence_missing_fields(data: dict[str, Any]) -> tuple[str, ...]:

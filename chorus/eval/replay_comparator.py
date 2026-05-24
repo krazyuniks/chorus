@@ -13,6 +13,7 @@ ComparatorStatus = Literal["pass", "fail", "skipped", "error"]
 
 HARD_FAIL_TIER = "hard_fail"
 DECISION_FAIL_TIER = "decision_fail"
+REVIEW_FINDING_TIER = "review_finding"
 REQUIRED_UC1_CONDUCT_HOOKS: tuple[str, ...] = (
     "best_interests_check",
     "demands_and_needs_statement",
@@ -47,12 +48,29 @@ _CONNECTOR_ACTION_CATEGORY_FIELDS: tuple[tuple[str, ...], ...] = (
     ("requested_mode",),
     ("enforced_mode",),
 )
+_UC1_OPTIONAL_REVIEW_FIELDS: tuple[tuple[str, ...], ...] = (
+    ("customer_ref",),
+    ("verdict_ref",),
+    ("routing_policy_ref",),
+    ("product_family_category",),
+    ("qualification_summary_ref",),
+    ("referral_destination_category",),
+    ("referral_reason_category",),
+    ("decline_reason_category",),
+)
+_UC1_EVIDENCE_SELECTION_FIELDS: tuple[tuple[str, ...], ...] = (
+    ("best_interests_check", "regulatory_ref"),
+    ("demands_and_needs_statement", "regulatory_ref"),
+    ("target_market_check", "regulatory_ref"),
+    ("foreseeable_harm_check", "regulatory_ref"),
+)
 _UC1_CONNECTOR_ACTION_BY_ROUTE_CATEGORY = {
     "accept": "crm.route_to_quoting_queue.write",
     "refer": "referral_inbox.route.write",
     "decline": "decline_ledger.route.write",
     "missing_data": "outbound_comms.message.propose",
 }
+_CONFIDENCE_DELTA_THRESHOLD = 0.15
 
 
 @dataclass(frozen=True)
@@ -94,6 +112,27 @@ class DecisionFailClassification:
             "reason_code": self.reason_code,
             "field_names": list(self.field_names),
             "changed_field_names": list(self.field_names),
+        }
+        if self.reason_codes:
+            payload["reason_codes"] = list(self.reason_codes)
+        return payload
+
+
+@dataclass(frozen=True)
+class ReviewFindingClassification:
+    """Safe non-terminal review-finding details for a replay-run comparator record."""
+
+    reason_code: str
+    field_names: tuple[str, ...]
+    reason_codes: tuple[str, ...] = ()
+
+    def result_payload(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "tier": REVIEW_FINDING_TIER,
+            "reason_code": self.reason_code,
+            "field_names": list(self.field_names),
+            "changed_field_names": list(self.field_names),
+            "non_terminal": True,
         }
         if self.reason_codes:
             payload["reason_codes"] = list(self.reason_codes)
@@ -239,6 +278,98 @@ def classify_replay_decision_failure(
     reason_codes = tuple(reason for reason, _fields in mismatch_groups)
     field_names = tuple(sorted({field for _reason, fields in mismatch_groups for field in fields}))
     return DecisionFailClassification(
+        reason_code=reason_codes[0],
+        reason_codes=reason_codes,
+        field_names=field_names,
+    )
+
+
+def classify_replay_review_finding(
+    *,
+    task_kind: str,
+    policy_snapshot_ref: str | None,
+    expected_structured_data: dict[str, Any],
+    actual_structured_data: dict[str, Any],
+    expected_recommended_next_step: str | None,
+    actual_recommended_next_step: str,
+    expected_confidence: float | None,
+    actual_confidence: float,
+    expected_rationale: str | None,
+    actual_rationale: str,
+) -> ReviewFindingClassification | None:
+    """Classify non-terminal UC1 replay divergence for reviewer attention."""
+
+    if task_kind != "enquiry_qualification":
+        return None
+    if not _same_policy_snapshot(
+        policy_snapshot_ref=policy_snapshot_ref,
+        expected_structured_data=expected_structured_data,
+        actual_structured_data=actual_structured_data,
+    ):
+        return None
+    if not _same_uc1_route_category(expected_structured_data, actual_structured_data):
+        return None
+    if _changed_field_names(
+        expected_structured_data,
+        actual_structured_data,
+        _UC1_REGULATED_OUTCOME_FIELDS,
+        require_both_present=True,
+    ):
+        return None
+    if _changed_field_names(
+        expected_structured_data,
+        actual_structured_data,
+        _APPROVAL_DECISION_FIELDS,
+        require_both_present=True,
+    ):
+        return None
+    if _changed_field_names(
+        expected_structured_data,
+        actual_structured_data,
+        _CONNECTOR_ACTION_CATEGORY_FIELDS,
+        require_both_present=True,
+    ):
+        return None
+
+    mismatch_groups: list[tuple[str, tuple[str, ...]]] = []
+    if (
+        expected_recommended_next_step is not None
+        and expected_recommended_next_step != actual_recommended_next_step
+    ):
+        mismatch_groups.append(("recommended_next_step_mismatch", ("recommended_next_step",)))
+
+    confidence_reason = _confidence_review_reason(expected_confidence, actual_confidence)
+    if confidence_reason is not None:
+        mismatch_groups.append((confidence_reason, ("confidence",)))
+
+    rationale_reason = _rationale_review_reason(expected_rationale, actual_rationale)
+    if rationale_reason is not None:
+        mismatch_groups.append((rationale_reason, ("rationale",)))
+
+    optional_fields = _changed_field_names(
+        expected_structured_data,
+        actual_structured_data,
+        _UC1_OPTIONAL_REVIEW_FIELDS,
+        require_both_present=False,
+    )
+    if optional_fields:
+        mismatch_groups.append(("optional_structured_field_mismatch", optional_fields))
+
+    evidence_fields = _changed_field_names(
+        expected_structured_data,
+        actual_structured_data,
+        _UC1_EVIDENCE_SELECTION_FIELDS,
+        require_both_present=True,
+    )
+    if evidence_fields:
+        mismatch_groups.append(("evidence_selection_mismatch", evidence_fields))
+
+    if not mismatch_groups:
+        return None
+
+    reason_codes = tuple(reason for reason, _fields in mismatch_groups)
+    field_names = tuple(sorted({field for _reason, fields in mismatch_groups for field in fields}))
+    return ReviewFindingClassification(
         reason_code=reason_codes[0],
         reason_codes=reason_codes,
         field_names=field_names,
@@ -411,6 +542,16 @@ def _route_category_reason_code(field_names: tuple[str, ...]) -> str:
     return "route_category_mismatch"
 
 
+def _same_uc1_route_category(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
+    expected_route = _uc1_route_category(expected)
+    actual_route = _uc1_route_category(actual)
+    return (
+        expected_route.category is not None
+        and actual_route.category is not None
+        and expected_route.category == actual_route.category
+    )
+
+
 def _derived_connector_action_field_names(
     expected_category: str,
     actual_category: str,
@@ -456,6 +597,42 @@ def _field_name(path: tuple[str, ...]) -> str:
     return "structured_data." + ".".join(path)
 
 
+def _confidence_review_reason(
+    expected_confidence: float | None,
+    actual_confidence: float,
+) -> str | None:
+    if expected_confidence is None:
+        return None
+    if _confidence_band(expected_confidence) != _confidence_band(actual_confidence):
+        return "confidence_band_mismatch"
+    if abs(actual_confidence - expected_confidence) >= _CONFIDENCE_DELTA_THRESHOLD:
+        return "confidence_delta_mismatch"
+    return None
+
+
+def _confidence_band(value: float) -> str:
+    if value < 0.5:
+        return "low"
+    if value < 0.8:
+        return "medium"
+    return "high"
+
+
+def _rationale_review_reason(
+    expected_rationale: str | None,
+    actual_rationale: str,
+) -> str | None:
+    if expected_rationale is None:
+        return None
+    expected_present = _non_empty_string(expected_rationale)
+    actual_present = _non_empty_string(actual_rationale)
+    if expected_present != actual_present:
+        return "rationale_presence_mismatch"
+    if expected_present and actual_present and expected_rationale != actual_rationale:
+        return "rationale_text_mismatch"
+    return None
+
+
 def _optional_string(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
 
@@ -464,12 +641,15 @@ __all__ = [
     "DECISION_FAIL_TIER",
     "HARD_FAIL_TIER",
     "REQUIRED_UC1_CONDUCT_HOOKS",
+    "REVIEW_FINDING_TIER",
     "ComparatorStatus",
     "DecisionFailClassification",
     "HardFailClassification",
+    "ReviewFindingClassification",
     "classify_replay_decision_failure",
     "classify_replay_input_hard_failure",
     "classify_replay_result_hard_failure",
+    "classify_replay_review_finding",
     "provider_port_error_hard_failure",
     "safe_reason_code",
 ]

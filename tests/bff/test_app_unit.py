@@ -531,7 +531,7 @@ class BffFixture:
             eval_fixture_ref="chorus/eval/fixtures/uc1_happy_path.json",
             transcript_source_ref="fixture:uc1_happy_path",
             comparator_name="tiered_replay_comparator",
-            comparator_version="v0.2-decision-fail",
+            comparator_version="v0.3-review-finding",
             comparator_status="pass",
             comparator_result={
                 "tier": "metrics_only",

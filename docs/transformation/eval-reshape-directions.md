@@ -81,5 +81,9 @@ provider-port replay errors. The decision-fail tier is now implemented for
 bounded UC1 qualification decision divergence under the same policy snapshot:
 terminal verdict / route category, regulated outcome, required approval
 decision fields where present, and connector-action category evidence
-available in replay-safe records. Review-finding and metrics-only tier
+available in replay-safe records. The review-finding tier is now implemented
+for non-terminal UC1 qualification divergence under the same policy snapshot:
+recommended-next-step, confidence band / material confidence delta, rationale
+presence or text-change evidence without storing rationale text, optional
+structured fields, and safe evidence-selection refs. Metrics-only tier
 semantics remain pending.
