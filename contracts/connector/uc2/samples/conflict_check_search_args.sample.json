@@ -1,0 +1,33 @@
+{
+  "legal_intake_ref": "legal_intake_demo_001",
+  "party_graph_ref": "pgraph_demo_001_v1",
+  "matter_scope_ref": "mscope_demo_001",
+  "prospective_client_ref": "prospective_client_demo_001",
+  "party_search_terms": [
+    {
+      "party_ref": "party_prospective_client_001",
+      "role": "prospective_client",
+      "party_category": "organisation",
+      "alias_bucket_ref": "alias_bucket_party_001"
+    },
+    {
+      "party_ref": "party_counterparty_001",
+      "role": "counterparty",
+      "party_category": "organisation"
+    }
+  ],
+  "conflict_search_categories": [
+    "current_client",
+    "former_client",
+    "adverse_party",
+    "confidential_information"
+  ],
+  "jurisdiction_categories": [
+    "england_and_wales"
+  ],
+  "conflict_policy_ref": "policy_uc2_conflict_check_v1",
+  "conduct_hook_refs": [
+    "conduct_sra_conflict_6_1_6_2",
+    "conduct_sra_confidentiality_6_3_6_5"
+  ]
+}

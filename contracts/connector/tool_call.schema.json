@@ -55,7 +55,14 @@
         "decline_ledger.route",
         "outbound_comms.message",
         "customer_profile.lookup",
-        "product_catalogue.lookup"
+        "product_catalogue.lookup",
+        "conflict_check.search",
+        "kyc_bo.lookup",
+        "aml_record_store.record_assessment",
+        "engagement_letter.draft",
+        "engagement_letter.send",
+        "engagement_letter.record_decline",
+        "engagement_letter.route_manual_review"
       ]
     },
     "mode": {

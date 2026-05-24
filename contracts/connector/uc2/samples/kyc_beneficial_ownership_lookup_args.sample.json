@@ -1,0 +1,26 @@
+{
+  "legal_intake_ref": "legal_intake_demo_001",
+  "party_graph_ref": "pgraph_demo_001_v1",
+  "prospective_client_ref": "prospective_client_demo_001",
+  "entity_category": "company",
+  "jurisdiction_categories": [
+    "england_and_wales"
+  ],
+  "beneficial_owner_refs": [
+    "beneficial_owner_demo_001"
+  ],
+  "controller_refs": [
+    "controller_demo_001"
+  ],
+  "requested_evidence_categories": [
+    "corporate_identity",
+    "beneficial_ownership",
+    "controller_identity",
+    "authority_to_instruct"
+  ],
+  "lookup_policy_ref": "policy_uc2_kyc_bo_lookup_v1",
+  "conduct_hook_refs": [
+    "conduct_mlr_cdd_reg_27_28",
+    "conduct_sra_identify_client_8_1"
+  ]
+}

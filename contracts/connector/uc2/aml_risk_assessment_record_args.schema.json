@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc2/aml_risk_assessment_record_args.schema.json",
+  "title": "AmlRiskAssessmentRecordArgs",
+  "description": "Arguments accepted by the UC2 sandbox-aml-record-store connector when recording a synthetic AML risk assessment. The record stores bounded risk ratings, CDD and beneficial-ownership status refs, trigger refs, policy refs, and approval refs without moving identity documents, raw source-of-funds material, or customer records across the port.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "legal_intake_ref",
+    "aml_risk_assessment_ref",
+    "prospective_client_ref",
+    "cdd_record_ref",
+    "cdd_status",
+    "beneficial_ownership_status",
+    "aml_risk_rating",
+    "risk_factor_categories",
+    "assessment_summary_ref",
+    "policy_refs",
+    "conduct_hook_refs"
+  ],
+  "properties": {
+    "legal_intake_ref": {
+      "type": "string",
+      "pattern": "^legal_intake_[A-Za-z0-9_-]+$"
+    },
+    "aml_risk_assessment_ref": {
+      "type": "string",
+      "pattern": "^aml_risk_[A-Za-z0-9_-]+$"
+    },
+    "prospective_client_ref": {
+      "type": "string",
+      "pattern": "^prospective_client_[A-Za-z0-9_-]+$"
+    },
+    "cdd_record_ref": {
+      "type": "string",
+      "pattern": "^cdd_record_[A-Za-z0-9_-]+$"
+    },
+    "beneficial_ownership_snapshot_ref": {
+      "type": "string",
+      "pattern": "^bo_snapshot_[A-Za-z0-9_-]+$"
+    },
+    "cdd_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "complete_standard",
+        "incomplete",
+        "reliance_pending",
+        "edd_required",
+        "blocked"
+      ]
+    },
+    "beneficial_ownership_status": {
+      "type": "string",
+      "enum": [
+        "not_applicable",
+        "complete",
+        "incomplete",
+        "complex_structure",
+        "unresolved",
+        "blocked"
+      ]
+    },
+    "aml_risk_rating": {
+      "type": "string",
+      "enum": [
+        "low",
+        "standard",
+        "high",
+        "edd_required",
+        "blocked",
+        "manual_review"
+      ]
+    },
+    "risk_factor_categories": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "enum": [
+          "high_risk_jurisdiction",
+          "complex_ownership",
+          "pep_or_sanctions_adjacent",
+          "source_of_funds_ambiguity",
+          "source_of_wealth_ambiguity",
+          "intermediary_reliance",
+          "anonymity",
+          "unusual_transaction",
+          "sector_risk_factor",
+          "none_identified"
+        ]
+      }
+    },
+    "edd_trigger_refs": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^edd_trigger_[A-Za-z0-9_-]+$"
+      }
+    },
+    "source_of_funds_summary_ref": {
+      "type": "string",
+      "pattern": "^source_funds_summary_[A-Za-z0-9_-]+$"
+    },
+    "source_of_wealth_summary_ref": {
+      "type": "string",
+      "pattern": "^source_wealth_summary_[A-Za-z0-9_-]+$"
+    },
+    "mlro_approval_ref": {
+      "type": "string",
+      "pattern": "^approval_[A-Za-z0-9_-]+$"
+    },
+    "assessment_summary_ref": {
+      "type": "string",
+      "pattern": "^aml_summary_[A-Za-z0-9_-]+$"
+    },
+    "policy_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "aml_policy_ref",
+        "firm_risk_assessment_ref",
+        "sector_risk_source_ref"
+      ],
+      "properties": {
+        "aml_policy_ref": {
+          "type": "string",
+          "pattern": "^policy_[A-Za-z0-9_-]+$"
+        },
+        "firm_risk_assessment_ref": {
+          "type": "string",
+          "pattern": "^policy_[A-Za-z0-9_-]+$"
+        },
+        "sector_risk_source_ref": {
+          "type": "string",
+          "pattern": "^policy_[A-Za-z0-9_-]+$"
+        }
+      }
+    },
+    "conduct_hook_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^conduct_[A-Za-z0-9_.:-]+$"
+      }
+    }
+  }
+}

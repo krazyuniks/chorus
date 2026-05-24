@@ -1,0 +1,13 @@
+{
+  "legal_intake_ref": "legal_intake_demo_002",
+  "engagement_decision_ref": "engagement_decision_demo_decline_001",
+  "decline_ref": "decline_demo_conflict_001",
+  "decline_reason_category": "client_conflict_blocked",
+  "conflict_determination_ref": "conflict_determination_demo_blocked_001",
+  "decline_summary_ref": "decline_summary_demo_001",
+  "routing_policy_ref": "policy_uc2_decline_to_act_v1",
+  "conduct_hook_refs": [
+    "conduct_sra_conflict_6_1_6_2",
+    "conduct_sra_accountability_7_1_7_2"
+  ]
+}

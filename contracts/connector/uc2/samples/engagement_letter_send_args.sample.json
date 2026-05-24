@@ -1,0 +1,19 @@
+{
+  "legal_intake_ref": "legal_intake_demo_001",
+  "engagement_letter_ref": "engagement_letter_demo_001",
+  "engagement_decision_ref": "engagement_decision_demo_accept_001",
+  "approval_package_ref": "approval_engagement_letter_demo_001",
+  "send_instruction_ref": "send_instruction_demo_001",
+  "prospective_client_ref": "prospective_client_demo_001",
+  "matter_scope_ref": "mscope_demo_001",
+  "conflict_determination_ref": "conflict_determination_demo_001",
+  "aml_risk_assessment_ref": "aml_risk_demo_001_v1",
+  "cdd_record_ref": "cdd_record_demo_001",
+  "send_channel_category": "email",
+  "send_policy_ref": "policy_uc2_engagement_letter_send_v1",
+  "conduct_hook_refs": [
+    "conduct_sra_identify_client_8_1",
+    "conduct_mlr_cdd_reg_27_28",
+    "conduct_sra_accountability_7_1_7_2"
+  ]
+}

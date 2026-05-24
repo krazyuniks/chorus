@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc2/conflict_check_search_args.schema.json",
+  "title": "ConflictCheckSearchArgs",
+  "description": "Arguments accepted by the UC2 sandbox-conflict-check connector for an effect-free conflict and confidentiality search. The payload carries safe party refs, role categories, matter-scope refs, search categories, policy refs, and conduct-hook refs; raw current-client or former-client confidential detail remains inside the connector store.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "legal_intake_ref",
+    "party_graph_ref",
+    "matter_scope_ref",
+    "prospective_client_ref",
+    "party_search_terms",
+    "conflict_search_categories",
+    "conflict_policy_ref",
+    "conduct_hook_refs"
+  ],
+  "properties": {
+    "legal_intake_ref": {
+      "type": "string",
+      "pattern": "^legal_intake_[A-Za-z0-9_-]+$"
+    },
+    "party_graph_ref": {
+      "type": "string",
+      "pattern": "^pgraph_[A-Za-z0-9_-]+$"
+    },
+    "matter_scope_ref": {
+      "type": "string",
+      "pattern": "^mscope_[A-Za-z0-9_-]+$"
+    },
+    "prospective_client_ref": {
+      "type": "string",
+      "pattern": "^prospective_client_[A-Za-z0-9_-]+$"
+    },
+    "party_search_terms": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 30,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "party_ref",
+          "role",
+          "party_category"
+        ],
+        "properties": {
+          "party_ref": {
+            "type": "string",
+            "pattern": "^party_[A-Za-z0-9_-]+$"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "prospective_client",
+              "instructing_contact",
+              "beneficial_owner",
+              "controller",
+              "counterparty",
+              "adverse_party",
+              "affiliate",
+              "intermediary",
+              "unknown"
+            ]
+          },
+          "party_category": {
+            "type": "string",
+            "enum": [
+              "organisation",
+              "individual",
+              "partnership",
+              "fund",
+              "trust",
+              "unknown"
+            ]
+          },
+          "alias_bucket_ref": {
+            "type": "string",
+            "pattern": "^alias_bucket_[A-Za-z0-9_-]+$"
+          }
+        }
+      }
+    },
+    "conflict_search_categories": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "current_client",
+          "former_client",
+          "adverse_party",
+          "alias_or_former_name",
+          "related_entity",
+          "own_interest",
+          "confidential_information",
+          "unknown_high_risk_hit"
+        ]
+      }
+    },
+    "jurisdiction_categories": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "england_and_wales",
+          "scotland",
+          "northern_ireland",
+          "european_union",
+          "united_states",
+          "other"
+        ]
+      }
+    },
+    "conflict_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    },
+    "conduct_hook_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^conduct_[A-Za-z0-9_.:-]+$"
+      }
+    }
+  }
+}

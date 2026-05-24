@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc2/engagement_letter_draft_args.schema.json",
+  "title": "EngagementLetterDraftArgs",
+  "description": "Arguments accepted by the UC2 sandbox-engagement-letter-store connector when creating a draft engagement-letter record. The draft body stays inside the connector store; this contract carries refs, bounded category fields, scope-summary refs, and policy refs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "legal_intake_ref",
+    "engagement_letter_ref",
+    "engagement_decision_ref",
+    "prospective_client_ref",
+    "matter_scope_ref",
+    "scope_summary_ref",
+    "draft_basis_categories",
+    "draft_policy_ref",
+    "conduct_hook_refs"
+  ],
+  "properties": {
+    "legal_intake_ref": {
+      "type": "string",
+      "pattern": "^legal_intake_[A-Za-z0-9_-]+$"
+    },
+    "engagement_letter_ref": {
+      "type": "string",
+      "pattern": "^engagement_letter_[A-Za-z0-9_-]+$"
+    },
+    "engagement_decision_ref": {
+      "type": "string",
+      "pattern": "^engagement_decision_[A-Za-z0-9_-]+$"
+    },
+    "prospective_client_ref": {
+      "type": "string",
+      "pattern": "^prospective_client_[A-Za-z0-9_-]+$"
+    },
+    "matter_scope_ref": {
+      "type": "string",
+      "pattern": "^mscope_[A-Za-z0-9_-]+$"
+    },
+    "scope_summary_ref": {
+      "type": "string",
+      "pattern": "^scope_summary_[A-Za-z0-9_-]+$"
+    },
+    "conflict_determination_ref": {
+      "type": "string",
+      "pattern": "^conflict_determination_[A-Za-z0-9_-]+$"
+    },
+    "aml_risk_assessment_ref": {
+      "type": "string",
+      "pattern": "^aml_risk_[A-Za-z0-9_-]+$"
+    },
+    "template_ref": {
+      "type": "string",
+      "pattern": "^template_[A-Za-z0-9_-]+$"
+    },
+    "draft_basis_categories": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "standard_terms",
+          "scope_exclusions",
+          "conflict_exception_terms",
+          "edd_conditions",
+          "intermediary_referral_terms"
+        ]
+      }
+    },
+    "draft_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    },
+    "conduct_hook_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^conduct_[A-Za-z0-9_.:-]+$"
+      }
+    }
+  }
+}

@@ -191,7 +191,7 @@ channel runnable status are separate claims.
 
 ### P4 - UC2 Legal Services Intake And Conflict Check
 
-- [ ] Add UC2 intake and connector contracts under the named ports.
+- [x] Add UC2 intake and connector contracts under the named ports.
 - [ ] Add UC2 workflow definition on the shared spine.
 - [ ] Add sandbox conflict-check, KYC/beneficial-ownership, AML record-store,
   and engagement-letter-store connectors.
@@ -1311,6 +1311,48 @@ channel runnable status are separate claims.
   credential failure; live provider gates remain out of scope until UC2/UC3
   runtime breadth and credentials are aligned.
 
+### 2026-05-24 - UC2 Intake And Connector Contracts
+
+- Scope: first P4 UC2 slice for named-port JSON Schema contracts, safe
+  samples, generated Pydantic models, focused contract tests, and contract
+  evidence docs only.
+- Behaviour changed:
+  - added `contracts/intake/uc2/` schemas and samples for email legal intake,
+    corporate intake form, and intermediary referral intake;
+  - added `contracts/connector/uc2/` argument schemas and samples for
+    conflict check, KYC / beneficial ownership lookup, AML risk assessment
+    recording, engagement-letter draft, engagement-letter send, decline, and
+    manual-review handoff;
+  - widened the ToolCall contract enum to include the declared UC2 connector
+    tool names: `conflict_check.search`, `kyc_bo.lookup`,
+    `aml_record_store.record_assessment`, `engagement_letter.draft`,
+    `engagement_letter.send`, `engagement_letter.record_decline`, and
+    `engagement_letter.route_manual_review`;
+  - all UC2 payloads carry safe refs, bounded categories, statuses, policy
+    refs, conduct-hook refs, source-payload refs, and digest metadata; raw
+    matter narratives, identity evidence, engagement-letter text, credentials,
+    private records, and production customer data stay outside these
+    cross-port contracts;
+  - no UC2 workflow runtime, connector adapter implementation, DB migration,
+    BFF/UI surface, eval fixture, live provider route, or connector side
+    effect was added.
+- Files changed: UC2 intake and connector contract schemas / samples,
+  generated contract models, `contracts/connector/tool_call.schema.json`,
+  focused contract tests, `contracts/README.md`, `docs/evidence-map.md`, and
+  this backlog handoff.
+- Gates run:
+  - `just contracts-gen` - green; generated UC2 intake / connector models and
+    the widened ToolCall model.
+  - `just contracts-check` - green for 35 schemas, samples, and generated
+    model drift checks.
+  - `uv run pytest tests/test_contracts.py -q` - green, 5 passed.
+  - `just lint` - green after formatting `tests/test_contracts.py`.
+  - `git diff --check` - green.
+- Skipped gates: live `just db-migrate`, DB-backed tests, full `just test`,
+  replay, eval, frontend, e2e, live-stack, and live-provider gates were not
+  run because this slice changed contracts, generated models, focused tests,
+  and docs only.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -1358,22 +1400,22 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: start P4 - UC2 Legal Services Intake And Conflict Check by adding UC2 intake and connector contracts under the named ports only. Keep the slice focused on JSON Schema contracts, representative safe samples, generated Pydantic models, and focused contract tests/docs. Do not add UC2 workflow runtime, connector adapter implementations, DB migrations, BFF/UI surfaces, eval fixtures, live provider routes, or connector side effects in this slice.
+Current target slice: continue P4 - UC2 Legal Services Intake And Conflict Check by adding the UC2 workflow definition on the shared `WorkflowSpine`. Keep the slice focused on workflow definition structure, deterministic workflow-step composition, focused workflow tests, and matching docs. Do not add UC2 connector adapter implementations, DB migrations, BFF/UI surfaces, eval fixtures, live provider routes, live connector side effects, or production legal / AML data handling in this slice.
 
-Previous slice completed: P3 Provider And Replay Hardening's tiered comparator is complete through metrics-only semantics. `chorus/eval/replay_comparator.py` and `chorus/eval/replay.py` now emit `tiered_replay_comparator` replay-run records as comparator version `v0.4-metrics-only`. Metrics-only runs after hard-fail, decision-fail, and review-finding checks, and records token, latency, retry-count, provider-cost, and safe provider-metadata deltas using reason codes and field names only. Hard-fail, decision-fail, and review-finding precedence was preserved. No live provider was called, no live route was activated, no connector side effect was added, UC1 connector behaviour was left unchanged, and P3 is now checked.
+Previous slice completed: P4's first contract slice is complete. UC2 now has intake schemas / samples under `contracts/intake/uc2/` for email legal intake, corporate intake form, and intermediary referral, plus connector argument schemas / samples under `contracts/connector/uc2/` for conflict check, KYC / beneficial ownership lookup, AML risk assessment recording, engagement-letter draft, engagement-letter send, decline, and manual-review handoff. `contracts/connector/tool_call.schema.json` now admits the UC2 tool names, generated Pydantic models are committed, and `tests/test_contracts.py` validates the new samples and tool names. No UC2 workflow runtime, connector adapter implementation, DB migration, BFF/UI surface, eval fixture, live provider route, or connector side effect was added.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/README.md, contracts/intake/, contracts/connector/, contracts/audit/, contracts/projection/, contracts/eval/eval_fixture.schema.json, and the current P4 backlog items. Use official SRA/GOV.UK sources only if UC2 regulatory wording needs fresh verification; otherwise rely on the already verified UC2 product/domain docs.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/README.md, contracts/intake/uc2/, contracts/connector/uc2/, contracts/projection/workflow_event.schema.json, chorus/workflows/spine.py, chorus/workflows/uc1.py, chorus/workflows/activities.py, tests/workflows/, and the current P4 backlog items. Use official SRA/GOV.UK sources only if UC2 regulatory wording needs fresh verification; otherwise rely on the already verified UC2 product/domain docs.
 
-Before editing, inspect the existing contract patterns and tests: `contracts/intake/uc1/`, `contracts/connector/uc1/`, `contracts/connector/gateway_verdict.schema.json`, `contracts/connector/tool_call.schema.json`, `contracts/connector/samples/`, `chorus/contracts/gen.py`, `chorus/contracts/check.py`, `tests/test_contracts.py`, `docs/product-brief-uc2.md`, `docs/domain-model-uc2.md`, and any existing docs that enumerate the UC2 connector set. Search for `uc2`, `legal_services`, `conflict`, `conflict_check`, `kyc`, `beneficial_ownership`, `aml`, `engagement_letter`, `client_matter`, `matter_ref`, `subject_ref`, `approval`, `connector`, `tool_name`, `tool_call`, `gateway_verdict`, `intake`, `channel`, and `schema`.
+Before editing, inspect the existing workflow patterns and tests: `chorus/workflows/spine.py`, `chorus/workflows/uc1.py`, `chorus/workflows/activities.py`, `chorus/workflows/dtos.py`, `tests/workflows/test_uc1_workflow.py`, `tests/workflows/test_activities.py`, and any package `AGENTS.md` files under `chorus/workflows/`. Search for `uc2`, `legal_services`, `WorkflowDefinition`, `WorkflowStepDefinition`, `workflow_type`, `subject_ref`, `subject_summary`, `connector_call`, `agent_task`, `approval`, `conflict_check`, `kyc_bo`, `aml_record_store`, and `engagement_letter`.
 
-Expected direction: add UC2 contract surfaces for the declared local intake and connector boundaries, following existing naming/generation/sample conventions. The UC2 connector contract set should align with the modelled sandbox adapters from the docs: conflict check, KYC / beneficial ownership, AML record store, and engagement letter store. Keep fields safe and bounded: use refs, categories, statuses, policy refs, conduct-hook refs, and redaction-friendly summaries instead of raw client matter narratives, credentials, private records, or production customer data. Update representative samples and generated models, and extend focused contract tests so the new schemas are generated, sampled, and validated.
+Expected direction: add a UC2 workflow definition beside UC1 that uses the shared `WorkflowSpine` primitives and deterministic step definitions for intake, matter classification, party extraction, conflict check, KYC / beneficial ownership, AML assessment, engagement decision, approval-required branches, engagement-letter routing, decline, manual review, and close. Use the new UC2 contract names and safe subject refs where helpful, but keep connector calls behind the existing Tool Gateway request shape and do not implement the connector adapters yet. The workflow should be structurally testable without live providers, DB-backed connectors, or side effects.
 
-Keep this slice contract-first and narrow. If the UC2 docs do not define enough information to design a safe contract field or connector argument without inventing runtime policy, stop and surface the design question rather than widening into implementation.
+Keep this slice workflow-definition-first and narrow. If the existing spine cannot express the UC2 lifecycle without inventing a new workflow DSL, mutating shared runtime semantics, or implementing connector adapters early, stop and surface the design question rather than widening the slice.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
 - Rewrite the body of the `## Next Continuation Prompt` section in the backlog with the next slice's prompt, in Strategy order. If R4 is fully closed, write the literal `R4-COMPLETE` there instead.
-- Run relevant focused gates for the files touched, likely including `just contracts-gen`, `just contracts-check`, focused `tests/test_contracts.py`, `just lint`, and `git diff --check`. If DB-backed or live-stack gates cannot run because local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
+- Run relevant focused gates for the files touched, likely including focused workflow tests, `just test-replay` if workflow determinism/replay surfaces change, `just contracts-check` if contract refs are touched, `just lint`, and `git diff --check`. If DB-backed or live-stack gates cannot run because local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
 - Stage everything and create one Conventional Commit (`type(scope): description`). Do not add `Co-Authored-By` or any AI attribution.
 - Leave the working tree clean.
 

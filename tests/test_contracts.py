@@ -20,6 +20,7 @@ from chorus.contracts.generated.connector.calendar_hold_proposal_args import (
     CalendarHoldProposalArgs,
 )
 from chorus.contracts.generated.connector.gateway_verdict import GatewayVerdict
+from chorus.contracts.generated.connector.tool_call import ToolCall
 from chorus.contracts.generated.connector.uc1.customer_profile_lookup_args import (
     CustomerProfileLookupArgs,
 )
@@ -38,6 +39,27 @@ from chorus.contracts.generated.connector.uc1.quoting_queue_route_args import (
 from chorus.contracts.generated.connector.uc1.referral_inbox_route_args import (
     ReferralInboxRouteArgs,
 )
+from chorus.contracts.generated.connector.uc2.aml_risk_assessment_record_args import (
+    AmlRiskAssessmentRecordArgs,
+)
+from chorus.contracts.generated.connector.uc2.conflict_check_search_args import (
+    ConflictCheckSearchArgs,
+)
+from chorus.contracts.generated.connector.uc2.engagement_letter_decline_args import (
+    EngagementLetterDeclineArgs,
+)
+from chorus.contracts.generated.connector.uc2.engagement_letter_draft_args import (
+    EngagementLetterDraftArgs,
+)
+from chorus.contracts.generated.connector.uc2.engagement_letter_manual_review_args import (
+    EngagementLetterManualReviewArgs,
+)
+from chorus.contracts.generated.connector.uc2.engagement_letter_send_args import (
+    EngagementLetterSendArgs,
+)
+from chorus.contracts.generated.connector.uc2.kyc_beneficial_ownership_lookup_args import (
+    KycBeneficialOwnershipLookupArgs,
+)
 from chorus.contracts.generated.eval.replay_run_record import ReplayRunRecord
 from chorus.contracts.generated.intake.uc1.email_channel_enquiry import EmailChannelEnquiry
 from chorus.contracts.generated.intake.uc1.partner_portal_channel_enquiry import (
@@ -45,6 +67,11 @@ from chorus.contracts.generated.intake.uc1.partner_portal_channel_enquiry import
 )
 from chorus.contracts.generated.intake.uc1.web_form_channel_enquiry import (
     WebFormChannelEnquiry,
+)
+from chorus.contracts.generated.intake.uc2.corporate_intake_form import CorporateIntakeForm
+from chorus.contracts.generated.intake.uc2.email_legal_intake import EmailLegalIntake
+from chorus.contracts.generated.intake.uc2.intermediary_referral_intake import (
+    IntermediaryReferralIntake,
 )
 from chorus.contracts.generated.llm_provider.model_route_version import ModelRouteVersion
 from chorus.contracts.generated.llm_provider.provider_catalogue import ProviderCatalogue
@@ -61,7 +88,7 @@ def test_contract_gate_passes() -> None:
 def test_contract_schemas_have_samples_and_generated_models() -> None:
     schemas = schema_files()
 
-    assert len(schemas) == 25
+    assert len(schemas) == 35
     for schema in schemas:
         name = schema.name.removesuffix(".schema.json")
         assert (schema.parent / "samples" / f"{name}.sample.json").exists()
@@ -148,6 +175,36 @@ def test_generated_models_validate_representative_samples() -> None:
     decline_ledger_sample = _sample(
         "contracts/connector/uc1/samples/decline_ledger_route_args.sample.json"
     )
+    email_legal_intake_sample = _sample(
+        "contracts/intake/uc2/samples/email_legal_intake.sample.json"
+    )
+    corporate_intake_form_sample = _sample(
+        "contracts/intake/uc2/samples/corporate_intake_form.sample.json"
+    )
+    intermediary_referral_sample = _sample(
+        "contracts/intake/uc2/samples/intermediary_referral_intake.sample.json"
+    )
+    conflict_check_sample = _sample(
+        "contracts/connector/uc2/samples/conflict_check_search_args.sample.json"
+    )
+    kyc_bo_sample = _sample(
+        "contracts/connector/uc2/samples/kyc_beneficial_ownership_lookup_args.sample.json"
+    )
+    aml_record_sample = _sample(
+        "contracts/connector/uc2/samples/aml_risk_assessment_record_args.sample.json"
+    )
+    engagement_draft_sample = _sample(
+        "contracts/connector/uc2/samples/engagement_letter_draft_args.sample.json"
+    )
+    engagement_send_sample = _sample(
+        "contracts/connector/uc2/samples/engagement_letter_send_args.sample.json"
+    )
+    engagement_decline_sample = _sample(
+        "contracts/connector/uc2/samples/engagement_letter_decline_args.sample.json"
+    )
+    engagement_manual_review_sample = _sample(
+        "contracts/connector/uc2/samples/engagement_letter_manual_review_args.sample.json"
+    )
 
     email_intake = EmailChannelEnquiry.model_validate(email_intake_sample)
     assert email_intake.channel == "email"
@@ -222,3 +279,78 @@ def test_generated_models_validate_representative_samples() -> None:
         DeclineLedgerRouteArgs.model_validate(decline_ledger_sample).decline_reason_category.value
         == "outside_product_target_market"
     )
+
+    email_legal_intake = EmailLegalIntake.model_validate(email_legal_intake_sample)
+    corporate_intake_form = CorporateIntakeForm.model_validate(corporate_intake_form_sample)
+    intermediary_referral = IntermediaryReferralIntake.model_validate(intermediary_referral_sample)
+    assert email_legal_intake.source_payload_ref == "source_payload_legal_email_001"
+    assert corporate_intake_form.channel == "corporate-intake-form"
+    assert intermediary_referral.referrer_ref == "intermediary_accountancy_demo"
+
+    assert (
+        ConflictCheckSearchArgs.model_validate(conflict_check_sample)
+        .conflict_search_categories[0]
+        .value
+        == "current_client"
+    )
+    assert (
+        KycBeneficialOwnershipLookupArgs.model_validate(kyc_bo_sample).entity_category.value
+        == "company"
+    )
+    assert (
+        AmlRiskAssessmentRecordArgs.model_validate(aml_record_sample).aml_risk_rating.value
+        == "standard"
+    )
+    assert (
+        EngagementLetterDraftArgs.model_validate(engagement_draft_sample)
+        .draft_basis_categories[0]
+        .value
+        == "standard_terms"
+    )
+    assert (
+        EngagementLetterSendArgs.model_validate(engagement_send_sample).send_channel_category.value
+        == "email"
+    )
+    assert (
+        EngagementLetterDeclineArgs.model_validate(
+            engagement_decline_sample
+        ).decline_reason_category.value
+        == "client_conflict_blocked"
+    )
+    assert (
+        EngagementLetterManualReviewArgs.model_validate(
+            engagement_manual_review_sample
+        ).review_destination_category.value
+        == "mlro"
+    )
+
+
+def test_tool_call_contract_accepts_uc2_tool_names() -> None:
+    tool_modes = {
+        "conflict_check.search": "read",
+        "kyc_bo.lookup": "read",
+        "aml_record_store.record_assessment": "write",
+        "engagement_letter.draft": "propose",
+        "engagement_letter.send": "write",
+        "engagement_letter.record_decline": "write",
+        "engagement_letter.route_manual_review": "write",
+    }
+
+    for tool_name, mode in tool_modes.items():
+        tool_call = ToolCall.model_validate(
+            {
+                "schema_version": "1.0.0",
+                "tool_call_id": str(uuid4()),
+                "invocation_id": str(uuid4()),
+                "tenant_id": "tenant_demo",
+                "correlation_id": "cor_legal_contract_test",
+                "agent_id": "uc2.intake_conflict",
+                "tool_name": tool_name,
+                "mode": mode,
+                "idempotency_key": f"tenant_demo:legal_intake_demo_001:{tool_name}",
+                "arguments": {"legal_intake_ref": "legal_intake_demo_001"},
+                "requested_at": "2026-05-01T12:00:00Z",
+            }
+        )
+
+        assert tool_call.tool_name.value == tool_name

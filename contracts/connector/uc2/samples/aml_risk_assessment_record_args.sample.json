@@ -1,0 +1,23 @@
+{
+  "legal_intake_ref": "legal_intake_demo_001",
+  "aml_risk_assessment_ref": "aml_risk_demo_001_v1",
+  "prospective_client_ref": "prospective_client_demo_001",
+  "cdd_record_ref": "cdd_record_demo_001",
+  "beneficial_ownership_snapshot_ref": "bo_snapshot_demo_001",
+  "cdd_status": "complete_standard",
+  "beneficial_ownership_status": "complete",
+  "aml_risk_rating": "standard",
+  "risk_factor_categories": [
+    "none_identified"
+  ],
+  "assessment_summary_ref": "aml_summary_demo_001",
+  "policy_refs": {
+    "aml_policy_ref": "policy_uc2_aml_controls_v1",
+    "firm_risk_assessment_ref": "policy_uc2_firm_risk_assessment_v1",
+    "sector_risk_source_ref": "policy_uc2_sra_sector_risk_2025"
+  },
+  "conduct_hook_refs": [
+    "conduct_mlr_risk_assessment_reg_18_19",
+    "conduct_mlr_record_keeping_reg_40"
+  ]
+}

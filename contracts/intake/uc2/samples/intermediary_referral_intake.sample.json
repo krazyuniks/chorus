@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0.0",
+  "legal_intake_id": "8b835435-8efb-4ef7-9bc5-1b42ccb314cb",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_legal_referral_001",
+  "channel": "intermediary-referral-channel",
+  "adapter_id": "intermediary-referral-channel",
+  "referral_id": "referral_accountant_001",
+  "received_at": "2026-05-01T11:00:00Z",
+  "source_payload_ref": "source_payload_legal_referral_001",
+  "referrer_ref": "intermediary_accountancy_demo",
+  "referrer_contact_ref": "contact_referrer_001",
+  "referral_summary": "Synthetic intermediary referral for a shareholder matter; raw bundle content remains behind the intake adapter.",
+  "proposed_scope_summary": "Initial shareholder-agreement review and conflict-screen request.",
+  "known_party_refs": [
+    "party_prospective_client_002",
+    "party_counterparty_002"
+  ],
+  "draft_engagement_letter_ref": "attachment_draft_engagement_001",
+  "attachments_summary": [
+    {
+      "attachment_ref": "attachment_draft_engagement_001",
+      "document_category": "draft_engagement_letter",
+      "content_type": "application/pdf",
+      "size_bytes": 43218,
+      "sha256": "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+    }
+  ]
+}

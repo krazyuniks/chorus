@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/intake/uc2/intermediary_referral_intake.schema.json",
+  "x-subject": "chorus.uc2.intermediary-referral-intake.v1-value",
+  "title": "IntermediaryReferralIntake",
+  "description": "Inbound UC2 legal-services intake payload produced by the `intermediary-referral-channel` adapter. Referral bundles, raw narrative, and draft documents stay in intake storage; this payload carries only safe refs, bounded summaries, and provenance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "legal_intake_id",
+    "tenant_id",
+    "correlation_id",
+    "channel",
+    "adapter_id",
+    "referral_id",
+    "received_at",
+    "source_payload_ref",
+    "referrer_ref",
+    "referrer_contact_ref",
+    "referral_summary",
+    "known_party_refs",
+    "attachments_summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "legal_intake_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^cor_[A-Za-z0-9_-]+$"
+    },
+    "channel": {
+      "type": "string",
+      "const": "intermediary-referral-channel"
+    },
+    "adapter_id": {
+      "type": "string",
+      "const": "intermediary-referral-channel"
+    },
+    "referral_id": {
+      "type": "string",
+      "pattern": "^referral_[A-Za-z0-9_-]+$",
+      "description": "Intermediary referral identifier; channel idempotency key."
+    },
+    "received_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_payload_ref": {
+      "type": "string",
+      "pattern": "^source_payload_[A-Za-z0-9_-]+$"
+    },
+    "referrer_ref": {
+      "type": "string",
+      "pattern": "^intermediary_[A-Za-z0-9_-]+$"
+    },
+    "referrer_contact_ref": {
+      "type": "string",
+      "pattern": "^contact_[A-Za-z0-9_-]+$"
+    },
+    "referral_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "proposed_scope_summary": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "known_party_refs": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "type": "string",
+        "pattern": "^party_[A-Za-z0-9_-]+$"
+      }
+    },
+    "draft_engagement_letter_ref": {
+      "type": "string",
+      "pattern": "^attachment_[A-Za-z0-9_-]+$"
+    },
+    "attachments_summary": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attachment_ref",
+          "document_category",
+          "content_type",
+          "size_bytes",
+          "sha256"
+        ],
+        "properties": {
+          "attachment_ref": {
+            "type": "string",
+            "pattern": "^attachment_[A-Za-z0-9_-]+$"
+          },
+          "document_category": {
+            "type": "string",
+            "enum": [
+              "heads_of_terms",
+              "draft_contract",
+              "company_structure",
+              "identity_evidence",
+              "draft_engagement_letter",
+              "other"
+            ]
+          },
+          "content_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

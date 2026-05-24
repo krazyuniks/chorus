@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/intake/uc2/corporate_intake_form.schema.json",
+  "x-subject": "chorus.uc2.corporate-intake-form.v1-value",
+  "title": "CorporateIntakeForm",
+  "description": "Inbound UC2 legal-services intake payload produced by the `corporate-intake-form` adapter. The original form payload stays behind the intake adapter; this contract carries safe refs, bounded scope fields, provenance, consent flags, and attachment digests.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "legal_intake_id",
+    "tenant_id",
+    "correlation_id",
+    "channel",
+    "adapter_id",
+    "form_submission_id",
+    "submitted_at",
+    "form_version",
+    "source_payload_ref",
+    "prospective_client_ref",
+    "instructing_contact_ref",
+    "matter_type_hint",
+    "matter_scope_summary",
+    "known_party_refs",
+    "jurisdiction_categories",
+    "urgency",
+    "consent_flags",
+    "attachments_summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "legal_intake_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^cor_[A-Za-z0-9_-]+$"
+    },
+    "channel": {
+      "type": "string",
+      "const": "corporate-intake-form"
+    },
+    "adapter_id": {
+      "type": "string",
+      "const": "corporate-intake-form"
+    },
+    "form_submission_id": {
+      "type": "string",
+      "pattern": "^legal_form_[A-Za-z0-9_-]+$",
+      "description": "Adapter-minted submission identifier; channel idempotency key."
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "form_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_payload_ref": {
+      "type": "string",
+      "pattern": "^source_payload_[A-Za-z0-9_-]+$"
+    },
+    "prospective_client_ref": {
+      "type": "string",
+      "pattern": "^prospective_client_[A-Za-z0-9_-]+$"
+    },
+    "instructing_contact_ref": {
+      "type": "string",
+      "pattern": "^contact_[A-Za-z0-9_-]+$"
+    },
+    "matter_type_hint": {
+      "type": "string",
+      "enum": [
+        "commercial_contract",
+        "transaction_support",
+        "shareholder_or_partnership",
+        "corporate_governance",
+        "commercial_dispute",
+        "other_corporate_commercial"
+      ]
+    },
+    "matter_scope_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "known_party_refs": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "type": "string",
+        "pattern": "^party_[A-Za-z0-9_-]+$"
+      }
+    },
+    "jurisdiction_categories": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "england_and_wales",
+          "scotland",
+          "northern_ireland",
+          "european_union",
+          "united_states",
+          "other"
+        ]
+      }
+    },
+    "estimated_value_band": {
+      "type": "string",
+      "enum": [
+        "under_50k",
+        "50k_250k",
+        "250k_1m",
+        "1m_10m",
+        "over_10m",
+        "not_disclosed"
+      ]
+    },
+    "urgency": {
+      "type": "string",
+      "enum": [
+        "standard",
+        "time_sensitive",
+        "urgent",
+        "not_disclosed"
+      ]
+    },
+    "consent_flags": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contact_authority_confirmed",
+        "conflict_check_notice_acknowledged",
+        "aml_processing_notice_acknowledged"
+      ],
+      "properties": {
+        "contact_authority_confirmed": {
+          "type": "boolean"
+        },
+        "conflict_check_notice_acknowledged": {
+          "type": "boolean"
+        },
+        "aml_processing_notice_acknowledged": {
+          "type": "boolean"
+        }
+      }
+    },
+    "attachments_summary": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attachment_ref",
+          "document_category",
+          "content_type",
+          "size_bytes",
+          "sha256"
+        ],
+        "properties": {
+          "attachment_ref": {
+            "type": "string",
+            "pattern": "^attachment_[A-Za-z0-9_-]+$"
+          },
+          "document_category": {
+            "type": "string",
+            "enum": [
+              "heads_of_terms",
+              "draft_contract",
+              "company_structure",
+              "identity_evidence",
+              "other"
+            ]
+          },
+          "content_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

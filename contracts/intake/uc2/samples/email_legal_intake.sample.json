@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0.0",
+  "legal_intake_id": "9f7678b4-bad7-4ec3-8a67-86b5a0bb12d7",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_legal_email_001",
+  "channel": "email",
+  "adapter_id": "email-channel",
+  "message_id": "<legal-intake-001@example.test>",
+  "received_at": "2026-05-01T09:30:00Z",
+  "source_payload_ref": "source_payload_legal_email_001",
+  "mailbox_ref": "mailbox_corporate_commercial_intake",
+  "sender_contact_ref": "contact_instructing_001",
+  "subject_summary": "Commercial contract review enquiry",
+  "matter_scope_summary": "Synthetic supplier-framework review with one corporate counterparty and no raw matter narrative in the port payload.",
+  "party_role_hints": [
+    {
+      "party_ref": "party_prospective_client_001",
+      "role": "prospective_client",
+      "party_category": "organisation"
+    },
+    {
+      "party_ref": "party_counterparty_001",
+      "role": "counterparty",
+      "party_category": "organisation"
+    }
+  ],
+  "attachments_summary": [
+    {
+      "attachment_ref": "attachment_heads_terms_001",
+      "document_category": "heads_of_terms",
+      "content_type": "application/pdf",
+      "size_bytes": 84231,
+      "sha256": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    }
+  ]
+}

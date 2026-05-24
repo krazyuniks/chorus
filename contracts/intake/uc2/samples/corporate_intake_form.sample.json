@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "legal_intake_id": "0a197582-4a5a-4db4-b3a3-5e938d626ca7",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_legal_form_001",
+  "channel": "corporate-intake-form",
+  "adapter_id": "corporate-intake-form",
+  "form_submission_id": "legal_form_commercial_contract_001",
+  "submitted_at": "2026-05-01T10:15:00Z",
+  "form_version": "corporate-commercial-intake-v1",
+  "source_payload_ref": "source_payload_legal_form_001",
+  "prospective_client_ref": "prospective_client_demo_001",
+  "instructing_contact_ref": "contact_instructing_002",
+  "matter_type_hint": "commercial_contract",
+  "matter_scope_summary": "Synthetic contract advisory intake with bounded scope and safe party refs.",
+  "known_party_refs": [
+    "party_prospective_client_001",
+    "party_counterparty_001",
+    "party_affiliate_001"
+  ],
+  "jurisdiction_categories": [
+    "england_and_wales"
+  ],
+  "estimated_value_band": "250k_1m",
+  "urgency": "time_sensitive",
+  "consent_flags": {
+    "contact_authority_confirmed": true,
+    "conflict_check_notice_acknowledged": true,
+    "aml_processing_notice_acknowledged": true
+  },
+  "attachments_summary": []
+}

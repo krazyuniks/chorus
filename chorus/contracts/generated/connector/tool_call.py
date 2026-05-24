@@ -19,6 +19,13 @@ class ToolName(StrEnum):
     OUTBOUND_COMMS_MESSAGE = "outbound_comms.message"
     CUSTOMER_PROFILE_LOOKUP = "customer_profile.lookup"
     PRODUCT_CATALOGUE_LOOKUP = "product_catalogue.lookup"
+    CONFLICT_CHECK_SEARCH = "conflict_check.search"
+    KYC_BO_LOOKUP = "kyc_bo.lookup"
+    AML_RECORD_STORE_RECORD_ASSESSMENT = "aml_record_store.record_assessment"
+    ENGAGEMENT_LETTER_DRAFT = "engagement_letter.draft"
+    ENGAGEMENT_LETTER_SEND = "engagement_letter.send"
+    ENGAGEMENT_LETTER_RECORD_DECLINE = "engagement_letter.record_decline"
+    ENGAGEMENT_LETTER_ROUTE_MANUAL_REVIEW = "engagement_letter.route_manual_review"
 
 
 class Mode(StrEnum):

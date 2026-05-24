@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc2/engagement_letter_manual_review_args.schema.json",
+  "title": "EngagementLetterManualReviewArgs",
+  "description": "Arguments accepted by the UC2 sandbox-engagement-letter-store connector when recording a manual-review handoff. The payload carries review destination and reason categories plus safe refs only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "legal_intake_ref",
+    "handoff_ref",
+    "review_reason_category",
+    "review_destination_category",
+    "routing_policy_ref",
+    "conduct_hook_refs"
+  ],
+  "properties": {
+    "legal_intake_ref": {
+      "type": "string",
+      "pattern": "^legal_intake_[A-Za-z0-9_-]+$"
+    },
+    "handoff_ref": {
+      "type": "string",
+      "pattern": "^manual_review_[A-Za-z0-9_-]+$"
+    },
+    "engagement_decision_ref": {
+      "type": "string",
+      "pattern": "^engagement_decision_[A-Za-z0-9_-]+$"
+    },
+    "review_reason_category": {
+      "type": "string",
+      "enum": [
+        "unclear_prospective_client",
+        "authority_uncertain",
+        "party_graph_ambiguous",
+        "unknown_conflict_hit",
+        "confidentiality_safeguard_missing",
+        "beneficial_owner_gap",
+        "edd_review_required",
+        "engagement_redraft_requested",
+        "technical_exception"
+      ]
+    },
+    "review_destination_category": {
+      "type": "string",
+      "enum": [
+        "matter_owner",
+        "partner",
+        "mlro",
+        "colp",
+        "compliance_queue"
+      ]
+    },
+    "safe_summary_ref": {
+      "type": "string",
+      "pattern": "^review_summary_[A-Za-z0-9_-]+$"
+    },
+    "routing_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    },
+    "conduct_hook_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^conduct_[A-Za-z0-9_.:-]+$"
+      }
+    }
+  }
+}

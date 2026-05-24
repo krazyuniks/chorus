@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/intake/uc2/email_legal_intake.schema.json",
+  "x-subject": "chorus.uc2.email-legal-intake.v1-value",
+  "title": "EmailLegalIntake",
+  "description": "Inbound UC2 legal-services intake payload produced by the `email-channel` adapter. Raw message bodies, headers, and attachments stay inside the intake adapter store; this contract carries channel provenance, safe refs, bounded summaries, and digest metadata before any UC2 workflow accepts the intake.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "legal_intake_id",
+    "tenant_id",
+    "correlation_id",
+    "channel",
+    "adapter_id",
+    "message_id",
+    "received_at",
+    "source_payload_ref",
+    "mailbox_ref",
+    "sender_contact_ref",
+    "subject_summary",
+    "matter_scope_summary",
+    "party_role_hints",
+    "attachments_summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "legal_intake_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^cor_[A-Za-z0-9_-]+$"
+    },
+    "channel": {
+      "type": "string",
+      "const": "email"
+    },
+    "adapter_id": {
+      "type": "string",
+      "const": "email-channel"
+    },
+    "message_id": {
+      "type": "string",
+      "minLength": 3,
+      "description": "Email Message-ID header value; channel idempotency key."
+    },
+    "received_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_payload_ref": {
+      "type": "string",
+      "pattern": "^source_payload_[A-Za-z0-9_-]+$",
+      "description": "Opaque ref to the raw email payload held by the intake adapter."
+    },
+    "mailbox_ref": {
+      "type": "string",
+      "pattern": "^mailbox_[A-Za-z0-9_-]+$"
+    },
+    "sender_contact_ref": {
+      "type": "string",
+      "pattern": "^contact_[A-Za-z0-9_-]+$"
+    },
+    "subject_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 280,
+      "description": "Redaction-friendly subject summary, not the raw email subject."
+    },
+    "matter_scope_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "description": "Bounded safe summary of the proposed legal-service scope."
+    },
+    "party_role_hints": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "party_ref",
+          "role",
+          "party_category"
+        ],
+        "properties": {
+          "party_ref": {
+            "type": "string",
+            "pattern": "^party_[A-Za-z0-9_-]+$"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "prospective_client",
+              "instructing_contact",
+              "counterparty",
+              "adverse_party",
+              "affiliate",
+              "intermediary",
+              "unknown"
+            ]
+          },
+          "party_category": {
+            "type": "string",
+            "enum": [
+              "organisation",
+              "individual",
+              "partnership",
+              "fund",
+              "trust",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    "attachments_summary": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attachment_ref",
+          "document_category",
+          "content_type",
+          "size_bytes",
+          "sha256"
+        ],
+        "properties": {
+          "attachment_ref": {
+            "type": "string",
+            "pattern": "^attachment_[A-Za-z0-9_-]+$"
+          },
+          "document_category": {
+            "type": "string",
+            "enum": [
+              "heads_of_terms",
+              "draft_contract",
+              "company_structure",
+              "identity_evidence",
+              "other"
+            ]
+          },
+          "content_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

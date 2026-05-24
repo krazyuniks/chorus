@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chorus.local/contracts/connector/uc2/kyc_beneficial_ownership_lookup_args.schema.json",
+  "title": "KycBeneficialOwnershipLookupArgs",
+  "description": "Arguments accepted by the UC2 sandbox-kyc-bo connector. Reads synthetic CDD, corporate identity, beneficial-ownership, controller, and reliance refs for a legal intake without carrying raw identity evidence across the connector port.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "legal_intake_ref",
+    "party_graph_ref",
+    "prospective_client_ref",
+    "entity_category",
+    "jurisdiction_categories",
+    "requested_evidence_categories",
+    "lookup_policy_ref",
+    "conduct_hook_refs"
+  ],
+  "properties": {
+    "legal_intake_ref": {
+      "type": "string",
+      "pattern": "^legal_intake_[A-Za-z0-9_-]+$"
+    },
+    "party_graph_ref": {
+      "type": "string",
+      "pattern": "^pgraph_[A-Za-z0-9_-]+$"
+    },
+    "prospective_client_ref": {
+      "type": "string",
+      "pattern": "^prospective_client_[A-Za-z0-9_-]+$"
+    },
+    "entity_category": {
+      "type": "string",
+      "enum": [
+        "company",
+        "llp",
+        "partnership",
+        "fund",
+        "charity",
+        "overseas_entity",
+        "other_organisation"
+      ]
+    },
+    "jurisdiction_categories": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "england_and_wales",
+          "scotland",
+          "northern_ireland",
+          "european_union",
+          "united_states",
+          "high_risk_third_country",
+          "other"
+        ]
+      }
+    },
+    "beneficial_owner_refs": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "pattern": "^beneficial_owner_[A-Za-z0-9_-]+$"
+      }
+    },
+    "controller_refs": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "pattern": "^controller_[A-Za-z0-9_-]+$"
+      }
+    },
+    "requested_evidence_categories": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "corporate_identity",
+          "beneficial_ownership",
+          "controller_identity",
+          "authority_to_instruct",
+          "reliance_basis",
+          "source_of_funds_summary",
+          "source_of_wealth_summary"
+        ]
+      }
+    },
+    "reliance_ref": {
+      "type": "string",
+      "pattern": "^reliance_[A-Za-z0-9_-]+$"
+    },
+    "lookup_policy_ref": {
+      "type": "string",
+      "pattern": "^policy_[A-Za-z0-9_-]+$"
+    },
+    "conduct_hook_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^conduct_[A-Za-z0-9_.:-]+$"
+      }
+    }
+  }
+}

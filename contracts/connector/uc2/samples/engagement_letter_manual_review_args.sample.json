@@ -1,0 +1,13 @@
+{
+  "legal_intake_ref": "legal_intake_demo_003",
+  "handoff_ref": "manual_review_demo_bo_gap_001",
+  "engagement_decision_ref": "engagement_decision_demo_review_001",
+  "review_reason_category": "beneficial_owner_gap",
+  "review_destination_category": "mlro",
+  "safe_summary_ref": "review_summary_demo_001",
+  "routing_policy_ref": "policy_uc2_manual_review_v1",
+  "conduct_hook_refs": [
+    "conduct_mlr_cdd_reg_27_28",
+    "conduct_mlr_edd_reg_33"
+  ]
+}
