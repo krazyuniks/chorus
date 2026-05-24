@@ -29,6 +29,9 @@ from chorus.contracts.generated.connector.uc1.outbound_comms_message_args import
 from chorus.contracts.generated.connector.uc2.engagement_letter_send_args import (
     EngagementLetterSendArgs,
 )
+from chorus.contracts.generated.connector.uc3.suitability_report_issue_args import (
+    SuitabilityReportIssueArgs,
+)
 from chorus.persistence import apply_migrations
 from chorus.tool_gateway import ToolGateway, ToolGatewayStore
 from chorus.workflows.types import ToolGatewayRequest
@@ -143,6 +146,14 @@ def _uc2_engagement_letter_send_spec() -> ToolSpec:
         tool_name="engagement_letter.send",
         argument_contract=EngagementLetterSendArgs,
         return_contract_ref="contracts/connector/uc2/engagement_letter_send_args.schema.json",
+    )
+
+
+def _uc3_suitability_report_issue_spec() -> ToolSpec:
+    return ToolSpec(
+        tool_name="suitability_report.issue",
+        argument_contract=SuitabilityReportIssueArgs,
+        return_contract_ref="contracts/connector/uc3/suitability_report_issue_args.schema.json",
     )
 
 
@@ -365,6 +376,46 @@ def _build_uc3_attitude_to_risk_request(
         subject_id=str(uuid4()),
         subject_ref="advice_enquiry_gateway_001",
         subject_summary="UC3 attitude-to-risk connector request",
+    )
+
+
+def _uc3_suitability_report_issue_arguments() -> dict[str, object]:
+    return {
+        "advice_enquiry_ref": "advice_enquiry_gateway_001",
+        "suitability_report_ref": "suitability_report_gateway_001",
+        "suitability_conclusion_ref": "suitability_conclusion_gateway_001",
+        "approval_package_ref": "approval_suitability_report_gateway_001",
+        "adviser_approval_ref": "approval_adviser_gateway_001",
+        "issue_instruction_ref": "issue_instruction_gateway_001",
+        "prospective_retail_client_ref": "prospective_client_gateway_001",
+        "support_assessment_ref": "support_assessment_gateway_001_v1",
+        "consumer_understanding_check_ref": "consumer_understanding_gateway_001",
+        "issue_channel_category": "portal",
+        "issue_policy_ref": "policy_uc3_suitability_report_issue_v1",
+        "conduct_hook_refs": [
+            "conduct_fca_cobs_9_report",
+            "conduct_fca_prin_2a_consumer_understanding",
+            "conduct_fca_cobs_9_recordkeeping",
+        ],
+    }
+
+
+def _build_uc3_suitability_report_issue_request() -> ToolGatewayRequest:
+    workflow_id = f"uc3-ifa-suitability-issue-{uuid4().hex}"
+    return ToolGatewayRequest(
+        tenant_id="tenant_demo",
+        correlation_id=f"cor_{workflow_id.replace('-', '_')}",
+        workflow_id=workflow_id,
+        invocation_id=str(uuid4()),
+        agent_id="uc3.suitability_decider",
+        tool_name="suitability_report.issue",
+        mode="write",
+        idempotency_key=f"{workflow_id}:suitability_report.issue:write",
+        arguments=_uc3_suitability_report_issue_arguments(),
+        workflow_type="uc3_ifa_suitability_intake",
+        subject_id=str(uuid4()),
+        subject_ref="advice_enquiry_gateway_001",
+        subject_summary="UC3 suitability-report issue request",
     )
 
 
@@ -790,6 +841,65 @@ def test_uc2_engagement_letter_send_requires_approval_package_with_safe_refs() -
     assert adapter.calls[0]["mode"] == "write"
 
 
+def test_uc3_suitability_report_issue_requires_approval_package_with_safe_refs() -> None:
+    request = _build_uc3_suitability_report_issue_request()
+    adapter = _RecordingAdapter([_uc3_suitability_report_issue_spec()])
+    store = _InMemoryGatewayStore(
+        _ApprovalGrant(
+            agent_id="uc3.suitability_decider",
+            tool_name="suitability_report.issue",
+            mode="write",
+            approval_required=True,
+            redaction_policy={},
+        )
+    )
+    gateway = ToolGateway(cast(ToolGatewayStore, store), _build_registry(adapter))
+
+    requested = gateway.invoke(request)
+    package = store.approval_package
+    store.approve_package()
+    applied = gateway.apply_approved_write(
+        request,
+        approval_id=requested.output["approval_id"],
+    )
+
+    assert requested.verdict == "approval_required"
+    assert requested.output["requested_action"] == "suitability_report.issue.write"
+    assert package is not None
+    assert package.workflow_type == "uc3_ifa_suitability_intake"
+    assert package.requested_action == "suitability_report.issue.write"
+    assert package.policy_version_refs["approval_policy_ref"] == (
+        "approval_policy.suitability_report_issue_write.local.v1"
+    )
+    assert package.metadata["subject_refs"] == {
+        "subject_id": request.subject_id,
+        "subject_ref": "advice_enquiry_gateway_001",
+    }
+    assert package.metadata["action_refs"] == {
+        "advice_enquiry_ref": "advice_enquiry_gateway_001",
+        "adviser_approval_ref": "approval_adviser_gateway_001",
+        "approval_package_ref": "approval_suitability_report_gateway_001",
+        "conduct_hook_refs": [
+            "conduct_fca_cobs_9_report",
+            "conduct_fca_prin_2a_consumer_understanding",
+            "conduct_fca_cobs_9_recordkeeping",
+        ],
+        "consumer_understanding_check_ref": "consumer_understanding_gateway_001",
+        "issue_instruction_ref": "issue_instruction_gateway_001",
+        "issue_policy_ref": "policy_uc3_suitability_report_issue_v1",
+        "prospective_retail_client_ref": "prospective_client_gateway_001",
+        "suitability_conclusion_ref": "suitability_conclusion_gateway_001",
+        "suitability_report_ref": "suitability_report_gateway_001",
+        "support_assessment_ref": "support_assessment_gateway_001_v1",
+    }
+    assert "issue_channel_category" not in package.metadata["action_refs"]
+    assert applied.verdict == "allow"
+    assert applied.output["approval_apply_status"] == "applied"
+    assert len(adapter.calls) == 1
+    assert adapter.calls[0]["tool_name"] == "suitability_report.issue"
+    assert adapter.calls[0]["mode"] == "write"
+
+
 def test_propose_grant_invokes_adapter_and_persists_audit(
     migrated_database_url: str,
 ) -> None:
@@ -929,6 +1039,56 @@ def test_uc2_seeded_engagement_letter_send_requires_approval_and_applies(
     assert applied.output["approval_apply_status"] == "applied"
     assert applied.output["send_record_ref"].startswith("engagement_letter_send_")
     assert applied.output["send_status"] == "send_recorded"
+
+
+def test_uc3_seeded_suitability_report_issue_requires_approval_and_applies(
+    migrated_database_url: str,
+) -> None:
+    request = _build_uc3_suitability_report_issue_request()
+
+    with psycopg.connect(migrated_database_url) as conn:
+        gateway = ToolGateway(ToolGatewayStore(conn), default_registry(conn))
+        requested = gateway.invoke(request)
+        approval = conn.execute(
+            """
+            SELECT requested_action, workflow_type, metadata, policy_version_refs
+            FROM approval_packages
+            WHERE workflow_id = %s
+            """,
+            (request.workflow_id,),
+        ).fetchone()
+        approval_id = requested.output["approval_id"]
+        conn.execute(
+            """
+            UPDATE approval_packages
+            SET approval_state = 'approved',
+                decision = 'approved',
+                decision_at = now(),
+                updated_at = now()
+            WHERE tenant_id = %s
+              AND approval_id = %s
+            """,
+            (request.tenant_id, approval_id),
+        )
+        applied = gateway.apply_approved_write(request, approval_id=approval_id)
+        conn.commit()
+
+    assert requested.verdict == "approval_required"
+    assert requested.output["requested_action"] == "suitability_report.issue.write"
+    assert approval is not None
+    assert approval[0] == "suitability_report.issue.write"
+    assert approval[1] == "uc3_ifa_suitability_intake"
+    assert approval[2]["subject_refs"]["subject_ref"] == "advice_enquiry_gateway_001"
+    assert approval[2]["action_refs"]["suitability_report_ref"] == (
+        "suitability_report_gateway_001"
+    )
+    assert approval[3]["approval_policy_ref"] == (
+        "approval_policy.suitability_report_issue_write.local.v1"
+    )
+    assert applied.verdict == "allow"
+    assert applied.output["approval_apply_status"] == "applied"
+    assert applied.output["issue_record_ref"].startswith("suitability_report_issue_")
+    assert applied.output["issue_status"] == "issue_recorded"
 
 
 @pytest.mark.parametrize(

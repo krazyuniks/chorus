@@ -54,12 +54,16 @@ CREATE TABLE IF NOT EXISTS agent_registry (
     CONSTRAINT agent_registry_role_check CHECK (
         role IN (
             'aml_assessor',
+            'capacity_assessor',
             'classifier',
             'conflict_analyst',
             'context_gatherer',
             'engagement_decider',
             'qualifier',
             'request_drafter',
+            'research_analyst',
+            'risk_analyst',
+            'suitability_decider',
             'validator'
         )
     ),
@@ -139,7 +143,14 @@ CREATE TABLE IF NOT EXISTS tool_grants (
             'engagement_letter.draft',
             'engagement_letter.send',
             'engagement_letter.record_decline',
-            'engagement_letter.route_manual_review'
+            'engagement_letter.route_manual_review',
+            'attitude_to_risk.profile',
+            'capacity_for_loss.assess',
+            'platform_research.run',
+            'suitability_report.draft',
+            'suitability_report.issue',
+            'suitability_report.record_decline',
+            'suitability_report.route_manual_review'
         )
     ),
     CONSTRAINT tool_grants_mode_check CHECK (mode IN ('read', 'propose', 'write')),
@@ -286,7 +297,14 @@ CREATE TABLE IF NOT EXISTS tool_action_audit (
             'engagement_letter.draft',
             'engagement_letter.send',
             'engagement_letter.record_decline',
-            'engagement_letter.route_manual_review'
+            'engagement_letter.route_manual_review',
+            'attitude_to_risk.profile',
+            'capacity_for_loss.assess',
+            'platform_research.run',
+            'suitability_report.draft',
+            'suitability_report.issue',
+            'suitability_report.record_decline',
+            'suitability_report.route_manual_review'
         )
     ),
     CONSTRAINT tool_action_requested_mode_check CHECK (
@@ -1205,12 +1223,16 @@ ALTER TABLE agent_registry DROP CONSTRAINT IF EXISTS agent_registry_role_check;
 ALTER TABLE agent_registry ADD CONSTRAINT agent_registry_role_check CHECK (
     role IN (
         'aml_assessor',
+        'capacity_assessor',
         'classifier',
         'conflict_analyst',
         'context_gatherer',
         'engagement_decider',
         'qualifier',
         'request_drafter',
+        'research_analyst',
+        'risk_analyst',
+        'suitability_decider',
         'validator'
     )
 );
@@ -1234,7 +1256,14 @@ ALTER TABLE tool_grants ADD CONSTRAINT tool_grants_tool_name_check CHECK (
         'engagement_letter.draft',
         'engagement_letter.send',
         'engagement_letter.record_decline',
-        'engagement_letter.route_manual_review'
+        'engagement_letter.route_manual_review',
+        'attitude_to_risk.profile',
+        'capacity_for_loss.assess',
+        'platform_research.run',
+        'suitability_report.draft',
+        'suitability_report.issue',
+        'suitability_report.record_decline',
+        'suitability_report.route_manual_review'
     )
 );
 
@@ -1258,7 +1287,14 @@ ALTER TABLE tool_action_audit ADD CONSTRAINT tool_action_tool_name_check CHECK (
         'engagement_letter.draft',
         'engagement_letter.send',
         'engagement_letter.record_decline',
-        'engagement_letter.route_manual_review'
+        'engagement_letter.route_manual_review',
+        'attitude_to_risk.profile',
+        'capacity_for_loss.assess',
+        'platform_research.run',
+        'suitability_report.draft',
+        'suitability_report.issue',
+        'suitability_report.record_decline',
+        'suitability_report.route_manual_review'
     )
 );
 

@@ -205,7 +205,7 @@ channel runnable status are separate claims.
 - [x] Add UC3 workflow definition on the shared spine.
 - [x] Add sandbox attitude-to-risk profiler, capacity-for-loss tool,
   suitability-report store, and platform-research connectors.
-- [ ] Add UC3 approval gates and conduct invariants.
+- [x] Add UC3 approval gates and conduct invariants.
 - [ ] Add UC3 projections, BFF/UI inspection, fixtures, and documented commands.
 - [ ] Run focused contracts, tests, replay, and eval gates for UC3.
 
@@ -1718,6 +1718,73 @@ channel runnable status are separate claims.
   conduct invariants, projections, eval playback, local intake start path,
   and provider route support remain pending P5 work.
 
+### 2026-05-25 - UC3 Approval Gates And Conduct Invariants
+
+- Scope: fourth P5 UC3 slice for Tool Gateway grant / approval-package
+  authority and conduct invariant evidence only.
+- Behaviour changed:
+  - Postgres current-state baseline constraints now admit the already-declared
+    UC3 connector tool names in `tool_grants` and `tool_action_audit`, and
+    the local agent registry constraint admits the UC3 grant-owner roles used
+    by the workflow connector steps.
+  - `tenant_demo` seeds UC3 Tool Gateway grants for
+    `attitude_to_risk.profile`, `capacity_for_loss.assess`,
+    `platform_research.run`, `suitability_report.draft`,
+    `suitability_report.issue`, `suitability_report.record_decline`, and
+    `suitability_report.route_manual_review`; only
+    `suitability_report.issue` is approval-required in this slice.
+  - Minimal UC3 prompt files back the seeded grant-owner agent rows so their
+    prompt refs and hashes are not dangling; no UC3 model route policy was
+    added.
+  - Focused Tool Gateway tests prove `suitability_report.issue` creates a
+    generic approval package with safe subject/action refs and that approved
+    apply re-enters the same gateway path before connector execution.
+  - Added `chorus/eval/use_cases/uc3_conduct.py` and `UC3_INVARIANTS` so UC3
+    can assert FCA suitability / PROD / Consumer Duty evidence,
+    risk-profile and vulnerability manual-handoff boundaries, approval-gated
+    suitability-report issue, and safe connector refs over synthetic
+    captured-run artefacts.
+  - Risk-profile override and vulnerability handoff approval packages were
+    intentionally not added: the current workflow / gateway model cannot bind
+    those approvals to exact connector requests without inventing new tools or
+    changing workflow semantics. Those paths remain conduct-gated
+    manual-review evidence for a later design slice.
+  - No UC3 projections, BFF/UI surface, full eval fixture playback, live
+    provider route, local intake adapter, production FCA / client data
+    handling, connector persistence, or broad workflow rewrite was added.
+- Files changed: Postgres baseline and demo seed, minimal UC3 prompt assets,
+  UC3 conduct invariants and invariant composition, focused Tool Gateway /
+  eval / persistence tests, architecture / evidence / runbook /
+  eval-direction / Postgres docs, and this backlog handoff.
+- Gates run:
+  - `uv run pytest tests/tool_gateway/test_gateway.py -q` - green, 9 passed
+    and 13 skipped; skipped cases were DB-backed because local Postgres on
+    `localhost:5432` rejected the configured `chorus` user.
+  - `uv run pytest tests/eval/test_run.py -q` - green, 39 passed.
+  - `uv run pytest tests/persistence/test_postgres_foundation.py -rs` -
+    1 passed and 21 skipped; skipped cases include the new DB-backed UC3
+    grant / constraint assertions because local Postgres rejected the
+    configured `chorus` user.
+  - `uv run pytest tests/tool_gateway/test_gateway.py tests/eval/test_run.py tests/persistence/test_postgres_foundation.py -rs`
+    - green, 49 passed and 34 skipped; skipped cases were DB-backed because
+    local Postgres rejected the configured `chorus` user.
+  - `uv run pytest tests/connectors/test_uc3_connectors.py tests/workflows/test_uc3_workflow.py -q`
+    - green, 13 passed.
+  - `just contracts-check` - green for 45 schemas, samples, and generated
+    model drift checks.
+  - `just eval` - green for the five current top-level UC1 offline eval
+    fixtures; UC3 fixture playback is still intentionally absent.
+  - `just lint` - green after Ruff-formatting `tests/eval/test_run.py` and
+    tightening the UC3 conduct helper typing for pyright.
+  - `git diff --check` - green.
+- Skipped gates: `just contracts-gen` was not run because no JSON Schema
+  contracts changed. Live `just db-migrate`, DB-backed UC3 grant /
+  approval-apply verification, full `just test`, `just test-replay`, Redpanda
+  projection integration, frontend/e2e, live-stack, and live-provider gates
+  were not run. DB-backed verification and migration execution remain blocked
+  by the local Postgres credential failure; provider, local intake,
+  projection, UI, and full UC3 eval fixtures are later P5 scope.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -1765,22 +1832,22 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: continue P5 - UC3 IFA Suitability Intake by adding UC3 approval gates and conduct invariants. Keep the slice governance/eval focused and contract-backed: Tool Gateway grant constraints/seeds for the already-declared UC3 connector tools, existing generic approval-package handling for `suitability_report.issue`, focused non-DB and DB-skipping Tool Gateway tests, UC3 conduct invariants over safe synthetic captured-run artefacts, and matching docs only. Do not add UC3 projections, BFF/UI surfaces, provider routes, local intake adapters, connector persistence, eval fixture playback, production FCA/client data handling, or broad shared-runtime rewrites in this slice.
+Current target slice: continue P5 - UC3 IFA Suitability Intake by adding UC3 projections, BFF/UI inspection, fixtures, and documented commands. Keep the slice read-only and inspection-focused: projection/BFF/UI surfaces should expose safe UC3 workflow progress and generic approval-package state for `suitability_report.issue`, plus schema-only UC3 fixture evidence and matching docs. Do not add UC3 provider routes, local intake adapters, connector persistence, production FCA/client data handling, full eval fixture playback, live connector side effects, mutable admin UI, or broad shared-runtime rewrites in this slice.
 
-Previous slice completed: P5 now has deterministic UC3 sandbox connector adapters for `attitude_to_risk.profile`, `capacity_for_loss.assess`, `platform_research.run`, `suitability_report.draft`, `suitability_report.issue`, `suitability_report.record_decline`, and `suitability_report.route_manual_review`. `chorus/connectors/uc3.py` registers generated UC3 argument models through `ToolSpec`, returns bounded synthetic refs/statuses only, and is wired into `default_registry(conn)`. Focused UC3 connector tests, UC2 connector regression tests, non-DB Tool Gateway validation tests, UC3 workflow tests, `just contracts-check`, `just lint`, and `git diff --check` were green. No UC3 grants, approval-package behaviour, DB persistence, BFF/UI surfaces, provider routes, local intake path, projections, eval playback, or production FCA/client data path were added.
+Previous slice completed: P5 now has UC3 Tool Gateway governance for the already-declared connector tools. Postgres constraints admit `attitude_to_risk.profile`, `capacity_for_loss.assess`, `platform_research.run`, `suitability_report.draft`, `suitability_report.issue`, `suitability_report.record_decline`, and `suitability_report.route_manual_review`; `tenant_demo` seeds read grants for the effect-free tools, bounded sandbox write grants for draft/decline/manual-review, and approval-required write for `suitability_report.issue`. Minimal UC3 prompt assets back the seeded grant-owner agents. `chorus/eval/use_cases/uc3_conduct.py` and `UC3_INVARIANTS` assert FCA suitability / PROD / Consumer Duty evidence, risk/support manual-handoff boundaries, approval-gated `suitability_report.issue`, and safe connector refs over synthetic captured-run artefacts. Focused Tool Gateway, eval, UC3 connector, UC3 workflow, and DB-skipping persistence tests were green; DB-backed grant/apply assertions skipped because local Postgres rejected the configured `chorus` user. No UC3 projections, BFF/UI surfaces, provider routes, local intake path, eval playback, connector persistence, or production FCA/client data path were added.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief-uc3.md, docs/domain-model-uc3.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/README.md, contracts/connector/uc3/, contracts/connector/tool_call.schema.json, chorus/contracts/generated/connector/uc3/, chorus/connectors/types.py, chorus/connectors/__init__.py, chorus/connectors/uc3.py, chorus/tool_gateway/gateway.py, infrastructure/postgres/migrations/001_current_state_baseline.sql, infrastructure/postgres/seeds/001_demo_tenants.sql, chorus/eval/common_invariants.py, chorus/eval/use_cases/uc2_conduct.py, chorus/eval/invariants.py, tests/tool_gateway/test_gateway.py, tests/eval/test_run.py, tests/persistence/test_postgres_foundation.py, tests/connectors/test_uc3_connectors.py, tests/workflows/test_uc3_workflow.py, and the current P5 backlog items. Use official FCA sources only if UC3 regulatory wording needs fresh verification; otherwise rely on the already verified UC3 product/domain docs.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief-uc3.md, docs/domain-model-uc3.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/README.md, contracts/eval/, chorus/workflows/uc3.py, chorus/connectors/uc3.py, chorus/eval/use_cases/uc3_conduct.py, chorus/eval/invariants.py, chorus/eval/run.py, chorus/eval/scenario_player.py, chorus/persistence/projection.py, chorus/bff/app.py, frontend/src/api/, frontend/src/routes/workflows.$workflowId.tsx, frontend/src/fixtures/, tests/bff/test_app_unit.py, tests/eval/test_run.py, tests/persistence/test_postgres_foundation.py, frontend/src/api/queries.test.ts, and the current P5 backlog items. Use official FCA sources only if UC3 regulatory wording needs fresh verification; otherwise rely on the already verified UC3 product/domain docs.
 
-Before editing, inspect the existing UC2 approval/conduct implementation rather than inventing a new authority style. Search for `UC2_INVARIANTS`, `uc2_conduct`, `engagement_letter.send`, `approval_required`, `approval_policy.engagement_letter_send_write.local.v1`, `tenant_demo`, `tool_grants`, `tool_action_audit`, `approval_packages`, `ToolGateway`, `apply_approved_write`, and the UC3 tool names.
+Before editing, inspect the existing UC2 projection/inspection implementation rather than inventing a new surface. Search for `uc2_synthetic_acceptance_conduct`, `uc2_legal_services_intake_conflict_check`, `engagement_letter.send`, `approval_packages`, `list_approval_packages`, `/api/approval-packages`, `workflow_read_models`, `tool_action_audit`, `frontend`, `fixture`, `approval_required`, and the UC3 workflow/tool names.
 
-Expected direction: admit the declared UC3 tool names where the local Postgres governance surface constrains `tool_grants` / `tool_action_audit`, seed `tenant_demo` UC3 grants for the declared connector tools, and make `suitability_report.issue` the approval-required write using the existing generic approval-package path. Keep `attitude_to_risk.profile`, `capacity_for_loss.assess`, and `platform_research.run` read-mode grants effect-free, and keep `suitability_report.draft`, `suitability_report.record_decline`, and `suitability_report.route_manual_review` as bounded sandbox writes unless the current policy docs require otherwise. Add minimal UC3 prompt assets only if seeded agent rows require prompt refs / hashes. Add `chorus/eval/use_cases/uc3_conduct.py` and wire it into the invariant composition in the same style as UC2, using safe synthetic captured-run artefacts. Treat risk-profile override and vulnerability-handoff approvals as workflow/manual-review conduct evidence unless an exact existing declared connector request can bind a package; do not invent new tools or approval-package semantics.
+Expected direction: reuse the existing generic approval-package projection reader and BFF endpoints where possible, then add the narrow UC3 inspection evidence that is missing: UC3 workflow / approval-package fixture data for the read-only UI, focused BFF/frontend tests for UC3 safe refs and `suitability_report.issue.write`, and a schema-only UC3 eval fixture under `chorus/eval/fixtures/uc3/` that validates the captured-run contract without enabling default playback. If a DB projection assertion is needed, make it DB-skipping like the current UC2 projection test and record the existing local Postgres credential blocker. Keep UI changes dense and data-first per AGENTS.md; if visible UI behaviour changes, use `playwright-cli` for browser validation after tests.
 
-Run focused Tool Gateway, eval, and persistence constraint tests for the UC3 grant / approval / conduct changes, plus relevant UC3 connector and UC3 workflow regressions if grant or output assumptions touch those paths. Run `just contracts-check`, `just eval` if invariant composition changes default eval execution, `just lint`, and `git diff --check`. Run broader replay, frontend, live-stack, provider, or e2e gates only if the approval/conduct change unexpectedly touches those surfaces; if local Postgres credentials still block DB-backed tests, record the skipped gate and reason.
+Run focused BFF, eval, persistence, and frontend tests for the UC3 projection/inspection changes. Run `just contracts-check`, `just test-frontend` if frontend code changes, `just eval` to prove default UC1 playback is unchanged if eval fixtures/composition change, `just lint`, and `git diff --check`. Run broader replay, live-stack, provider, or e2e gates only if the change unexpectedly touches those surfaces; if local Postgres credentials or another live-stack dependency still block DB-backed tests, record the skipped gate and reason.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
 - Rewrite the body of the `## Next Continuation Prompt` section in the backlog with the next slice's prompt, in Strategy order. If R4 is fully closed, write the literal `R4-COMPLETE` there instead.
-- Run relevant focused gates for the files touched, likely including `just contracts-gen`, `just contracts-check`, focused contract tests, `just lint`, and `git diff --check`. Run broader gates only if runtime, persistence, BFF, frontend, replay, or eval code changes require them; if local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
+- Run relevant focused gates for the files touched, likely including `just contracts-check`, focused BFF/eval/persistence/frontend tests, `just test-frontend` when frontend code changes, `just eval` when eval fixtures/composition change, `just lint`, and `git diff --check`. Run broader gates only if runtime, persistence, BFF, frontend, replay, or eval code changes require them; if local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
 - Stage everything and create one Conventional Commit (`type(scope): description`). Do not add `Co-Authored-By` or any AI attribution.
 - Leave the working tree clean.
 

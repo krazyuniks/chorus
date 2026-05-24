@@ -177,7 +177,7 @@ def test_migrations_and_seeds_are_idempotent(migrated_database_url: str) -> None
         "004_uc1_policy_snapshots.sql",
     ]
     assert tenant_count == (2,)
-    assert seed_agents == (13,)
+    assert seed_agents == (17,)
 
 
 def test_uc1_connector_reference_data_is_seeded(migrated_database_url: str) -> None:
@@ -230,12 +230,16 @@ def test_agent_registry_roles_are_constrained_for_seeded_r4_agents(
         roles = conn.execute("SELECT DISTINCT role FROM agent_registry ORDER BY role").fetchall()
     assert roles == [
         ("aml_assessor",),
+        ("capacity_assessor",),
         ("classifier",),
         ("conflict_analyst",),
         ("context_gatherer",),
         ("engagement_decider",),
         ("qualifier",),
+        ("research_analyst",),
         ("request_drafter",),
+        ("risk_analyst",),
+        ("suitability_decider",),
         ("validator",),
     ]
 
@@ -280,6 +284,72 @@ def test_uc2_tool_grants_are_seeded_with_send_approval_gate(
         ("uc2.engagement_decider", "engagement_letter.route_manual_review", "write", False),
         ("uc2.engagement_decider", "engagement_letter.send", "write", True),
         ("uc2.aml_assessor", "kyc_bo.lookup", "read", False),
+    ]
+
+
+def test_tool_gateway_constraints_admit_declared_uc3_tools(
+    migrated_database_url: str,
+) -> None:
+    expected_tools = {
+        "attitude_to_risk.profile",
+        "capacity_for_loss.assess",
+        "platform_research.run",
+        "suitability_report.draft",
+        "suitability_report.issue",
+        "suitability_report.record_decline",
+        "suitability_report.route_manual_review",
+    }
+    with psycopg.connect(migrated_database_url) as conn:
+        constraints = dict(
+            conn.execute(
+                """
+                SELECT conname, pg_get_constraintdef(oid)
+                FROM pg_constraint
+                WHERE conrelid IN ('tool_grants'::regclass, 'tool_action_audit'::regclass)
+                  AND conname IN ('tool_grants_tool_name_check', 'tool_action_tool_name_check')
+                """
+            ).fetchall()
+        )
+
+    assert expected_tools.issubset(set(constraints["tool_grants_tool_name_check"].split("'")))
+    assert expected_tools.issubset(set(constraints["tool_action_tool_name_check"].split("'")))
+
+
+def test_uc3_tool_grants_are_seeded_with_issue_approval_gate(
+    migrated_database_url: str,
+) -> None:
+    with psycopg.connect(migrated_database_url) as conn:
+        grants = conn.execute(
+            """
+            SELECT agent_id, tool_name, mode, approval_required
+            FROM tool_grants
+            WHERE tenant_id = 'tenant_demo'
+              AND tool_name IN (
+                'attitude_to_risk.profile',
+                'capacity_for_loss.assess',
+                'platform_research.run',
+                'suitability_report.draft',
+                'suitability_report.issue',
+                'suitability_report.record_decline',
+                'suitability_report.route_manual_review'
+              )
+            ORDER BY tool_name
+            """
+        ).fetchall()
+
+    assert grants == [
+        ("uc3.risk_analyst", "attitude_to_risk.profile", "read", False),
+        ("uc3.capacity_assessor", "capacity_for_loss.assess", "read", False),
+        ("uc3.research_analyst", "platform_research.run", "read", False),
+        ("uc3.suitability_decider", "suitability_report.draft", "write", False),
+        ("uc3.suitability_decider", "suitability_report.issue", "write", True),
+        ("uc3.suitability_decider", "suitability_report.record_decline", "write", False),
+        (
+            "uc3.suitability_decider",
+            "suitability_report.route_manual_review",
+            "write",
+            False,
+        ),
     ]
 
 

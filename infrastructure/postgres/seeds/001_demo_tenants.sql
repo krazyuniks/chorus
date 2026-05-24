@@ -195,6 +195,54 @@ VALUES
         'sha256:8f793f9105211157a8f2faead42229753d9b7574efc491515816cda7aecf58e2',
         ARRAY['uc2', 'engagement_letter', 'tool_gateway_grant_owner']::text[],
         '{"seed": true, "evidence": "UC2 Tool Gateway grant owner; provider route pending"}'::jsonb
+    ),
+    (
+        'tenant_demo',
+        'uc3.risk_analyst',
+        'risk_analyst',
+        'v1',
+        'approved',
+        'agent-runtime',
+        'prompts/uc3/risk-analyst/v1.md',
+        'sha256:47a50cdaeda2ca57036aad28c83c224ccde28fd55d34a82da12aa33b329db365',
+        ARRAY['uc3', 'attitude_to_risk', 'tool_gateway_grant_owner']::text[],
+        '{"seed": true, "evidence": "UC3 attitude-to-risk grant owner; provider route pending"}'::jsonb
+    ),
+    (
+        'tenant_demo',
+        'uc3.capacity_assessor',
+        'capacity_assessor',
+        'v1',
+        'approved',
+        'agent-runtime',
+        'prompts/uc3/capacity-assessor/v1.md',
+        'sha256:33ad7a5f513ebbfbffe4d1e1b2b12840c36d4cdce61ec17a277b4ccd997035c4',
+        ARRAY['uc3', 'capacity_for_loss', 'tool_gateway_grant_owner']::text[],
+        '{"seed": true, "evidence": "UC3 capacity-for-loss grant owner; provider route pending"}'::jsonb
+    ),
+    (
+        'tenant_demo',
+        'uc3.research_analyst',
+        'research_analyst',
+        'v1',
+        'approved',
+        'agent-runtime',
+        'prompts/uc3/research-analyst/v1.md',
+        'sha256:7a7ccfcf1c8188e08ed17d124af73f0ecf70fa06163829ba5086b2e0a407e544',
+        ARRAY['uc3', 'platform_research', 'tool_gateway_grant_owner']::text[],
+        '{"seed": true, "evidence": "UC3 platform-research grant owner; provider route pending"}'::jsonb
+    ),
+    (
+        'tenant_demo',
+        'uc3.suitability_decider',
+        'suitability_decider',
+        'v1',
+        'approved',
+        'agent-runtime',
+        'prompts/uc3/suitability-decider/v1.md',
+        'sha256:ac04b11ffd2a9e5ffca3148799f029b079d4365a74b6a9239d924d7cb36bdf82',
+        ARRAY['uc3', 'suitability_report', 'tool_gateway_grant_owner']::text[],
+        '{"seed": true, "evidence": "UC3 suitability-report grant owner; provider route pending"}'::jsonb
     )
 ON CONFLICT (tenant_id, agent_id, version) DO UPDATE
 SET
@@ -587,6 +635,90 @@ VALUES
         false,
         '{"redact_fields": []}'::jsonb,
         '{"seed": true, "evidence": "UC2 manual-review handoff routing record write"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000020',
+        'tenant_demo',
+        'uc3.risk_analyst',
+        'v1',
+        'attitude_to_risk.profile',
+        'read',
+        true,
+        false,
+        '{"redact_fields": []}'::jsonb,
+        '{"seed": true, "evidence": "UC3 attitude-to-risk profiling read through Tool Gateway"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000021',
+        'tenant_demo',
+        'uc3.capacity_assessor',
+        'v1',
+        'capacity_for_loss.assess',
+        'read',
+        true,
+        false,
+        '{"redact_fields": []}'::jsonb,
+        '{"seed": true, "evidence": "UC3 capacity-for-loss assessment read through Tool Gateway"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000022',
+        'tenant_demo',
+        'uc3.research_analyst',
+        'v1',
+        'platform_research.run',
+        'read',
+        true,
+        false,
+        '{"redact_fields": []}'::jsonb,
+        '{"seed": true, "evidence": "UC3 platform research read through Tool Gateway"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000023',
+        'tenant_demo',
+        'uc3.suitability_decider',
+        'v1',
+        'suitability_report.draft',
+        'write',
+        true,
+        false,
+        '{"redact_fields": []}'::jsonb,
+        '{"seed": true, "evidence": "UC3 suitability-report draft record write"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000024',
+        'tenant_demo',
+        'uc3.suitability_decider',
+        'v1',
+        'suitability_report.issue',
+        'write',
+        true,
+        true,
+        '{"redact_fields": []}'::jsonb,
+        '{"seed": true, "evidence": "UC3 suitability-report issue is approval-required"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000025',
+        'tenant_demo',
+        'uc3.suitability_decider',
+        'v1',
+        'suitability_report.record_decline',
+        'write',
+        true,
+        false,
+        '{"redact_fields": []}'::jsonb,
+        '{"seed": true, "evidence": "UC3 decline-advice-service routing record write"}'::jsonb
+    ),
+    (
+        '12000000-0000-4000-8000-000000000026',
+        'tenant_demo',
+        'uc3.suitability_decider',
+        'v1',
+        'suitability_report.route_manual_review',
+        'write',
+        true,
+        false,
+        '{"redact_fields": []}'::jsonb,
+        '{"seed": true, "evidence": "UC3 manual-review handoff routing record write"}'::jsonb
     ),
     (
         '12000000-0000-4000-8000-000000000012',

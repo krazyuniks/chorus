@@ -215,8 +215,12 @@ registers deterministic sandbox adapters for those tool names:
 `sandbox-platform-research`, and `sandbox-suitability-report-store`. They
 return synthetic refs and statuses only; they do not call production IFA,
 platform, research, advice, client-record, portal, custody, or dealing
-systems. The runbook does not yet claim a runnable UC3 local intake path: Tool
-Gateway grant seeds, approval-package behaviour, provider routes, projections,
+systems. The local Postgres governance seed now expresses UC3 Tool Gateway
+grants for those tool names; `suitability_report.issue` is the
+approval-required write, while risk-profile override and vulnerability
+handoff remain workflow/manual-review conduct evidence until a later slice
+adds exact connector request shapes for those packages. The runbook does not
+yet claim a runnable UC3 local intake path: provider routes, projections,
 eval playback, and local intake adapters remain later P5 work.
 
 Inspect approval packages through the read-only BFF:

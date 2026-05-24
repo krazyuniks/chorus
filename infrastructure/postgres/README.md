@@ -11,15 +11,17 @@ and immutable local policy snapshot rows for governance inspection.
   git history, not in the executable migration directory.
 - The projection, outbox, approval-package, Tool Gateway grant, and
   tool-action audit checks admit the declared R4 workflow families and the
-  currently declared UC1 / UC2 connector tool names.
+  currently declared UC1 / UC2 / UC3 connector tool names.
 - `seeds/` contains idempotent local demo data. The initial seed creates
   `tenant_demo` and `tenant_demo_alt` for tenant-isolation evidence. The
   provider-governance seed mirrors local route materialisation into
   route-version rows and keeps non-runnable provider placeholders disabled.
   The initial seed also materialises UC2 Tool Gateway grant rows for the
   declared sandbox conflict, KYC / beneficial-ownership, AML record-store,
-  and engagement-letter tools; only `engagement_letter.send` is
-  approval-required in this slice.
+  and engagement-letter tools, plus UC3 grants for attitude-to-risk,
+  capacity-for-loss, platform-research, and suitability-report tools. Only
+  `engagement_letter.send` and `suitability_report.issue` are
+  approval-required in these slices.
   The UC1 connector-reference seed backs the customer-profile and
   product-catalogue read adapters with synthetic local rows. The UC1 policy
   snapshot seed materialises `policy_snapshot:uc1:default:v1` as a safe-ref

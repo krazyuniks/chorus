@@ -13,7 +13,7 @@ import pytest
 from chorus.contracts.generated.eval.eval_fixture import EvalFixture
 from chorus.eval import run
 from chorus.eval.common_invariants import COMMON_INVARIANTS
-from chorus.eval.invariants import UC1_INVARIANTS, UC2_INVARIANTS, run_invariants
+from chorus.eval.invariants import UC1_INVARIANTS, UC2_INVARIANTS, UC3_INVARIANTS, run_invariants
 from chorus.eval.replay import load_transcript, replay_transcript_with_record
 from chorus.eval.scenario_player import (
     CapturedRun,
@@ -25,6 +25,7 @@ from chorus.eval.scenario_player import (
 )
 from chorus.eval.use_cases.uc1_conduct import UC1_CONDUCT_INVARIANTS
 from chorus.eval.use_cases.uc2_conduct import UC2_CONDUCT_INVARIANTS
+from chorus.eval.use_cases.uc3_conduct import UC3_CONDUCT_INVARIANTS
 from chorus.llm_provider import (
     InvocationArgs,
     InvocationResult,
@@ -78,6 +79,29 @@ def test_uc2_invariant_suite_composes_common_and_conduct_modules() -> None:
     assert set(COMMON_INVARIANTS).issubset(UC2_INVARIANTS)
 
 
+def test_uc3_invariant_suite_composes_common_and_conduct_modules() -> None:
+    assert [invariant.__name__ for invariant in UC3_INVARIANTS] == [
+        "assert_cross_port_payload_validity",
+        "assert_governed_decision_provenance",
+        "assert_audit_completeness",
+        "assert_observability_emission",
+        "assert_uc3_suitability_decision_conduct",
+        "assert_uc3_manual_handoff_boundaries",
+        "assert_uc3_suitability_report_issue_approval_gate",
+        "assert_uc3_connector_ref_evidence",
+        "assert_connector_authority_discipline",
+        "assert_projection_convergence",
+    ]
+    assert [invariant.__name__ for invariant in UC3_CONDUCT_INVARIANTS] == [
+        "assert_uc3_suitability_decision_conduct",
+        "assert_uc3_manual_handoff_boundaries",
+        "assert_uc3_suitability_report_issue_approval_gate",
+        "assert_uc3_connector_ref_evidence",
+    ]
+    assert set(UC3_CONDUCT_INVARIANTS).issubset(UC3_INVARIANTS)
+    assert set(COMMON_INVARIANTS).issubset(UC3_INVARIANTS)
+
+
 def test_uc2_conduct_invariants_pass_safe_synthetic_acceptance_run() -> None:
     captured = _uc2_captured_run()
 
@@ -117,6 +141,67 @@ def test_uc2_conduct_invariants_fail_acceptance_with_blocked_conflict() -> None:
     assert checks
     assert checks[0].name == "UC2 engagement decision conduct"
     assert "own_interest_conflict" in checks[0].detail
+
+
+def test_uc3_conduct_invariants_pass_safe_synthetic_suitability_run() -> None:
+    captured = _uc3_captured_run()
+
+    checks = run_invariants(captured, invariants=UC3_INVARIANTS)
+
+    assert [check for check in checks if check.status == "fail"] == []
+    assert any(check.name == "UC3 suitability decision conduct" for check in checks)
+    assert any(check.name == "UC3 suitability-report issue approval gate" for check in checks)
+    assert any(check.name == "UC3 connector ref evidence" for check in checks)
+
+
+def test_uc3_conduct_invariants_fail_completed_suitability_without_issue_apply() -> None:
+    captured = _uc3_captured_run(include_issue_apply=False)
+
+    checks = [
+        check
+        for invariant in UC3_CONDUCT_INVARIANTS
+        for check in invariant(captured)
+        if check.status == "fail"
+    ]
+
+    assert checks
+    assert checks[0].name == "UC3 suitability-report issue approval gate"
+    assert "lacks approved suitability_report.issue apply" in checks[0].detail
+
+
+def test_uc3_conduct_invariants_fail_positive_suitability_with_risk_mismatch() -> None:
+    captured = _uc3_captured_run(
+        suitability_data={"risk_profile_status": "mismatch_requires_approval"},
+    )
+
+    checks = [
+        check
+        for invariant in UC3_CONDUCT_INVARIANTS
+        for check in invariant(captured)
+        if check.status == "fail"
+    ]
+
+    assert checks
+    assert checks[0].name == "UC3 suitability decision conduct"
+    assert "requires aligned risk profile" in checks[0].detail
+
+
+def test_uc3_manual_handoff_invariants_pass_risk_profile_approval_branch() -> None:
+    captured = _uc3_captured_run(
+        include_issue_apply=False,
+        include_manual_review=True,
+        terminal_outcome="manual_review",
+        use_case_outcome="manual_review",
+        suitability_data={
+            "suitability_outcome": "manual_review",
+            "risk_profile_status": "mismatch_requires_approval",
+        },
+    )
+
+    checks = [check for invariant in UC3_CONDUCT_INVARIANTS for check in invariant(captured)]
+
+    assert [check for check in checks if check.status == "fail"] == []
+    assert any(check.name == "UC3 manual handoff boundaries" for check in checks)
 
 
 def test_eval_fixture_contract_accepts_r4_workflow_specific_scenarios() -> None:
@@ -1072,6 +1157,354 @@ def _uc2_projection_event(
         step=step,
         occurred_at=occurred_at,
         payload={"subject_summary": "safe UC2 synthetic intake", "outcome": "completed"},
+    )
+
+
+def _uc3_captured_run(
+    *,
+    include_issue_apply: bool = True,
+    include_manual_review: bool = False,
+    terminal_outcome: str = "completed",
+    use_case_outcome: str = "completed",
+    suitability_data: dict[str, Any] | None = None,
+) -> CapturedRun:
+    fixture = EvalFixture.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "fixture_id": "uc3-synthetic-suitability",
+            "name": "UC3 synthetic suitability conduct evidence",
+            "workflow_type": "uc3_ifa_suitability_intake",
+            "scenario": "synthetic_suitability_conduct",
+            "input": {
+                "tenant_id": "tenant_demo",
+                "subject_fixture_ref": "fixture_uc3_synthetic_suitability",
+                "source_fixture_path": "fixtures/uc3/synthetic-suitability.json",
+            },
+            "expected": {
+                "outcome_category": "propose",
+                "use_case_outcome": use_case_outcome,
+            },
+        }
+    )
+    now = datetime(2026, 5, 24, 11, 0, tzinfo=UTC)
+    invocation_id = uuid4()
+    correlation_id = "cor_eval_uc3_synthetic_suitability"
+    workflow_id = "uc3-eval-synthetic-suitability"
+    tenant_id = "tenant_demo"
+    subject_id = uuid4()
+    subject_ref = "advice_enquiry_eval_001"
+    structured_data: dict[str, Any] = {
+        "suitability_outcome": "suitable_subject_to_adviser_approval",
+        "suitability_conclusion_ref": "suitability_conclusion_eval_001",
+        "policy_snapshot_ref": "policy_snapshot:uc3:default:v1",
+        "advice_enquiry_ref": "advice_enquiry_eval_001",
+        "prospective_retail_client_ref": "prospective_client_eval_001",
+        "fact_find_summary_ref": "fact_find_eval_001_v1",
+        "risk_profile_ref": "risk_profile_eval_001_v1",
+        "risk_profile_status": "aligned",
+        "capacity_for_loss_ref": "capacity_for_loss_eval_001_v1",
+        "capacity_for_loss_status": "adequate",
+        "platform_research_ref": "platform_research_eval_001_v1",
+        "product_universe_coverage": "sufficient_independent_range",
+        "target_market_status": "in_target_market",
+        "support_assessment_ref": "support_assessment_eval_001_v1",
+        "support_status": "clear",
+        "consumer_understanding_check_ref": "consumer_understanding_eval_001",
+        "conduct_hook_refs": [
+            "conduct_fca_cobs_2_1_client_best_interests",
+            "conduct_fca_cobs_6_2b_independent_advice",
+            "conduct_fca_cobs_9_suitability",
+            "conduct_fca_prod_3_target_market",
+            "conduct_fca_prin_2a_consumer_duty",
+            "conduct_fca_vulnerability_fg21_1",
+            "conduct_fca_cobs_9_recordkeeping",
+        ],
+    }
+    if suitability_data is not None:
+        structured_data.update(suitability_data)
+
+    return CapturedRun(
+        fixture=fixture,
+        decisions=[
+            DecisionTrailRecord(
+                invocation_id=invocation_id,
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                tenant_id=tenant_id,
+                agent_id="uc3.suitability_decider",
+                agent_role="suitability_decider",
+                agent_version="v1",
+                prompt_reference="prompts/uc3/suitability-decider/v1.md",
+                prompt_hash="sha256:" + "2" * 64,
+                provider="local",
+                model="uc3-synthetic-v1",
+                task_kind="uc3_suitability_conclusion",
+                input_summary="safe UC3 synthetic suitability input",
+                output_summary="safe UC3 synthetic suitability output",
+                justification="safe synthetic suitability rationale",
+                outcome="succeeded",
+                cost_amount_usd=Decimal("0.000000"),
+                duration_ms=50,
+                started_at=now,
+                completed_at=now + timedelta(milliseconds=50),
+                contract_refs=["contracts/llm_provider/uc3_agent_io.schema.json"],
+                structured_data=structured_data,
+            )
+        ],
+        transcripts=[
+            TranscriptRecord(
+                transcript_id=uuid4(),
+                invocation_id=invocation_id,
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                tenant_id=tenant_id,
+                route_id="recorded-replay",
+                provider_id="local",
+                model_id="uc3-synthetic-v1",
+                adapter_version="synthetic-test-v1",
+                parameters={"temperature": 0},
+                request_messages=[],
+                response_messages=[],
+                structured_data=structured_data,
+                started_at=now,
+                completed_at=now + timedelta(milliseconds=50),
+            )
+        ],
+        tool_actions=_uc3_tool_actions(
+            invocation_id=invocation_id,
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            now=now,
+            include_issue_apply=include_issue_apply,
+            include_manual_review=include_manual_review,
+        ),
+        projection_events=[
+            _uc3_projection_event(
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                subject_ref=subject_ref,
+                sequence=1,
+                event_type="workflow.started",
+                step="intake",
+                occurred_at=now,
+                outcome=terminal_outcome,
+            ),
+            _uc3_projection_event(
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                subject_ref=subject_ref,
+                sequence=2,
+                event_type="workflow.completed",
+                step="close",
+                occurred_at=now + timedelta(seconds=1),
+                outcome=terminal_outcome,
+            ),
+        ],
+        terminal_outcome=terminal_outcome,
+    )
+
+
+def _uc3_tool_actions(
+    *,
+    invocation_id: UUID,
+    correlation_id: str,
+    workflow_id: str,
+    tenant_id: str,
+    now: datetime,
+    include_issue_apply: bool,
+    include_manual_review: bool,
+) -> list[ToolActionRecord]:
+    actions = [
+        _uc3_tool_action(
+            invocation_id=invocation_id,
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            tool_name="attitude_to_risk.profile",
+            mode="read",
+            actor_id="uc3.risk_analyst",
+            verdict="allow",
+            approval_required=False,
+            approval_granted=None,
+            occurred_at=now + timedelta(milliseconds=100),
+            output={"risk_profile_ref": "risk_profile_eval_001_v1"},
+        ),
+        _uc3_tool_action(
+            invocation_id=invocation_id,
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            tool_name="capacity_for_loss.assess",
+            mode="read",
+            actor_id="uc3.capacity_assessor",
+            verdict="allow",
+            approval_required=False,
+            approval_granted=None,
+            occurred_at=now + timedelta(milliseconds=150),
+            output={"capacity_for_loss_ref": "capacity_for_loss_eval_001_v1"},
+        ),
+        _uc3_tool_action(
+            invocation_id=invocation_id,
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            tool_name="platform_research.run",
+            mode="read",
+            actor_id="uc3.research_analyst",
+            verdict="allow",
+            approval_required=False,
+            approval_granted=None,
+            occurred_at=now + timedelta(milliseconds=200),
+            output={"platform_research_ref": "platform_research_eval_001_v1"},
+        ),
+        _uc3_tool_action(
+            invocation_id=invocation_id,
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            tool_name="suitability_report.draft",
+            mode="write",
+            actor_id="uc3.suitability_decider",
+            verdict="allow",
+            approval_required=False,
+            approval_granted=None,
+            occurred_at=now + timedelta(milliseconds=250),
+            output={
+                "suitability_report_ref": "suitability_report_eval_001",
+                "draft_ref": "suitability_report_draft_eval_001",
+            },
+        ),
+        _uc3_tool_action(
+            invocation_id=invocation_id,
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            tool_name="suitability_report.issue",
+            mode="write",
+            actor_id="uc3.suitability_decider",
+            verdict="approval_required",
+            approval_required=True,
+            approval_granted=None,
+            occurred_at=now + timedelta(milliseconds=300),
+            output={
+                "approval_id": str(uuid4()),
+                "approval_state": "requested",
+                "requested_action": "suitability_report.issue.write",
+            },
+        ),
+    ]
+    if include_issue_apply:
+        actions.append(
+            _uc3_tool_action(
+                invocation_id=invocation_id,
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                tenant_id=tenant_id,
+                tool_name="suitability_report.issue",
+                mode="write",
+                actor_id="financial_adviser_demo",
+                actor_type="human",
+                action="approval.apply",
+                verdict="allow",
+                approval_required=True,
+                approval_granted=True,
+                occurred_at=now + timedelta(milliseconds=350),
+                output={
+                    "approval_apply_status": "applied",
+                    "issue_record_ref": "suitability_report_issue_eval_001",
+                },
+            )
+        )
+    if include_manual_review:
+        actions.append(
+            _uc3_tool_action(
+                invocation_id=invocation_id,
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                tenant_id=tenant_id,
+                tool_name="suitability_report.route_manual_review",
+                mode="write",
+                actor_id="uc3.suitability_decider",
+                verdict="allow",
+                approval_required=False,
+                approval_granted=None,
+                occurred_at=now + timedelta(milliseconds=400),
+                output={"handoff_ref": "manual_review_eval_001"},
+            )
+        )
+    return actions
+
+
+def _uc3_tool_action(
+    *,
+    invocation_id: UUID,
+    correlation_id: str,
+    workflow_id: str,
+    tenant_id: str,
+    tool_name: str,
+    mode: str,
+    actor_id: str,
+    verdict: str,
+    approval_required: bool,
+    approval_granted: bool | None,
+    occurred_at: datetime,
+    output: dict[str, Any],
+    actor_type: str = "agent",
+    action: str = "tool_call.decided",
+) -> ToolActionRecord:
+    return ToolActionRecord(
+        audit_event_id=uuid4(),
+        invocation_id=invocation_id,
+        correlation_id=correlation_id,
+        workflow_id=workflow_id,
+        tenant_id=tenant_id,
+        actor_type=actor_type,
+        actor_id=actor_id,
+        category="tool_gateway",
+        action=action,
+        tool_name=tool_name,
+        requested_mode=mode,
+        enforced_mode=mode,
+        verdict=verdict,
+        reason=f"synthetic UC3 {tool_name} {verdict}",
+        approval_required=approval_required,
+        approval_granted=approval_granted,
+        occurred_at=occurred_at,
+        output=output,
+    )
+
+
+def _uc3_projection_event(
+    *,
+    correlation_id: str,
+    workflow_id: str,
+    tenant_id: str,
+    subject_id: UUID,
+    subject_ref: str,
+    sequence: int,
+    event_type: str,
+    step: str,
+    occurred_at: datetime,
+    outcome: str,
+) -> ProjectionEvent:
+    return ProjectionEvent(
+        event_id=uuid4(),
+        correlation_id=correlation_id,
+        workflow_id=workflow_id,
+        tenant_id=tenant_id,
+        workflow_type="uc3_ifa_suitability_intake",
+        subject_id=subject_id,
+        subject_ref=subject_ref,
+        sequence=sequence,
+        event_type=event_type,
+        step=step,
+        occurred_at=occurred_at,
+        payload={"subject_summary": "safe UC3 synthetic intake", "outcome": outcome},
     )
 
 
