@@ -17,6 +17,10 @@ def _empty_citations() -> list[AgentCitation]:
     return []
 
 
+def _empty_strings() -> list[str]:
+    return []
+
+
 @dataclass(frozen=True)
 class WorkflowCorrelation:
     """Correlation context the spine carries through every primitive."""
@@ -74,6 +78,57 @@ class Uc1EnquiryIntake:
     message_headers: dict[str, list[str]]
     attachments_summary: list[EnquiryAttachmentSummary]
     enquiry_ref: str
+
+
+@dataclass(frozen=True)
+class Uc2AttachmentSummary:
+    """Bounded UC2 attachment metadata preserved from intake into the workflow."""
+
+    attachment_ref: str
+    document_category: str
+    content_type: str
+    size_bytes: int
+    sha256: str
+
+
+@dataclass(frozen=True)
+class Uc2PartyRoleHint:
+    """Safe UC2 party role hint produced by an intake adapter."""
+
+    party_ref: str
+    role: str
+    party_category: str
+
+
+@dataclass(frozen=True)
+class Uc2LegalIntake:
+    """Normalised UC2 legal-services intake accepted by the workflow.
+
+    Channel adapters validate their concrete contracts under
+    `contracts/intake/uc2/` and normalise to this workflow input. It carries
+    safe refs and bounded summaries only; raw legal matter narratives,
+    identity evidence, and documents stay behind intake or connector stores.
+    """
+
+    schema_version: str
+    legal_intake_id: str
+    tenant_id: str
+    correlation_id: str
+    channel: str
+    adapter_id: str
+    received_at: str
+    source_payload_ref: str
+    legal_intake_ref: str
+    subject_summary: str
+    matter_scope_summary: str
+    party_role_hints: list[Uc2PartyRoleHint]
+    attachments_summary: list[Uc2AttachmentSummary]
+    prospective_client_ref: str | None = None
+    instructing_contact_ref: str | None = None
+    matter_type_hint: str | None = None
+    jurisdiction_categories: list[str] = field(default_factory=_empty_strings)
+    known_party_refs: list[str] = field(default_factory=_empty_strings)
+    idempotency_key_ref: str | None = None
 
 
 @dataclass(frozen=True)
@@ -219,6 +274,29 @@ class Uc1WorkflowResult:
     correlation_id: str
     enquiry_id: str
     outcome: WorkflowOutcome
+    path: list[str]
+    final_summary: str
+    escalation_reason: str | None = None
+
+
+Uc2WorkflowOutcome = Literal[
+    "completed",
+    "approval_required",
+    "declined_to_act",
+    "manual_review",
+    "escalated",
+    "failed",
+]
+
+
+@dataclass(frozen=True)
+class Uc2WorkflowResult:
+    workflow_id: str
+    tenant_id: str
+    correlation_id: str
+    legal_intake_id: str
+    legal_intake_ref: str
+    outcome: Uc2WorkflowOutcome
     path: list[str]
     final_summary: str
     escalation_reason: str | None = None

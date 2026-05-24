@@ -33,6 +33,10 @@ the same primitives.
   walk their definition over spine primitives.
 - `uc1.py` contains the `Uc1EnquiryQualificationWorkflow` and its
   `WorkflowDefinition` for UC1.
+- `uc2.py` contains the `Uc2LegalServicesIntakeConflictCheckWorkflow` and its
+  definition-first R4 `WorkflowDefinition` for UC2. Its tests use fake
+  activity boundaries until UC2 connectors, grants, provider routes, intake
+  adapters, and projections land.
 - `activities.py` contains Temporal activities that may perform IO.
 - `mailpit.py` parses inbound Mailpit messages as UC1 email-channel
   enquiries and dedupes by Message-ID.

@@ -356,7 +356,7 @@ The runtime code carries the named-port surface this document describes.
 | LLM provider port | `chorus/llm_provider/port.py` (surface), `chorus/llm_provider/adapter_openai.py` (OpenAI-SDK transport), `chorus/llm_provider/adapter_replay.py` (deterministic recorded-replay substrate), `chorus/llm_provider/route_catalogue.py` (route metadata). |
 | Audit / transcript port split | `chorus/persistence/audit_port.py`, `contracts/audit/agent_invocation_record.schema.json`, `contracts/audit/agent_invocation_transcript.schema.json`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`. The runtime writes both records on every invocation. |
 | Connector adapter registry | `chorus/connectors/types.py` (`ConnectorAdapter`, `ConnectorRegistry`, `ToolSpec`), `chorus/connectors/uc1.py` (six UC1 sandbox adapters), `chorus/persistence/uc1_connectors.py` (local UC1 quoting / referral / decline routing records plus seeded profile / catalogue read data), `chorus/connectors/calendar.py`. The gateway dispatches through the registry. |
-| Workflow spine + UC1 on the spine | `chorus/workflows/spine.py` (`WorkflowSpine`, `WorkflowDefinition`, `WorkflowStepDefinition` over generic activity names), `chorus/workflows/uc1.py` (UC1 enquiry-qualification workflow, including Tool Gateway routing for accepted, referred, declined, and missing-data verdicts). |
+| Workflow spine + use-case definitions | `chorus/workflows/spine.py` (`WorkflowSpine`, `WorkflowDefinition`, `WorkflowStepDefinition` over generic activity names), `chorus/workflows/uc1.py` (UC1 enquiry-qualification workflow, including Tool Gateway routing for accepted, referred, declined, and missing-data verdicts), `chorus/workflows/uc2.py` (definition-first UC2 legal-services intake and conflict-check workflow over the same primitives, with connector adapters / grants / provider routes / projections still pending). |
 | Per-port persistence read surface | `chorus/persistence/projection.py` (workflow + calendar), `chorus/persistence/audit_port.py`, `chorus/persistence/runtime_policy.py` (agent registry, route policy, grants, and policy snapshot rows), `chorus/persistence/provider_governance.py`, `chorus/persistence/replay_runs.py` (replay-run evidence records). The BFF binds them through `PortReaders` per request. |
 | Per-port doctor probes | `chorus/doctor/scaffold.py` (paths / executables / compose), `chorus/doctor/projection_port.py`, `chorus/doctor/connector_port.py`, `chorus/doctor/observability_port.py`, `chorus/doctor/workflow_runtime.py`, `chorus/doctor/ui.py`. CLI entry at `chorus/doctor/__main__.py`. |
 | Invariant-plus-replay eval | `chorus/eval/common_invariants.py` (architecture-wide invariant checks), `chorus/eval/use_cases/uc1_conduct.py` (UC1 conduct hooks), `chorus/eval/invariants.py` (current suite composition), `chorus/eval/scenario_player.py` (drives the recorded-replay route through a fixture's scenario), `chorus/eval/replay.py` (`eval replay` subcommand plus safe replay-run record construction), `contracts/eval/replay_run_record.schema.json`, `chorus/eval/run.py` (CLI). |
@@ -371,10 +371,11 @@ replay-eval), and
 use cases).
 
 R4 (local POC readiness across UC1, UC2, and UC3 with cross-provider
-replay-eval) is the next phase. It wires the UC2 and UC3 workflow
-definitions alongside UC1 on the same spine, aligns the OpenAI-SDK adapter
-against OpenAI `gpt-5.4-mini-2026-03-17` (canonical demo / eval) and
-DeepSeek `deepseek-v4-flash` (dev), and runs the cross-provider replay-eval
-ADR 0019 names as a first-class mode. The active R4 backlog and continuation
-handoff are in
+replay-eval) is the current phase. UC2 now has a definition-first workflow on
+the shared spine for legal intake, classification, party extraction, conflict
+check, KYC / beneficial ownership, AML assessment, engagement decision,
+approval-required handoff, engagement-letter routing, decline, manual review,
+and close. The UC2 connector adapters, grants, provider routes, projections,
+eval fixtures, and local intake start path remain later R4 slices. The active
+R4 backlog and continuation handoff are in
 [`transformation/r4-implementation-backlog.md`](transformation/r4-implementation-backlog.md).

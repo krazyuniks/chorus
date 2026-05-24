@@ -192,7 +192,7 @@ channel runnable status are separate claims.
 ### P4 - UC2 Legal Services Intake And Conflict Check
 
 - [x] Add UC2 intake and connector contracts under the named ports.
-- [ ] Add UC2 workflow definition on the shared spine.
+- [x] Add UC2 workflow definition on the shared spine.
 - [ ] Add sandbox conflict-check, KYC/beneficial-ownership, AML record-store,
   and engagement-letter-store connectors.
 - [ ] Add UC2 approval gates and conduct invariants.
@@ -1353,6 +1353,53 @@ channel runnable status are separate claims.
   run because this slice changed contracts, generated models, focused tests,
   and docs only.
 
+### 2026-05-24 - UC2 Workflow Definition On Shared Spine
+
+- Scope: second P4 UC2 slice for definition-first UC2 workflow structure,
+  deterministic workflow-step composition, focused Temporal workflow tests,
+  and matching docs only.
+- Behaviour changed:
+  - added `chorus/workflows/uc2.py` with
+    `Uc2LegalServicesIntakeConflictCheckWorkflow` and
+    `UC2_LEGAL_SERVICES_INTAKE_CONFLICT_CHECK_DEFINITION` over the shared
+    `WorkflowSpine`;
+  - declared UC2 steps for intake, matter classification, party extraction,
+    conflict check, conflict determination, conflict-exception approval
+    handoff, KYC / beneficial ownership, AML assessment, EDD approval handoff,
+    engagement decision, engagement-letter draft / send, decline, manual
+    review, close, and escalation;
+  - UC2 connector calls stay behind `WorkflowSpine.connector_call` and use the
+    previously declared tool names: `conflict_check.search`, `kyc_bo.lookup`,
+    `aml_record_store.record_assessment`, `engagement_letter.draft`,
+    `engagement_letter.send`, `engagement_letter.record_decline`, and
+    `engagement_letter.route_manual_review`;
+  - added workflow-local UC2 DTOs carrying safe refs and bounded summaries;
+    raw legal matter narratives, identity evidence, confidential information,
+    and engagement-letter bodies remain outside the workflow payload;
+  - added focused fake-activity Temporal tests for happy path, inline replay,
+    engagement-letter approval-required branch, decline branch, and
+    manual-review branch;
+  - no UC2 connector adapter implementation, Tool Gateway grant seed, DB
+    migration, BFF/UI surface, eval fixture, live provider route, live
+    connector side effect, or production legal / AML data path was added.
+- Files changed: UC2 workflow module, shared workflow DTO exports, focused
+  UC2 workflow tests, workflow package instructions, architecture /
+  evidence-map / runbook docs, and this backlog handoff.
+- Gates run:
+  - `uv run pytest tests/workflows/test_uc2_workflow.py tests/workflows/test_uc1_workflow.py tests/workflows/test_activities.py -q`
+    - green, 13 passed.
+  - `just test-replay` - green, 3 passed and 12 deselected.
+  - `just contracts-check` - green for 35 schemas, samples, and generated
+    model drift checks.
+  - `just lint` - green after formatting the two new Python files and adding
+    pyright-safe typed list helpers.
+  - `git diff --check` - green.
+- Skipped gates: live `just db-migrate`, DB-backed tests, full `just test`,
+  eval, frontend e2e, live-stack, and live-provider gates were not run. This
+  slice added workflow structure and fake-activity workflow evidence only;
+  UC2 connector adapters, grants, persistence, projections, eval fixtures,
+  local intake start path, and provider route support remain pending P4 work.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -1400,22 +1447,24 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: continue P4 - UC2 Legal Services Intake And Conflict Check by adding the UC2 workflow definition on the shared `WorkflowSpine`. Keep the slice focused on workflow definition structure, deterministic workflow-step composition, focused workflow tests, and matching docs. Do not add UC2 connector adapter implementations, DB migrations, BFF/UI surfaces, eval fixtures, live provider routes, live connector side effects, or production legal / AML data handling in this slice.
+Current target slice: continue P4 - UC2 Legal Services Intake And Conflict Check by adding the sandbox UC2 connector adapters for conflict check, KYC / beneficial ownership, AML record-store, and engagement-letter-store behind the existing connector registry and Tool Gateway contract shape. Keep the slice focused on connector adapter implementations, `ToolSpec` registration, generated UC2 argument-contract validation, deterministic local/synthetic outputs, focused connector / gateway tests, and matching docs. Do not add UC2 BFF/UI surfaces, eval fixtures, live provider routes, local intake adapters, production legal / AML data handling, or broad workflow rewrites in this slice.
 
-Previous slice completed: P4's first contract slice is complete. UC2 now has intake schemas / samples under `contracts/intake/uc2/` for email legal intake, corporate intake form, and intermediary referral, plus connector argument schemas / samples under `contracts/connector/uc2/` for conflict check, KYC / beneficial ownership lookup, AML risk assessment recording, engagement-letter draft, engagement-letter send, decline, and manual-review handoff. `contracts/connector/tool_call.schema.json` now admits the UC2 tool names, generated Pydantic models are committed, and `tests/test_contracts.py` validates the new samples and tool names. No UC2 workflow runtime, connector adapter implementation, DB migration, BFF/UI surface, eval fixture, live provider route, or connector side effect was added.
+Previous slice completed: P4's UC2 workflow-definition slice is complete. UC2 now has `chorus/workflows/uc2.py` with `Uc2LegalServicesIntakeConflictCheckWorkflow` and `UC2_LEGAL_SERVICES_INTAKE_CONFLICT_CHECK_DEFINITION` over the shared `WorkflowSpine`, plus workflow-local UC2 DTOs in `chorus/workflows/types.py`. The workflow structurally composes intake, matter classification, party extraction, conflict check, conflict determination, conflict-exception approval handoff, KYC / beneficial ownership, AML assessment, EDD approval handoff, engagement decision, engagement-letter draft / send, decline, manual review, close, and escalation. Focused fake-activity Temporal tests cover happy path, inline replay, engagement-letter approval-required, decline, and manual-review branches. No UC2 connector adapter implementation, Tool Gateway grant seed, DB migration, BFF/UI surface, eval fixture, live provider route, local intake adapter, or live connector side effect was added.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/README.md, contracts/intake/uc2/, contracts/connector/uc2/, contracts/projection/workflow_event.schema.json, chorus/workflows/spine.py, chorus/workflows/uc1.py, chorus/workflows/activities.py, tests/workflows/, and the current P4 backlog items. Use official SRA/GOV.UK sources only if UC2 regulatory wording needs fresh verification; otherwise rely on the already verified UC2 product/domain docs.
+Earlier P4 contract slice remains complete: UC2 has intake schemas / samples under `contracts/intake/uc2/` and connector argument schemas / samples under `contracts/connector/uc2/`; `contracts/connector/tool_call.schema.json` admits the UC2 tool names; generated Pydantic models are committed; and `tests/test_contracts.py` validates the samples and tool names.
 
-Before editing, inspect the existing workflow patterns and tests: `chorus/workflows/spine.py`, `chorus/workflows/uc1.py`, `chorus/workflows/activities.py`, `chorus/workflows/dtos.py`, `tests/workflows/test_uc1_workflow.py`, `tests/workflows/test_activities.py`, and any package `AGENTS.md` files under `chorus/workflows/`. Search for `uc2`, `legal_services`, `WorkflowDefinition`, `WorkflowStepDefinition`, `workflow_type`, `subject_ref`, `subject_summary`, `connector_call`, `agent_task`, `approval`, `conflict_check`, `kyc_bo`, `aml_record_store`, and `engagement_letter`.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/README.md, contracts/connector/uc2/, contracts/connector/tool_call.schema.json, chorus/connectors/types.py, chorus/connectors/uc1.py, chorus/connectors/calendar.py, chorus/connectors/__init__.py, chorus/tool_gateway/gateway.py, chorus/workflows/uc2.py, tests/connectors/, tests/tool_gateway/test_gateway.py, and the current P4 backlog items. Use official SRA/GOV.UK sources only if UC2 regulatory wording needs fresh verification; otherwise rely on the already verified UC2 product/domain docs.
 
-Expected direction: add a UC2 workflow definition beside UC1 that uses the shared `WorkflowSpine` primitives and deterministic step definitions for intake, matter classification, party extraction, conflict check, KYC / beneficial ownership, AML assessment, engagement decision, approval-required branches, engagement-letter routing, decline, manual review, and close. Use the new UC2 contract names and safe subject refs where helpful, but keep connector calls behind the existing Tool Gateway request shape and do not implement the connector adapters yet. The workflow should be structurally testable without live providers, DB-backed connectors, or side effects.
+Before editing, inspect the existing connector and gateway patterns and tests. Search for `ConnectorAdapter`, `ConnectorRegistry`, `ToolSpec`, `default_registry`, `argument_contract`, `tool_name`, `mode`, `conflict_check.search`, `kyc_bo.lookup`, `aml_record_store.record_assessment`, `engagement_letter.draft`, `engagement_letter.send`, `engagement_letter.record_decline`, `engagement_letter.route_manual_review`, `approval_required`, and `uc2`.
 
-Keep this slice workflow-definition-first and narrow. If the existing spine cannot express the UC2 lifecycle without inventing a new workflow DSL, mutating shared runtime semantics, or implementing connector adapters early, stop and surface the design question rather than widening the slice.
+Expected direction: add a `chorus/connectors/uc2.py` module with sandbox adapters for the four UC2 connector families, wire them into `default_registry`, and validate their declared argument contracts using the generated UC2 Pydantic models. The adapters should return bounded, deterministic, synthetic safe refs/statuses suitable for local architecture evidence and focused tests; they must not call production legal, AML, identity, Companies House, sanctions, document-management, matter-management, or email/e-signature services. Keep engagement-letter draft/send/decline/manual-review bodies as refs and bounded status metadata, not raw letter text. If connector persistence requires new local tables, keep that change connector-local and update the Postgres baseline/docs/tests in the same slice; otherwise prefer deterministic local adapter state consistent with existing connector patterns.
+
+Keep this slice connector-adapter-first and narrow. If the existing connector registry or Tool Gateway cannot express the UC2 adapters without adding approval-gate policy semantics, BFF/UI surfaces, eval fixtures, live providers, or a new connector framework, stop and surface the design question rather than widening the slice.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
 - Rewrite the body of the `## Next Continuation Prompt` section in the backlog with the next slice's prompt, in Strategy order. If R4 is fully closed, write the literal `R4-COMPLETE` there instead.
-- Run relevant focused gates for the files touched, likely including focused workflow tests, `just test-replay` if workflow determinism/replay surfaces change, `just contracts-check` if contract refs are touched, `just lint`, and `git diff --check`. If DB-backed or live-stack gates cannot run because local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
+- Run relevant focused gates for the files touched, likely including focused connector / gateway tests, `just contracts-check`, `just lint`, and `git diff --check`. Run DB-backed tests if the connector slice adds persistence; if local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
 - Stage everything and create one Conventional Commit (`type(scope): description`). Do not add `Co-Authored-By` or any AI attribution.
 - Leave the working tree clean.
 

@@ -19,9 +19,12 @@ end-to-end run and closes with cross-provider replay-eval.
 
 A note on what runs today. R3 (contract and code terminology refactor)
 closed 2026-05-24. The runtime code carries the named-port surface, and
-the runnable workflow is the UC1 enquiry-qualification workflow on the
-shared `WorkflowSpine`. UC2 and UC3 land in R4 alongside cross-provider
-replay-eval.
+the runnable local intake path remains the UC1 enquiry-qualification workflow
+on the shared `WorkflowSpine`. UC2 now has a definition-first workflow on the
+same spine with focused fake-activity workflow / replay tests; UC2 connector
+adapters, grants, provider route support, projections, eval fixtures, and a
+local intake start path remain later R4 work. UC3 lands later in R4 alongside
+cross-provider replay-eval breadth.
 
 ## Bring the stack up
 
