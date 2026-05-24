@@ -125,10 +125,13 @@ Inspect the grants for an agent:
 ```
 
 Every gateway call writes an audit row regardless of verdict; see the audit
-port section below. The UC1 quoting queue, referral inbox, and decline ledger
-adapters persist their local sandbox refs in Postgres. Customer-profile and
-product-catalogue reads resolve tenant-scoped synthetic rows from the local
-Postgres seeds. Full verdict routing and connector-path eval fixtures remain
+port section below. The UC1 workflow routes `accept`, `refer`, and `decline`
+qualification verdicts through the Tool Gateway to the quoting queue,
+referral inbox, and decline ledger adapters, which persist their local
+sandbox refs in Postgres. Missing-data verdicts stay on the proposal-mode
+outbound-comms path; the write-mode send remains approval-required.
+Customer-profile and product-catalogue reads resolve tenant-scoped synthetic
+rows from the local Postgres seeds. Full connector-path eval fixtures remain
 P2 work.
 
 ### Audit / transcript ports
@@ -209,12 +212,14 @@ not change.
    `target_market_check`, `foreseeable_harm_check`), and an explicit
    rationale.
 
-5. **Routing (connector port).** The drafter and validator produce a missing-
-   data request; the validator routes it through the Tool Gateway as a
-   `propose`-mode `outbound_comms.message` call. Every call carries a grant
-   check, a mode decision, an argument validation, and a verdict. The
-   `sandbox-outbound-comms` adapter holds the proposal for adviser approval
-   before a `write`-mode send through Mailpit.
+5. **Routing (connector port).** The workflow routes the qualification verdict
+   through the Tool Gateway. `accept` uses `crm.route_to_quoting_queue`,
+   `refer` uses `referral_inbox.route`, and `decline` uses
+   `decline_ledger.route`, with `verdict_ref` as the idempotency key.
+   Missing-data verdicts draft and validate an outbound message, then call
+   `outbound_comms.message` in `propose` mode with
+   `missing_data_request_ref` as the idempotency key. The write-mode outbound
+   send remains approval-required before Mailpit delivery.
 
 6. **Inspect the decision-trail and transcript (audit ports).** Run the
    decision-trail and `tool_action_audit` SQL from the audit port section with

@@ -83,6 +83,7 @@ def _record_activity_factory(
 def _agent_activity_factory(
     *,
     failing: bool = False,
+    qualification_verdict_category: str = "missing_data",
 ):
     @activity.defn(name=ACTIVITY_INVOKE_AGENT_RUNTIME)
     async def fake_agent(request: AgentInvocationRequest) -> AgentInvocationResponse:
@@ -90,6 +91,13 @@ def _agent_activity_factory(
             raise RuntimeError("classifier_failure_fixture")
         structured: dict[str, object] = {}
         next_step = "continue"
+        if request.task_kind == "enquiry_classification":
+            structured = {
+                "product_family_category": "motor_private_car",
+                "demanded_cover_shape": "third_party_fire_and_theft",
+            }
+        if request.task_kind == "enquiry_qualification":
+            structured = _qualification_structured_data_for(qualification_verdict_category)
         if request.task_kind == "missing_data_request_draft":
             structured = {
                 "draft_body_text": "Please confirm postcode and licence date.",
@@ -111,9 +119,42 @@ def _agent_activity_factory(
     return fake_agent
 
 
-def _gateway_activity_factory(*, verdict: str = "propose"):
+def _qualification_structured_data_for(category: str) -> dict[str, object]:
+    base: dict[str, object] = {
+        "qualification_verdict_category": category,
+        "customer_ref": "cust_demo_001",
+        "verdict_ref": f"verdict_demo_{category}_001",
+        "routing_policy_ref": "policy_uc1_routing_v1",
+    }
+    if category == "accept":
+        return {
+            **base,
+            "product_family_category": "motor_private_car",
+            "qualification_summary_ref": "qsum_demo_accept_001",
+        }
+    if category == "refer":
+        return {
+            **base,
+            "referral_destination_category": "internal_complex_risk_desk",
+            "referral_reason_category": "complex_risk_outside_appetite",
+        }
+    if category == "decline":
+        return {
+            **base,
+            "decline_reason_category": "outside_product_target_market",
+        }
+    return base
+
+
+def _gateway_activity_factory(
+    *,
+    verdict: str = "propose",
+    requests: list[ToolGatewayRequest] | None = None,
+):
     @activity.defn(name=ACTIVITY_INVOKE_TOOL_GATEWAY)
     async def fake_gateway(request: ToolGatewayRequest) -> ToolGatewayResponse:
+        if requests is not None:
+            requests.append(request)
         return ToolGatewayResponse(
             verdict_id=str(uuid4()),
             tool_call_id=str(uuid4()),
@@ -151,6 +192,7 @@ def _retry_exhaustion_dlq_activity_factory(commands: list[RetryExhaustionDlqComm
 @pytest.mark.asyncio
 async def test_uc1_workflow_happy_path_transitions_and_replays() -> None:
     events: list[WorkflowEventCommand] = []
+    gateway_requests: list[ToolGatewayRequest] = []
     intake = _sample_intake()
 
     async with (
@@ -162,7 +204,7 @@ async def test_uc1_workflow_happy_path_transitions_and_replays() -> None:
             activities=[
                 _record_activity_factory(events),
                 _agent_activity_factory(),
-                _gateway_activity_factory(),
+                _gateway_activity_factory(requests=gateway_requests),
             ],
         ),
     ):
@@ -183,9 +225,88 @@ async def test_uc1_workflow_happy_path_transitions_and_replays() -> None:
         "missing_data_request_send",
         "complete",
     ]
+    assert len(gateway_requests) == 1
+    assert gateway_requests[0].tool_name == "outbound_comms.message"
+    assert gateway_requests[0].idempotency_key == "mdr_demo_001"
     assert [event.sequence for event in events] == list(range(1, len(events) + 1))
     assert events[0].event_type == "enquiry.received"
     assert all(event.payload.get("subject_summary") == intake.subject for event in events)
+    assert events[-1].event_type == "workflow.completed"
+
+
+@pytest.mark.parametrize(
+    ("category", "tool_name", "route_step", "ref_key", "idempotency_key"),
+    [
+        (
+            "accept",
+            "crm.route_to_quoting_queue",
+            "route_verdict_accept",
+            "verdict_ref",
+            "verdict_demo_accept_001",
+        ),
+        (
+            "refer",
+            "referral_inbox.route",
+            "route_verdict_refer",
+            "verdict_ref",
+            "verdict_demo_refer_001",
+        ),
+        (
+            "decline",
+            "decline_ledger.route",
+            "route_verdict_decline",
+            "verdict_ref",
+            "verdict_demo_decline_001",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_uc1_workflow_routes_terminal_verdicts_through_gateway(
+    category: str,
+    tool_name: str,
+    route_step: str,
+    ref_key: str,
+    idempotency_key: str,
+) -> None:
+    events: list[WorkflowEventCommand] = []
+    gateway_requests: list[ToolGatewayRequest] = []
+
+    async with (
+        await WorkflowEnvironment.start_time_skipping() as env,
+        Worker(
+            env.client,
+            task_queue=f"test-uc1-route-{category}",
+            workflows=[Uc1EnquiryQualificationWorkflow],
+            activities=[
+                _record_activity_factory(events),
+                _agent_activity_factory(qualification_verdict_category=category),
+                _gateway_activity_factory(verdict="allow", requests=gateway_requests),
+            ],
+        ),
+    ):
+        result = await env.client.execute_workflow(
+            "Uc1EnquiryQualificationWorkflow",
+            _sample_intake(),
+            id=f"uc1-workflow-route-{category}-test",
+            task_queue=f"test-uc1-route-{category}",
+            result_type=Uc1WorkflowResult,
+        )
+
+    assert result.outcome == "completed"
+    assert result.path == [
+        "intake",
+        "classification",
+        "qualification",
+        route_step,
+        "complete",
+    ]
+    assert len(gateway_requests) == 1
+    request = gateway_requests[0]
+    assert request.agent_id == "uc1.qualifier"
+    assert request.tool_name == tool_name
+    assert request.mode == "write"
+    assert request.idempotency_key == idempotency_key
+    assert request.arguments[ref_key] == idempotency_key
     assert events[-1].event_type == "workflow.completed"
 
 

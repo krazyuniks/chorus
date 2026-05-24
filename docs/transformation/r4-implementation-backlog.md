@@ -153,7 +153,7 @@ channel runnable status are separate claims.
   decline ledger behind the existing connector adapters.
 - [x] Persist or deterministically seed customer profile and product catalogue
   lookup data behind the existing read connectors.
-- [ ] Route accepted, referred, declined, and missing-data verdicts through the
+- [x] Route accepted, referred, declined, and missing-data verdicts through the
   appropriate connector paths.
 - [ ] Materialise the UC1 policy snapshot row behind `policy_snapshot_ref`.
 - [ ] Add eval fixtures and invariants that prove the full UC1 connector path,
@@ -665,6 +665,56 @@ channel runnable status are separate claims.
   live-provider gates were not run. DB-backed verification and migration
   execution remain blocked by the local Postgres credential failure.
 
+### 2026-05-24 - UC1 Verdict Connector Routing
+
+- Scope: third P2 UC1 completion slice for routing qualification verdicts
+  through the existing UC1 connector paths only.
+- Files changed: `chorus/workflows/uc1.py`,
+  `chorus/llm_provider/adapter_replay.py`, focused workflow tests,
+  architecture / evidence / runbook docs, and this backlog handoff.
+- Behaviour changed:
+  - UC1 qualification now branches on the structured verdict route category:
+    `accept` / `accepted` routes through `crm.route_to_quoting_queue`,
+    `refer` / `referred` routes through `referral_inbox.route`, and
+    `decline` / `declined` routes through `decline_ledger.route`;
+  - terminal verdict routing stays behind `WorkflowSpine.connector_call` and
+    the Tool Gateway, uses the existing `uc1.qualifier` write grants, and uses
+    `verdict_ref` as the idempotency key;
+  - missing-data verdicts continue through the existing draft, validation, and
+    proposal-mode `outbound_comms.message` path, now using
+    `missing_data_request_ref` as the proposal idempotency key; write-mode
+    outbound customer communication remains approval-required;
+  - the deterministic recorded-replay qualification output now labels the
+    existing happy-path branch as `missing_data` so current offline eval
+    fixture semantics remain the missing-data proposal path;
+  - connector contracts, Postgres routing/reference schemas, read-connector
+    seed data, provider route selection, UC2 / UC3 runtime scope, replay
+    comparator code, and UI behaviour were intentionally left unchanged.
+- Gates run:
+  - `uv run pytest tests/workflows/test_uc1_workflow.py -q` - green,
+    7 passed.
+  - `uv run pytest tests/workflows/test_uc1_workflow.py tests/workflows/test_activities.py -q`
+    - green, 8 passed.
+  - `uv run pytest tests/eval/test_run.py -q` - green, 8 passed.
+  - `uv run pytest tests/connectors/test_uc1_connectors.py tests/tool_gateway/test_gateway.py tests/persistence/test_postgres_foundation.py tests/workflows/test_uc1_workflow.py tests/workflows/test_activities.py -rs`
+    - 19 passed and 26 skipped; skipped Tool Gateway and persistence cases
+    were DB-backed because local Postgres on `localhost:5432` rejected the
+    configured `chorus` user.
+  - `uv run pytest tests/agent_runtime/test_runtime.py -q` - green,
+    8 passed and 3 skipped.
+  - `just contracts-check` - green.
+  - `just eval` - green for the two current UC1 offline eval fixtures with
+    unchanged invariant names, order, and pass outcomes.
+  - `just test-replay` - green, 2 passed and 8 deselected.
+  - `just lint` - green after fixing a pyright narrowing issue in the
+    missing-data signal helper.
+  - `git diff --check` - green.
+- Skipped gates: `just contracts-gen` was not run because connector contracts
+  did not change; live `just db-migrate`, full `just test`, Redpanda
+  projection integration, frontend e2e, UC2 / UC3 runtime gates, and
+  live-provider gates were not run. DB-backed verification and migration
+  execution remain blocked by the local Postgres credential failure.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -712,15 +762,15 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: continue P2 UC1 Completion in Strategy order by routing accepted, referred, declined, and missing-data verdicts through the appropriate existing UC1 connector paths.
+Current target slice: continue P2 UC1 Completion in Strategy order by materialising the UC1 policy snapshot row behind `policy_snapshot_ref`.
 
-Previous slice completed: customer profile and product catalogue lookup data are now persistence-backed through deterministic local Postgres seed records behind the existing UC1 read connector adapters. `chorus/persistence/uc1_connectors.py` now owns `Uc1ConnectorReferenceDataStore` alongside the routing store, `default_registry(conn)` wires the active connection into `sandbox-customer-profile` and `sandbox-product-catalogue`, `infrastructure/postgres/migrations/001_current_state_baseline.sql` now creates `local_customer_profiles` and `local_product_catalogue_entries` with tenant isolation, and `infrastructure/postgres/seeds/003_uc1_connector_reference_data.sql` seeds synthetic lookup rows for the demo tenants. Existing `customer_profile.lookup` and `product_catalogue.lookup` argument contracts and output field names were preserved. UC1 workflow control flow, outbound-comms approval behaviour, provider routing, eval fixture schema, and offline eval behaviour were left unchanged.
+Previous slice completed: UC1 qualification verdicts now route through the existing connector paths behind the Tool Gateway. `accept` / `accepted` routes to `crm.route_to_quoting_queue`, `refer` / `referred` routes to `referral_inbox.route`, and `decline` / `declined` routes to `decline_ledger.route`, with `verdict_ref` as the idempotency key and the existing `uc1.qualifier` write grants. Missing-data verdicts continue through the existing draft / validation / proposal-mode `outbound_comms.message` path, now using `missing_data_request_ref` as the proposal idempotency key; write-mode outbound customer communication remains approval-required. The deterministic recorded-replay qualification output now labels the current offline happy path as `missing_data`, preserving current eval fixture semantics. Connector contracts, Postgres routing/reference schemas, provider route selection, UC2 / UC3 runtime scope, replay comparator code, and UI behaviour were left unchanged.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief.md, docs/domain-model.md, docs/r1-adapter-mapping.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, and the current P2 backlog items. Keep this slice focused on the third P2 item only: routing accepted, referred, declined, and missing-data verdicts through the appropriate existing connector paths.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief.md, docs/domain-model.md, docs/r1-adapter-mapping.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, and the current P2 backlog items. Keep this slice focused on the fourth P2 item only: materialising the UC1 policy snapshot row behind `policy_snapshot_ref`.
 
-Before editing, inspect `chorus/workflows/uc1.py`, `chorus/workflows/spine.py`, `chorus/workflows/types.py`, `chorus/workflows/activities.py`, `chorus/agent_runtime/runtime.py`, `chorus/llm_provider/adapter_replay.py`, `chorus/connectors/uc1.py`, `chorus/connectors/__init__.py`, `chorus/connectors/types.py`, `chorus/tool_gateway/gateway.py`, `chorus/persistence/uc1_connectors.py`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`, `infrastructure/postgres/seeds/`, `tests/workflows/test_uc1_workflow.py`, `tests/workflows/test_activities.py`, `tests/connectors/test_uc1_connectors.py`, `tests/tool_gateway/test_gateway.py`, `tests/persistence/test_postgres_foundation.py`, `tests/eval/test_run.py`, and searches for `crm.route_to_quoting_queue`, `referral_inbox.route`, `decline_ledger.route`, `outbound_comms.message`, `qualification verdict`, `verdict_ref`, `missing_data_request_ref`, `RouteVerdict`, `accepted`, `referred`, `declined`, `missing-data`, `customer_profile.lookup`, `product_catalogue.lookup`, and UC1 connector persistence. Preserve the existing Tool Gateway authority path, approval-required outbound-comms behaviour, read-connector seeding, provider route selection, and current eval fixture semantics unless the verdict-routing change requires a small focused preservation assertion.
+Before editing, inspect `chorus/agent_runtime/runtime.py`, `chorus/llm_provider/adapter_replay.py`, `chorus/persistence/runtime_policy.py`, `chorus/persistence/audit_port.py`, `chorus/workflows/uc1.py`, `chorus/workflows/activities.py`, `chorus/tool_gateway/gateway.py`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`, `infrastructure/postgres/seeds/`, `tests/agent_runtime/test_runtime.py`, `tests/persistence/test_postgres_foundation.py`, `tests/workflows/test_uc1_workflow.py`, `tests/eval/test_run.py`, and searches for `policy_snapshot_ref`, `policy_snapshot`, `PolicySnapshot`, `policy_snapshot:uc1:default:v1`, `runtime_policy`, `tool_grants`, `agent_registry`, `model_routing_policies`, `model_route_versions`, and `qualification_verdict_category`. Preserve the existing Tool Gateway authority path, approval-required outbound-comms behaviour, read-connector seeding, provider route selection, verdict connector routing, and current eval fixture semantics unless the policy-snapshot persistence change requires a small focused preservation assertion.
 
-Keep this slice focused on connector-path verdict routing only. Do not implement UC2 or UC3 runtime work, add new provider route wiring, add replay comparator code, broaden eval fixture coverage beyond what is needed to preserve or minimally prove current UC1 behaviour, change UI behaviour, or complete the remaining P2 items for policy snapshot persistence or full UC1 connector-path eval fixtures unless a tiny supporting test assertion is required for this verdict-routing change. If the routing design requires changing cross-port contracts, bypassing the Tool Gateway, changing approval semantics for outbound customer comms, storing real customer data, or adding a materially broader migration boundary than local sandbox routing/reference records, stop and surface the blocking question before committing.
+Keep this slice focused on policy snapshot materialisation only. Do not implement UC2 or UC3 runtime work, add new provider route wiring, add replay comparator code, broaden eval fixture coverage beyond what is needed to preserve or minimally prove current UC1 behaviour, change UI behaviour, or complete the remaining P2 item for full UC1 connector-path eval fixtures unless a tiny supporting test assertion is required for this policy-snapshot change. If the design requires changing cross-port contracts, bypassing the Tool Gateway or LLM provider port, changing approval semantics for outbound customer comms, storing real customer data, or adding a materially broader migration boundary than local sandbox policy snapshot rows, stop and surface the blocking question before committing.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.

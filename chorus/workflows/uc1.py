@@ -12,7 +12,7 @@ and the UC2 / UC3 deltas, see `docs/r1-adapter-mapping.md`.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from temporalio import workflow
 from temporalio.exceptions import ActivityError
@@ -35,6 +35,7 @@ from chorus.workflows.spine import (
 )
 from chorus.workflows.types import (
     AgentInvocationResponse,
+    ToolGatewayResponse,
     Uc1EnquiryIntake,
     Uc1WorkflowResult,
     WorkflowCorrelation,
@@ -48,6 +49,9 @@ UC1_AGENT_IO_CONTRACT = "contracts/llm_provider/uc1_agent_io.schema.json"
 STEP_INTAKE = "intake"
 STEP_CLASSIFICATION = "classification"
 STEP_QUALIFICATION = "qualification"
+STEP_ROUTE_VERDICT_ACCEPT = "route_verdict_accept"
+STEP_ROUTE_VERDICT_REFER = "route_verdict_refer"
+STEP_ROUTE_VERDICT_DECLINE = "route_verdict_decline"
 STEP_MISSING_DATA_REQUEST_DRAFT = "missing_data_request_draft"
 STEP_MISSING_DATA_REQUEST_VALIDATION = "missing_data_request_validation"
 STEP_MISSING_DATA_REQUEST_SEND = "missing_data_request_send"
@@ -58,6 +62,10 @@ _MAX_DEEPER_CONTEXT_ATTEMPTS = 2
 _MAX_REDRAFT_ATTEMPTS = 2
 
 _AGENT_ID_REQUEST_DRAFTER = "uc1.request_drafter"
+_AGENT_ID_QUALIFIER = "uc1.qualifier"
+_DEFAULT_CUSTOMER_REF = "cust_demo_001"
+_DEFAULT_PRODUCT_FAMILY_CATEGORY = "motor_private_car"
+_DEFAULT_ROUTING_POLICY_REF = "policy_uc1_routing_v1"
 
 UC1_STEP_INTAKE = WorkflowStepDefinition(step_name=STEP_INTAKE, kind=WorkflowStepKind.INTAKE)
 
@@ -101,6 +109,36 @@ UC1_STEP_REQUEST_VALIDATION = WorkflowStepDefinition(
     ),
 )
 
+UC1_STEP_ROUTE_ACCEPT = WorkflowStepDefinition(
+    step_name=STEP_ROUTE_VERDICT_ACCEPT,
+    kind=WorkflowStepKind.CONNECTOR,
+    connector_spec=ConnectorSpec(
+        agent_id=_AGENT_ID_QUALIFIER,
+        tool_name="crm.route_to_quoting_queue",
+        mode="write",
+    ),
+)
+
+UC1_STEP_ROUTE_REFER = WorkflowStepDefinition(
+    step_name=STEP_ROUTE_VERDICT_REFER,
+    kind=WorkflowStepKind.CONNECTOR,
+    connector_spec=ConnectorSpec(
+        agent_id=_AGENT_ID_QUALIFIER,
+        tool_name="referral_inbox.route",
+        mode="write",
+    ),
+)
+
+UC1_STEP_ROUTE_DECLINE = WorkflowStepDefinition(
+    step_name=STEP_ROUTE_VERDICT_DECLINE,
+    kind=WorkflowStepKind.CONNECTOR,
+    connector_spec=ConnectorSpec(
+        agent_id=_AGENT_ID_QUALIFIER,
+        tool_name="decline_ledger.route",
+        mode="write",
+    ),
+)
+
 UC1_STEP_REQUEST_SEND = WorkflowStepDefinition(
     step_name=STEP_MISSING_DATA_REQUEST_SEND,
     kind=WorkflowStepKind.APPROVAL_GATE,
@@ -126,6 +164,9 @@ UC1_ENQUIRY_QUALIFICATION_DEFINITION = WorkflowDefinition(
         UC1_STEP_INTAKE,
         UC1_STEP_CLASSIFICATION,
         UC1_STEP_QUALIFICATION,
+        UC1_STEP_ROUTE_ACCEPT,
+        UC1_STEP_ROUTE_REFER,
+        UC1_STEP_ROUTE_DECLINE,
         UC1_STEP_REQUEST_DRAFT,
         UC1_STEP_REQUEST_VALIDATION,
         UC1_STEP_REQUEST_SEND,
@@ -214,76 +255,16 @@ class Uc1EnquiryQualificationWorkflow:
         if _should_escalate(qualification):
             return await self._escalate(spine, intake, "qualifier requested escalation")
 
-        validated = await self._draft_and_validate_request(
+        routing_result = await self._route_qualification_verdict(
             spine,
             intake,
             classification=classification,
             qualification=qualification,
         )
-        if validated is None:
-            return await self._escalate(spine, intake, "missing-data request validation failed")
-        draft, validation = validated
+        if isinstance(routing_result, Uc1WorkflowResult):
+            return routing_result
 
-        propose_arguments = _request_arguments_for(
-            intake=intake,
-            draft=draft,
-            validation=validation,
-        )
-        idempotency_key = f"{correlation.workflow_id}:outbound_comms.message"
-        try:
-            gateway_result = await spine.connector_call(
-                UC1_STEP_REQUEST_SEND,
-                invocation_id=validation.invocation_id,
-                idempotency_key=idempotency_key,
-                arguments=propose_arguments,
-            )
-        except ActivityRetryExhaustedError as exc:
-            return await self._retry_exhaustion_escalate(spine, intake, exc)
-        except ActivityError as exc:
-            failure_reason = activity_failure_reason(exc)
-            await spine.step(
-                STEP_MISSING_DATA_REQUEST_SEND,
-                {
-                    "enquiry_ref": intake.enquiry_ref,
-                    "gateway_verdict": "connector_failure",
-                    "enforced_mode": UC1_STEP_REQUEST_SEND.connector_spec.mode
-                    if UC1_STEP_REQUEST_SEND.connector_spec is not None
-                    else "propose",
-                    "tool_name": "outbound_comms.message",
-                    "connector_failure": True,
-                    "compensation_required": True,
-                    "failure_reason": failure_reason,
-                },
-            )
-            await spine.compensate_tool_failure(
-                step=UC1_STEP_REQUEST_SEND,
-                invocation_id=validation.invocation_id,
-                idempotency_key=idempotency_key,
-                arguments=propose_arguments,
-                failure_reason=failure_reason,
-            )
-            return await self._escalate(
-                spine,
-                intake,
-                "outbound comms connector failure compensated and escalated",
-            )
-
-        await spine.step(
-            STEP_MISSING_DATA_REQUEST_SEND,
-            {
-                "enquiry_ref": intake.enquiry_ref,
-                "gateway_verdict": gateway_result.verdict,
-                "enforced_mode": gateway_result.enforced_mode,
-                "tool_name": "outbound_comms.message",
-            },
-        )
-        if gateway_result.verdict in {"block", "approval_required"}:
-            return await self._escalate(
-                spine,
-                intake,
-                f"tool gateway returned {gateway_result.verdict}",
-            )
-
+        gateway_result = routing_result
         await spine.step(
             STEP_COMPLETE,
             {"enquiry_ref": intake.enquiry_ref, "final_summary": gateway_result.reason},
@@ -302,6 +283,143 @@ class Uc1EnquiryQualificationWorkflow:
             path=spine.path,
             final_summary=gateway_result.reason,
         )
+
+    async def _route_qualification_verdict(
+        self,
+        spine: WorkflowSpine,
+        intake: Uc1EnquiryIntake,
+        *,
+        classification: AgentInvocationResponse,
+        qualification: AgentInvocationResponse,
+    ) -> ToolGatewayResponse | Uc1WorkflowResult:
+        category = _qualification_route_category(qualification)
+        if category is None:
+            return await self._escalate(
+                spine,
+                intake,
+                "qualification verdict missing route category",
+            )
+        if category == "missing_data":
+            return await self._route_missing_data_request(
+                spine,
+                intake,
+                classification=classification,
+                qualification=qualification,
+            )
+        route_step = _terminal_route_step(category)
+        if route_step is None:
+            return await self._escalate(
+                spine,
+                intake,
+                f"unsupported qualification verdict route category: {category}",
+            )
+        arguments = _terminal_route_arguments_for(
+            intake=intake,
+            classification=classification,
+            qualification=qualification,
+            category=category,
+        )
+        idempotency_key = str(arguments["verdict_ref"])
+        tool_name = route_step.connector_spec.tool_name if route_step.connector_spec else ""
+        try:
+            gateway_result = await spine.connector_call(
+                route_step,
+                invocation_id=qualification.invocation_id,
+                idempotency_key=idempotency_key,
+                arguments=arguments,
+            )
+        except ActivityRetryExhaustedError as exc:
+            return await self._retry_exhaustion_escalate(spine, intake, exc)
+        except ActivityError as exc:
+            return await self._compensate_connector_failure(
+                spine,
+                intake,
+                step=route_step,
+                invocation_id=qualification.invocation_id,
+                idempotency_key=idempotency_key,
+                arguments=arguments,
+                failure=exc,
+            )
+
+        await spine.step(
+            route_step.step_name,
+            {
+                "enquiry_ref": intake.enquiry_ref,
+                "qualification_verdict_category": category,
+                "gateway_verdict": gateway_result.verdict,
+                "enforced_mode": gateway_result.enforced_mode,
+                "tool_name": tool_name,
+                "routing_ref": _routing_ref_from(gateway_result.output),
+            },
+        )
+        if gateway_result.verdict != "allow":
+            return await self._escalate(
+                spine,
+                intake,
+                f"tool gateway returned {gateway_result.verdict}",
+            )
+        return gateway_result
+
+    async def _route_missing_data_request(
+        self,
+        spine: WorkflowSpine,
+        intake: Uc1EnquiryIntake,
+        *,
+        classification: AgentInvocationResponse,
+        qualification: AgentInvocationResponse,
+    ) -> ToolGatewayResponse | Uc1WorkflowResult:
+        validated = await self._draft_and_validate_request(
+            spine,
+            intake,
+            classification=classification,
+            qualification=qualification,
+        )
+        if validated is None:
+            return await self._escalate(spine, intake, "missing-data request validation failed")
+        draft, validation = validated
+
+        propose_arguments = _request_arguments_for(
+            intake=intake,
+            draft=draft,
+            validation=validation,
+        )
+        idempotency_key = str(propose_arguments["missing_data_request_ref"])
+        try:
+            gateway_result = await spine.connector_call(
+                UC1_STEP_REQUEST_SEND,
+                invocation_id=validation.invocation_id,
+                idempotency_key=idempotency_key,
+                arguments=propose_arguments,
+            )
+        except ActivityRetryExhaustedError as exc:
+            return await self._retry_exhaustion_escalate(spine, intake, exc)
+        except ActivityError as exc:
+            return await self._compensate_connector_failure(
+                spine,
+                intake,
+                step=UC1_STEP_REQUEST_SEND,
+                invocation_id=validation.invocation_id,
+                idempotency_key=idempotency_key,
+                arguments=propose_arguments,
+                failure=exc,
+            )
+
+        await spine.step(
+            STEP_MISSING_DATA_REQUEST_SEND,
+            {
+                "enquiry_ref": intake.enquiry_ref,
+                "gateway_verdict": gateway_result.verdict,
+                "enforced_mode": gateway_result.enforced_mode,
+                "tool_name": "outbound_comms.message",
+            },
+        )
+        if gateway_result.verdict in {"block", "approval_required"}:
+            return await self._escalate(
+                spine,
+                intake,
+                f"tool gateway returned {gateway_result.verdict}",
+            )
+        return gateway_result
 
     async def _classify_enquiry(
         self,
@@ -453,6 +571,45 @@ class Uc1EnquiryQualificationWorkflow:
                 return None
             return draft, validation
 
+    async def _compensate_connector_failure(
+        self,
+        spine: WorkflowSpine,
+        intake: Uc1EnquiryIntake,
+        *,
+        step: WorkflowStepDefinition,
+        invocation_id: str,
+        idempotency_key: str,
+        arguments: dict[str, Any],
+        failure: ActivityError,
+    ) -> Uc1WorkflowResult:
+        failure_reason = activity_failure_reason(failure)
+        tool_name = step.connector_spec.tool_name if step.connector_spec is not None else None
+        enforced_mode = step.connector_spec.mode if step.connector_spec is not None else None
+        await spine.step(
+            step.step_name,
+            {
+                "enquiry_ref": intake.enquiry_ref,
+                "gateway_verdict": "connector_failure",
+                "enforced_mode": enforced_mode,
+                "tool_name": tool_name,
+                "connector_failure": True,
+                "compensation_required": True,
+                "failure_reason": failure_reason,
+            },
+        )
+        await spine.compensate_tool_failure(
+            step=step,
+            invocation_id=invocation_id,
+            idempotency_key=idempotency_key,
+            arguments=arguments,
+            failure_reason=failure_reason,
+        )
+        return await self._escalate(
+            spine,
+            intake,
+            f"{tool_name or 'connector'} failure compensated and escalated",
+        )
+
     async def _retry_exhaustion_escalate(
         self,
         spine: WorkflowSpine,
@@ -529,6 +686,153 @@ def _needs_deeper_context(response: AgentInvocationResponse) -> bool:
         response.recommended_next_step == "deeper_context"
         or response.confidence < _CONFIDENCE_THRESHOLD
     )
+
+
+def _qualification_route_category(response: AgentInvocationResponse) -> str | None:
+    structured = response.structured_data
+    for key in (
+        "qualification_verdict_category",
+        "verdict_category",
+        "routing_category",
+        "route_category",
+    ):
+        category = _normalise_route_category(structured.get(key))
+        if category is not None:
+            return category
+    if _has_missing_data_signal(structured):
+        return "missing_data"
+    return None
+
+
+def _normalise_route_category(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalised = value.strip().lower().replace("-", "_").replace(" ", "_")
+    match normalised:
+        case "accept" | "accepted" | "accepted_for_quoting" | "quote":
+            return "accept"
+        case "refer" | "referred" | "referral" | "refer_to_underwriter":
+            return "refer"
+        case "decline" | "declined" | "declined_to_quote":
+            return "decline"
+        case (
+            "missing_data"
+            | "missingdata"
+            | "missing_data_request"
+            | "request_missing_data"
+            | "needs_missing_data"
+        ):
+            return "missing_data"
+        case _:
+            return None
+
+
+def _has_missing_data_signal(structured: dict[str, Any]) -> bool:
+    required = structured.get("missing_data_request_required")
+    if isinstance(required, bool) and required:
+        return True
+    fields = structured.get("missing_data_fields")
+    return isinstance(fields, list) and len(cast(list[Any], fields)) > 0
+
+
+def _terminal_route_step(category: str) -> WorkflowStepDefinition | None:
+    match category:
+        case "accept":
+            return UC1_STEP_ROUTE_ACCEPT
+        case "refer":
+            return UC1_STEP_ROUTE_REFER
+        case "decline":
+            return UC1_STEP_ROUTE_DECLINE
+        case _:
+            return None
+
+
+def _terminal_route_arguments_for(
+    *,
+    intake: Uc1EnquiryIntake,
+    classification: AgentInvocationResponse,
+    qualification: AgentInvocationResponse,
+    category: str,
+) -> dict[str, Any]:
+    structured = qualification.structured_data
+    common = {
+        "enquiry_ref": intake.enquiry_ref,
+        "customer_ref": _string_value_or(structured.get("customer_ref"), _DEFAULT_CUSTOMER_REF),
+        "verdict_ref": _string_value_or(
+            structured.get("verdict_ref"),
+            _default_ref("verdict", intake),
+        ),
+        "routing_policy_ref": _string_value_or(
+            structured.get("routing_policy_ref"),
+            _DEFAULT_ROUTING_POLICY_REF,
+        ),
+    }
+    if category == "accept":
+        return {
+            **common,
+            "product_family_category": _product_family_category(
+                classification=classification,
+                qualification=qualification,
+            ),
+            "qualification_summary_ref": _string_value_or(
+                structured.get("qualification_summary_ref"),
+                _default_ref("qsum", intake),
+            ),
+        }
+    if category == "refer":
+        return {
+            **common,
+            "referral_destination_category": _string_value_or(
+                structured.get("referral_destination_category"),
+                "internal_complex_risk_desk",
+            ),
+            "referral_reason_category": _string_value_or(
+                structured.get("referral_reason_category"),
+                "complex_risk_outside_appetite",
+            ),
+        }
+    return {
+        **common,
+        "decline_reason_category": _string_value_or(
+            structured.get("decline_reason_category"),
+            "outside_product_target_market",
+        ),
+    }
+
+
+def _product_family_category(
+    *,
+    classification: AgentInvocationResponse,
+    qualification: AgentInvocationResponse,
+) -> str:
+    qualification_value = _string_value_or(
+        qualification.structured_data.get("product_family_category"),
+        "",
+    )
+    if qualification_value:
+        return qualification_value
+    classification_value = _string_value_or(
+        classification.structured_data.get("product_family_category"),
+        "",
+    )
+    return classification_value or _DEFAULT_PRODUCT_FAMILY_CATEGORY
+
+
+def _routing_ref_from(output: dict[str, Any]) -> str | None:
+    for key in ("queued_route_ref", "referral_route_ref", "decline_route_ref"):
+        value = output.get(key)
+        if isinstance(value, str):
+            return value
+    return None
+
+
+def _string_value_or(value: object, default: str) -> str:
+    return value if isinstance(value, str) and value else default
+
+
+def _default_ref(prefix: str, intake: Uc1EnquiryIntake) -> str:
+    received_digest = "".join(ch for ch in intake.received_at if ch.isdigit())[:14] or "0"
+    return f"{prefix}_{intake.enquiry_ref}_{int(received_digest):x}"
 
 
 def _classification_input(

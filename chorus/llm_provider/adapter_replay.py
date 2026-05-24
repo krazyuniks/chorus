@@ -112,7 +112,8 @@ def _replay_result_for(
                 "Enquiry passes UC1 conduct hooks and proceeds with a missing-data request.",
                 "continue",
                 {
-                    "qualification_verdict_category": "accept",
+                    "qualification_verdict_category": "missing_data",
+                    "missing_data_request_required": True,
                     "conduct_hooks_pass": True,
                     "best_interests_check": {
                         "status": "pass",
