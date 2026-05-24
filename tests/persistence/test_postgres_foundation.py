@@ -449,8 +449,16 @@ def test_provider_catalogue_seed_uc1_model(migrated_database_url: str) -> None:
             "SELECT provider_id, model_id, lifecycle_state FROM provider_catalogue_models "
             "ORDER BY provider_id, model_id"
         ).fetchall()
+        providers = conn.execute(
+            "SELECT provider_id, secret_ref_names, lifecycle_state "
+            "FROM provider_catalogue_providers ORDER BY provider_id"
+        ).fetchall()
 
     assert ("local", "uc1-happy-path-v1", "approved") in models
+    assert ("deepseek", "deepseek-v4-flash", "disabled") in models
+    assert ("openai", "gpt-5.4-mini-2026-03-17", "disabled") in models
+    assert ("deepseek", ["DEEPSEEK_API_KEY"], "disabled") in providers
+    assert ("openai", ["OPENAI_API_KEY"], "disabled") in providers
 
 
 def test_runtime_policy_snapshot_is_tenant_scoped(migrated_database_url: str) -> None:

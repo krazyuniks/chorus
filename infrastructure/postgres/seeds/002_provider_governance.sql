@@ -2,7 +2,9 @@
 --
 -- Mirrors the contract samples and the model_routing_policies seeded in
 -- 001_demo_tenants.sql. The local route stays the runnable structured
--- boundary for UC1 until later runtime work moves to route versions.
+-- boundary for UC1 until later runtime work moves to route versions. The
+-- DeepSeek and OpenAI rows are verified but disabled until P3 route
+-- governance and live-provider gates are complete.
 
 INSERT INTO provider_catalogues (
     catalogue_id,
@@ -15,6 +17,20 @@ VALUES (
     '2026-05-03T00:00:00Z'
 )
 ON CONFLICT (catalogue_id) DO NOTHING;
+
+-- Remove the previous disabled commercial placeholder so the local
+-- governance snapshot exposes only verified provider/model credential refs.
+DELETE FROM model_route_versions
+WHERE provider_catalogue_id = 'provider-catalogue.local.seed'
+  AND provider_id = 'commercial.example';
+
+DELETE FROM provider_catalogue_models
+WHERE catalogue_id = 'provider-catalogue.local.seed'
+  AND provider_id = 'commercial.example';
+
+DELETE FROM provider_catalogue_providers
+WHERE catalogue_id = 'provider-catalogue.local.seed'
+  AND provider_id = 'commercial.example';
 
 INSERT INTO provider_catalogue_providers (
     catalogue_id,
@@ -45,16 +61,29 @@ VALUES
     ),
     (
         'provider-catalogue.local.seed',
-        'commercial.example',
-        'Commercial provider placeholder',
+        'deepseek',
+        'DeepSeek API',
         'commercial',
         'disabled',
         true,
-        ARRAY['CHORUS_COMMERCIAL_LLM_API_KEY']::text[],
+        ARRAY['DEEPSEEK_API_KEY']::text[],
         'disable_provider',
         '{"mode": "external_api", "allowed_regions": ["vendor-managed"], "stores_customer_content": true}'::jsonb,
         '{"default_timeout_ms": 30000, "max_retries": 2, "rate_limit_policy": "provider-documented-quota"}'::jsonb,
-        '{"owner": "agent-runtime", "declared_in": "infrastructure/postgres/seeds/002_provider_governance.sql", "notes": "Disabled placeholder only; no provider adapter is enabled by this seed."}'::jsonb
+        '{"owner": "agent-runtime", "declared_in": "infrastructure/postgres/seeds/002_provider_governance.sql", "notes": "Verified from official DeepSeek API docs on 2026-05-24: https://api-docs.deepseek.com/, https://api-docs.deepseek.com/api/list-models, and https://api-docs.deepseek.com/updates/. Disabled until P3 route-governance and live-provider gates are complete."}'::jsonb
+    ),
+    (
+        'provider-catalogue.local.seed',
+        'openai',
+        'OpenAI API',
+        'commercial',
+        'disabled',
+        true,
+        ARRAY['OPENAI_API_KEY']::text[],
+        'disable_provider',
+        '{"mode": "external_api", "allowed_regions": ["vendor-managed"], "stores_customer_content": true}'::jsonb,
+        '{"default_timeout_ms": 30000, "max_retries": 2, "rate_limit_policy": "provider-documented-quota"}'::jsonb,
+        '{"owner": "agent-runtime", "declared_in": "infrastructure/postgres/seeds/002_provider_governance.sql", "notes": "Verified from official OpenAI API docs on 2026-05-24: https://developers.openai.com/api/docs/models/gpt-5.4-mini and https://developers.openai.com/api/reference/overview. Disabled until P3 route-governance and live-provider gates are complete."}'::jsonb
     )
 ON CONFLICT (catalogue_id, provider_id) DO UPDATE
 SET
@@ -100,18 +129,37 @@ VALUES
     ),
     (
         'provider-catalogue.local.seed',
-        'commercial.example',
-        'commercial-reasoner-v1',
-        'Commercial reasoning model placeholder',
+        'deepseek',
+        'deepseek-v4-flash',
+        'DeepSeek V4 Flash',
         'disabled',
         ARRAY[
+            'enquiry_classification',
+            'context_gathering',
             'enquiry_qualification',
             'missing_data_request_draft',
             'missing_data_request_validation'
         ]::text[],
         true,
-        128000,
-        '{"currency": "USD", "input_usd_per_1m_tokens": 3, "output_usd_per_1m_tokens": 15}'::jsonb
+        1000000,
+        '{"currency": "USD", "input_usd_per_1m_tokens": 0.14, "output_usd_per_1m_tokens": 0.28}'::jsonb
+    ),
+    (
+        'provider-catalogue.local.seed',
+        'openai',
+        'gpt-5.4-mini-2026-03-17',
+        'GPT-5.4 mini pinned snapshot',
+        'disabled',
+        ARRAY[
+            'enquiry_classification',
+            'context_gathering',
+            'enquiry_qualification',
+            'missing_data_request_draft',
+            'missing_data_request_validation'
+        ]::text[],
+        true,
+        400000,
+        '{"currency": "USD", "input_usd_per_1m_tokens": 0.75, "output_usd_per_1m_tokens": 4.5}'::jsonb
     )
 ON CONFLICT (catalogue_id, provider_id, model_id) DO UPDATE
 SET

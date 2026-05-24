@@ -71,11 +71,12 @@ class RouteCatalogue:
 def default_route_catalogue() -> RouteCatalogue:
     """Register the routes required by the LLM provider port.
 
-    The ``dev`` and ``demo-eval-canonical`` routes wire OpenAI-compatible
-    endpoints (DeepSeek and OpenAI respectively) and read credentials from
-    environment variables. The ``recorded-replay`` route is the
-    deterministic substrate for offline eval; it produces stable structured
-    outputs without reaching any external provider.
+    The ``dev`` and ``demo-eval-canonical`` routes register
+    OpenAI-compatible endpoints (DeepSeek and OpenAI respectively) and read
+    credentials from provider-standard environment variables. The
+    ``recorded-replay`` route is the deterministic substrate for offline
+    eval; it produces stable structured outputs without reaching any
+    external provider.
     """
 
     return RouteCatalogue(
@@ -90,24 +91,25 @@ def default_route_catalogue() -> RouteCatalogue:
             RouteCatalogueEntry(
                 route_id="dev",
                 provider_id="deepseek",
-                model_id="deepseek-chat-v4-flash",
+                model_id="deepseek-v4-flash",
                 adapter=OpenAICompatibleAdapter(
-                    base_url=os.environ.get(
-                        "CHORUS_LLM_DEV_BASE_URL", "https://api.deepseek.com/v1"
-                    ),
-                    api_key_env="CHORUS_LLM_DEV_API_KEY",
+                    base_url=os.environ.get("CHORUS_LLM_DEV_BASE_URL", "https://api.deepseek.com"),
+                    api_key_env="DEEPSEEK_API_KEY",
                 ),
-                parameters={"thinking": True, "temperature": 0.2},
+                parameters={
+                    "reasoning_effort": "high",
+                    "extra_body": {"thinking": {"type": "enabled"}},
+                },
             ),
             RouteCatalogueEntry(
                 route_id="demo-eval-canonical",
                 provider_id="openai",
-                model_id="gpt-5.4-mini",
+                model_id="gpt-5.4-mini-2026-03-17",
                 adapter=OpenAICompatibleAdapter(
                     base_url=os.environ.get(
                         "CHORUS_LLM_CANONICAL_BASE_URL", "https://api.openai.com/v1"
                     ),
-                    api_key_env="CHORUS_LLM_CANONICAL_API_KEY",
+                    api_key_env="OPENAI_API_KEY",
                 ),
                 parameters={"temperature": 0.1},
             ),

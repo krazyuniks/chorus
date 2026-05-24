@@ -164,7 +164,8 @@ def test_generated_models_validate_representative_samples() -> None:
     route_version = ModelRouteVersion.model_validate(route_version_sample)
     assert [provider.provider_id for provider in catalogue.providers] == [
         "local",
-        "commercial.example",
+        "deepseek",
+        "openai",
     ]
     assert route_version.selected_model.provider_id == "local"
     assert (

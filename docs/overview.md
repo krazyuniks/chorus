@@ -1,7 +1,7 @@
 ---
 type: project-doc
 status: active
-date: 2026-05-20
+date: 2026-05-24
 ---
 
 # Chorus - Overview
@@ -229,8 +229,8 @@ target any other provider the catalogue knows how to address.
 
 | Route | Purpose | Provider and model |
 |---|---|---|
-| Dev | Day-to-day reasoning during local development. | DeepSeek V4-Flash with thinking-mode, on an OpenAI-compatible endpoint. |
-| Demo / eval canonical | The canonical demo path and the canonical eval baseline. | OpenAI gpt-5.4-mini. |
+| Dev | Day-to-day reasoning during local development. | DeepSeek `deepseek-v4-flash` with thinking mode, on the official OpenAI-compatible endpoint. |
+| Demo / eval canonical | The canonical demo path and the canonical eval baseline. | OpenAI `gpt-5.4-mini-2026-03-17`, the pinned snapshot of the `gpt-5.4-mini` family. |
 | Replay | Re-targets any captured transcript against any route the catalogue knows. | Configurable via the route catalogue. |
 
 The LLM provider port and its provider-neutral design are recorded in

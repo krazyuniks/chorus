@@ -129,8 +129,18 @@ channel runnable status are separate claims.
     `docs/domain-model-uc2.md`.
   - [x] UC3 FCA sources verified from official sources on 2026-05-24 in
     `docs/product-brief-uc3.md` and `docs/domain-model-uc3.md`.
-- [ ] Verify exact OpenAI and DeepSeek model identifiers and credential names
+- [x] Verify exact OpenAI and DeepSeek model identifiers and credential names
   before live-provider route wiring.
+  - [x] OpenAI verified from official OpenAI API docs on 2026-05-24:
+    `gpt-5.4-mini` is the family alias, `gpt-5.4-mini-2026-03-17` is the
+    pinned snapshot used for the canonical demo / eval route, and
+    `OPENAI_API_KEY` is the bearer credential env var.
+  - [x] DeepSeek verified from official DeepSeek API docs on 2026-05-24:
+    `deepseek-v4-flash` is the R4 dev-route model ID,
+    `https://api.deepseek.com` is the OpenAI-compatible base URL, and
+    `DEEPSEEK_API_KEY` is the credential env var; `deepseek-chat` and
+    `deepseek-reasoner` are legacy aliases scheduled for deprecation on
+    2026-07-24.
 
 ### P1 - Multi-Use-Case Foundation
 
@@ -818,6 +828,57 @@ channel runnable status are separate claims.
   live-provider gates were not run. DB-backed verification and migration
   execution remain blocked by the local Postgres credential failure.
 
+### 2026-05-24 - Provider Model And Credential Verification
+
+- Scope: remaining P0 verification prerequisite for exact OpenAI and DeepSeek
+  model identifiers, base URLs, and credential env-var names before P3 live
+  route wiring.
+- Official sources verified:
+  - OpenAI official API docs on 2026-05-24:
+    `https://developers.openai.com/api/docs/models/gpt-5.4-mini` and
+    `https://developers.openai.com/api/reference/overview`. The canonical
+    route uses pinned snapshot `gpt-5.4-mini-2026-03-17`; the credential env
+    var is `OPENAI_API_KEY`.
+  - DeepSeek official API docs on 2026-05-24:
+    `https://api-docs.deepseek.com/`,
+    `https://api-docs.deepseek.com/api/list-models`,
+    `https://api-docs.deepseek.com/quick_start/pricing`,
+    `https://api-docs.deepseek.com/updates/`, and
+    `https://api-docs.deepseek.com/quick_start/agent_integrations/oh_my_pi`.
+    The dev route uses `deepseek-v4-flash`, `https://api.deepseek.com`, and
+    `DEEPSEEK_API_KEY`; legacy `deepseek-chat` and `deepseek-reasoner` names
+    are scheduled for deprecation on 2026-07-24.
+- Behaviour changed:
+  - `default_route_catalogue` now records DeepSeek `deepseek-v4-flash` with
+    the official base URL and `DEEPSEEK_API_KEY`, and OpenAI
+    `gpt-5.4-mini-2026-03-17` with `OPENAI_API_KEY`;
+  - the disabled provider-governance sample / seed rows now expose verified
+    OpenAI and DeepSeek providers instead of the old commercial placeholder;
+  - active `model_routing_policies`, `model_route_versions`, UC1 runtime
+    route selection, eval replay semantics, structured-output enforcement,
+    connector contracts, UI behaviour, and live-provider execution were left
+    unchanged.
+- Files changed: route catalogue, optional env placeholders, provider
+  catalogue sample / seed / frontend fixture, focused provider-governance
+  tests, architecture / overview / runbook / evidence docs, and this backlog
+  handoff.
+- Gates run:
+  - `just contracts-gen` - green; regenerated generated contract models with
+    no schema change.
+  - `just contracts-check` - green.
+  - `uv run pytest tests/agent_runtime/test_runtime.py tests/bff/test_app_unit.py tests/test_contracts.py tests/persistence/test_postgres_foundation.py -rs`
+    - green, 18 passed and 19 skipped; skipped cases were DB-backed because
+    local Postgres on `localhost:5432` rejected the configured `chorus` user.
+  - `just eval` - green for five UC1 offline eval fixtures.
+  - `just test-replay` - green, 2 passed and 8 deselected.
+  - `just lint` - green after formatting `chorus/llm_provider/route_catalogue.py`.
+  - `git diff --check` - green.
+- Skipped gates: live OpenAI / DeepSeek provider calls, live `just db-migrate`,
+  full `just test`, Redpanda projection integration, frontend e2e, and UC2 /
+  UC3 runtime gates were not run. This slice did not wire active live routes
+  or require credentials, and DB-backed verification remains blocked by the
+  local Postgres credential failure.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -865,20 +926,22 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: close the remaining P0 verification prerequisite in Strategy order by verifying the exact OpenAI and DeepSeek model identifiers and credential names before live-provider route wiring. This unblocks P3 Provider And Replay Hardening; keep the slice focused on verification and documentation/config alignment only.
+Current target slice: start P3 Provider And Replay Hardening by loading registered prompt references and prompt hashes into the live provider call path. Keep the slice focused on prompt-loading and prompt-hash evidence only.
 
-Previous slice completed: P2 UC1 Completion is closed. The eval suite now includes `uc1_accepted_routing.json`, `uc1_referred_routing.json`, and `uc1_declined_routing.json` fixtures in addition to the existing missing-data outbound fixtures. `chorus/eval/use_cases/uc1_conduct.py` asserts the expected terminal route category, Tool Gateway write authority, returned broker-side route ref/status, and route projection join for `crm.route_to_quoting_queue`, `referral_inbox.route`, and `decline_ledger.route`. The common connector-authority invariant now distinguishes internal write-mode routes allowed by grant from approval-required outbound customer communication. Existing missing-data fixture semantics, outbound-comms approval behaviour, connector contracts, UC2 / UC3 runtime scope, replay comparator code, and UI behaviour were left unchanged.
+Previous slice completed: the remaining P0 provider verification prerequisite is closed. Official sources were verified on 2026-05-24. OpenAI uses `OPENAI_API_KEY`; the canonical demo / eval route records pinned snapshot `gpt-5.4-mini-2026-03-17` for the `gpt-5.4-mini` family. DeepSeek uses `DEEPSEEK_API_KEY`, `https://api.deepseek.com`, and `deepseek-v4-flash`; legacy `deepseek-chat` and `deepseek-reasoner` names are scheduled for deprecation on 2026-07-24. `default_route_catalogue`, disabled provider-governance seed/sample rows, frontend provider fixtures, and docs now carry those verified identifiers. Active `model_routing_policies` and `model_route_versions` still select local recorded replay; no live provider was called, no structured-output enforcement was added, and provider selection semantics were left unchanged.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, contracts/llm_provider/, infrastructure/postgres/seeds/, infrastructure/postgres/migrations/001_current_state_baseline.sql, the remaining P0 verification item, and the current P3 backlog items. Because provider model identifiers and credential names are temporally unstable, verify current OpenAI details from official OpenAI sources only and current DeepSeek details from official DeepSeek sources only; record concrete dates and source links in the relevant project docs you update.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/transformation/eval-reshape-directions.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, docs/invocation-authority-context.md, contracts/llm_provider/, contracts/audit/, infrastructure/postgres/seeds/001_demo_tenants.sql, infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql, infrastructure/postgres/migrations/001_current_state_baseline.sql, and the current P3 backlog items.
 
-Before editing, inspect the provider route code and governance surfaces: `chorus/llm_provider/route_catalogue.py`, `chorus/llm_provider/adapter_openai.py`, `chorus/llm_provider/adapter_replay.py`, `chorus/agent_runtime/runtime.py`, `contracts/llm_provider/provider_catalogue.schema.json`, `contracts/llm_provider/model_route_version.schema.json`, `contracts/llm_provider/samples/`, `infrastructure/postgres/seeds/002_provider_governance.sql`, `infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql`, `docs/transformation/r4-design-decisions.md`, `docs/transformation/eval-reshape-directions.md`, `docs/architecture.md`, `docs/evidence-map.md`, and `docs/runbook.md`. Search for `gpt`, `deepseek`, `OPENAI`, `DEEPSEEK`, `credential`, `model_route`, `provider_catalogue`, `default_route_catalogue`, `response_schema`, and `structured_data`.
+Before editing, inspect the prompt and runtime surfaces: `chorus/agent_runtime/runtime.py`, `chorus/llm_provider/port.py`, `chorus/llm_provider/route_catalogue.py`, `chorus/llm_provider/adapter_openai.py`, `chorus/llm_provider/adapter_replay.py`, `chorus/persistence/audit_port.py`, `contracts/audit/agent_invocation_record.schema.json`, `contracts/audit/agent_invocation_transcript.schema.json`, `contracts/llm_provider/uc1_agent_io.schema.json`, `infrastructure/postgres/seeds/001_demo_tenants.sql`, `infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql`, `tests/agent_runtime/test_runtime.py`, `tests/workflows/test_uc1_workflow.py`, `tests/eval/test_run.py`, and relevant docs. Search for `prompt_reference`, `prompt_hash`, `agent_registry`, `InvocationMessage`, `messages`, `system`, `developer`, `structured_data`, `response_schema`, `record_transcript`, and `decision_metadata`.
 
-Keep this slice focused on provider/model/credential verification. Do not implement UC2 or UC3 runtime work, add live-provider route wiring, change provider selection semantics, add structured-output enforcement, add replay comparator code, change UI behaviour, change connector contracts, call live providers, or store secrets. If official sources do not identify a stable model id or credential naming convention clearly enough to encode, stop and surface the blocking question before committing.
+Expected direction: the Agent Runtime already resolves `prompt_reference` and `prompt_hash` from approved `agent_registry` rows and records them in decision/audit surfaces, but the provider invocation message currently sends only a summarised user input. Add a bounded prompt-loading path that can resolve approved local prompt references, verify the loaded content hash against the registered `prompt_hash`, include the prompt in the provider invocation messages for live routes and recorded-replay-safe paths, and record enough metadata for audit/transcript replay. If the repository lacks actual prompt assets or hash conventions are inconsistent, add the minimal local prompt assets and deterministic hash updates needed for UC1, or stop and surface a blocking question if multiple incompatible designs are possible.
+
+Keep this slice focused. Do not implement schema-bound structured-output enforcement, add live-provider route activation, call live providers, change provider selection semantics, add replay comparator code, alter UC1 connector behaviour, implement UC2 / UC3 runtime work, change UI behaviour, or store secrets.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
 - Rewrite the body of the `## Next Continuation Prompt` section in the backlog with the next slice's prompt, in Strategy order. If R4 is fully closed, write the literal `R4-COMPLETE` there instead.
-- Run relevant focused gates for the files touched, likely including `just contracts-gen` and `just contracts-check` if provider contracts or samples change, focused provider/runtime/eval tests, `just eval` if route/eval selection docs or fixtures change, `just lint`, and `git diff --check`. If DB-backed or live-provider gates cannot run because local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
+- Run relevant focused gates for the files touched, likely including focused runtime/workflow/eval tests, `just contracts-gen` and `just contracts-check` if contracts or samples change, `just eval` if eval fixtures or replay metadata change, `just lint`, and `git diff --check`. If DB-backed or live-provider gates cannot run because local Postgres, credentials, or another live-stack dependency is unavailable, record the skipped gate and reason.
 - Stage everything and create one Conventional Commit (`type(scope): description`). Do not add `Co-Authored-By` or any AI attribution.
 - Leave the working tree clean.
 

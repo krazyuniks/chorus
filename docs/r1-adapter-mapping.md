@@ -1,7 +1,7 @@
 ---
 type: project-doc
 status: active
-date: 2026-05-20
+date: 2026-05-24
 phase: R1
 ---
 
@@ -35,10 +35,10 @@ broking inbound quote qualification).
 | Aspect | UC1 |
 |---|---|
 | Adapter | OpenAI Python SDK against any OpenAI-compatible chat-completions endpoint. Single adapter, configured per route. |
-| Routes used | Dev route DeepSeek V4-Flash (thinking-mode for reasoning steps); demo / eval canonical route OpenAI gpt-5.4-mini. |
+| Routes used | Dev route DeepSeek `deepseek-v4-flash` (thinking mode for reasoning steps); demo / eval canonical route OpenAI `gpt-5.4-mini-2026-03-17`. |
 | Invocation shape | Each invocation carries a `route-catalogue-entry` (provider, model, parameters, adapter version), a structured invocation argument set, and a structured invocation result. The domain core never touches a provider SDK directly. |
 | Reasoning steps that hit the port | Classification (`ClassifyEnquiry`), context gathering and demands-and-needs production (`GatherContext`), missing-data request drafting (`RequestMissingData`), qualification verdict production (`QualifyEnquiry`). Each is a separate invocation; each writes a transcript record. |
-| Replay-eval shape | Every captured transcript is replayable against any route the catalogue knows. UC1's canonical replay-eval mode is gpt-5.4-mini against captured DeepSeek V4-Flash transcripts and the reverse. |
+| Replay-eval shape | Every captured transcript is replayable against any route the catalogue knows. UC1's canonical replay-eval mode is `gpt-5.4-mini-2026-03-17` against captured `deepseek-v4-flash` transcripts and the reverse. |
 
 ### Connector Port
 

@@ -178,6 +178,32 @@ credentials, the live route is not usable. The gate should fail fast or record
 a skipped live-provider gate with the reason. It must not silently fall back to
 an ungoverned provider/model pair.
 
-Exact OpenAI and DeepSeek model identifiers and credential names remain an R4
-verification item. Live route wiring must wait for that verification and for
-schema-bound structured output enforcement.
+## Provider Model And Credential Verification
+
+Verified on 2026-05-24 from official provider sources only:
+
+| Provider | R4 route | Verified model identifier | Credential env var | Official source |
+|---|---|---|---|---|
+| DeepSeek | `dev` | `deepseek-v4-flash` | `DEEPSEEK_API_KEY` | DeepSeek first-call docs, model-list API docs, pricing/model details, and 2026-04-24 change log: `https://api-docs.deepseek.com/`, `https://api-docs.deepseek.com/api/list-models`, `https://api-docs.deepseek.com/quick_start/pricing`, `https://api-docs.deepseek.com/updates/`. |
+| OpenAI | `demo-eval-canonical` | `gpt-5.4-mini-2026-03-17` pinned snapshot of `gpt-5.4-mini` | `OPENAI_API_KEY` | OpenAI GPT-5.4 mini model docs and API authentication reference: `https://developers.openai.com/api/docs/models/gpt-5.4-mini`, `https://developers.openai.com/api/reference/overview`. |
+
+DeepSeek's official OpenAI-compatible base URL is `https://api.deepseek.com`;
+the docs also state that `deepseek-chat` and `deepseek-reasoner` are legacy
+names scheduled for deprecation on 2026-07-24 and currently alias
+`deepseek-v4-flash` modes. Chorus must use `deepseek-v4-flash` for R4 route
+governance. Because Chorus uses the OpenAI Python SDK as transport, the
+DeepSeek thinking-mode metadata is registered as `reasoning_effort` plus
+`extra_body.thinking.type`, matching DeepSeek's SDK example.
+
+OpenAI's official model page lists both the `gpt-5.4-mini` alias and the
+`gpt-5.4-mini-2026-03-17` snapshot. Chorus uses the pinned snapshot for the
+canonical demo / eval route so replay evidence is tied to a stable model
+version. The explanatory docs may still refer to the `gpt-5.4-mini` family
+when discussing the route's model family.
+
+The executable route catalogue and disabled provider-governance seed rows now
+carry these identifiers and credential names. Active `model_routing_policies`
+and `model_route_versions` still select the local recorded-replay model until
+P3 adds prompt loading, schema-bound structured output enforcement, live route
+alignment, and replay comparison records. No live provider route is considered
+usable until those gates pass and required credentials are present.

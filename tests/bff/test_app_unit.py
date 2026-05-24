@@ -141,8 +141,16 @@ class FakeProviderGovernanceStore:
         return ProviderGovernanceSnapshot(
             tenant_id="tenant_demo",
             catalogues=[self._fixture.catalogue_entry()],
-            providers=[self._fixture.provider(), self._fixture.commercial_provider()],
-            provider_models=[self._fixture.provider_model()],
+            providers=[
+                self._fixture.provider(),
+                self._fixture.deepseek_provider(),
+                self._fixture.openai_provider(),
+            ],
+            provider_models=[
+                self._fixture.provider_model(),
+                self._fixture.deepseek_model(),
+                self._fixture.openai_model(),
+            ],
             route_versions=[self._fixture.route_version()],
         )
 
@@ -355,15 +363,30 @@ class BffFixture:
             audit={},
         )
 
-    def commercial_provider(self) -> ProviderCatalogueProvider:
+    def deepseek_provider(self) -> ProviderCatalogueProvider:
         return ProviderCatalogueProvider(
             catalogue_id="provider-catalogue.local.seed",
-            provider_id="commercial.example",
-            display_name="Commercial",
+            provider_id="deepseek",
+            display_name="DeepSeek API",
             provider_kind="commercial",
             lifecycle_state="disabled",
             credential_required=True,
-            secret_ref_names=["CHORUS_COMMERCIAL_LLM_API_KEY"],
+            secret_ref_names=["DEEPSEEK_API_KEY"],
+            missing_credentials_behaviour="disable_provider",
+            data_boundary={"mode": "external_api"},
+            operational_limits={},
+            audit={},
+        )
+
+    def openai_provider(self) -> ProviderCatalogueProvider:
+        return ProviderCatalogueProvider(
+            catalogue_id="provider-catalogue.local.seed",
+            provider_id="openai",
+            display_name="OpenAI API",
+            provider_kind="commercial",
+            lifecycle_state="disabled",
+            credential_required=True,
+            secret_ref_names=["OPENAI_API_KEY"],
             missing_credentials_behaviour="disable_provider",
             data_boundary={"mode": "external_api"},
             operational_limits={},
@@ -380,6 +403,32 @@ class BffFixture:
             supported_task_kinds=["enquiry_classification"],
             supports_structured_output=True,
             context_window_tokens=8192,
+            cost_policy={"currency": "USD"},
+        )
+
+    def deepseek_model(self) -> ProviderCatalogueModel:
+        return ProviderCatalogueModel(
+            catalogue_id="provider-catalogue.local.seed",
+            provider_id="deepseek",
+            model_id="deepseek-v4-flash",
+            display_name="DeepSeek V4 Flash",
+            lifecycle_state="disabled",
+            supported_task_kinds=["enquiry_classification"],
+            supports_structured_output=True,
+            context_window_tokens=1000000,
+            cost_policy={"currency": "USD"},
+        )
+
+    def openai_model(self) -> ProviderCatalogueModel:
+        return ProviderCatalogueModel(
+            catalogue_id="provider-catalogue.local.seed",
+            provider_id="openai",
+            model_id="gpt-5.4-mini-2026-03-17",
+            display_name="GPT-5.4 mini pinned snapshot",
+            lifecycle_state="disabled",
+            supported_task_kinds=["enquiry_classification"],
+            supports_structured_output=True,
+            context_window_tokens=400000,
             cost_policy={"currency": "USD"},
         )
 
@@ -471,7 +520,7 @@ def test_provider_endpoints_are_read_only_views() -> None:
     provider_models = client.get("/api/runtime/provider-models").json()
     route_versions = client.get("/api/runtime/route-versions").json()
 
-    assert {row["provider_id"] for row in providers} == {"commercial.example", "local"}
+    assert {row["provider_id"] for row in providers} == {"deepseek", "local", "openai"}
     assert provider_models[0]["model_id"] == "uc1-happy-path-v1"
     assert route_versions[0]["route_version"] == 1
     assert route_versions[0]["provider_catalogue_id"] == "provider-catalogue.local.seed"

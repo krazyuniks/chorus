@@ -35,6 +35,7 @@ from chorus.contracts.generated.llm_provider.uc1_agent_io import Uc1AgentIO
 from chorus.llm_provider import (
     InvocationArgs,
     InvocationResult,
+    OpenAICompatibleAdapter,
     RecordedReplayAdapter,
     RouteCatalogue,
     RouteCatalogueEntry,
@@ -397,6 +398,19 @@ def test_default_route_catalogue_registers_three_routes() -> None:
     replay = catalogue.get("recorded-replay")
     assert replay.provider_id == "local-replay"
     assert replay.adapter_version.startswith("recorded-replay")
+    dev = catalogue.get("dev")
+    assert dev.provider_id == "deepseek"
+    assert dev.model_id == "deepseek-v4-flash"
+    assert isinstance(dev.adapter, OpenAICompatibleAdapter)
+    assert dev.adapter.api_key_env == "DEEPSEEK_API_KEY"
+    assert dev.adapter.base_url == "https://api.deepseek.com"
+    assert dev.parameters["extra_body"] == {"thinking": {"type": "enabled"}}
+    canonical = catalogue.get("demo-eval-canonical")
+    assert canonical.provider_id == "openai"
+    assert canonical.model_id == "gpt-5.4-mini-2026-03-17"
+    assert isinstance(canonical.adapter, OpenAICompatibleAdapter)
+    assert canonical.adapter.api_key_env == "OPENAI_API_KEY"
+    assert canonical.adapter.base_url == "https://api.openai.com/v1"
 
 
 def test_runtime_validates_uc1_contract_for_missing_data_request_draft(

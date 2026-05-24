@@ -51,14 +51,14 @@
       }
     },
     {
-      "provider_id": "commercial.example",
-      "display_name": "Commercial provider placeholder",
+      "provider_id": "deepseek",
+      "display_name": "DeepSeek API",
       "provider_kind": "commercial",
       "lifecycle_state": "disabled",
       "credential_policy": {
         "credential_required": true,
         "secret_ref_names": [
-          "CHORUS_COMMERCIAL_LLM_API_KEY"
+          "DEEPSEEK_API_KEY"
         ],
         "missing_credentials_behaviour": "disable_provider"
       },
@@ -71,20 +71,22 @@
       },
       "supported_models": [
         {
-          "model_id": "commercial-reasoner-v1",
-          "display_name": "Commercial reasoning model placeholder",
+          "model_id": "deepseek-v4-flash",
+          "display_name": "DeepSeek V4 Flash",
           "lifecycle_state": "disabled",
           "supported_task_kinds": [
+            "enquiry_classification",
+            "context_gathering",
             "enquiry_qualification",
             "missing_data_request_draft",
             "missing_data_request_validation"
           ],
           "supports_structured_output": true,
-          "context_window_tokens": 128000,
+          "context_window_tokens": 1000000,
           "cost_policy": {
             "currency": "USD",
-            "input_usd_per_1m_tokens": 3,
-            "output_usd_per_1m_tokens": 15
+            "input_usd_per_1m_tokens": 0.14,
+            "output_usd_per_1m_tokens": 0.28
           }
         }
       ],
@@ -96,7 +98,58 @@
       "audit": {
         "owner": "agent-runtime",
         "declared_in": "contracts/llm_provider/provider_catalogue.schema.json",
-        "notes": "Contract placeholder only; no adapter is enabled by this sample."
+        "notes": "Verified from official DeepSeek API docs on 2026-05-24: https://api-docs.deepseek.com/, https://api-docs.deepseek.com/api/list-models, and https://api-docs.deepseek.com/updates/. Disabled until P3 route-governance and live-provider gates are complete."
+      }
+    },
+    {
+      "provider_id": "openai",
+      "display_name": "OpenAI API",
+      "provider_kind": "commercial",
+      "lifecycle_state": "disabled",
+      "credential_policy": {
+        "credential_required": true,
+        "secret_ref_names": [
+          "OPENAI_API_KEY"
+        ],
+        "missing_credentials_behaviour": "disable_provider"
+      },
+      "data_boundary": {
+        "mode": "external_api",
+        "allowed_regions": [
+          "vendor-managed"
+        ],
+        "stores_customer_content": true
+      },
+      "supported_models": [
+        {
+          "model_id": "gpt-5.4-mini-2026-03-17",
+          "display_name": "GPT-5.4 mini pinned snapshot",
+          "lifecycle_state": "disabled",
+          "supported_task_kinds": [
+            "enquiry_classification",
+            "context_gathering",
+            "enquiry_qualification",
+            "missing_data_request_draft",
+            "missing_data_request_validation"
+          ],
+          "supports_structured_output": true,
+          "context_window_tokens": 400000,
+          "cost_policy": {
+            "currency": "USD",
+            "input_usd_per_1m_tokens": 0.75,
+            "output_usd_per_1m_tokens": 4.5
+          }
+        }
+      ],
+      "operational_limits": {
+        "default_timeout_ms": 30000,
+        "max_retries": 2,
+        "rate_limit_policy": "provider-documented-quota"
+      },
+      "audit": {
+        "owner": "agent-runtime",
+        "declared_in": "contracts/llm_provider/provider_catalogue.schema.json",
+        "notes": "Verified from official OpenAI API docs on 2026-05-24: https://developers.openai.com/api/docs/models/gpt-5.4-mini and https://developers.openai.com/api/reference/overview. Disabled until P3 route-governance and live-provider gates are complete."
       }
     }
   ]

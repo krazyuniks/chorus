@@ -1,7 +1,7 @@
 ---
 type: project-doc
 status: active
-date: 2026-05-20
+date: 2026-05-24
 ---
 
 # Chorus - Local Runbook
@@ -108,9 +108,16 @@ Inspect the model routes resolved for a tenant:
 ```
 
 The agent execution path uses the OpenAI-SDK adapter, the route catalogue, and
-the deterministic recorded-replay route used by offline eval. R4 wires live
-OpenAI-compatible routes once credentials, exact model identifiers,
-structured-output handling, and route-governance rows are aligned.
+the deterministic recorded-replay route used by offline eval. The verified
+R4 live-provider route metadata is DeepSeek `deepseek-v4-flash` with
+`DEEPSEEK_API_KEY` for the `dev` route and OpenAI
+`gpt-5.4-mini-2026-03-17` with `OPENAI_API_KEY` for the
+`demo-eval-canonical` route. These identifiers and credential names were
+verified from official provider docs on 2026-05-24; source links are recorded
+in [`transformation/r4-design-decisions.md`](transformation/r4-design-decisions.md).
+R4 wires those live routes only after schema-bound structured output,
+route-governance rows, eval route selection, and required local credentials
+are aligned.
 
 ### Connector port
 

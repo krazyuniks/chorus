@@ -1,7 +1,7 @@
 ---
 type: project-doc
 status: active
-date: 2026-05-19
+date: 2026-05-24
 ---
 
 # Engineering Thesis
@@ -41,7 +41,7 @@ The hexagon has six named ports. The list is intentionally short.
 | Port | Role | What sits behind it |
 |---|---|---|
 | **Intake** | Inbound business work entering the system. | Email channel adapter, broker portal adapter, web form adapter, synthetic fixture adapter. |
-| **LLM provider** | Model invocations with route catalogue and provider neutrality. | OpenAI Python SDK against any OpenAI-compatible endpoint (DeepSeek V4-Flash dev, OpenAI gpt-5.4-mini demo / eval). |
+| **LLM provider** | Model invocations with route catalogue and provider neutrality. | OpenAI Python SDK against any OpenAI-compatible endpoint (DeepSeek `deepseek-v4-flash` dev, OpenAI `gpt-5.4-mini-2026-03-17` demo / eval, local recorded replay). |
 | **Connector** | External-action authority via the Tool Gateway. | UC1 broker-firm adapters, calendar, outbound communications, and use-case-specific connector adapters; sandbox adapters during local POC. |
 | **Audit / transcript** | Two streams: structured decision-trail port and full-fidelity transcript port. | Postgres-backed decision-trail adapter and transcript adapter (could split storage later). |
 | **Projection sink** | Derives read models for inspection. | Postgres projection adapter feeding the read-only BFF; Redpanda event consumer for derivation. |
@@ -81,8 +81,8 @@ provider directly.
 
 | Route | Purpose | Provider | Model |
 |---|---|---|---|
-| Dev | Day-to-day reasoning during local development. | DeepSeek (OpenAI-compatible endpoint) | DeepSeek V4-Flash with thinking-mode enabled for reasoning steps. |
-| Demo / eval canonical | Canonical demo path and the canonical eval baseline. | OpenAI | gpt-5.4-mini |
+| Dev | Day-to-day reasoning during local development. | DeepSeek (OpenAI-compatible endpoint) | `deepseek-v4-flash` with thinking mode enabled for reasoning steps. |
+| Demo / eval canonical | Canonical demo path and the canonical eval baseline. | OpenAI | `gpt-5.4-mini-2026-03-17` pinned snapshot. |
 | Replay (any) | Any provider plus model recorded in a captured transcript can be re-targeted for cross-provider replay eval. | Configurable via route catalogue. | Configurable via route catalogue. |
 
 ### Route Catalogue
@@ -170,7 +170,8 @@ objection to a provider-agnostic architecture. Replay-as-eval bounds
 that risk structurally:
 
 - hallucinations are captured in the transcript;
-- the same input can be re-run on a canonical model (gpt-5.4-mini);
+- the same input can be re-run on a canonical model
+  (`gpt-5.4-mini-2026-03-17`);
 - the divergence is observable on real, in-domain invocations rather
   than synthetic benchmarks;
 - the same data structure that proves accountability proves model

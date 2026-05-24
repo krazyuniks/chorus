@@ -70,7 +70,7 @@ product and domain scope for later R4 implementation.
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|
 | Intake | email-channel, web-form-channel, partner-portal-channel, synthetic-channel | email-channel, corporate-intake-form, intermediary-referral-channel | web-form-channel, email-channel, introducer-referral-channel |
-| LLM provider | OpenAI-SDK adapter; routes: DeepSeek V4-Flash (dev), gpt-5.4-mini (demo / eval) | same adapter and route shape | same adapter and route shape |
+| LLM provider | OpenAI-SDK adapter; route metadata: DeepSeek `deepseek-v4-flash` (dev), OpenAI `gpt-5.4-mini-2026-03-17` (demo / eval), and local recorded replay | same adapter and route shape | same adapter and route shape |
 | Connector | sandbox-crm, sandbox-referral-inbox, sandbox-decline-ledger, sandbox-outbound-comms, sandbox-customer-profile, sandbox-product-catalogue | adds sandbox-conflict-check, sandbox-kyc-bo, sandbox-aml-record-store, sandbox-engagement-letter-store | adds sandbox-attitude-to-risk-profiler, sandbox-capacity-for-loss-tool, sandbox-suitability-report-store, sandbox-platform-research |
 | Audit / transcript | decision-trail adapter, transcript adapter (Postgres-backed) | same | same |
 | Projection sink | Postgres projection adapter; Redpanda event consumer feeding the read-only BFF | same | same |

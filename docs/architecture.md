@@ -70,7 +70,7 @@ and UC3 are modelled for later R4 implementation.
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|
 | Intake | email-channel, web-form-channel, partner-portal-channel, synthetic-channel | email-channel, corporate-intake-form, intermediary-referral-channel | web-form-channel, email-channel, introducer-referral-channel |
-| LLM provider | OpenAI-SDK adapter; routes: DeepSeek V4-Flash (dev), gpt-5.4-mini (demo / eval) | same adapter and route shape | same adapter and route shape |
+| LLM provider | OpenAI-SDK adapter; route metadata: DeepSeek `deepseek-v4-flash` (dev), OpenAI `gpt-5.4-mini-2026-03-17` (demo / eval), and local recorded replay | same adapter and route shape | same adapter and route shape |
 | Connector | sandbox-crm, sandbox-referral-inbox, sandbox-decline-ledger, sandbox-outbound-comms, sandbox-customer-profile, sandbox-product-catalogue | adds sandbox-conflict-check, sandbox-kyc-bo, sandbox-aml-record-store, sandbox-engagement-letter-store | adds sandbox-attitude-to-risk-profiler, sandbox-capacity-for-loss-tool, sandbox-suitability-report-store, sandbox-platform-research |
 | Audit / transcript | decision-trail adapter, transcript adapter (Postgres-backed) | same | same |
 | Projection sink | Postgres projection adapter; Redpanda event consumer feeding the read-only BFF | same | same |
@@ -142,9 +142,16 @@ model identifier, the model parameters used, and the adapter version.
 
 | Route | Purpose | Provider and model |
 |---|---|---|
-| Dev | Day-to-day reasoning during local development. | DeepSeek V4-Flash with thinking-mode, on an OpenAI-compatible endpoint. |
-| Demo / eval canonical | The canonical demo path and the canonical eval baseline. | OpenAI gpt-5.4-mini. |
+| Dev | Day-to-day reasoning during local development. | DeepSeek `deepseek-v4-flash` with thinking mode, on the official OpenAI-compatible endpoint. |
+| Demo / eval canonical | The canonical demo path and the canonical eval baseline. | OpenAI `gpt-5.4-mini-2026-03-17`, the pinned snapshot of the `gpt-5.4-mini` family. |
 | Replay | Re-targets any captured transcript against any route the catalogue knows. | Configurable via the route catalogue. |
+
+The OpenAI and DeepSeek identifiers, base URLs, and credential env-var names
+were verified from official provider docs on 2026-05-24; the source links and
+route-governance rule are recorded in
+[`transformation/r4-design-decisions.md`](transformation/r4-design-decisions.md).
+The active seeded runtime routes still select the local recorded-replay model
+until P3 completes schema-bound live-provider route alignment.
 
 The route catalogue plus the transcript port together make cross-provider
 replay possible. Without route metadata, replay can only target the original
@@ -329,8 +336,9 @@ use cases).
 
 R4 (local POC readiness across UC1, UC2, and UC3 with cross-provider
 replay-eval) is the next phase. It wires the UC2 and UC3 workflow
-definitions alongside UC1 on the same spine, stands up the OpenAI-SDK
-adapter against gpt-5.4-mini (canonical demo / eval) and DeepSeek V4-Flash
-(dev), and runs the cross-provider replay-eval ADR 0019 names as a
-first-class mode. The active R4 backlog and continuation handoff are in
+definitions alongside UC1 on the same spine, aligns the OpenAI-SDK adapter
+against OpenAI `gpt-5.4-mini-2026-03-17` (canonical demo / eval) and
+DeepSeek `deepseek-v4-flash` (dev), and runs the cross-provider replay-eval
+ADR 0019 names as a first-class mode. The active R4 backlog and continuation
+handoff are in
 [`transformation/r4-implementation-backlog.md`](transformation/r4-implementation-backlog.md).
