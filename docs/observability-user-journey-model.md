@@ -8,38 +8,36 @@ date: 2026-05-14
 
 ## Purpose
 
-This document is the Phase 2B-01 field-placement model promised by
-[ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md). It
-defines which identifiers and fields belong in OpenTelemetry attributes or
-baggage, which belong in Postgres projections and BFF/UI read models, which
-belong only in audit/accountability records, and which actor/session
-identifiers later Phase 2B work should introduce.
+This document defines which identifiers and fields belong in OpenTelemetry
+attributes or baggage, which belong in Postgres projections and BFF/UI read
+models, which belong only in audit/accountability records, and which
+actor/session identifiers future local POC work should introduce.
 
 This is a docs-first schema sketch. No contract is added yet because no
-cross-boundary payload changes are required for the current Lighthouse path.
+cross-boundary payload changes are required for the post-R3 UC1 path.
 Future implementation work should promote only stable service payloads into
 `contracts/`; local projection tables and UI view models can remain Postgres
 and BFF-owned until a second service consumes them as a contract. The companion
 workload-principal model in
 [`workload-principal-model.md`](workload-principal-model.md) defines the
-2B-02 local workload identity, workload-session, tenant-scope, and future AWS
+local workload identity, workload-session, tenant-scope, and future AWS
 IAM mapping shape. The companion invocation-authority model in
 [`invocation-authority-context.md`](invocation-authority-context.md) defines
-the 2B-03 authority-context field set and where it may be carried.
+the authority-context field set and where it may be carried.
 The companion approval lifecycle model in
 [`human-approval-audit-lifecycle.md`](human-approval-audit-lifecycle.md)
-defines the 2B-04 approval package, reviewer actor refs, decision/SLA fields,
+defines the approval package, reviewer actor refs, decision/SLA fields,
 policy refs, workload refs, safe trace joins, and audit lifecycle for future
 approval-required actions.
 The companion policy-change workflow in
 [`policy-change-governance-workflow.md`](policy-change-governance-workflow.md)
-defines the 2B-05 policy-change package, target refs, before/after refs,
+defines the policy-change package, target refs, before/after refs,
 proposer/reviewer actor refs, approval refs, eval evidence refs, apply/rollback
 refs, expiry/SLA, workload refs, safe trace joins, and audit lifecycle for
 future prompt, route, budget, and grant mutation.
 The companion sidecar evaluation in
 [`llm-observability-sidecar-evaluation.md`](llm-observability-sidecar-evaluation.md)
-defines the 2B-06 allowed export field set, forbidden data, trace/eval join
+defines the allowed export field set, forbidden data, trace/eval join
 rules, retention and sampling assumptions, local authority split, and promotion
 criteria for optional LangSmith, Langfuse, or similar tooling.
 
@@ -67,9 +65,8 @@ must be safe if exported to a local or future optional observability backend.
 
 ### Resource Attributes
 
-Resource attributes describe the workload emitting telemetry. Phase 1 already
-uses OTel service attributes through the `opentelemetry-instrument` entrypoint.
-Phase 2B should standardise these fields:
+Resource attributes describe the workload emitting telemetry. Chorus should
+standardise these fields:
 
 | Attribute | Meaning | Source |
 |---|---|---|
@@ -95,15 +92,15 @@ categorical values.
 | `chorus.tenant_id` | Tenant join key. | Existing span helper supports this. |
 | `chorus.correlation_id` | Cross-surface workflow/business correlation. | Existing span helper supports this. |
 | `chorus.workflow_id` | Temporal workflow join key. | Existing span helper supports this. |
-| `chorus.workflow.type` | Workflow family such as `lighthouse`. | Low-cardinality. |
+| `chorus.workflow.type` | Workflow family such as `uc1_enquiry_qualification`. | Low-cardinality. |
 | `chorus.workflow.step` | Current workflow step. | Use bounded step names. |
 | `chorus.invocation_id` | Agent invocation join key. | Set on Agent Runtime spans where available. |
 | `chorus.agent.id` | Governed agent ID. | Stable logical agent, not a cloud identity. |
 | `chorus.agent.version` | Governed agent version. | Safe to expose. |
 | `chorus.agent.role` | Role such as `researcher` or `validator`. | Low-cardinality. |
 | `chorus.task_kind` | Runtime task kind. | Low-cardinality. |
-| `chorus.execution.engine` | Execution engine such as `langgraph`. | Low-cardinality. |
-| `chorus.execution.graph_version` | Agent graph version. | Safe execution evidence. |
+| `chorus.execution.engine` | Execution engine such as `sequential_agent_runtime`. | Low-cardinality. |
+| `chorus.execution.engine_version` | Agent runtime version. | Safe execution evidence. |
 | `chorus.provider.id` | Selected provider ID. | Safe catalogue ID; no credential state. |
 | `chorus.model.id` | Selected model ID. | Safe catalogue ID. |
 | `chorus.route.id` | Model route ID. | Stable policy ID. |
@@ -118,7 +115,7 @@ categorical values.
 | `chorus.fixture.id` | Eval or replay fixture ID. | Safe local fixture label. |
 | `chorus.actor.session_id` | Future local actor-session join key. | Opaque ID only; no email/name. |
 
-Do not put prompt text, model output, raw lead email content, raw tool
+Do not put prompt text, model output, raw enquiry email content, raw tool
 arguments, connector responses, approval rationale, policy-change rationale,
 customer names, email addresses, access tokens, API keys, provider credentials,
 secret reference values, or unbounded exception text in span attributes.
@@ -156,11 +153,11 @@ take?" It should be safe for read-only UI inspection and refresh/reconnect.
 
 ### Existing Projection Fields
 
-The current Phase 1 projection surface remains valid:
+The current post-R3 projection surface remains valid:
 
 | Source | Fields that belong here |
 |---|---|
-| `workflow_read_models` | `tenant_id`, `workflow_id`, `correlation_id`, `lead_id`, `status`, `current_step`, safe `lead_summary`, `last_event_id`, `last_event_sequence`, `started_at`, `completed_at`, `updated_at`, and safe metadata. |
+| `workflow_read_models` | `tenant_id`, `workflow_id`, `correlation_id`, `subject_id`, `subject_ref`, `workflow_type`, `status`, `current_step`, safe `subject_summary`, `last_event_id`, `last_event_sequence`, `started_at`, `completed_at`, `updated_at`, and safe metadata. |
 | `workflow_history_events` | `tenant_id`, `workflow_id`, `correlation_id`, `event_type`, `sequence`, `step`, `occurred_at`, contract-shaped event payload, source event ID, and OTel join metadata. |
 | BFF workflow views | Workflow summaries, timelines, current status, step history, correlation IDs, and links into Temporal, Grafana, Redpanda, Mailpit, decision trail, and tool verdict views. |
 | BFF decision/tool views | Safe projections of audit records: IDs, status, route/provider summaries, bounded verdicts, cost/latency summaries, and redaction labels. |
@@ -171,7 +168,7 @@ BFF an audit owner.
 
 ### Future Journey Projection Sketch
 
-When Phase 2B adds actor/session evidence, introduce projection-owned records
+When Chorus adds actor/session evidence, introduce projection-owned records
 that can be populated by the BFF without production SSO:
 
 ```text
@@ -239,7 +236,7 @@ made safe merely by storing it in audit.
 
 ## Future Actor and Session Identifiers
 
-The next Phase 2B items should introduce these identifiers without production
+Future local POC items should introduce these identifiers without production
 SSO or AWS dependencies:
 
 | Identifier | Owner | Purpose |
@@ -258,14 +255,14 @@ Future AWS fields such as role ARN, role session name, STS session tags, IAM
 Roles Anywhere certificate subject, or external identity-provider reference are
 mapping metadata defined in
 [`workload-principal-model.md`](workload-principal-model.md). They are not
-required for local 2B-01 evidence and must not be carried in telemetry baggage.
+required for local POC evidence and must not be carried in telemetry baggage.
 
 ## Implementation Notes
 
-- Keep the current Lighthouse Phase 1 spans and Postgres audit tables working.
+- Keep the UC1 spans and Postgres audit tables working.
 - Add fields to OpenTelemetry helpers only when a service actually emits them.
 - Prefer bounded enums and stable IDs over free text in telemetry.
-- Add Postgres schema only when a Phase 2B implementation item starts writing
+- Add Postgres schema only when an implementation item starts writing
   workload sessions, actor sessions, journey events, approval packages, or
   policy changes.
 - Promote schemas to `contracts/` only when a payload crosses a service

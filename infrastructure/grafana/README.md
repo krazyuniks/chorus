@@ -12,7 +12,7 @@ infrastructure/grafana/
 │   ├── datasources/chorus.yaml      # Postgres datasource (uid: chorus-postgres)
 │   └── dashboards/chorus.yaml       # tells Grafana to load /etc/grafana/dashboards
 └── dashboards/
-    ├── workflow-timeline.json       # Lighthouse status, recent runs, outbox by step
+    ├── workflow-timeline.json       # workflow status, recent runs, outbox by step
     ├── gateway-verdicts.json        # tool_action_audit slices by tool / verdict
     ├── projection-lag.json          # outbox depth, oldest pending age, failures
     └── agent-decisions.json         # decision_trail_entries: routes, outcome, cost
@@ -20,18 +20,12 @@ infrastructure/grafana/
 
 ## Backends
 
-Phase 1A wires only **Postgres** as a datasource. Every panel reads from
-the Workstream A tables (`workflow_read_models`, `decision_trail_entries`,
-`tool_action_audit`, `outbox_events`). This makes the
-"UI -> Grafana panel -> audit row by `correlation_id`" trail demonstrable
-before any OTel-driven trace/metric/log backend lands. Empty tables show
-empty panels — that is the correct state until B/C/D start producing data.
+Postgres is the primary datasource for inspection panels. The dashboards read
+from `workflow_read_models`, `decision_trail_entries`, `tool_action_audit`,
+and `outbox_events`. Empty tables show empty panels.
 
-Tempo, Loki, and Prometheus datasources are intentionally deferred until
-the OTel collector pipeline is wired through to running services
-(see [ADR 0010](../../adrs/0010-observability-pipeline.md) and
-`infrastructure/otel/config.yaml`). When they land, add them to
-`provisioning/datasources/chorus.yaml` in the same additive shape.
+Tempo, Loki, and Prometheus configuration is local-only substrate for
+operational inspection.
 
 ## Variables
 

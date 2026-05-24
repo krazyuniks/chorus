@@ -1,9 +1,7 @@
-"""Local-sandbox connectors that pre-dated the per-use-case adapter split.
+"""Compatibility module for local connector imports.
 
-After R3 checkpoint E this module is a stub. UC1's sandbox adapters live in
-`chorus.connectors.uc1`; the local CalDAV calendar adapter remains in
-`chorus.connectors.calendar`. The Lighthouse-era email / CRM / company-research
-connectors and their wrapping adapters retired with the Lighthouse workflow.
+UC1's sandbox adapters live in `chorus.connectors.uc1`; the local CalDAV
+calendar adapter lives in `chorus.connectors.calendar`.
 """
 
 from __future__ import annotations

@@ -1,141 +1,69 @@
 ---
 type: project-doc
 status: active
-date: 2026-05-19
+date: 2026-05-24
 ---
 
-# Eval Reshape Directions
+# Eval Direction
 
-The current eval suite is shaped by path enumeration: a fixture per
-expected behavioural branch, including low-confidence, validator redraft,
-connector failure, retry exhaustion, and provider fallback. Each fixture
-hand-builds the expected evidence shape.
+Eval is a release control. It asserts architectural invariants over captured
+run artefacts and uses transcript replay to compare provider behaviour.
 
-Under the ports-and-adapters thesis, that shape is the wrong one. The
-properties that matter are not "did we follow this exact branch" but "did
-the architecture's invariants hold". This document records the direction
-of the eval reshape that lands in R3 / R4. It is not a refactor plan, only
-a shape statement.
+## Invariant Suite
 
-## From Path Enumeration To Invariants
-
-### What is wrong with path enumeration
-
-Path enumeration eval treats each branch as a separate test. The fixture
-hard-codes which agent ran in which step, which tool was called with
-which arguments, which audit row appeared, which projection row updated.
-Adding a use case duplicates the entire path-enumeration tree. Changing a
-single step's contract requires rewriting every fixture that touched it.
-
-Worse, path-enumeration eval cannot tell the difference between "the
-architecture's discipline held on this run" and "this exact happy path
-matched the expected ledger". It catches divergence, but it does not
-prove invariants.
-
-### What invariant-based eval looks like
-
-The eval suite under the thesis asserts a small set of invariants that
-must hold on every run, regardless of which branch was taken.
+The invariant suite applies to every captured run.
 
 | Invariant | What it asserts |
 |---|---|
-| Cross-port payload validity | Every payload that crossed a named port validates against that port's current contract. No payload reached the domain core or an adapter without contract validation. |
-| Governed-decision provenance | Every agent decision in the run has a structured decision-trail record with policy snapshot reference, route metadata, agent identity, and input / output summaries. No decision is unattributed. |
-| Replay stability | The captured transcript for the run can be replayed against the same provider plus model combination and produces an equivalent result (modulo provider-side non-determinism the route catalogue declares allowed). |
-| Connector authority discipline | Every connector port call has a grant check, a mode decision, an argument validation, and a verdict record. No tool call bypassed the Tool Gateway. |
-| Audit completeness | For every workflow run, the decision-trail and transcript ports between them cover every LLM invocation and every connector call. Neither port has gaps. |
-| Projection convergence | The projection sink derives a stable read-model state from the event stream plus the workflow run; replaying the same events twice produces the same read-model. |
-| Observability emission | Every workflow run emits the expected trace / metric / log envelope through the observability sink, with stable correlation identifiers. |
+| Cross-port payload validity | Every payload crossing a named port validates against the current contract. |
+| Governed-decision provenance | Every agent decision has a decision-trail record with policy snapshot reference, route metadata, agent identity, and safe input/output summaries. |
+| Replay stability | A captured transcript can replay against the same route and produce an equivalent structured result. |
+| Connector authority discipline | Every connector call has a grant check, mode decision, argument validation, verdict, and audit record. |
+| Audit completeness | Decision-trail, transcript, and Tool Gateway audit surfaces cover every LLM invocation and connector call. |
+| Projection convergence | Replaying the same events converges to the same read model. |
+| Observability emission | Workflow runs emit bounded operational telemetry with stable correlation identifiers. |
 
-Each invariant applies to every run. They do not enumerate branches; they
-constrain the architecture's behaviour on any branch.
+Per-use-case conduct invariants sit on top of the common suite:
 
-### Per-Use-Case Shape: One Happy Path Each
+- UC1: FCA general-insurance-distribution conduct hooks.
+- UC2: SRA conflict, KYC, AML, and engagement-boundary hooks.
+- UC3: FCA COBS 9 suitability, PROD, Consumer Duty, vulnerability, and advice
+  boundary hooks.
 
-On top of the invariant suite, each confirmed use case gets exactly one
-happy path:
+## Scenario Coverage
 
-- UK insurance broking inbound quote qualification - happy path.
-- UK legal services intake plus conflict check - happy path (once R1
-  confirms).
-- UK wealth management / IFA inbound enquiry - happy path (once R1
-  confirms).
+Each use case needs at least:
 
-One happy path per use case is enough to exercise the named ports under
-that use case's contracts. The invariant suite then proves the
-architecture's properties across all paths the system actually takes
-during the run, including any failure or escalation branches.
+- one happy-path fixture;
+- one conduct-relevant branch fixture;
+- one replayable transcript fixture for provider comparison.
 
-Branches that today have their own fixtures (low-confidence, validator
-redraft, connector failure, retry exhaustion, provider fallback) become
-invariant assertions over actual runs that trigger those branches, not
-separate fixtures.
+Branches are represented because they prove conduct and authority, not because
+every possible path needs its own expected ledger.
 
-## Replay-As-Comparison As A First-Class Eval Shape
+## Replay Comparison
 
-The replay-as-eval-substrate pattern (see `engineering-thesis.md`)
-produces a second eval shape that is structurally different from the
-invariant suite.
+Replay comparison is tiered.
 
-### Shape
+| Tier | Meaning |
+|---|---|
+| Hard fail | Schema invalid, missing policy snapshot, missing required conduct hook, unsafe tool/action, or missing audit/transcript evidence. |
+| Decision fail | Terminal verdict, route category, or regulated outcome differs under the same policy snapshot. |
+| Review finding | Rationale, confidence, optional field, evidence selection, or recommended next step diverges materially. |
+| Metric | Token, latency, retry, and cost deltas. |
 
-```
-eval replay --provider <name> --model <id> --invocation-id <uuid>
-```
+Exact structured-data equality is useful only for deterministic recorded replay
+and narrow fields. It is not the main cross-provider acceptance criterion.
 
-The command:
+## R4 Requirements
 
-1. loads the captured transcript for `<invocation-id>`;
-2. re-routes the invocation through the LLM provider port against
-   `<provider>` plus `<model>` (or the route name those map to);
-3. captures the replayed result through the transcript port (with a
-   replay-of-<original-id> reference);
-4. compares the replay to the original.
+R4 must:
 
-### Comparison shape
-
-The comparison reports, per invocation:
-
-- contract validity of the replay against the same schemas;
-- decision agreement under the same policy snapshot;
-- tool-call divergence (set difference and ordering);
-- response-shape divergence;
-- cost delta;
-- latency delta.
-
-Aggregated across many invocations from many runs, the replay-eval
-output is a cross-provider quality report. The same data structure that
-captures one invocation under one route can answer questions like
-"would gpt-5.4-mini have made the same call as DeepSeek V4-Flash on
-these 200 captured insurance broking intakes".
-
-### Where replay-eval fits
-
-Replay-eval is not part of the invariant suite. It runs on demand. It is
-the project's continuous cross-provider model-quality surface.
-
-It can be wired into CI for a small canonical set of captured
-invocations (a "replay smoke") to detect regressions when the LLM
-provider port adapter changes or when a new route is added to the
-catalogue.
-
-## Operational Consequences
-
-The shape change has operational consequences that R3 must honour.
-
-- The transcript port captures enough route, model, parameter, and
-  message-history metadata to be replay-source-of-truth.
-- The connector port supports a dry-run mode on captured replays, so
-  replay does not duplicate side effects.
-- The invariant assertions are written against the audit ports'
-  records, not against in-test bookkeeping.
-- Fixtures shrink to one happy path per use case plus the canonical
-  replay set. Branch-enumeration fixtures retire.
-- The eval CLI grows the `replay` subcommand. Existing offline / live
-  modes stay for the invariant suite.
-
-## Out Of Scope For This Document
-
-No code changes happen in R0.5. This document records the eval shape
-that R3 / R4 must implement. The matching ADR is part of the post-R2 ADR
-writing pass (audit ports plus replay-eval).
+- keep eval assertions over audit/transcript artefacts, not in-test
+  bookkeeping;
+- refactor common invariants away from UC1-only assumptions;
+- add per-use-case conduct invariant modules;
+- store replay run records that link original invocation, alternate route,
+  comparator result, and metrics;
+- avoid replay side effects through connector dry-run or recorded-action
+  handling.

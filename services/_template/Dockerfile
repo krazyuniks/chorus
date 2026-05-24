@@ -9,7 +9,7 @@
 #   UID, GID         — host user mapping for bind-mounted volumes.
 #   SERVICE_VERSION  — git SHA at build time, falls back to `dev`. Surfaces
 #                      as `service.version` on every emitted span/log/metric
-#                      per ADR 0010.
+#                      for local observability.
 #
 # Customise per-service:
 #   - Adjust EXPOSE to the service's listening port.
@@ -20,7 +20,7 @@
 # -----------------------------------------------------------------------------
 # Stage 1 — builder: install dependencies into a hermetic .venv, then layer
 # in the OpenTelemetry per-library auto-instrumentations matching what the
-# service actually depends on (ADR 0010 §2).
+# service actually depends on.
 # -----------------------------------------------------------------------------
 FROM python:3.14-slim AS builder
 

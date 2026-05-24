@@ -1,4 +1,4 @@
-# Chorus — Grafana dashboard provisioning (Phase 1A).
+# Chorus - Grafana dashboard provisioning.
 #
 # Tells Grafana to load every JSON file under /etc/grafana/dashboards into
 # the "Chorus" folder on startup. Edits made through the UI are not

@@ -1,19 +1,17 @@
-# Prometheus — Phase 1 local metrics backend.
+# Prometheus - local metrics backend.
 #
 # Two scrape paths run side by side:
 #
-#   1. Static jobs for backends Workstream F owns directly: Prometheus
-#      itself and the OpenTelemetry Collector's prometheus exporter.
-#   2. A `file_sd_configs` job for Phase 1A application services
-#      (BFF, agent runtime, tool gateway, projection worker, intake
-#      poller, local connectors). Each service onboards by dropping a
+#   1. Static jobs for Prometheus itself and the OpenTelemetry Collector's
+#      prometheus exporter.
+#   2. A `file_sd_configs` job for application services. Each service onboards
+#      by dropping a
 #      one-file target list into `infrastructure/prometheus/targets/`;
 #      Prometheus picks it up without restart. See
 #      `services/_template/README.md` for the per-service onboarding
 #      stanza.
 #
-# Per ADR 0010 §6 alert rules are deferred until at least two
-# end-to-end runs produce baseline numbers.
+# Alert rules are deferred until end-to-end runs produce baseline numbers.
 
 global:
   scrape_interval: 15s
@@ -31,8 +29,8 @@ scrape_configs:
     static_configs:
       - targets: ['otel-collector:8889']
 
-  # Phase 1A application services. Each Workstream that adds a service
-  # to `compose.yml` also drops a `<service>.yml` file under
+  # Application services. Each service added to `compose.yml` also drops a
+  # `<service>.yml` file under
   # `infrastructure/prometheus/targets/` declaring its `/metrics`
   # target(s). The job auto-activates as files appear; no edits to this
   # file are required.

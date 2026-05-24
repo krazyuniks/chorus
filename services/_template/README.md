@@ -1,7 +1,7 @@
 # Service template
 
-Reference layout for a new Chorus Phase 1 service. Copy the entire directory,
-rename it, and customise.
+Reference layout for a new Chorus service. Copy the entire directory, rename
+it, and customise.
 
 ## Usage
 
@@ -13,8 +13,7 @@ Then in the new directory:
 
 1. Rename the project in `pyproject.toml` (`name = "chorus-my-service"`).
 2. Add runtime dependencies under `[project] dependencies = [...]`. Keep
-   `opentelemetry-distro[otlp]` — it is the auto-instrumentation bedrock per
-   [ADR 0010](../../adrs/0010-observability-pipeline.md).
+   `opentelemetry-distro[otlp]` - it is the auto-instrumentation bedrock.
 3. Edit `Dockerfile`:
    - Set `EXPOSE` to the service's listening port.
    - Set `OTEL_SERVICE_NAME` to the service name (e.g. `chorus-bff`).
@@ -44,13 +43,13 @@ Then in the new directory:
   `opentelemetry-instrument`, and `OTEL_*` env vars set the resource
   attributes (`service.name`, `service.namespace=chorus`,
   `deployment.environment=local`, `service.version`) and OTLP exporter
-  target (`http://otel-collector:4317`) per ADR 0010.
+  target (`http://otel-collector:4317`).
 
 ## Observability onboarding
 
 Once the service runs in `compose.yml`, three small steps light it up
 in Loki, Prometheus, and Grafana. None of them require a collector or
-Prometheus restart — both are configured to pick up new services on
+Prometheus restart - both are configured to pick up new services on
 their next refresh tick.
 
 ### 1. Stable container name
@@ -100,7 +99,7 @@ rule, so dashboards keyed off `job="<role>"` work immediately.
 ### 4. Span attributes for cross-surface correlation
 
 At the request boundary (BFF, workflow start, activity start), stamp
-the active span with the join keys ADR 0010 §4 commits to:
+the active span with the Chorus join keys:
 
 ```python
 from opentelemetry import trace
@@ -118,7 +117,7 @@ links straight into Loki and Prometheus once they're set.
 ## Capturing trace IDs in audit rows
 
 Audit-write code that needs to record the active OTel trace/span IDs into
-the row's `metadata` jsonb (per ADR 0010 §4) imports the helper from the
+the row's `metadata` jsonb imports the helper from the
 shared `chorus.observability` package:
 
 ```python

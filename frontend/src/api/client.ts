@@ -1,7 +1,7 @@
 /**
  * Thin fetch wrapper for the Chorus BFF.
  *
- * The BFF is read-only in Phase 1: the UI fetches projections, decision-trail
+ * The BFF is read-only: the UI fetches projections, decision-trail
  * entries, and tool-verdict records. All mutating action authority sits with
  * the Tool Gateway and Temporal workflows; the UI never originates writes.
  */

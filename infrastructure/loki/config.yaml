@@ -1,5 +1,4 @@
-# Loki — Phase 1 local log backend. Monolithic mode, filesystem storage,
-# 24h retention (local-only operating model — ADR 0009).
+# Loki - local log backend. Monolithic mode, filesystem storage, 24h retention.
 
 auth_enabled: false
 

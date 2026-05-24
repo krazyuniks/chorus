@@ -8,10 +8,8 @@ date: 2026-05-17
 
 ## Purpose
 
-This document is the Phase 2B-06 evaluation promised by
-[ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md). It
-decides how LangSmith, Langfuse, or similar LLM observability tools may fit
-around Chorus without changing the local authority model.
+This document decides how LangSmith, Langfuse, or similar LLM observability
+tools may fit around Chorus without changing the local authority model.
 
 The decision is deliberately narrow: optional sidecars may consume derived
 OpenTelemetry and eval evidence for debugging, annotation, graph inspection,
@@ -144,7 +142,7 @@ The sidecar export path must never carry:
 
 - secrets, credentials, API keys, access tokens, session tokens, signing keys,
   provider keys, or credential state;
-- raw sensitive content, raw customer content, raw lead/email bodies, raw
+- raw sensitive content, raw customer content, raw enquiry/email bodies, raw
   request or response bodies, raw prompts, raw model outputs, raw tool
   arguments, raw connector responses, raw retrieval documents, or file
   contents;

@@ -82,7 +82,7 @@ The intake port receives inbound business work. On the local stack the channel
 adapter is Mailpit: a real email to the intake mailbox starts a workflow.
 
 ```bash
-just demo          # send the fixture lead to Mailpit SMTP
+just demo          # send the fixture enquiry to Mailpit SMTP
 just intake-once   # poll Mailpit once and start a workflow per new message
 ```
 
@@ -91,8 +91,9 @@ deduplicates by Message-ID and derives a stable workflow ID, so re-sending the
 same fixture records a duplicate rather than starting a second run; use a fresh
 Message-ID when rehearsing.
 
-R3 lands the UC1 channel adapters (email, web form, partner portal) and the
-synthetic-channel fixture loader behind this port.
+R3 leaves the Mailpit/email UC1 channel runnable and keeps the UC1 web-form,
+partner-portal, and synthetic-channel contracts in place. R4 decides which
+non-email channel paths must become runnable for local POC readiness.
 
 ### LLM provider port
 
@@ -106,9 +107,10 @@ Inspect the model routes resolved for a tenant:
   "SELECT agent_role, task_kind, provider, model FROM model_routing_policies WHERE tenant_id = 'tenant_demo' ORDER BY agent_role;"
 ```
 
-R3 replaces the pre-reset agent execution path with the OpenAI-SDK adapter and
-the route catalogue (DeepSeek V4-Flash for the dev route, gpt-5.4-mini for the
-demo and eval route).
+The agent execution path uses the OpenAI-SDK adapter, the route catalogue, and
+the deterministic recorded-replay route used by offline eval. R4 wires live
+OpenAI-compatible routes once credentials, exact model identifiers,
+structured-output handling, and route-governance rows are aligned.
 
 ### Connector port
 
@@ -124,7 +126,8 @@ Inspect the grants for an agent:
 
 Every gateway call writes an audit row regardless of verdict; see the audit
 port section below. R3 replaces the hardcoded dispatch with an adapter registry
-and lands the UC1 connector adapters.
+and lands the UC1 connector adapters. R4 completes the broker-firm-side
+persistence and full verdict routing behind those adapters.
 
 ### Audit / transcript ports
 
@@ -188,15 +191,14 @@ not change.
    `just up && just db-migrate && just schemas-register && just doctor`.
 
 2. **Inject a synthetic enquiry (intake port).** `just demo && just intake-once`.
-   The intake port accepts the inbound work through one of the UC1 channel
-   adapters (email-channel, web-form-channel, partner-portal-channel) and a
-   workflow starts. Capture the `correlation_id` from the Mailpit-derived
+   The intake port accepts the inbound work through the UC1 Mailpit/email
+   channel and a workflow starts. Capture the `correlation_id` from the
+   Mailpit-derived
    workflow or from the BFF.
 
-3. **Classification and context (LLM provider port).** The workflow runs the
-   classifier and context-gatherer through the LLM provider port. Each
-   invocation writes a decision-trail row and a transcript row paired on
-   `invocation_id`.
+3. **Classification and qualification (LLM provider port).** The workflow runs
+   the UC1 agent path through the LLM provider port. Each invocation writes a
+   decision-trail row and a transcript row paired on `invocation_id`.
 
 4. **Qualification verdict (LLM provider port).** The qualifier produces a
    structured verdict carrying `qualification_verdict_category`,
@@ -224,8 +226,9 @@ not change.
 8. **Cross-provider replay-eval (closing step).** `just eval` runs the eval
    fixtures. Cross-provider replay-eval - re-running a captured transcript
    against an alternate route and comparing the result - is the closing eval
-   step. The replay subcommand and the invariant-based eval suite land in R3
-   and R4; the target shape is in
+   step. R3 lands the recorded-replay subcommand and the invariant-based eval
+   suite; R4 extends that into live cross-provider replay. The target shape is
+   in
    [`transformation/eval-reshape-directions.md`](transformation/eval-reshape-directions.md).
 
 ## Common failure modes

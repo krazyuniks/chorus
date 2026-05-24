@@ -1,9 +1,9 @@
 # Connector Implementation Instructions
 
 This package contains the connector adapter registry and the UC1 sandbox
-connector adapters used behind the Tool Gateway. After R3 D the gateway
-dispatches through `ConnectorRegistry`; new connectors register an adapter
-without editing the gateway.
+connector adapters used behind the Tool Gateway. The gateway dispatches
+through `ConnectorRegistry`; new connectors register an adapter without editing
+the gateway.
 
 ## Rules
 
@@ -33,7 +33,6 @@ without editing the gateway.
   (read-only profile + vulnerability markers), `sandbox-product-catalogue`
   (read-only target-market data).
 - `calendar.py` carries the Radicale-backed CalDAV adapter
-  (`CalendarAdapter`) wrapping `RadicaleCalendarConnector`. Kept post-R3 E
-  for the UC2 / UC3 approval-required write surfaces.
-- `local.py` is a thin stub after R3 E: the pre-reset Mailpit / local CRM /
-  company-research connectors retired with the Lighthouse workflow.
+  (`CalendarAdapter`) wrapping `RadicaleCalendarConnector` for
+  approval-required write surfaces.
+- `local.py` is a compatibility module for local connector imports.

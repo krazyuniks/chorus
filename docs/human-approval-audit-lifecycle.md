@@ -8,9 +8,8 @@ date: 2026-05-17
 
 ## Purpose
 
-This document is the Phase 2B-04 docs-first approval model. It extends
-[ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md), the
-[observability and user-journey model](observability-user-journey-model.md),
+This document defines the approval package and audit lifecycle model. It
+extends the [observability and user-journey model](observability-user-journey-model.md),
 the [workload-principal model](workload-principal-model.md), and the
 [invocation-authority context](invocation-authority-context.md).
 The companion policy-change model in
@@ -26,17 +25,16 @@ without adding production SSO, AWS, credential entry, production connector
 writes, raw sensitive content, or a mutating admin UI.
 
 No contract, Postgres migration, seed, BFF route, UI queue, Temporal wait state,
-or Tool Gateway runtime change is added by this item. The current Lighthouse
-path remains unchanged: `approval_required` stops before connector invocation
-and records redacted Tool Gateway audit evidence.
+or Tool Gateway runtime change is added by this item. The post-R3 local path
+keeps the same authority rule: `approval_required` stops before connector
+invocation and records redacted Tool Gateway audit evidence.
 
-Phase 2C-03 later promotes the local calendar-write package subset of this
-model: `approval_required` calendar create/cancel verdicts now create requested
-approval package rows with safe refs and bounded categories. Phase 2C-04 adds a
-focused local approved-apply path for those packages inside the Tool Gateway.
-Phase 2C-05 exposes those package/apply refs through a safe read-only BFF
-calendar status projection. Reviewer decisions, BFF/UI queues, Temporal waits,
-production identity, and production connector writes remain out of scope.
+The local calendar-write package subset creates requested approval package
+rows with safe refs and bounded categories. The local approved-apply path for
+those packages stays inside the Tool Gateway. Safe package/apply refs are
+exposed through the read-only BFF calendar status projection. Reviewer
+decisions, BFF/UI queues, Temporal waits, production identity, and production
+connector writes remain out of scope.
 
 ## Boundary Rules
 
@@ -55,7 +53,7 @@ production identity, and production connector writes remain out of scope.
   categories, redaction labels, policy references, workload/session references,
   and trace join metadata. They must not carry secrets, API keys, access tokens,
   provider credentials, raw prompts, raw model outputs, raw tool arguments, raw
-  connector responses, raw approval rationale, raw lead/email content, customer
+  connector responses, raw approval rationale, raw enquiry/email content, customer
   names, email addresses, personal names, IP addresses, hostnames, filesystem
   paths, or unbounded free text.
 - Approval IDs and approval state do not belong in propagated telemetry baggage.
@@ -145,12 +143,12 @@ Field rules:
 | Approval identity | `approval_id` is an opaque generated ID. Do not derive it from reviewer, tenant, host, or customer data. |
 | Tenant and workflow | `tenant_id`, `correlation_id`, and `workflow_id` must match the source Tool Gateway request and audit row. |
 | Authority references | `invocation_id`, `tool_call_id`, `verdict_id`, `source_audit_event_id`, and future authority-context IDs bind the package to one exact request. |
-| Requested action | Use a bounded action label such as `crm.create_lead.write` or `email.send_response.write`. Do not store raw tool arguments or connector payloads. |
+| Requested action | Use a bounded action label such as `outbound_comms.message.write` or `calendar.create_hold.write`. Do not store raw tool arguments or connector payloads. |
 | Tool mode | `requested_mode` comes from the tool call. `enforced_mode` comes from the gateway verdict and must be re-checked before any approved apply step. |
 | Approval state | `requested` means the package exists but has no decision. Terminal states are `approved`, `denied`, `expired`, `cancelled`, and `superseded`. |
 | Decision | `decision` is nullable until review. Allowed final values are `approved`, `denied`, `expired`, or `cancelled`. |
 | Reason category | Use bounded categories only. Raw rationale stays out of the package and audit trail. |
-| Reviewer identity | `reviewer_actor_subject_ref` is opaque. `reviewer_role` is a local approval role such as `lighthouse_reviewer`, `tool_risk_reviewer`, or `policy_reviewer`. |
+| Reviewer identity | `reviewer_actor_subject_ref` is opaque. `reviewer_role` is a local approval role such as `uc1_reviewer`, `tool_risk_reviewer`, or `policy_reviewer`. |
 | SLA and expiry | `decision_due_at` supports SLA reporting. `expires_at` is the hard authority boundary after which the package cannot authorise execution. |
 | Policy refs | Store refs such as grant ID/version, route ID/version, prompt ref/hash, approval policy ref, or policy change ID when relevant. Store refs, not policy bodies or rationale. |
 | Workload refs | Request and decision workload refs use the 2B-02 workload-principal/session IDs and remain nullable until executable sessions exist. |

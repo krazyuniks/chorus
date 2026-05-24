@@ -46,7 +46,7 @@ function RegistryRoute() {
     <div className="flex h-full flex-col">
       <PageHeader
         title="Agent registry"
-        subtitle="Read-only — registry mutations are out of scope for Phase 1."
+        subtitle="Read-only - registry mutations are out of scope for the local POC."
       />
       <DataTable rows={data} columns={columns} rowKey={(row) => row.agent_id} />
     </div>

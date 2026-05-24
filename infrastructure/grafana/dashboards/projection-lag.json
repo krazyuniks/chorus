@@ -1,6 +1,6 @@
 {
   "annotations": {"list": []},
-  "description": "Outbox depth, oldest pending event age, and retry attempts for the Workstream A relay. Use these panels to spot stuck or failing rows before they back up the projection.",
+  "description": "Outbox depth, oldest pending event age, and retry attempts for the relay. Use these panels to spot stuck or failing rows before they back up the projection.",
   "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,

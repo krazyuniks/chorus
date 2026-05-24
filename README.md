@@ -64,7 +64,8 @@ flowchart TB
 ```
 
 The adapter inventory behind each port, as defined by the R1 adapter mapping.
-UC1 is the worked set; UC2 and UC3 are confirmed and land in R3 and R4.
+UC1 is the worked set; UC2 and UC3 are confirmed and land in R4 after their
+full product briefs and domain models are written.
 
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|
@@ -94,34 +95,19 @@ adapter-reuse hypothesis is the centre of the thesis; see
 
 ## How to read this repo
 
-The reset bundle is the architectural authority. Read in this order.
+The documentation is living design material, not a phase history. Read in this
+order:
 
-The reset bundle, in [`docs/transformation/`](docs/transformation/):
-
-1. [`README.md`](docs/transformation/README.md) - the reset control point.
-2. [`engineering-thesis.md`](docs/transformation/engineering-thesis.md) - the long-form thesis. Load-bearing.
-3. [`context-and-intent.md`](docs/transformation/context-and-intent.md) - why the reset exists.
-4. [`domain-refocus-plan.md`](docs/transformation/domain-refocus-plan.md) - the UK-regulated use-case set.
-5. [`engineering-reset-roadmap.md`](docs/transformation/engineering-reset-roadmap.md) - the reset phases.
-6. [`current-state-inventory.md`](docs/transformation/current-state-inventory.md) - the reset baseline.
-7. [`code-refactor-directions.md`](docs/transformation/code-refactor-directions.md) - the four engineering smells.
-8. [`eval-reshape-directions.md`](docs/transformation/eval-reshape-directions.md) - invariant-based eval and replay-as-comparison.
-
-The R1 product and domain artefacts, in [`docs/`](docs/):
-
-9. [`product-brief.md`](docs/product-brief.md) - the UC1 product description.
-10. [`domain-model.md`](docs/domain-model.md) - the UC1 ubiquitous language.
-11. [`r1-use-case-confirmation.md`](docs/r1-use-case-confirmation.md) - the UC2 and UC3 confirmation.
-12. [`r1-adapter-mapping.md`](docs/r1-adapter-mapping.md) - how each use case exercises the ports.
-13. [`r1-exit-criteria.md`](docs/r1-exit-criteria.md) - the R1 sign-off.
-
-The top-level architecture docs:
-
-14. [`docs/overview.md`](docs/overview.md) - the project overview.
-15. [`docs/architecture.md`](docs/architecture.md) - the architecture reference.
-16. [`docs/evidence-map.md`](docs/evidence-map.md) - claims mapped to artefacts, port by port.
-17. [`docs/runbook.md`](docs/runbook.md) - how to run and inspect the system locally.
-18. [`docs/r2-exit-criteria.md`](docs/r2-exit-criteria.md) - the R2 sign-off.
+1. [`docs/overview.md`](docs/overview.md) - project overview and use-case set.
+2. [`docs/architecture.md`](docs/architecture.md) - current architecture reference.
+3. [`docs/transformation/engineering-thesis.md`](docs/transformation/engineering-thesis.md) - long-form thesis.
+4. [`docs/product-brief.md`](docs/product-brief.md) - UC1 product description.
+5. [`docs/domain-model.md`](docs/domain-model.md) - UC1 ubiquitous language.
+6. [`docs/r1-use-case-confirmation.md`](docs/r1-use-case-confirmation.md) - UC2 and UC3 confirmation.
+7. [`docs/r1-adapter-mapping.md`](docs/r1-adapter-mapping.md) - adapter reuse across the three use cases.
+8. [`docs/evidence-map.md`](docs/evidence-map.md) - claims mapped to artefacts, port by port.
+9. [`docs/runbook.md`](docs/runbook.md) - local run and inspection path.
+10. [`docs/transformation/r4-implementation-backlog.md`](docs/transformation/r4-implementation-backlog.md) - active R4 strategy, backlog, and continuation handoff.
 
 ## How to run it locally
 
@@ -130,31 +116,20 @@ Mailpit, and a local connector substrate, with OpenTelemetry and Grafana for
 observability. There is no hosted dependency. The full command path and the
 UC1 happy-path walk-through are in [`docs/runbook.md`](docs/runbook.md).
 
-The runtime code in the repository is the pre-reset implementation. R3
-(contract and code terminology refactor) is the phase that moves the code onto
-the named-port surface and lands the UC1 adapters; R4 wires UC1, UC2, and UC3
-for local POC readiness. The runbook is honest about which commands run today
-and which describe the post-R3 shape.
+The runtime code carries the named-port surface: the LLM provider port,
+connector adapter registry, audit / transcript split, workflow spine with UC1
+on it, per-port projection / doctor decomposition, and invariant-plus-replay
+eval. R4 wires UC1, UC2, and UC3 for local POC readiness after the R4 design
+decisions and UC2 / UC3 product artefacts are written. The active R4 backlog
+and continuation prompt live in
+[`docs/transformation/r4-implementation-backlog.md`](docs/transformation/r4-implementation-backlog.md).
 
-## Status
+## Current Work
 
-| Phase | State |
-|---|---|
-| R0.5 - design codification (the ports-and-adapters thesis) | Complete, 2026-05-19. |
-| R1 - product and domain reframing | Complete, 2026-05-20. |
-| R2 - documentation architecture refactor | Complete, 2026-05-20. |
-| ADR writing pass | Complete, 2026-05-20. ADRs 0017 (LangGraph removal), 0018 (LLM provider port), 0019 (audit ports plus replay-eval), 0020 (domain refocus). |
-| R3 - contract and code terminology refactor | Next. |
-| R4 - local POC readiness across UC1, UC2, UC3 | Pending. |
-
-Architectural decisions are recorded in [`adrs/`](adrs/). ADRs 0017 to 0020
-record the decisions of the transformation reset.
-
-The pre-reset phase history (Phase 0 through Phase 2E) is preserved in
-[`docs/transformation/phase-2-archive.md`](docs/transformation/phase-2-archive.md).
-Deployment left the Chorus repository in the reset; the parked
-production-readiness pack sits in
-[`docs/transformation/parked-phase-2e/`](docs/transformation/parked-phase-2e/).
+R4 is in preflight. The next work is product/domain scoping for UC2 and UC3,
+then multi-use-case implementation on the existing named-port architecture.
+Architectural decisions are recorded in [`adrs/`](adrs/); only current
+decisions are kept in the repository.
 
 ## License
 

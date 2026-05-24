@@ -60,7 +60,8 @@ flowchart TB
 ```
 
 The adapter inventory behind each port, as defined by the R1 adapter mapping.
-UC1 is the worked set; UC2 and UC3 are confirmed and land in R3 and R4.
+UC1 is the worked set; UC2 and UC3 are confirmed and land in R4 after their
+full product briefs and domain models are written.
 
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|
@@ -168,8 +169,7 @@ right adapter, capture audit, return a verdict.
 - **Adapter registry.** Each connector adapter declares its supported tool
   names plus the argument and return contracts it satisfies, and registers
   with the gateway. Dispatch is a registry lookup. New connector adapters do
-  not edit the gateway. R3 replaces the pre-reset hardcoded match dispatch
-  with this registry; see
+  not edit the gateway. See
   [`transformation/code-refactor-directions.md`](transformation/code-refactor-directions.md).
 - **Grants.** The agent's policy snapshot declares which connector adapters
   the agent may call and in which modes.
@@ -296,36 +296,32 @@ That is what makes the architecture a thesis rather than a vocabulary.
 
 ## Implementation status
 
-R3 (contract and code terminology refactor) closed 2026-05-24. The runtime
-code now carries the named-port surface this document describes.
+The runtime code carries the named-port surface this document describes.
 
 | Surface | Where in code |
 |---|---|
-| Six-port contract layout | `contracts/intake/`, `contracts/llm_provider/`, `contracts/connector/`, `contracts/audit/`, `contracts/projection/`, `contracts/observability/`, `contracts/eval/`; the intake and connector ports carry a `uc1/` subdirectory (R3 A). |
-| LLM provider port | `chorus/llm_provider/port.py` (surface), `chorus/llm_provider/adapter_openai.py` (OpenAI-SDK transport), `chorus/llm_provider/adapter_replay.py` (deterministic recorded-replay substrate), `chorus/llm_provider/route_catalogue.py` (route metadata). LangGraph retired (R3 B). |
-| Audit / transcript port split | `chorus/persistence/audit_port.py`, `contracts/audit/agent_invocation_record.schema.json`, `contracts/audit/agent_invocation_transcript.schema.json`, `infrastructure/postgres/migrations/010_audit_transcript_port.sql`. The runtime writes both records on every invocation (R3 C). |
-| Connector adapter registry | `chorus/connectors/types.py` (`ConnectorAdapter`, `ConnectorRegistry`, `ToolSpec`), `chorus/connectors/uc1.py` (six UC1 sandbox adapters), `chorus/connectors/calendar.py`. The gateway dispatches through the registry; the hardcoded match block retired (R3 D). |
-| Workflow spine + UC1 on the spine | `chorus/workflows/spine.py` (`WorkflowSpine`, `WorkflowDefinition`, `WorkflowStepDefinition` over generic activity names), `chorus/workflows/uc1.py` (UC1 enquiry-qualification workflow). Lighthouse and Support Triage retired (R3 E). |
-| Per-port persistence read surface | `chorus/persistence/projection.py` (workflow + calendar), `chorus/persistence/audit_port.py`, `chorus/persistence/runtime_policy.py`, `chorus/persistence/provider_governance.py`. The BFF binds them through `PortReaders` per request (R3 F). |
-| Per-port doctor probes | `chorus/doctor/scaffold.py` (paths / executables / compose), `chorus/doctor/projection_port.py`, `chorus/doctor/connector_port.py`, `chorus/doctor/observability_port.py`, `chorus/doctor/workflow_runtime.py`, `chorus/doctor/ui.py`. CLI entry at `chorus/doctor/__main__.py` (R3 F). |
-| Invariant-plus-replay eval | `chorus/eval/invariants.py` (the UC1 invariant suite), `chorus/eval/scenario_player.py` (drives the recorded-replay route through a fixture's scenario), `chorus/eval/replay.py` (`eval replay` subcommand), `chorus/eval/run.py` (CLI). Path-enumeration fixtures retired (R3 G). |
+| Six-port contract layout | `contracts/intake/`, `contracts/llm_provider/`, `contracts/connector/`, `contracts/audit/`, `contracts/projection/`, `contracts/observability/`, `contracts/eval/`; use-case-specific contracts live under `uc1/`, `uc2/`, and `uc3/` subdirectories as they are added. |
+| LLM provider port | `chorus/llm_provider/port.py` (surface), `chorus/llm_provider/adapter_openai.py` (OpenAI-SDK transport), `chorus/llm_provider/adapter_replay.py` (deterministic recorded-replay substrate), `chorus/llm_provider/route_catalogue.py` (route metadata). |
+| Audit / transcript port split | `chorus/persistence/audit_port.py`, `contracts/audit/agent_invocation_record.schema.json`, `contracts/audit/agent_invocation_transcript.schema.json`, `infrastructure/postgres/migrations/010_audit_transcript_port.sql`. The runtime writes both records on every invocation. |
+| Connector adapter registry | `chorus/connectors/types.py` (`ConnectorAdapter`, `ConnectorRegistry`, `ToolSpec`), `chorus/connectors/uc1.py` (six UC1 sandbox adapters), `chorus/connectors/calendar.py`. The gateway dispatches through the registry. |
+| Workflow spine + UC1 on the spine | `chorus/workflows/spine.py` (`WorkflowSpine`, `WorkflowDefinition`, `WorkflowStepDefinition` over generic activity names), `chorus/workflows/uc1.py` (UC1 enquiry-qualification workflow). |
+| Per-port persistence read surface | `chorus/persistence/projection.py` (workflow + calendar), `chorus/persistence/audit_port.py`, `chorus/persistence/runtime_policy.py`, `chorus/persistence/provider_governance.py`. The BFF binds them through `PortReaders` per request. |
+| Per-port doctor probes | `chorus/doctor/scaffold.py` (paths / executables / compose), `chorus/doctor/projection_port.py`, `chorus/doctor/connector_port.py`, `chorus/doctor/observability_port.py`, `chorus/doctor/workflow_runtime.py`, `chorus/doctor/ui.py`. CLI entry at `chorus/doctor/__main__.py`. |
+| Invariant-plus-replay eval | `chorus/eval/invariants.py` (the UC1 invariant suite), `chorus/eval/scenario_player.py` (drives the recorded-replay route through a fixture's scenario), `chorus/eval/replay.py` (`eval replay` subcommand), `chorus/eval/run.py` (CLI). |
 
-R3 sign-off is in [`r3-exit-criteria.md`](r3-exit-criteria.md). The ADRs
-that govern the named-port surface are
+The ADRs that govern the named-port surface are
 [ADR 0017](../adrs/0017-langgraph-removed-from-agent-execution.md)
-(LangGraph removal),
+(agent execution without LangGraph),
 [ADR 0018](../adrs/0018-llm-provider-port.md) (LLM provider port),
 [ADR 0019](../adrs/0019-audit-ports-and-replay-eval.md) (audit ports and
 replay-eval), and
-[ADR 0020](../adrs/0020-domain-refocus-uk-regulated-use-cases.md) (domain
-refocus).
+[ADR 0020](../adrs/0020-domain-refocus-uk-regulated-use-cases.md) (UK-regulated
+use cases).
 
 R4 (local POC readiness across UC1, UC2, and UC3 with cross-provider
 replay-eval) is the next phase. It wires the UC2 and UC3 workflow
 definitions alongside UC1 on the same spine, stands up the OpenAI-SDK
 adapter against gpt-5.4-mini (canonical demo / eval) and DeepSeek V4-Flash
 (dev), and runs the cross-provider replay-eval ADR 0019 names as a
-first-class mode.
-
-The pre-reset phase history (Phase 0 through Phase 2E) is preserved in
-[`transformation/phase-2-archive.md`](transformation/phase-2-archive.md).
+first-class mode. The active R4 backlog and continuation handoff are in
+[`transformation/r4-implementation-backlog.md`](transformation/r4-implementation-backlog.md).

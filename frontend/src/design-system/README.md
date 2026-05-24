@@ -14,7 +14,7 @@ design-system/
   contracts/              TypeScript prop interfaces grouped by category.
     surfaces/             Card.
     navigation/           TopBar.
-    content/              Hero (kept available, not used in the Lighthouse views).
+    content/              Hero (kept available, not used in the Chorus inspection views).
     forms/                Input.
     actions/              Button.
     feedback/             Alert.
@@ -39,4 +39,6 @@ design-system/
 
 ## Chorus design constraints
 
-The Lighthouse UI is a dense, data-first inspection surface. `Card` and `Hero` are present for completeness, but the Phase 1 routes deliberately do not use them — Chorus uses tables, timelines, and plain detail views instead.
+The Chorus UI is a dense, data-first inspection surface. `Card` and `Hero` are
+present for completeness, but the reset POC routes deliberately do not use
+them; Chorus uses tables, timelines, and plain detail views instead.

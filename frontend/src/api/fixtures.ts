@@ -1,5 +1,5 @@
 /**
- * In-memory fixture data used by optional Phase 1 UI fixture mode.
+ * In-memory fixture data used by optional UI fixture mode.
  *
  * These are deterministic, typed shapes that exercise the table/timeline
  * layouts without requiring the BFF to be running. Runtime review uses the
@@ -37,7 +37,7 @@ export const workflowRuns: WorkflowRunSummary[] = [
     correlation_id: "corr-9f3a14b1c0d8",
     subject_id: "00000000-0000-4000-8000-000000000001",
     subject_ref: "enq_2026_04_29_0001",
-    subject_summary: "Quote request — 12 panel laptops",
+    subject_summary: "Household quote - flat-roof extension",
     subject_from: "buyer@acme.example",
     metadata: { source: "fixture" },
   },
@@ -53,7 +53,7 @@ export const workflowRuns: WorkflowRunSummary[] = [
     correlation_id: "corr-7c4be9a1d22e",
     subject_id: "00000000-0000-4000-8000-000000000002",
     subject_ref: "enq_2026_04_29_0002",
-    subject_summary: "Renewal — managed services",
+    subject_summary: "Household renewal - prior escape-of-water claim",
     subject_from: "ops@globex.example",
     metadata: { source: "fixture" },
   },
@@ -69,8 +69,8 @@ export const workflowRuns: WorkflowRunSummary[] = [
     correlation_id: "corr-2d5af0c3b914",
     subject_id: "00000000-0000-4000-8000-000000000003",
     subject_ref: "enq_2026_04_29_0003",
-    subject_summary: "Inquiry — onboarding playbook",
-    subject_from: "lead@initech.example",
+    subject_summary: "Contents cover enquiry - missing construction detail",
+    subject_from: "alex.morgan@example.test",
     metadata: { source: "fixture" },
   },
 ];
@@ -88,7 +88,7 @@ export const workflowEvents: Record<string, WorkflowEvent[]> = {
     {
       id: "evt-002",
       workflow_id: "uc1-2026-04-29-0001",
-      event_type: "lead.parsed",
+      event_type: "enquiry.parsed",
       occurred_at: iso(-1795),
       correlation_id: "corr-9f3a14b1c0d8",
       payload: { source: "mailpit", message_id: "<a1b2@acme.example>" },

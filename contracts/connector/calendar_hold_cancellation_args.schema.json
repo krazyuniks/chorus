@@ -30,7 +30,7 @@
       "enum": [
         "workflow_compensation",
         "approval_denied",
-        "lead_withdrawn",
+        "enquiry_withdrawn",
         "rescheduled",
         "validation_failed",
         "other_bounded"

@@ -1,4 +1,4 @@
-"""Minimal Postgres migration runner for the Phase 1A persistence foundation."""
+"""Minimal Postgres migration runner for the local persistence foundation."""
 
 from __future__ import annotations
 

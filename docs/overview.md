@@ -173,10 +173,13 @@ The adapter-reuse hypothesis is the centre of the thesis. The six named ports
 and the workflow spine stay constant across all three use cases. The intake
 channel adapters, the connector inventory, the approval policy, and the
 regulator-specific audit content vary per use case. R3 and R4 produce the
-evidence for or against that hypothesis; R1 commits to the shape. The full
-mapping is in [`r1-adapter-mapping.md`](r1-adapter-mapping.md). The decision to
-retire Lighthouse and Support Triage in favour of these UK-regulated use cases
-is [ADR 0020](../adrs/0020-domain-refocus-uk-regulated-use-cases.md).
+evidence for or against that hypothesis: R3 landed the named-port foundation
+and UC1 spine, and R4 is the local POC phase for all three use cases. The full
+mapping is in [`r1-adapter-mapping.md`](r1-adapter-mapping.md); the active R4
+backlog is in
+[`transformation/r4-implementation-backlog.md`](transformation/r4-implementation-backlog.md).
+The UK-regulated use-case set is recorded in
+[ADR 0020](../adrs/0020-domain-refocus-uk-regulated-use-cases.md).
 
 ## The two audit ports and replay as eval substrate
 
@@ -241,12 +244,9 @@ invariant-based eval; and cross-provider replay-eval.
 
 Out of scope for the Chorus repository: deployment and hosting, production
 identity and IAM, secrets management, backup and restore, disaster recovery,
-and retention infrastructure. The reset removed deployment from the repository
-and reframed it as a future vault-level Radian IT project delivered against a
-real client engagement. The Chorus repository stays runnable locally without
-any hosted dependency; its job is to be a clear ports-and-adapters reference.
-The parked production-readiness pack that pre-dates the reset is preserved in
-[`transformation/parked-phase-2e/`](transformation/parked-phase-2e/).
+and retention infrastructure. The Chorus repository stays runnable locally
+without any hosted dependency; its job is to be a clear ports-and-adapters
+reference.
 
 Also out of scope: real third-party broker, legal, or IFA platform
 integration (the use cases run on local sandboxes only), production provider

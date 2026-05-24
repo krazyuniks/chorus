@@ -1,4 +1,4 @@
-// Dense family barrel — re-exports the only family used in Chorus Phase 1.
+// Dense family barrel - re-exports the only family used in Chorus.
 export { Button } from "./designs/dense/actions/Button";
 export { Hero } from "./designs/dense/content/Hero";
 export { Alert } from "./designs/dense/feedback/Alert";

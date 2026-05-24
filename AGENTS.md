@@ -1,12 +1,12 @@
 # Chorus - Agent Guide
 
-> For the architectural thesis, read [docs/transformation/](./docs/transformation/) and [docs/architecture.md](./docs/architecture.md). For the project overview, read [docs/overview.md](./docs/overview.md). For the reset phases, read [docs/transformation/engineering-reset-roadmap.md](./docs/transformation/engineering-reset-roadmap.md).
+> For the architectural thesis, read [docs/transformation/](./docs/transformation/) and [docs/architecture.md](./docs/architecture.md). For the project overview, read [docs/overview.md](./docs/overview.md). For active R4 work, read [docs/transformation/r4-implementation-backlog.md](./docs/transformation/r4-implementation-backlog.md).
 
 ## Authority Order
 
 When a task concerns architecture, runtime behaviour, contracts, governance, or implementation direction, use this order:
 
-1. [docs/transformation/](./docs/transformation/) - the reset bundle, the architectural authority
+1. [docs/transformation/](./docs/transformation/) - current thesis, refactor direction, eval direction, and active R4 backlog
 2. [docs/architecture.md](./docs/architecture.md)
 3. [docs/overview.md](./docs/overview.md)
 4. the R1 product and domain artefacts in [docs/](./docs/) (`product-brief.md`, `domain-model.md`, `r1-*.md`)
@@ -22,9 +22,9 @@ Architecture and docs move with code. If behaviour, boundaries, contracts, comma
 
 Chorus is a hexagonal, ports-and-adapters exemplar for governed agentic systems, with data-contract-first design at every port. Six named ports - intake, LLM provider, connector, audit / transcript, projection sink, observability sink - separate the domain core from the outside world. The thesis is in [docs/transformation/engineering-thesis.md](./docs/transformation/engineering-thesis.md); the architecture reference is [docs/architecture.md](./docs/architecture.md).
 
-The project is in a transformation reset. R0.5 (the design codification of the thesis), R1 (product and domain reframing), R2 (documentation architecture refactor), the ADR writing pass (ADRs 0017 to 0020), and R3 (contract and code terminology refactor) are all complete. R3 sign-off is in [docs/r3-exit-criteria.md](./docs/r3-exit-criteria.md). The next phase is R4 (local POC readiness across UC1, UC2, UC3 with cross-provider replay-eval). Work from the reset bundle and [docs/transformation/engineering-reset-roadmap.md](./docs/transformation/engineering-reset-roadmap.md); do not resume any pre-reset continuation cadence.
+The project is preparing R4: local POC readiness across UC1, UC2, and UC3 with cross-provider replay-eval. Work from the current thesis docs and [docs/transformation/r4-implementation-backlog.md](./docs/transformation/r4-implementation-backlog.md). Documentation should be living, declarative, and prescriptive; do not add retrospective folders, superseded forwarding stubs, or phase ledgers.
 
-The runtime code carries the post-R3 named-port surface: the LLM provider port behind `chorus/llm_provider/`, the connector adapter registry behind `chorus/connectors/`, the audit / transcript port split behind `chorus/persistence/audit_port.py`, the workflow spine in `chorus/workflows/spine.py` with the UC1 enquiry-qualification workflow on it (`chorus/workflows/uc1.py`), the per-port projection / doctor decomposition (`chorus/persistence/*.py`, `chorus/doctor/*.py`), and the invariant-plus-replay eval in `chorus/eval/`. The pre-reset Lighthouse and Support Triage workflows retire in R3 E; LangGraph retired in R3 B. The pre-reset phase history (Phase 0 through Phase 2E) is preserved in [docs/transformation/phase-2-archive.md](./docs/transformation/phase-2-archive.md). Do not broaden scope into a top-level agent framework replacing Temporal, a SaaS product, a production customer-data path, production deployment, production SSO, credential entry, or a workflow DSL unless the project docs and ADRs explicitly change.
+The runtime code carries the named-port surface: the LLM provider port behind `chorus/llm_provider/`, the connector adapter registry behind `chorus/connectors/`, the audit / transcript port split behind `chorus/persistence/audit_port.py`, the workflow spine in `chorus/workflows/spine.py` with the UC1 enquiry-qualification workflow on it (`chorus/workflows/uc1.py`), the per-port projection / doctor decomposition (`chorus/persistence/*.py`, `chorus/doctor/*.py`), and the invariant-plus-replay eval in `chorus/eval/`. Do not broaden scope into a top-level agent framework replacing Temporal, a SaaS product, a production customer-data path, production deployment, production SSO, credential entry, or a workflow DSL unless the project docs and ADRs explicitly change.
 
 ## How To Run Commands
 
@@ -116,7 +116,7 @@ The UI is a dense, data-first inspection surface, not a marketing page.
 
 - No card layouts.
 - No decorative hero sections.
-- No mutating admin UI for registry, routing, or grants in Phase 1.
+- No mutating admin UI for registry, routing, or grants in the local POC.
 - Use tables, timelines, plain text, filters, and read-only detail views optimised for architecture review.
 - UI state must survive refresh/reconnect by reading projections; SSE is a progress stream, not the source of truth.
 - Use `playwright-cli` for browser validation when UI behaviour changes.
@@ -160,4 +160,4 @@ Use `just up`, `just status`, and `just logs <service>` for normal local operati
 
 Keep edits scoped to the requested work and respect existing user changes in the worktree. Conventional commits are preferred. Do not add AI attribution to commits, docs, or generated artefacts.
 
-Do not commit secrets, provider keys, real customer data, production credentials, or private records. Phase 1 uses local/sandbox data only.
+Do not commit secrets, provider keys, real customer data, production credentials, or private records. The local POC uses local/sandbox data only.

@@ -1,4 +1,4 @@
-# OpenTelemetry Collector configuration — Phase 1 local development.
+# OpenTelemetry Collector configuration - local development.
 #
 # Receives OTLP from services on 4317/4318 and fans the three signals out
 # to the Grafana stack:
@@ -8,8 +8,7 @@
 #
 # The `debug` exporter is kept on every pipeline so `docker logs
 # chorus-otel-collector` still shows what the collector is forwarding while
-# the upstream services land. Production deployment is deferred (ADR 0009).
-# Pipeline shape per ADR 0010.
+# the upstream services land. Production deployment is out of scope.
 
 receivers:
   otlp:
@@ -19,8 +18,8 @@ receivers:
       http:
         endpoint: 0.0.0.0:4318
 
-  # Per ADR 0010 §5: stdout JSON logs are the local-developer surface. Phase
-  # 1 services that opt in by setting `logging.driver: fluentd` in their
+  # Stdout JSON logs are the local-developer surface. Services that opt in by
+  # setting `logging.driver: fluentd` in their
   # `compose.yml` entry forward stdout to the collector via the docker
   # daemon's fluentd driver. The fluent receiver runs alongside `otlp` so
   # auto-instrumented services (which already emit logs over OTLP) keep

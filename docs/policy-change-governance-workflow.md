@@ -8,8 +8,7 @@ date: 2026-05-17
 
 ## Purpose
 
-This document is the Phase 2B-05 docs-first policy mutation model. It extends
-[ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md), the
+This document defines the policy mutation model. It extends the
 [observability and user-journey model](observability-user-journey-model.md),
 the [workload-principal model](workload-principal-model.md), the
 [invocation-authority context](invocation-authority-context.md), and the
@@ -22,9 +21,9 @@ normal operator path.
 
 No contract, Postgres migration, seed, runtime apply service, credential path,
 production provider call, production connector write, or mutating admin UI is
-added by this item. The current Lighthouse runtime remains unchanged and keeps
-using the existing seeded/local policy materialisation until a later ledger
-item deliberately promotes this sketch into executable code.
+added by this item. The post-R3 local runtime keeps using the existing
+seeded/local policy materialisation until a later ledger item deliberately
+promotes this sketch into executable code.
 
 ## Boundary Rules
 
@@ -165,7 +164,7 @@ other_bounded
    in `proposed` or `under_review`.
 2. **Attach evidence.** The proposer attaches eval evidence refs or a
    documented exception ref. For route, prompt, budget, and grant changes, eval
-   refs should normally include the affected Lighthouse fixture set or a later
+   refs should normally include the affected UC1 fixture set or a later
    workflow-specific fixture set.
 3. **Review.** A reviewer records a decision with opaque reviewer actor refs,
    reviewer role, bounded reason category, approval package ref when required,

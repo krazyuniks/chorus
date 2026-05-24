@@ -4,13 +4,21 @@
 
 Chorus is a sandbox-only reference implementation. It is not a deployable service. The repository carries no production credentials, no real customer data, and no third-party API keys. All runtime behaviour is exercised in sandbox or local mode per project policy (see `AGENTS.md` and `docs/architecture.md`).
 
-The project's "no mocks for architecture evidence" rule means infrastructure and connectors run as real software inside the local Docker Compose substrate (Postgres, Redpanda, Temporal, Mailpit, the local CRM service, public sandbox APIs). Those services are throwaway: they bind to localhost, hold only synthetic fixture data, and are recreated by `just up` and `just down-volumes`. There is no shared environment, no remote endpoint, and no persistent storage of sensitive material.
+The project's "no mocks for architecture evidence" rule means infrastructure
+and connectors run as real software inside the local Docker Compose substrate
+(Postgres, Redpanda, Temporal, Mailpit, Radicale, and local sandbox
+connectors). Those services are throwaway: they bind to localhost, hold only
+synthetic fixture data, and are recreated by `just up` and `just down-volumes`.
+There is no shared environment, no remote endpoint, and no persistent storage
+of sensitive material.
 
 The security boundary is therefore the developer's local machine. Secrets, where they exist at all, come from `.env` files derived from the committed `.env.example` template and remain local to the contributor's checkout.
 
-## Phase 1 deferrals
+## Out Of Scope
 
-Phase 1 explicitly does not include production authentication, SSO, secrets management, network-layer isolation, key rotation, or any deployable security posture. These items are listed under "Deferred After Phase 1" in [`docs/implementation-plan.md`](./docs/implementation-plan.md). Treat any request that depends on those capabilities as out of scope for the current design freeze.
+The local POC does not include production authentication, SSO, secrets
+management, network-layer isolation, key rotation, or any deployable security
+posture. Treat any request that depends on those capabilities as out of scope.
 
 ## Reporting a problem
 
@@ -32,5 +40,5 @@ In scope:
 
 Out of scope:
 
-- Findings that depend on production deployment, multi-tenant isolation in a hosted environment, or network exposure of services beyond `localhost`. None of those exist in Phase 1.
-- Findings that depend on real third-party connector access. Phase 1 uses sandbox or local connector services only.
+- Findings that depend on production deployment, multi-tenant isolation in a hosted environment, or network exposure of services beyond `localhost`.
+- Findings that depend on real third-party connector access. The local POC uses sandbox or local connector services only.

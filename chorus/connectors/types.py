@@ -1,8 +1,8 @@
 """Connector port primitives: tool specs, adapter protocol, registry.
 
-This is the abstraction the Tool Gateway dispatches through (ADR 0020 /
-R3 Phase 1 decision 3). One adapter per sandbox connector; each adapter
-declares the family of tools it serves through `ToolSpec`s. The registry
+This is the abstraction the Tool Gateway dispatches through. One adapter per
+sandbox connector; each adapter declares the family of tools it serves through
+`ToolSpec`s. The registry
 indexes the declared tool names to their `(adapter, ToolSpec)` pair so
 the gateway can resolve, validate, and invoke without per-tool branching.
 """

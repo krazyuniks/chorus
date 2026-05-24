@@ -1,6 +1,6 @@
 {
   "annotations": {"list": []},
-  "description": "Lighthouse workflow progress and outcome distribution. Driven by Workstream A's workflow_read_models and outbox_events. Filter by tenant or correlation_id; click a row to copy the workflow ID for the Temporal UI.",
+  "description": "Workflow progress and outcome distribution. Driven by workflow_read_models and outbox_events. Filter by tenant or correlation_id; click a row to copy the workflow ID for the Temporal UI.",
   "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,

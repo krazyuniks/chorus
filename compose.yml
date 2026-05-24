@@ -1,8 +1,6 @@
-# Chorus — Phase 1 local runtime stack
+# Chorus - local runtime stack
 #
-# Services declared here form the runtime substrate. Implementation of
-# Lighthouse (workflows, agents, gateway, connectors, BFF, UI) lands
-# during Phase 1A and composes alongside.
+# Services declared here form the runtime substrate for local POC work.
 #
 # All connectors are backed by real software in sandbox/local mode (no
 # mocks, no hand-rolled fakes per project policy).
@@ -146,8 +144,8 @@ services:
       - sh
       - -ceu
       - |
-        mkdir -p /data/collections/collection-root/cal_lighthouse_local_followup
-        printf '{"tag":"VCALENDAR","D:displayname":"cal_lighthouse_local_followup"}\n' > /data/collections/collection-root/cal_lighthouse_local_followup/.Radicale.props
+        mkdir -p /data/collections/collection-root/cal_uc1_local_followup
+        printf '{"tag":"VCALENDAR","D:displayname":"cal_uc1_local_followup"}\n' > /data/collections/collection-root/cal_uc1_local_followup/.Radicale.props
         exec radicale --config /config/config
     volumes:
       - radicale-data:/data
@@ -178,7 +176,7 @@ services:
     environment:
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_NAMESPACE: default
-      LIGHTHOUSE_TASK_QUEUE: lighthouse
+      CHORUS_TASK_QUEUE: chorus-uc1
       CHORUS_DATABASE_URL: postgresql://${CHORUS_PG_USER:-chorus}:${CHORUS_PG_PASSWORD:-chorus}@postgres:5432/${CHORUS_PG_DB:-chorus}
       CHORUS_MAILPIT_SMTP_HOST: mailpit
       CHORUS_MAILPIT_SMTP_PORT: 1025

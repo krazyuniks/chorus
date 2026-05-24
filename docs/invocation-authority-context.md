@@ -8,10 +8,8 @@ date: 2026-05-14
 
 ## Purpose
 
-This document is the Phase 2B-03 docs-first schema sketch for invocation
-authority context. It extends
-[ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md), the
-[observability and user-journey model](observability-user-journey-model.md),
+This document defines the future invocation authority context shape. It
+extends the [observability and user-journey model](observability-user-journey-model.md)
 and the [workload-principal model](workload-principal-model.md).
 The companion human-approval model in
 [`human-approval-audit-lifecycle.md`](human-approval-audit-lifecycle.md)
@@ -28,7 +26,7 @@ to run under a tenant, workflow, agent version, task kind, model route, budget,
 workload principal, and optional approval or policy-change reference.
 
 No contract, migration, seed, signature mechanism, or runtime object is added
-yet. The current Lighthouse path already carries the individual identifiers in
+yet. The post-R3 UC1 path already carries the individual identifiers in
 `AgentInvocationRequest`, `ToolGatewayRequest`, `decision_trail_entries`, and
 `tool_action_audit`. A new executable object would be useful when Agent Runtime
 and Tool Gateway become separate service boundaries, when authority must be
@@ -54,7 +52,7 @@ mutation work needs a durable `authority_context_id` join.
   does not belong in OpenTelemetry baggage.
 - No authority context field may contain credentials, API keys, access tokens,
   raw prompts, raw model outputs, raw tool arguments, raw connector responses,
-  raw lead/email content, customer names, email addresses, personal names,
+  raw enquiry/email content, customer names, email addresses, personal names,
   IP addresses, hostnames, filesystem paths, or unbounded rationale text.
 
 ## Agent Invocation Context Sketch
@@ -70,7 +68,7 @@ invocation_authority_context
   tenant_id
   correlation_id
   workflow_id
-  workflow_type                -- lighthouse initially
+  workflow_type                -- uc1_enquiry_qualification initially
   invocation_id
   parent_invocation_id         -- nullable
   agent_id
@@ -86,9 +84,9 @@ invocation_authority_context
   route_policy_ref             -- nullable safe policy/catalogue ref
   budget_cap_usd
   budget_currency              -- USD initially
-  execution_engine             -- langgraph initially
-  graph_version
-  workload_principal_id        -- nullable until 2B workload sessions are executable
+  execution_engine             -- sequential_agent_runtime initially
+  engine_version
+  workload_principal_id        -- nullable until workload sessions are executable
   workload_session_id          -- nullable; never baggage
   trust_domain                 -- local.chorus or fixture.chorus initially
   approval_id                  -- nullable
@@ -108,8 +106,8 @@ Field rules:
 | Agent | `agent_id`, `agent_version`, `agent_role`, `prompt_reference`, and `prompt_hash` come from approved registry rows, not from model output or prompt text. |
 | Route | `provider_id`, `model_id`, `route_id`, and `route_version` come from approved immutable route metadata. Provider credential state and secret refs are excluded. |
 | Budget | `budget_cap_usd` is the policy cap used for enforcement. Observed cost remains decision-trail evidence, not authority input. |
-| Workload | Workload references use the 2B-02 docs-first IDs. They are nullable until workload-session persistence exists. |
-| Approval and policy | `approval_id` follows the 2B-04 approval package model and stays nullable until executable approval work exists. `policy_change_id` follows the 2B-05 policy-change package model and stays nullable until executable policy mutation work exists. Store references, not approval rationale or policy diff bodies. |
+| Workload | Workload references use the workload-principal IDs. They are nullable until workload-session persistence exists. |
+| Approval and policy | `approval_id` follows the approval package model and stays nullable until executable approval work exists. `policy_change_id` follows the policy-change package model and stays nullable until executable policy mutation work exists. Store references, not approval rationale or policy diff bodies. |
 | Expiry | `expires_at` should be short-lived and bounded to the invocation or activity attempt. It is service evidence, not Temporal workflow state. |
 | Trace join | Include only `otel.trace_id`, `otel.span_id`, service name, workload principal ID, and trust domain when available. |
 | Integrity | If a signed envelope is later added, store algorithm ID, key reference, issued-at, expires-at, and signature outside the canonical payload. Never store signing key material. |
@@ -163,7 +161,7 @@ Field rules:
 
 1. Temporal activity invokes Agent Runtime with stable workflow and task fields.
 2. Agent Runtime resolves tenant, agent version, prompt reference, route
-   version, budget cap, execution graph, and invocation ID.
+  version, budget cap, execution engine, and invocation ID.
 3. Agent Runtime can construct an invocation authority context for audit
    metadata before calling the graph/model adapter.
 4. Agent Runtime records the authority summary with the decision trail,

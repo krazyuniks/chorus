@@ -1,7 +1,7 @@
 [project]
 name = "chorus-intake-poller"
 version = "0.1.0"
-description = "Container runtime for the Lighthouse Temporal worker and Mailpit intake activities."
+description = "Container runtime for the UC1 Temporal worker and Mailpit intake activities."
 requires-python = ">=3.14"
 dependencies = [
     "httpx>=0.28.1",

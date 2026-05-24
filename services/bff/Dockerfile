@@ -1,6 +1,6 @@
 # Chorus BFF runtime.
 #
-# Serves the Lighthouse UI's read-only projection, audit, runtime-policy, and
+# Serves the Chorus UI's read-only projection, audit, runtime-policy, and
 # progress-stream endpoints under the standard OpenTelemetry entrypoint.
 
 FROM python:3.14-slim AS builder

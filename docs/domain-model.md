@@ -258,8 +258,7 @@ term carries the precise meaning the workflow needs.
 
 | Banned / ambiguous term | Replacement | Reason |
 |---|---|---|
-| Lead | Enquiry. | "Lead" carries sales-pipeline framing that does not match a regulated qualification workflow. |
-| Case | Enquiry, plus the specific lifecycle records (MissingDataRequest, QualificationVerdict, Referral) where a sub-concept is meant. | "Case" was generic helpdesk language from Support Triage and does not map to general insurance distribution. |
+| Case | Enquiry, plus the specific lifecycle records (MissingDataRequest, QualificationVerdict, Referral) where a sub-concept is meant. | Too generic for general insurance distribution. |
 | Ticket | Enquiry exception, or adviser exception queue entry. | Same reason as `Case`. |
 | Account | Customer (the natural person) or applicant (the policyholder-to-be). | "Account" implied a CRM-system abstraction rather than a domain entity. |
 | Score | Risk-acceptability flag or target-market check result. | "Score" implies a single numeric value that the workflow does not produce. |

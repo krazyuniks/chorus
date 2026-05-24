@@ -8,9 +8,8 @@ date: 2026-05-14
 
 ## Purpose
 
-This document is the Phase 2B-02 docs-first schema sketch for workload
-identity. It extends [ADR 0013](../adrs/0013-identity-authority-observability-boundaries.md)
-and the [observability and user-journey model](observability-user-journey-model.md)
+This document defines the future workload identity model. It extends the
+[observability and user-journey model](observability-user-journey-model.md)
 without adding AWS, production SSO, cloud deployment, credentials, or a new
 runtime dependency. The companion invocation-authority context sketch in
 [`invocation-authority-context.md`](invocation-authority-context.md) defines how
@@ -23,11 +22,11 @@ records tenant scope as application metadata, and reserves future mapping
 fields for AWS IAM roles, STS session names and tags, IAM Roles Anywhere, and
 external identity-provider references.
 
-No Postgres migration or contract is added yet. The current Lighthouse path
-does not write workload sessions or enforce workload authentication at a
-service boundary, so a table would be seed-only evidence. Promote this sketch
-to Postgres when a service starts writing workload-session evidence or when
-Agent Runtime, Tool Gateway, BFF, or the worker starts enforcing workload
+No Postgres migration or contract is added yet. The post-R3 local UC1 path does
+not write workload sessions or enforce workload authentication at a service
+boundary, so a table would be seed-only evidence. Promote this sketch to
+Postgres when a service starts writing workload-session evidence or when Agent
+Runtime, Tool Gateway, BFF, or the worker starts enforcing workload
 authentication.
 
 ## Design Rules
@@ -166,7 +165,7 @@ Safe STS session tag keys:
 | `chorus:tenant-scope-kind` | Scope category, not a tenant name. |
 | `chorus:tenant-id` | Only when the workload is genuinely tenant-scoped and the value is a stable tenant ID. |
 
-Do not put raw prompts, model outputs, lead content, email addresses, personal
+Do not put raw prompts, model outputs, enquiry content, email addresses, personal
 names, provider credentials, access keys, session tokens, API keys, secret
 values, certificate bodies, or unbounded policy rationale in role session
 names or tags.

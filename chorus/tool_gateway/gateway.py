@@ -1,9 +1,8 @@
 """Tool Gateway policy enforcement, connector invocation, and audit writes.
 
-After R3 checkpoint D the gateway dispatches through the
-`ConnectorRegistry` (ADR 0020 / Phase 1 decision 3). Argument validation
-and dispatch both resolve through the registered `ToolSpec` per tool;
-adding a new connector is a registry registration, not a gateway edit.
+The gateway dispatches through the `ConnectorRegistry`. Argument validation
+and dispatch both resolve through the registered `ToolSpec` per tool; adding a
+new connector is a registry registration, not a gateway edit.
 """
 
 from __future__ import annotations

@@ -198,10 +198,10 @@ class RuntimeFallback:
 class SequentialAgentExecutionEngine:
     """Plain sequential execution pipeline for agent invocations.
 
-    Replaces the pre-reset LangGraph executor (ADR 0017). The five steps
-    that used to live on a compiled graph - prepare context, invoke port,
-    normalise result, validate contract, final response - are straight
-    Python on a thread, with the LLM provider port as the only call out.
+    The pipeline prepares context, invokes the LLM provider port, normalises
+    the result, validates the contract, and returns the final response. It is
+    straight Python on a thread, with the LLM provider port as the only call
+    out.
     """
 
     pipeline_version = EXECUTION_PIPELINE_VERSION
@@ -314,10 +314,7 @@ class RouteResolver(Protocol):
 class ProviderRouteResolver:
     """Default resolver: maps the provider id from the routing policy to a route id.
 
-    The pre-reset DB carried provider ids like ``local`` against the route
-    versions. The route catalogue is the post-reset abstraction; this
-    resolver keeps the existing policy lookup path while routing
-    invocations through the catalogue.
+    Maps existing provider ids from routing policy rows to route catalogue ids.
     """
 
     _PROVIDER_TO_ROUTE: ClassVar[dict[str, str]] = {

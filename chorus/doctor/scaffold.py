@@ -14,12 +14,8 @@ from chorus.doctor._reporting import fail, ok, section
 
 ROOT = Path(__file__).resolve().parents[2]
 
-# Phase 0 scaffold - documentation, ADRs, contracts, service stubs. After R3
-# retires the pre-reset governance-guardrails.md, governance-evidence.md,
-# demo-script.md, and docs/components/, the R2 forwarding stubs
-# (phase-2-plan.md, implementation-plan.md) remain because R2 demoted them
-# to forwarding stubs rather than deleting them.
-PHASE_0_PATHS = [
+# Current project shape - documentation, ADRs, contracts, service stubs.
+PROJECT_PATHS = [
     "README.md",
     "compose.yml",
     "justfile",
@@ -27,15 +23,10 @@ PHASE_0_PATHS = [
     "docs/overview.md",
     "docs/architecture.md",
     "docs/evidence-map.md",
-    "docs/phase-2-plan.md",
-    "docs/fixtures/lead-acme.eml",
-    "docs/implementation-plan.md",
+    "docs/fixtures/enquiry-acme.eml",
     "docs/runbook.md",
-    "docs/r1-exit-criteria.md",
-    "docs/r2-exit-criteria.md",
-    "docs/r3-exit-criteria.md",
+    "docs/transformation/r4-implementation-backlog.md",
     "adrs/README.md",
-    "adrs/0011-phase-2-governed-platform-expansion.md",
     "adrs/0017-langgraph-removed-from-agent-execution.md",
     "adrs/0018-llm-provider-port.md",
     "adrs/0019-audit-ports-and-replay-eval.md",
@@ -57,9 +48,8 @@ PHASE_0_PATHS = [
     "infrastructure/otel/config.yaml",
 ]
 
-# Workstream F (Observability + ops) - developer experience, CI, services
-# template, and meta files. Phase 0A finishing scaffold lives here.
-WORKSTREAM_F_PATHS = [
+# Developer experience, CI, service template, and meta files.
+DEVEX_PATHS = [
     ".env.example",
     ".editorconfig",
     ".dockerignore",
@@ -76,7 +66,6 @@ WORKSTREAM_F_PATHS = [
     ".github/dependabot.yml",
     "SECURITY.md",
     "CONTRIBUTING.md",
-    "CHANGELOG.md",
     "frontend/package.json",
     "frontend/vite.config.ts",
     "frontend/tsconfig.json",
@@ -95,9 +84,8 @@ WORKSTREAM_F_PATHS = [
     "chorus/observability/__init__.py",
 ]
 
-# Workstream A (Persistence + projection) - Postgres migrations, seeds,
-# persistence module. Owned by the Workstream A session.
-WORKSTREAM_A_PATHS = [
+# Persistence, projection, and audit storage surface.
+PERSISTENCE_PATHS = [
     "infrastructure/postgres/README.md",
     "infrastructure/postgres/migrations/001_phase_1a_persistence_foundation.sql",
     "infrastructure/postgres/seeds/001_demo_tenants.sql",
@@ -113,7 +101,7 @@ WORKSTREAM_A_PATHS = [
     "tests/persistence/test_redpanda_projection.py",
 ]
 
-WORKSTREAM_B_PATHS = [
+WORKFLOW_PATHS = [
     "chorus/workflows/spine.py",
     "chorus/workflows/uc1.py",
     "chorus/workflows/activities.py",
@@ -128,7 +116,7 @@ WORKSTREAM_B_PATHS = [
     "tests/workflows/test_mailpit_intake.py",
 ]
 
-WORKSTREAM_E_PATHS = [
+BFF_UI_PATHS = [
     "chorus/bff/__init__.py",
     "chorus/bff/app.py",
     "services/bff/Dockerfile",
@@ -137,13 +125,7 @@ WORKSTREAM_E_PATHS = [
     "frontend/src/api/queries.ts",
 ]
 
-REQUIRED_PATHS = (
-    PHASE_0_PATHS
-    + WORKSTREAM_F_PATHS
-    + WORKSTREAM_A_PATHS
-    + WORKSTREAM_B_PATHS
-    + WORKSTREAM_E_PATHS
-)
+REQUIRED_PATHS = PROJECT_PATHS + DEVEX_PATHS + PERSISTENCE_PATHS + WORKFLOW_PATHS + BFF_UI_PATHS
 
 
 def _check_executable(relative: str) -> bool:
@@ -164,11 +146,11 @@ def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
 def check_paths() -> int:
     failures = 0
     for sect, paths in (
-        ("phase 0", PHASE_0_PATHS),
-        ("workstream F", WORKSTREAM_F_PATHS),
-        ("workstream A", WORKSTREAM_A_PATHS),
-        ("workstream B", WORKSTREAM_B_PATHS),
-        ("workstream E", WORKSTREAM_E_PATHS),
+        ("project", PROJECT_PATHS),
+        ("devex", DEVEX_PATHS),
+        ("persistence", PERSISTENCE_PATHS),
+        ("workflow", WORKFLOW_PATHS),
+        ("bff ui", BFF_UI_PATHS),
     ):
         section(sect)
         for relative in paths:

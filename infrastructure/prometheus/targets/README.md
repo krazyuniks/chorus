@@ -1,9 +1,9 @@
 # Prometheus service-discovery targets
 
-Phase 1A services declare their `/metrics` endpoints by dropping a YAML
-file in this directory. Prometheus's `file_sd_configs` job
+Application services declare their `/metrics` endpoints by dropping a YAML file
+in this directory. Prometheus's `file_sd_configs` job
 (`chorus-services`, see `../config.yaml`) picks the files up on a
-30-second refresh — no Prometheus restart, no edit to the central
+30-second refresh - no Prometheus restart, no edit to the central
 `config.yaml`.
 
 ## File shape

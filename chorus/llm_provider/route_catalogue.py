@@ -1,14 +1,13 @@
-"""Route catalogue for the LLM provider port (ADR 0018).
+"""Route catalogue for the LLM provider port.
 
 The catalogue is the port's route-metadata layer: it pairs a route id (a
 human-named selection like ``dev``, ``demo-eval-canonical``, or
 ``recorded-replay``) with the provider, model, parameters, and adapter
 version that should service it.
 
-The Phase 2A provider catalogue and route-version tables retire in favour
-of this in-process registration. The DB tables that still carry the
-historical shape are left for the audit-ports work in checkpoint C to
-re-home and are no longer the call boundary.
+Provider catalogue and route-version tables remain governance evidence. The
+in-process route catalogue is the call-boundary metadata used by the provider
+port.
 """
 
 from __future__ import annotations
@@ -70,14 +69,13 @@ class RouteCatalogue:
 
 
 def default_route_catalogue() -> RouteCatalogue:
-    """Register the three routes required by ADR 0018.
+    """Register the routes required by the LLM provider port.
 
     The ``dev`` and ``demo-eval-canonical`` routes wire OpenAI-compatible
     endpoints (DeepSeek and OpenAI respectively) and read credentials from
     environment variables. The ``recorded-replay`` route is the
-    deterministic substrate that keeps ``just eval`` and ``just test`` green
-    between B and G; it produces stable structured outputs for the Phase 1
-    fixtures without reaching any external provider.
+    deterministic substrate for offline eval; it produces stable structured
+    outputs without reaching any external provider.
     """
 
     return RouteCatalogue(

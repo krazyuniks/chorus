@@ -9,7 +9,7 @@ date: 2026-05-19
 Chorus is a **hexagonal, ports-and-adapters exemplar for governed agentic
 systems with data-contract-first design at every port**.
 
-This document is the long-form thesis statement. Other reset bundle docs
+This document is the long-form thesis statement. Other design-control docs
 derive from it.
 
 ## The Two Commitments
@@ -42,7 +42,7 @@ The hexagon has six named ports. The list is intentionally short.
 |---|---|---|
 | **Intake** | Inbound business work entering the system. | Email channel adapter, broker portal adapter, web form adapter, synthetic fixture adapter. |
 | **LLM provider** | Model invocations with route catalogue and provider neutrality. | OpenAI Python SDK against any OpenAI-compatible endpoint (DeepSeek V4-Flash dev, OpenAI gpt-5.4-mini demo / eval). |
-| **Connector** | External-action authority via the Tool Gateway. | CRM, calendar, email, ticket, and use-case-specific connector adapters; sandbox adapters during local POC. |
+| **Connector** | External-action authority via the Tool Gateway. | UC1 broker-firm adapters, calendar, outbound communications, and use-case-specific connector adapters; sandbox adapters during local POC. |
 | **Audit / transcript** | Two streams: structured decision-trail port and full-fidelity transcript port. | Postgres-backed decision-trail adapter and transcript adapter (could split storage later). |
 | **Projection sink** | Derives read models for inspection. | Postgres projection adapter feeding the read-only BFF; Redpanda event consumer for derivation. |
 | **Observability sink** | Traces, metrics, logs, optional LLM observability. | OTLP adapter, Prometheus / Loki / Tempo adapters, optional LLM observability sidecar adapter. |
@@ -222,9 +222,11 @@ The thesis is meant to do work. It constrains downstream decisions:
 
 That is what makes the architecture a thesis rather than a vocabulary.
 
-## Out Of Scope For This Document
+## Current Decision Records
 
-This document defines the architectural shape. The matching ADRs (LangGraph
-reversal of ADR 0012, LLM provider port, audit ports plus replay-eval,
-domain refocus) are written after the bundle has settled, in the ADR
-writing pass that follows R2.
+The matching current ADRs are:
+
+- [ADR 0017](../../adrs/0017-langgraph-removed-from-agent-execution.md)
+- [ADR 0018](../../adrs/0018-llm-provider-port.md)
+- [ADR 0019](../../adrs/0019-audit-ports-and-replay-eval.md)
+- [ADR 0020](../../adrs/0020-domain-refocus-uk-regulated-use-cases.md)

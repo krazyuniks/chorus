@@ -1,4 +1,4 @@
-"""FastAPI backend-for-frontend for the Lighthouse inspection UI."""
+"""FastAPI backend-for-frontend for the Chorus inspection UI."""
 
 from __future__ import annotations
 

@@ -1,6 +1,5 @@
-# Tempo — Phase 1 local trace backend. Receives OTLP from the collector,
-# stores blocks on a local volume. Production retention/scaling is deferred
-# (see ADR 0009).
+# Tempo - local trace backend. Receives OTLP from the collector and stores
+# blocks on a local volume.
 
 server:
   http_listen_port: 3200

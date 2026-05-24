@@ -1,4 +1,4 @@
-# Chorus — Grafana datasource provisioning (Phase 1A).
+# Chorus - Grafana datasource provisioning.
 #
 # Loaded automatically by Grafana on startup via the `provisioning/`
 # bind-mount in compose.yml. Environment variables come from the Grafana
@@ -7,14 +7,14 @@
 # Datasources land in the order the architecture review walks them:
 #
 #   Postgres   — read models, decision trail, tool/action audit (Workstream A).
-#   Tempo      — distributed traces (OTel pipeline; ADR 0010).
+#   Tempo      - distributed traces from the OTel pipeline.
 #   Loki       — structured logs                 ("            ").
 #   Prometheus — service + collector metrics     ("            ").
 #
 # The Postgres datasource stays default so panel queries that target the
 # audit row remain authoritative for accountability questions; OTel-backed
 # datasources answer operational ones (latency, retry rate, dependency
-# health). Audit ↔ trace join is by `metadata->>'otel.trace_id'` per ADR 0010.
+# health). Audit-to-trace join is by `metadata->>'otel.trace_id'`.
 
 apiVersion: 1
 

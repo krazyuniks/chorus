@@ -10,7 +10,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 class CancellationReasonCategory(StrEnum):
     WORKFLOW_COMPENSATION = "workflow_compensation"
     APPROVAL_DENIED = "approval_denied"
-    LEAD_WITHDRAWN = "lead_withdrawn"
+    ENQUIRY_WITHDRAWN = "enquiry_withdrawn"
     RESCHEDULED = "rescheduled"
     VALIDATION_FAILED = "validation_failed"
     OTHER_BOUNDED = "other_bounded"

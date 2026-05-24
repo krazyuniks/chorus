@@ -357,8 +357,8 @@ class WorkflowSpine:
 def activity_failure_reason(exc: ActivityError) -> str:
     """Return a bounded-length reason string for an activity failure.
 
-    Mirrors the Lighthouse helper used pre-reset so failure messages stay
-    legible inside DLQ payloads, escalation events, and audit records.
+    Keeps failure messages legible inside DLQ payloads, escalation events, and
+    audit records.
     """
 
     return _activity_failure_reason(exc)

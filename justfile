@@ -1,5 +1,5 @@
 # Chorus — task runner
-# Common operations for the local stack and the Phase 1 vertical slice.
+# Common operations for the local stack and the reset POC slice.
 #
 # `just --list` shows all available commands.
 #
@@ -59,11 +59,11 @@ logs *service:
 
 # Inspect the local CalDAV sandbox collection without printing event bodies.
 caldav-event-refs:
-    {{dc}} exec radicale sh -lc 'find /data/collections/collection-root/cal_lighthouse_local_followup -type f -name "evt_*.ics" -exec basename {} \; 2>/dev/null || true'
+    {{dc}} exec radicale sh -lc 'find /data/collections/collection-root/cal_uc1_local_followup -type f -name "evt_*.ics" -exec basename {} \; 2>/dev/null || true'
 
 # Probe the local CalDAV sandbox collection over WebDAV.
 caldav-propfind:
-    curl -sS -X PROPFIND -H 'Depth: 1' http://localhost:${CALDAV_SANDBOX_PORT:-5232}/cal_lighthouse_local_followup/
+    curl -sS -X PROPFIND -H 'Depth: 1' http://localhost:${CALDAV_SANDBOX_PORT:-5232}/cal_uc1_local_followup/
 
 # ----- Health -----
 
@@ -75,7 +75,7 @@ doctor:
 doctor-quick:
     uv run python -m chorus.doctor --quick
 
-# Apply Postgres migrations and idempotent Phase 1A demo seed data.
+# Apply Postgres migrations and idempotent local demo seed data.
 db-migrate:
     uv run python -m chorus.persistence.migrate
 
@@ -93,20 +93,19 @@ project-once:
 
 # ----- Demo -----
 
-# Send a fixture lead email through Mailpit and watch the workflow execute.
-# (Phase 1A — the SMTP-receive trigger and Lighthouse workflow ship together.)
-demo fixture="docs/fixtures/lead-acme.eml":
+# Send a fixture enquiry email through Mailpit and watch the workflow execute.
+demo fixture="docs/fixtures/enquiry-acme.eml":
     uv run python -m chorus.demo.send_fixture {{fixture}}
 
-# Run the Lighthouse Temporal worker.
+# Run the UC1 Temporal worker.
 worker:
     uv run python -m chorus.workflows.worker
 
-# Poll Mailpit once and start one Lighthouse workflow per new lead Message-ID.
+# Poll Mailpit once and start one UC1 workflow per new Message-ID.
 intake-once:
     uv run python -m chorus.workflows.intake
 
-# Run the Lighthouse BFF (read endpoints + SSE) on the host for focused dev.
+# Run the BFF (read endpoints + SSE) on the host for focused dev.
 bff:
     uv run uvicorn chorus.bff.app:app --host 0.0.0.0 --port ${BFF_PORT:-8000} --reload
 
@@ -120,7 +119,7 @@ frontend-dev:
 contracts-gen:
     uv run python -m chorus.contracts.gen
 
-# Verify the contract scaffold. Phase 1A adds schema/model/sample drift checks.
+# Verify contract schema, generated-model, and sample drift checks.
 contracts-check:
     uv run python -m chorus.contracts.check
 
@@ -148,7 +147,7 @@ test-e2e:
 
 # ----- Eval -----
 
-# Run trace/eval fixtures: happy path plus Phase 1B governance/failure fixtures.
+# Run eval fixtures.
 eval:
     uv run python -m chorus.eval.run
 

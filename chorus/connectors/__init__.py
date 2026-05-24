@@ -31,9 +31,7 @@ from chorus.connectors.uc1 import (
 def default_registry(conn: Connection[Any]) -> ConnectorRegistry:
     """Build the default connector registry for the local sandbox.
 
-    Registers the six UC1 sandbox adapters and the calendar adapter. The
-    Lighthouse-era email / CRM / company-research adapters retired with the
-    Lighthouse workflow in R3 checkpoint E.
+    Registers the six UC1 sandbox adapters and the calendar adapter.
     """
 
     del conn  # broker-firm-side persistence wiring is R4 work

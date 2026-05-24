@@ -1,10 +1,10 @@
 # pyright: basic
 """Observability helpers for Chorus services.
 
-Per ADR 0010, audit and decision-trail rows carry the active OpenTelemetry
-trace and span IDs in their `metadata` jsonb so reviewers can join Postgres
-audit rows to Tempo traces with ``metadata->>'otel.trace_id'``. This module
-exposes the single helper that audit-write code uses to capture those IDs.
+Audit and decision-trail rows carry the active OpenTelemetry trace and span IDs
+in their `metadata` jsonb so reviewers can join Postgres audit rows to Tempo
+traces with ``metadata->>'otel.trace_id'``. This module exposes the helper that
+audit-write code uses to capture those IDs.
 
 The OpenTelemetry SDK is imported lazily so contract, persistence, and test
 code that does not need instrumentation does not pay the import cost. If no
@@ -60,7 +60,7 @@ def set_current_span_attributes(
     correlation_id: str | None = None,
     workflow_id: str | None = None,
 ) -> None:
-    """Stamp ADR 0010 join keys on the active span when OTel is loaded."""
+    """Stamp Chorus join keys on the active span when OTel is loaded."""
 
     try:
         from opentelemetry import trace  # pyright: ignore[reportMissingImports]
