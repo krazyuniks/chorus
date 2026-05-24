@@ -1,4 +1,22 @@
-"""Postgres persistence and projection helpers."""
+"""Postgres persistence and projection helpers.
+
+After the R3 F decomposition the persistence package exposes one module per
+port-shaped read surface:
+
+- :mod:`chorus.persistence.projection` - workflow + calendar projection
+  (read surface + write side for the projection port).
+- :mod:`chorus.persistence.audit_port` - decision-trail and tool-action
+  audit read surface (audit ports).
+- :mod:`chorus.persistence.runtime_policy` - runtime-policy snapshot.
+- :mod:`chorus.persistence.provider_governance` - provider catalogue and
+  route-version snapshot.
+
+This package init re-exports the migration + outbox + projection-write
+entry points, which are the common shared surface. Audit, policy, and
+provider-governance read stores must be imported from their port-named
+module directly; that keeps the F port boundaries visible at the
+callsite.
+"""
 
 from __future__ import annotations
 
@@ -14,42 +32,24 @@ if TYPE_CHECKING:
     )
     from chorus.persistence.outbox import OutboxStore, OutboxWorkflowEvent
     from chorus.persistence.projection import (
-        AgentRegistryEntry,
         CalendarProjectionReadModel,
-        DecisionTrailEntryReadModel,
-        ModelRouteVersion,
-        ModelRoutingPolicy,
         ProjectionStore,
-        ProviderCatalogueModel,
-        ProviderCatalogueProvider,
-        ProviderGovernanceSnapshot,
-        RuntimePolicySnapshot,
-        ToolActionAuditReadModel,
-        ToolGrant,
         WorkflowHistoryEventReadModel,
         WorkflowRunReadModel,
+        WorkflowStatus,
     )
 
 __all__ = [
     "DEFAULT_DATABASE_URL",
     "MIGRATIONS_DIR",
     "SEEDS_DIR",
-    "AgentRegistryEntry",
     "CalendarProjectionReadModel",
-    "DecisionTrailEntryReadModel",
-    "ModelRouteVersion",
-    "ModelRoutingPolicy",
     "OutboxStore",
     "OutboxWorkflowEvent",
     "ProjectionStore",
-    "ProviderCatalogueModel",
-    "ProviderCatalogueProvider",
-    "ProviderGovernanceSnapshot",
-    "RuntimePolicySnapshot",
-    "ToolActionAuditReadModel",
-    "ToolGrant",
     "WorkflowHistoryEventReadModel",
     "WorkflowRunReadModel",
+    "WorkflowStatus",
     "apply_migrations",
 ]
 
@@ -64,20 +64,11 @@ def __getattr__(name: str) -> Any:
         return getattr(outbox, name)
 
     if name in {
-        "AgentRegistryEntry",
         "CalendarProjectionReadModel",
-        "DecisionTrailEntryReadModel",
-        "ModelRouteVersion",
-        "ModelRoutingPolicy",
         "ProjectionStore",
-        "ProviderCatalogueModel",
-        "ProviderCatalogueProvider",
-        "ProviderGovernanceSnapshot",
-        "RuntimePolicySnapshot",
-        "ToolActionAuditReadModel",
-        "ToolGrant",
         "WorkflowHistoryEventReadModel",
         "WorkflowRunReadModel",
+        "WorkflowStatus",
     }:
         projection = import_module("chorus.persistence.projection")
         return getattr(projection, name)

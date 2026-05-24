@@ -15,6 +15,7 @@ from chorus.persistence import (
     ProjectionStore,
     apply_migrations,
 )
+from chorus.persistence.runtime_policy import PolicySnapshotStore
 from chorus.workflows.activities import record_retry_exhaustion_dlq
 from chorus.workflows.types import RetryExhaustionDlqCommand
 
@@ -285,6 +286,6 @@ def test_provider_catalogue_seed_uc1_model(migrated_database_url: str) -> None:
 def test_runtime_policy_snapshot_is_tenant_scoped(migrated_database_url: str) -> None:
     with psycopg.connect(migrated_database_url) as conn:
         conn.execute("SELECT set_config('app.tenant_id', 'tenant_demo', false)")
-        snapshot = ProjectionStore(conn).runtime_policy_snapshot("tenant_demo")
+        snapshot = PolicySnapshotStore(conn).snapshot("tenant_demo")
     assert all(agent.tenant_id == "tenant_demo" for agent in snapshot.agents)
     assert any(grant.tool_name == "outbound_comms.message" for grant in snapshot.tool_grants)

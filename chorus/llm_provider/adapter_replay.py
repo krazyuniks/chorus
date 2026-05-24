@@ -114,6 +114,30 @@ def _replay_result_for(
                 {
                     "qualification_verdict_category": "accept",
                     "conduct_hooks_pass": True,
+                    "best_interests_check": {
+                        "status": "pass",
+                        "regulatory_ref": "ICOBS 2.5.-1R",
+                    },
+                    "demands_and_needs_statement": {
+                        "captured": True,
+                        "regulatory_ref": "ICOBS 5",
+                        "summary": (
+                            "Customer seeks third-party fire and theft cover for a private car."
+                        ),
+                    },
+                    "target_market_check": {
+                        "status": "pass",
+                        "regulatory_ref": "PROD 4",
+                    },
+                    "foreseeable_harm_check": {
+                        "status": "no_harm_identified",
+                        "regulatory_ref": "Consumer Duty PRIN 12",
+                    },
+                    "policy_snapshot_ref": "policy_snapshot:uc1:default:v1",
+                    "rationale": (
+                        "All four UC1 conduct hooks pass; recommend proceeding to a "
+                        "missing-data request before adviser approval and send."
+                    ),
                 },
                 0.88,
             )

@@ -1,0 +1,26 @@
+{
+  "description": "UC1 classifier captured transcript for the recorded-replay smoke test (ADR 0019). Run `python -m chorus.eval.run replay --transcript chorus/eval/fixtures/transcripts/uc1_classifier_happy.json` to verify the deterministic recorded-replay route still returns the captured structured output.",
+  "invocation_id": "11000000-0000-4000-8000-000000000001",
+  "route_id": "recorded-replay",
+  "provider_id": "local",
+  "model_id": "uc1-happy-path-v1",
+  "adapter_version": "recorded-replay-v1",
+  "parameters": {},
+  "request_messages": [
+    {
+      "role": "user",
+      "content": "enquiry_classification input"
+    }
+  ],
+  "task_kind": "enquiry_classification",
+  "agent_role": "classifier",
+  "tenant_id": "tenant_demo",
+  "enquiry_input": {
+    "enquiry_subject": "Motor cover enquiry",
+    "enquiry_body_text": "Hi, please could you quote me for third-party fire and theft on a 2018 hatchback."
+  },
+  "expected_structured_data": {
+    "product_family_category": "motor_private_car",
+    "demanded_cover_shape": "third_party_fire_and_theft"
+  }
+}

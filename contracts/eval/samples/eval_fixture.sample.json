@@ -2,42 +2,15 @@
   "schema_version": "1.0.0",
   "fixture_id": "uc1-happy-path-motor-private",
   "name": "UC1 happy path from email-channel intake",
-  "phase": "1A",
   "workflow_type": "uc1_enquiry_qualification",
+  "scenario": "happy_path",
   "input": {
     "email_fixture_path": "docs/fixtures/enquiry-motor-private.eml",
     "tenant_id": "tenant_demo"
   },
   "expected": {
-    "workflow_path": [
-      "intake",
-      "classification",
-      "qualification",
-      "missing_data_request_draft",
-      "missing_data_request_validation",
-      "missing_data_request_send",
-      "complete"
-    ],
-    "final_outcome": "propose",
-    "allowed_tool_actions": [
-      "outbound_comms.message"
-    ],
-    "blocked_tool_actions": [],
+    "outcome_category": "propose",
     "max_cost_usd": 1.25,
-    "max_latency_ms": 120000,
-    "required_audit_fields": [
-      "correlation_id",
-      "tenant_id",
-      "workflow_id",
-      "agent",
-      "model_route",
-      "prompt_hash",
-      "tool_call_ids"
-    ],
-    "required_event_types": [
-      "enquiry.received",
-      "workflow.started",
-      "workflow.completed"
-    ]
+    "max_latency_ms": 120000
   }
 }

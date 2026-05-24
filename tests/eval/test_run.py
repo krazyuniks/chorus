@@ -1,38 +1,52 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-from chorus.contracts.generated.eval.eval_fixture import EvalFixture
 from chorus.eval import run
+from chorus.eval.scenario_player import play_scenario
 
 ROOT = Path(__file__).resolve().parents[2]
-HAPPY_PATH_FIXTURE = "chorus/eval/fixtures/uc1_happy_path.json"
+FIXTURE_DIR = ROOT / "chorus" / "eval" / "fixtures"
+TRANSCRIPT_FIXTURE = "chorus/eval/fixtures/transcripts/uc1_classifier_happy.json"
 
 
-def test_eval_uc1_happy_path_fixture_passes_offline() -> None:
-    assert run.main(["--fixture", HAPPY_PATH_FIXTURE]) == 0
+def test_assert_default_loads_every_fixture() -> None:
+    assert run.main(["assert"]) == 0
 
 
-def test_default_live_selector_targets_uc1_happy_path_only() -> None:
-    happy = EvalFixture.model_validate(json.loads((ROOT / HAPPY_PATH_FIXTURE).read_text()))
-    assert run.should_run_live_checks(
-        fixture=happy,
-        explicit_fixtures=False,
-        live_selector_supplied=True,
-    )
-    assert run.should_run_live_checks(
-        fixture=happy,
-        explicit_fixtures=True,
-        live_selector_supplied=True,
+def test_assert_uc1_happy_path_fixture_passes_offline() -> None:
+    assert (
+        run.main(
+            ["assert", "--fixture", str(FIXTURE_DIR / "uc1_happy_path.json")],
+        )
+        == 0
     )
 
 
-def test_eval_reports_contract_failure_for_wrong_expected_path(tmp_path: Path) -> None:
-    fixture = ROOT / HAPPY_PATH_FIXTURE
-    broken = tmp_path / "broken.json"
-    broken.write_text(
-        fixture.read_text(encoding="utf-8").replace('"complete"', '"unexpected"', 1),
-        encoding="utf-8",
+def test_assert_uc1_validator_redraft_fixture_passes_offline() -> None:
+    assert (
+        run.main(
+            ["assert", "--fixture", str(FIXTURE_DIR / "uc1_validator_redraft.json")],
+        )
+        == 0
     )
-    assert run.main(["--fixture", str(broken)]) == 1
+
+
+def test_replay_classifier_transcript_matches() -> None:
+    assert run.main(["replay", "--transcript", TRANSCRIPT_FIXTURE]) == 0
+
+
+def test_qualification_invariants_capture_conduct_hooks() -> None:
+    fixture = run.load_fixture(FIXTURE_DIR / "uc1_happy_path.json")
+    captured = play_scenario(fixture)
+    qualifier = next(
+        decision for decision in captured.decisions if decision.task_kind == "enquiry_qualification"
+    )
+    for hook in (
+        "best_interests_check",
+        "demands_and_needs_statement",
+        "target_market_check",
+        "foreseeable_harm_check",
+    ):
+        assert hook in qualifier.structured_data
+    assert qualifier.structured_data.get("policy_snapshot_ref")

@@ -8,6 +8,7 @@ import json
 import os
 from collections.abc import AsyncIterator, Generator, Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Annotated, Any
 
@@ -20,16 +21,24 @@ from pydantic import BaseModel, ConfigDict, Field
 from chorus.observability import set_current_span_attributes
 from chorus.persistence import (
     CalendarProjectionReadModel,
-    DecisionTrailEntryReadModel,
-    ModelRouteVersion,
     ProjectionStore,
-    ProviderCatalogueModel,
-    ProviderCatalogueProvider,
-    ToolActionAuditReadModel,
     WorkflowHistoryEventReadModel,
     WorkflowRunReadModel,
 )
+from chorus.persistence._query import set_tenant_context
+from chorus.persistence.audit_port import (
+    AuditPortStore,
+    DecisionTrailEntryReadModel,
+    ToolActionAuditReadModel,
+)
 from chorus.persistence.migrate import database_url_from_env
+from chorus.persistence.provider_governance import (
+    ModelRouteVersion,
+    ProviderCatalogueModel,
+    ProviderCatalogueProvider,
+    ProviderGovernanceStore,
+)
+from chorus.persistence.runtime_policy import PolicySnapshotStore
 
 DEFAULT_TENANT_ID = "tenant_demo"
 
@@ -67,6 +76,16 @@ class BffSettings(BaseModel):
         ]
     )
     sse_poll_interval_seconds: float = Field(default_factory=_sse_poll_interval_from_env, gt=0)
+
+
+@dataclass(frozen=True)
+class PortReaders:
+    """Per-port read stores bound to a single request-scoped connection."""
+
+    projection: ProjectionStore
+    audit: AuditPortStore
+    policy: PolicySnapshotStore
+    governance: ProviderGovernanceStore
 
 
 class HealthResponse(BaseModel):
@@ -279,18 +298,18 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
 
     @app.get("/api/workflows", response_model=list[WorkflowRunSummary])
     def list_workflows(
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
         limit: Annotated[int, Query(ge=1, le=500)] = 100,
     ) -> list[WorkflowRunSummary]:
-        rows = store.list_workflows(resolved.tenant_id, limit=limit)
+        rows = readers.projection.list_workflows(resolved.tenant_id, limit=limit)
         return [_workflow_view(row) for row in rows]
 
     @app.get("/api/workflows/{workflow_id}", response_model=WorkflowRunSummary)
     def get_workflow(
         workflow_id: str,
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
     ) -> WorkflowRunSummary:
-        row = store.get_workflow(resolved.tenant_id, workflow_id)
+        row = readers.projection.get_workflow(resolved.tenant_id, workflow_id)
         if row is None:
             raise HTTPException(status_code=404, detail="workflow not found")
         return _workflow_view(row)
@@ -298,11 +317,11 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
     @app.get("/api/workflows/{workflow_id}/events", response_model=list[WorkflowEventView])
     def list_workflow_events(
         workflow_id: str,
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
         after_sequence: Annotated[int | None, Query(ge=0)] = None,
         limit: Annotated[int, Query(ge=1, le=1_000)] = 500,
     ) -> list[WorkflowEventView]:
-        events = store.list_workflow_history(
+        events = readers.projection.list_workflow_history(
             resolved.tenant_id,
             workflow_id,
             after_sequence=after_sequence,
@@ -316,9 +335,9 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
     )
     def list_workflow_decisions(
         workflow_id: str,
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
     ) -> list[DecisionTrailEntryView]:
-        entries = store.list_decision_trail(resolved.tenant_id, workflow_id=workflow_id)
+        entries = readers.audit.list_decision_trail(resolved.tenant_id, workflow_id=workflow_id)
         return [_decision_view(row) for row in entries]
 
     @app.get(
@@ -327,33 +346,33 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
     )
     def list_workflow_tool_verdicts(
         workflow_id: str,
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
     ) -> list[ToolVerdictEntryView]:
-        entries = store.list_tool_action_audit(resolved.tenant_id, workflow_id=workflow_id)
+        entries = readers.audit.list_tool_action_audit(resolved.tenant_id, workflow_id=workflow_id)
         return [_tool_verdict_view(row) for row in entries]
 
     @app.get("/api/decision-trail", response_model=list[DecisionTrailEntryView])
     def list_decision_trail(
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
         limit: Annotated[int, Query(ge=1, le=1_000)] = 500,
     ) -> list[DecisionTrailEntryView]:
-        entries = store.list_decision_trail(resolved.tenant_id, limit=limit)
+        entries = readers.audit.list_decision_trail(resolved.tenant_id, limit=limit)
         return [_decision_view(row) for row in entries]
 
     @app.get("/api/tool-verdicts", response_model=list[ToolVerdictEntryView])
     def list_tool_verdicts(
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
         limit: Annotated[int, Query(ge=1, le=1_000)] = 500,
     ) -> list[ToolVerdictEntryView]:
-        entries = store.list_tool_action_audit(resolved.tenant_id, limit=limit)
+        entries = readers.audit.list_tool_action_audit(resolved.tenant_id, limit=limit)
         return [_tool_verdict_view(row) for row in entries]
 
     @app.get("/api/calendar/status", response_model=list[CalendarStatusEntryView])
     def list_calendar_status(
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
         limit: Annotated[int, Query(ge=1, le=500)] = 100,
     ) -> list[CalendarStatusEntryView]:
-        entries = store.list_calendar_projections(resolved.tenant_id, limit=limit)
+        entries = readers.projection.list_calendar_projections(resolved.tenant_id, limit=limit)
         return [_calendar_status_view(row) for row in entries]
 
     @app.get(
@@ -362,16 +381,18 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
     )
     def list_workflow_calendar_status(
         workflow_id: str,
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
     ) -> list[CalendarStatusEntryView]:
-        entries = store.list_calendar_projections(resolved.tenant_id, workflow_id=workflow_id)
+        entries = readers.projection.list_calendar_projections(
+            resolved.tenant_id, workflow_id=workflow_id
+        )
         return [_calendar_status_view(row) for row in entries]
 
     @app.get("/api/runtime/registry", response_model=list[RegistryEntryView])
     def list_registry(
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
     ) -> list[RegistryEntryView]:
-        snapshot = store.runtime_policy_snapshot(resolved.tenant_id)
+        snapshot = readers.policy.snapshot(resolved.tenant_id)
         return [
             RegistryEntryView(
                 agent_id=row.agent_id,
@@ -389,9 +410,9 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
 
     @app.get("/api/runtime/grants", response_model=list[GrantEntryView])
     def list_grants(
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
     ) -> list[GrantEntryView]:
-        snapshot = store.runtime_policy_snapshot(resolved.tenant_id)
+        snapshot = readers.policy.snapshot(resolved.tenant_id)
         return [
             GrantEntryView(
                 grant_id=str(row.grant_id),
@@ -408,9 +429,9 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
 
     @app.get("/api/runtime/routing", response_model=list[RoutingEntryView])
     def list_routing(
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
     ) -> list[RoutingEntryView]:
-        snapshot = store.runtime_policy_snapshot(resolved.tenant_id)
+        snapshot = readers.policy.snapshot(resolved.tenant_id)
         return [
             RoutingEntryView(
                 route_id=str(row.policy_id),
@@ -429,31 +450,29 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
 
     @app.get("/api/runtime/providers", response_model=list[ProviderEntryView])
     def list_providers(
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
     ) -> list[ProviderEntryView]:
-        snapshot = store.provider_governance_snapshot(resolved.tenant_id)
+        snapshot = readers.governance.snapshot(resolved.tenant_id)
         return [_provider_view(row) for row in snapshot.providers]
 
     @app.get("/api/runtime/provider-models", response_model=list[ProviderModelEntryView])
     def list_provider_models(
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
     ) -> list[ProviderModelEntryView]:
-        snapshot = store.provider_governance_snapshot(resolved.tenant_id)
+        snapshot = readers.governance.snapshot(resolved.tenant_id)
         return [_provider_model_view(row) for row in snapshot.provider_models]
 
     @app.get("/api/runtime/route-versions", response_model=list[RouteVersionEntryView])
     def list_route_versions(
-        store: Annotated[ProjectionStore, Depends(store_dependency)],
+        readers: Annotated[PortReaders, Depends(readers_dependency)],
     ) -> list[RouteVersionEntryView]:
-        snapshot = store.provider_governance_snapshot(resolved.tenant_id)
+        snapshot = readers.governance.snapshot(resolved.tenant_id)
         return [_route_version_view(row) for row in snapshot.route_versions]
 
     @app.get("/api/progress")
     async def progress(
         request: Request,
-        snapshot_store: Annotated[
-            ProjectionStore | None, Depends(progress_snapshot_store_dependency)
-        ],
+        snapshot_store: Annotated[ProjectionStore | None, Depends(progress_projection_dependency)],
         workflow_id: Annotated[str | None, Query()] = None,
         correlation_id: Annotated[str | None, Query()] = None,
         once: Annotated[bool, Query()] = False,
@@ -479,16 +498,16 @@ def create_app(settings: BffSettings | None = None) -> FastAPI:
     return app
 
 
-def store_dependency(request: Request) -> Iterator[ProjectionStore]:
+def readers_dependency(request: Request) -> Iterator[PortReaders]:
     settings = request.app.state.settings
     if not isinstance(settings, BffSettings):
         raise RuntimeError("BFF settings are not configured")
 
-    with _projection_store(settings) as store:
-        yield store
+    with _port_readers(settings) as readers:
+        yield readers
 
 
-def progress_snapshot_store_dependency(
+def progress_projection_dependency(
     request: Request,
     once: Annotated[bool, Query()] = False,
 ) -> Iterator[ProjectionStore | None]:
@@ -505,11 +524,22 @@ def progress_snapshot_store_dependency(
 
 
 @contextmanager
+def _port_readers(settings: BffSettings) -> Generator[PortReaders]:
+    with psycopg.connect(settings.database_url) as conn:
+        set_tenant_context(conn, settings.tenant_id)
+        yield PortReaders(
+            projection=ProjectionStore(conn),
+            audit=AuditPortStore(conn),
+            policy=PolicySnapshotStore(conn),
+            governance=ProviderGovernanceStore(conn),
+        )
+
+
+@contextmanager
 def _projection_store(settings: BffSettings) -> Generator[ProjectionStore]:
     with psycopg.connect(settings.database_url) as conn:
-        store = ProjectionStore(conn)
-        store.set_tenant_context(settings.tenant_id)
-        yield store
+        set_tenant_context(conn, settings.tenant_id)
+        yield ProjectionStore(conn)
 
 
 async def _progress_events(

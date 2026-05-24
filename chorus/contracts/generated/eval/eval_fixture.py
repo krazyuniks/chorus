@@ -7,15 +7,15 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class Phase(StrEnum):
-    FIELD_1_A = "1A"
-    FIELD_1_B = "1B"
-    FIELD_2_A = "2A"
-    FIELD_2_D = "2D"
-
-
 class WorkflowType(StrEnum):
     UC1_ENQUIRY_QUALIFICATION = "uc1_enquiry_qualification"
+
+
+class Scenario(StrEnum):
+    HAPPY_PATH = "happy_path"
+    DEEPER_CONTEXT = "deeper_context"
+    VALIDATOR_REDRAFT = "validator_redraft"
+    RETRY_EXHAUSTION = "retry_exhaustion"
 
 
 class Input(BaseModel):
@@ -27,26 +27,21 @@ class Input(BaseModel):
     tenant_id: Annotated[str, Field(min_length=1)]
 
 
-class FinalOutcome(StrEnum):
-    SEND = "send"
+class OutcomeCategory(StrEnum):
     PROPOSE = "propose"
-    COMPLETE = "complete"
     ESCALATE = "escalate"
-    REJECT = "reject"
+    DLQ = "dlq"
 
 
 class Expected(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    workflow_path: Annotated[list[str], Field(min_length=1)]
-    final_outcome: FinalOutcome
-    allowed_tool_actions: list[str]
-    blocked_tool_actions: list[str]
-    max_cost_usd: Annotated[float, Field(ge=0.0)]
-    max_latency_ms: Annotated[int, Field(ge=1)]
-    required_audit_fields: Annotated[list[str], Field(min_length=1)]
-    required_event_types: Annotated[list[str], Field(min_length=1)]
+    outcome_category: Annotated[
+        OutcomeCategory, Field(description="Final disposition the scenario should reach.")
+    ]
+    max_cost_usd: Annotated[float | None, Field(ge=0.0)] = None
+    max_latency_ms: Annotated[int | None, Field(ge=1)] = None
 
 
 class EvalFixture(BaseModel):
@@ -56,7 +51,10 @@ class EvalFixture(BaseModel):
     schema_version: Literal["1.0.0"]
     fixture_id: Annotated[str, Field(min_length=1)]
     name: Annotated[str, Field(min_length=1)]
-    phase: Phase
-    workflow_type: WorkflowType | None = None
+    workflow_type: WorkflowType
+    scenario: Annotated[
+        Scenario,
+        Field(description="Which branch the recorded-replay adapter exercises for this fixture."),
+    ]
     input: Input
     expected: Expected

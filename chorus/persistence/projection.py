@@ -1,20 +1,34 @@
-"""Projection and read-model access for the workflow persistence slice."""
+"""Workflow projection writes and read access for the projection port.
+
+The projection port owns the workflow event outbox + history + read-model
+write side (`record_workflow_event` / `apply_workflow_event`), the workflow
+read surface consumed by the BFF (`list_workflows`, `get_workflow`,
+`list_workflow_history`, `list_recent_workflow_history`), and the calendar
+projection that derives from approval packages + tool-action audit
+(`list_calendar_projections`).
+
+The audit ports (decision-trail + tool-action audit), the runtime-policy
+snapshot, and the provider-governance snapshot each live in their own
+sibling module after the R3 F decomposition.
+"""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from datetime import datetime
-from decimal import Decimal
-from typing import Any, Literal, LiteralString
+from typing import Any, Literal
 from uuid import UUID
 
 from psycopg import Connection
-from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 from chorus.contracts.generated.projection.workflow_event import EventType, WorkflowEvent
 from chorus.observability import current_otel_ids
+from chorus.persistence._query import (
+    clear_tenant_context,
+    fetch_models,
+    set_tenant_context,
+)
 
 WorkflowStatus = Literal["received", "running", "completed", "escalated", "failed"]
 
@@ -59,71 +73,6 @@ class WorkflowHistoryEventReadModel(BaseModel):
     created_at: datetime
 
 
-class DecisionTrailEntryReadModel(BaseModel):
-    """Reviewer-facing Agent Runtime decision trail row."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    tenant_id: str
-    invocation_id: UUID
-    correlation_id: str
-    workflow_id: str
-    agent_id: str
-    agent_role: str
-    agent_version: str
-    lifecycle_state: str
-    prompt_reference: str
-    prompt_hash: str
-    provider: str
-    model: str
-    task_kind: str
-    budget_cap_usd: Decimal
-    input_summary: str
-    output_summary: str
-    justification: str
-    outcome: str
-    tool_call_ids: list[UUID]
-    cost_amount: Decimal
-    cost_currency: str
-    duration_ms: int
-    started_at: datetime
-    completed_at: datetime
-    contract_refs: list[str]
-    raw_record: dict[str, Any]
-    metadata: dict[str, Any]
-    created_at: datetime
-
-
-class ToolActionAuditReadModel(BaseModel):
-    """Reviewer-facing Tool Gateway audit row."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    tenant_id: str
-    audit_event_id: UUID
-    correlation_id: str
-    workflow_id: str
-    invocation_id: UUID | None
-    tool_call_id: UUID | None
-    verdict_id: UUID | None
-    actor_type: str
-    actor_id: str
-    category: str
-    action: str
-    tool_name: str | None
-    requested_mode: str | None
-    enforced_mode: str | None
-    verdict: str
-    idempotency_key: str | None
-    arguments_redacted: dict[str, Any]
-    rewritten_arguments: dict[str, Any] | None
-    reason: str | None
-    connector_invocation_id: UUID | None
-    occurred_at: datetime
-    raw_event: dict[str, Any]
-    created_at: datetime
-
-
 class CalendarProjectionReadModel(BaseModel):
     """Safe calendar approval/apply projection derived from local audit evidence."""
 
@@ -153,136 +102,6 @@ class CalendarProjectionReadModel(BaseModel):
     policy_version_refs: dict[str, Any]
     trace_join: dict[str, Any]
     updated_at: datetime
-
-
-class AgentRegistryEntry(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    tenant_id: str
-    agent_id: str
-    role: str
-    version: str
-    lifecycle_state: str
-    owner: str
-    prompt_reference: str
-    prompt_hash: str
-    capability_tags: list[str]
-    updated_at: datetime
-
-
-class ModelRoutingPolicy(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    policy_id: UUID
-    tenant_id: str
-    agent_role: str
-    task_kind: str
-    tenant_tier: str
-    provider: str
-    model: str
-    parameters: dict[str, Any]
-    budget_cap_usd: Decimal = Field(ge=0)
-    fallback_policy: dict[str, Any]
-    lifecycle_state: str
-
-
-class ToolGrant(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    grant_id: UUID
-    tenant_id: str
-    agent_id: str
-    agent_version: str
-    tool_name: str
-    mode: str
-    allowed: bool
-    approval_required: bool
-    redaction_policy: dict[str, Any]
-
-
-class ProviderCatalogueEntry(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    catalogue_id: str
-    schema_version: str
-    effective_from: datetime
-    created_at: datetime
-
-
-class ProviderCatalogueProvider(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    catalogue_id: str
-    provider_id: str
-    display_name: str
-    provider_kind: str
-    lifecycle_state: str
-    credential_required: bool
-    secret_ref_names: list[str]
-    missing_credentials_behaviour: str
-    data_boundary: dict[str, Any]
-    operational_limits: dict[str, Any]
-    audit: dict[str, Any]
-
-
-class ProviderCatalogueModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    catalogue_id: str
-    provider_id: str
-    model_id: str
-    display_name: str
-    lifecycle_state: str
-    supported_task_kinds: list[str]
-    supports_structured_output: bool
-    context_window_tokens: int | None
-    cost_policy: dict[str, Any]
-
-
-class ModelRouteVersion(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    route_id: UUID
-    route_version: int
-    lifecycle_state: str
-    tenant_id: str
-    agent_role: str
-    task_kind: str
-    tenant_tier: str
-    provider_catalogue_id: str
-    provider_id: str
-    model_id: str
-    parameters: dict[str, Any]
-    budget_cap_usd: Decimal = Field(ge=0)
-    max_latency_ms: int = Field(ge=1)
-    fallback_policy: dict[str, Any]
-    eval_required: bool
-    eval_fixture_refs: list[str]
-    promotion: dict[str, Any]
-    created_at: datetime
-
-
-class RuntimePolicySnapshot(BaseModel):
-    """Read-only governance policy state for later BFF/admin inspection."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    tenant_id: str
-    agents: list[AgentRegistryEntry]
-    model_routes: list[ModelRoutingPolicy]
-    tool_grants: list[ToolGrant]
-
-
-class ProviderGovernanceSnapshot(BaseModel):
-    """Read-only provider catalogue and route-version state."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    tenant_id: str
-    catalogues: list[ProviderCatalogueEntry]
-    providers: list[ProviderCatalogueProvider]
-    provider_models: list[ProviderCatalogueModel]
-    route_versions: list[ModelRouteVersion]
 
 
 def _status_for(event: WorkflowEvent) -> WorkflowStatus:
@@ -344,30 +163,17 @@ def _completed_at_for(status: WorkflowStatus, occurred_at: datetime) -> datetime
     return None
 
 
-def _fetch_models[TModel: BaseModel](
-    conn: Connection[Any],
-    model_type: type[TModel],
-    query: LiteralString,
-    params: Sequence[object],
-) -> list[TModel]:
-    with conn.cursor(row_factory=dict_row) as cur:
-        cur.execute(query, params)
-        rows = cur.fetchall()
-
-    return [model_type.model_validate(row) for row in rows]
-
-
 class ProjectionStore:
-    """Small synchronous adapter for projection writes and BFF read models."""
+    """Workflow projection writes plus the workflow and calendar read surface."""
 
     def __init__(self, conn: Connection[Any]) -> None:
         self._conn = conn
 
     def set_tenant_context(self, tenant_id: str) -> None:
-        self._conn.execute("SELECT set_config('app.tenant_id', %s, false)", (tenant_id,))
+        set_tenant_context(self._conn, tenant_id)
 
     def clear_tenant_context(self) -> None:
-        self._conn.execute("SELECT set_config('app.tenant_id', '', false)")
+        clear_tenant_context(self._conn)
 
     def append_outbox_event(self, event: WorkflowEvent) -> None:
         """Persist a workflow event outbox row using the canonical contract shape."""
@@ -541,7 +347,7 @@ class ProjectionStore:
             self.append_outbox_event(event)
 
     def list_workflows(self, tenant_id: str, *, limit: int = 100) -> list[WorkflowRunReadModel]:
-        return _fetch_models(
+        return fetch_models(
             self._conn,
             WorkflowRunReadModel,
             """
@@ -570,7 +376,7 @@ class ProjectionStore:
         )
 
     def get_workflow(self, tenant_id: str, workflow_id: str) -> WorkflowRunReadModel | None:
-        rows = _fetch_models(
+        rows = fetch_models(
             self._conn,
             WorkflowRunReadModel,
             """
@@ -606,7 +412,7 @@ class ProjectionStore:
         limit: int = 500,
     ) -> list[WorkflowHistoryEventReadModel]:
         if after_sequence is not None:
-            return _fetch_models(
+            return fetch_models(
                 self._conn,
                 WorkflowHistoryEventReadModel,
                 """
@@ -630,7 +436,7 @@ class ProjectionStore:
                 (tenant_id, workflow_id, after_sequence, limit),
             )
 
-        return _fetch_models(
+        return fetch_models(
             self._conn,
             WorkflowHistoryEventReadModel,
             """
@@ -660,7 +466,7 @@ class ProjectionStore:
         *,
         limit: int = 100,
     ) -> list[WorkflowHistoryEventReadModel]:
-        return _fetch_models(
+        return fetch_models(
             self._conn,
             WorkflowHistoryEventReadModel,
             """
@@ -684,176 +490,6 @@ class ProjectionStore:
             (tenant_id, limit),
         )
 
-    def list_decision_trail(
-        self,
-        tenant_id: str,
-        *,
-        workflow_id: str | None = None,
-        limit: int = 500,
-    ) -> list[DecisionTrailEntryReadModel]:
-        if workflow_id is not None:
-            return _fetch_models(
-                self._conn,
-                DecisionTrailEntryReadModel,
-                """
-                SELECT
-                    tenant_id,
-                    invocation_id,
-                    correlation_id,
-                    workflow_id,
-                    agent_id,
-                    agent_role,
-                    agent_version,
-                    lifecycle_state,
-                    prompt_reference,
-                    prompt_hash,
-                    provider,
-                    model,
-                    task_kind,
-                    budget_cap_usd,
-                    input_summary,
-                    output_summary,
-                    justification,
-                    outcome,
-                    tool_call_ids,
-                    cost_amount,
-                    cost_currency,
-                    duration_ms,
-                    started_at,
-                    completed_at,
-                    contract_refs,
-                    raw_record,
-                    metadata,
-                    created_at
-                FROM decision_trail_entries
-                WHERE tenant_id = %s AND workflow_id = %s
-                ORDER BY started_at ASC, invocation_id ASC
-                LIMIT %s
-                """,
-                (tenant_id, workflow_id, limit),
-            )
-
-        return _fetch_models(
-            self._conn,
-            DecisionTrailEntryReadModel,
-            """
-            SELECT
-                tenant_id,
-                invocation_id,
-                correlation_id,
-                workflow_id,
-                agent_id,
-                agent_role,
-                agent_version,
-                lifecycle_state,
-                prompt_reference,
-                prompt_hash,
-                provider,
-                model,
-                task_kind,
-                budget_cap_usd,
-                input_summary,
-                output_summary,
-                justification,
-                outcome,
-                tool_call_ids,
-                cost_amount,
-                cost_currency,
-                duration_ms,
-                started_at,
-                completed_at,
-                contract_refs,
-                raw_record,
-                metadata,
-                created_at
-            FROM decision_trail_entries
-            WHERE tenant_id = %s
-            ORDER BY started_at ASC, invocation_id ASC
-            LIMIT %s
-            """,
-            (tenant_id, limit),
-        )
-
-    def list_tool_action_audit(
-        self,
-        tenant_id: str,
-        *,
-        workflow_id: str | None = None,
-        limit: int = 500,
-    ) -> list[ToolActionAuditReadModel]:
-        if workflow_id is not None:
-            return _fetch_models(
-                self._conn,
-                ToolActionAuditReadModel,
-                """
-                SELECT
-                    tenant_id,
-                    audit_event_id,
-                    correlation_id,
-                    workflow_id,
-                    invocation_id,
-                    tool_call_id,
-                    verdict_id,
-                    actor_type,
-                    actor_id,
-                    category,
-                    action,
-                    tool_name,
-                    requested_mode,
-                    enforced_mode,
-                    verdict,
-                    idempotency_key,
-                    arguments_redacted,
-                    rewritten_arguments,
-                    reason,
-                    connector_invocation_id,
-                    occurred_at,
-                    raw_event,
-                    created_at
-                FROM tool_action_audit
-                WHERE tenant_id = %s AND workflow_id = %s
-                ORDER BY occurred_at ASC, audit_event_id ASC
-                LIMIT %s
-                """,
-                (tenant_id, workflow_id, limit),
-            )
-
-        return _fetch_models(
-            self._conn,
-            ToolActionAuditReadModel,
-            """
-            SELECT
-                tenant_id,
-                audit_event_id,
-                correlation_id,
-                workflow_id,
-                invocation_id,
-                tool_call_id,
-                verdict_id,
-                actor_type,
-                actor_id,
-                category,
-                action,
-                tool_name,
-                requested_mode,
-                enforced_mode,
-                verdict,
-                idempotency_key,
-                arguments_redacted,
-                rewritten_arguments,
-                reason,
-                connector_invocation_id,
-                occurred_at,
-                raw_event,
-                created_at
-            FROM tool_action_audit
-            WHERE tenant_id = %s
-            ORDER BY occurred_at ASC, audit_event_id ASC
-            LIMIT %s
-            """,
-            (tenant_id, limit),
-        )
-
     def list_calendar_projections(
         self,
         tenant_id: str,
@@ -861,7 +497,7 @@ class ProjectionStore:
         workflow_id: str | None = None,
         limit: int = 100,
     ) -> list[CalendarProjectionReadModel]:
-        return _fetch_models(
+        return fetch_models(
             self._conn,
             CalendarProjectionReadModel,
             """
@@ -961,167 +597,4 @@ class ProjectionStore:
             LIMIT %s
             """,
             (tenant_id, workflow_id, workflow_id, limit),
-        )
-
-    def runtime_policy_snapshot(self, tenant_id: str) -> RuntimePolicySnapshot:
-        agents = _fetch_models(
-            self._conn,
-            AgentRegistryEntry,
-            """
-            SELECT
-                tenant_id,
-                agent_id,
-                role,
-                version,
-                lifecycle_state,
-                owner,
-                prompt_reference,
-                prompt_hash,
-                capability_tags,
-                updated_at
-            FROM agent_registry
-            WHERE tenant_id = %s
-            ORDER BY role, agent_id, version
-            """,
-            (tenant_id,),
-        )
-        model_routes = _fetch_models(
-            self._conn,
-            ModelRoutingPolicy,
-            """
-            SELECT
-                policy_id,
-                tenant_id,
-                agent_role,
-                task_kind,
-                tenant_tier,
-                provider,
-                model,
-                parameters,
-                budget_cap_usd,
-                fallback_policy,
-                lifecycle_state
-            FROM model_routing_policies
-            WHERE tenant_id = %s
-            ORDER BY agent_role, task_kind
-            """,
-            (tenant_id,),
-        )
-        tool_grants = _fetch_models(
-            self._conn,
-            ToolGrant,
-            """
-            SELECT
-                grant_id,
-                tenant_id,
-                agent_id,
-                agent_version,
-                tool_name,
-                mode,
-                allowed,
-                approval_required,
-                redaction_policy
-            FROM tool_grants
-            WHERE tenant_id = %s
-            ORDER BY agent_id, tool_name, mode
-            """,
-            (tenant_id,),
-        )
-        return RuntimePolicySnapshot(
-            tenant_id=tenant_id,
-            agents=agents,
-            model_routes=model_routes,
-            tool_grants=tool_grants,
-        )
-
-    def provider_governance_snapshot(self, tenant_id: str) -> ProviderGovernanceSnapshot:
-        catalogues = _fetch_models(
-            self._conn,
-            ProviderCatalogueEntry,
-            """
-            SELECT
-                catalogue_id,
-                schema_version,
-                effective_from,
-                created_at
-            FROM provider_catalogues
-            ORDER BY effective_from DESC, catalogue_id
-            """,
-            (),
-        )
-        providers = _fetch_models(
-            self._conn,
-            ProviderCatalogueProvider,
-            """
-            SELECT
-                catalogue_id,
-                provider_id,
-                display_name,
-                provider_kind,
-                lifecycle_state,
-                credential_required,
-                secret_ref_names,
-                missing_credentials_behaviour,
-                data_boundary,
-                operational_limits,
-                audit
-            FROM provider_catalogue_providers
-            ORDER BY catalogue_id, provider_id
-            """,
-            (),
-        )
-        provider_models = _fetch_models(
-            self._conn,
-            ProviderCatalogueModel,
-            """
-            SELECT
-                catalogue_id,
-                provider_id,
-                model_id,
-                display_name,
-                lifecycle_state,
-                supported_task_kinds,
-                supports_structured_output,
-                context_window_tokens,
-                cost_policy
-            FROM provider_catalogue_models
-            ORDER BY catalogue_id, provider_id, model_id
-            """,
-            (),
-        )
-        route_versions = _fetch_models(
-            self._conn,
-            ModelRouteVersion,
-            """
-            SELECT
-                route_id,
-                route_version,
-                lifecycle_state,
-                tenant_id,
-                agent_role,
-                task_kind,
-                tenant_tier,
-                provider_catalogue_id,
-                provider_id,
-                model_id,
-                parameters,
-                budget_cap_usd,
-                max_latency_ms,
-                fallback_policy,
-                eval_required,
-                eval_fixture_refs,
-                promotion,
-                created_at
-            FROM model_route_versions
-            WHERE tenant_id = %s
-            ORDER BY agent_role, task_kind, route_version
-            """,
-            (tenant_id,),
-        )
-        return ProviderGovernanceSnapshot(
-            tenant_id=tenant_id,
-            catalogues=catalogues,
-            providers=providers,
-            provider_models=provider_models,
-            route_versions=route_versions,
         )

@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "uc1-validator-redraft-motor-private",
+  "name": "UC1 validator-redraft scenario (representative failure-then-recovery)",
+  "workflow_type": "uc1_enquiry_qualification",
+  "scenario": "validator_redraft",
+  "input": {
+    "email_fixture_path": "docs/fixtures/enquiry-motor-private-validator-redraft-fixture.eml",
+    "tenant_id": "tenant_demo"
+  },
+  "expected": {
+    "outcome_category": "propose",
+    "max_cost_usd": 1.6,
+    "max_latency_ms": 180000
+  }
+}

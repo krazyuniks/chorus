@@ -10,29 +10,145 @@ from fastapi.testclient import TestClient
 
 from chorus.bff.app import (
     BffSettings,
+    PortReaders,
     create_app,
-    progress_snapshot_store_dependency,
-    store_dependency,
+    progress_projection_dependency,
+    readers_dependency,
+)
+from chorus.persistence.audit_port import (
+    DecisionTrailEntryReadModel,
+    ToolActionAuditReadModel,
 )
 from chorus.persistence.projection import (
-    AgentRegistryEntry,
     CalendarProjectionReadModel,
-    DecisionTrailEntryReadModel,
+    WorkflowHistoryEventReadModel,
+    WorkflowRunReadModel,
+)
+from chorus.persistence.provider_governance import (
     ModelRouteVersion,
-    ModelRoutingPolicy,
     ProviderCatalogueEntry,
     ProviderCatalogueModel,
     ProviderCatalogueProvider,
     ProviderGovernanceSnapshot,
+)
+from chorus.persistence.runtime_policy import (
+    AgentRegistryEntry,
+    ModelRoutingPolicy,
     RuntimePolicySnapshot,
-    ToolActionAuditReadModel,
     ToolGrant,
-    WorkflowHistoryEventReadModel,
-    WorkflowRunReadModel,
 )
 
 
 class FakeProjectionStore:
+    """Stand-in for the projection port's read + write surface."""
+
+    def __init__(self, fixture: BffFixture) -> None:
+        self._fixture = fixture
+
+    def list_workflows(self, tenant_id: str, *, limit: int = 100) -> list[WorkflowRunReadModel]:
+        del tenant_id, limit
+        return [self._fixture.workflow()]
+
+    def get_workflow(self, tenant_id: str, workflow_id: str) -> WorkflowRunReadModel | None:
+        del tenant_id
+        if workflow_id != self._fixture.workflow_id:
+            return None
+        return self._fixture.workflow()
+
+    def list_workflow_history(
+        self,
+        tenant_id: str,
+        workflow_id: str,
+        *,
+        after_sequence: int | None = None,
+        limit: int = 500,
+    ) -> list[WorkflowHistoryEventReadModel]:
+        del tenant_id, workflow_id, after_sequence, limit
+        return [self._fixture.event()]
+
+    def list_recent_workflow_history(
+        self,
+        tenant_id: str,
+        *,
+        limit: int = 100,
+    ) -> list[WorkflowHistoryEventReadModel]:
+        del tenant_id, limit
+        return [self._fixture.event()]
+
+    def list_calendar_projections(
+        self,
+        tenant_id: str,
+        *,
+        workflow_id: str | None = None,
+        limit: int = 100,
+    ) -> list[CalendarProjectionReadModel]:
+        del tenant_id, workflow_id, limit
+        return [self._fixture.calendar_projection()]
+
+
+class FakeAuditPortStore:
+    """Stand-in for the audit ports' read surface."""
+
+    def __init__(self, fixture: BffFixture) -> None:
+        self._fixture = fixture
+
+    def list_decision_trail(
+        self,
+        tenant_id: str,
+        *,
+        workflow_id: str | None = None,
+        limit: int = 500,
+    ) -> list[DecisionTrailEntryReadModel]:
+        del tenant_id, workflow_id, limit
+        return [self._fixture.decision()]
+
+    def list_tool_action_audit(
+        self,
+        tenant_id: str,
+        *,
+        workflow_id: str | None = None,
+        limit: int = 500,
+    ) -> list[ToolActionAuditReadModel]:
+        del tenant_id, workflow_id, limit
+        return [self._fixture.audit()]
+
+
+class FakePolicySnapshotStore:
+    """Stand-in for the runtime-policy snapshot composition."""
+
+    def __init__(self, fixture: BffFixture) -> None:
+        self._fixture = fixture
+
+    def snapshot(self, tenant_id: str) -> RuntimePolicySnapshot:
+        del tenant_id
+        return RuntimePolicySnapshot(
+            tenant_id="tenant_demo",
+            agents=[self._fixture.agent()],
+            model_routes=[self._fixture.routing_policy()],
+            tool_grants=[self._fixture.grant()],
+        )
+
+
+class FakeProviderGovernanceStore:
+    """Stand-in for the provider-governance snapshot composition."""
+
+    def __init__(self, fixture: BffFixture) -> None:
+        self._fixture = fixture
+
+    def snapshot(self, tenant_id: str) -> ProviderGovernanceSnapshot:
+        del tenant_id
+        return ProviderGovernanceSnapshot(
+            tenant_id="tenant_demo",
+            catalogues=[self._fixture.catalogue_entry()],
+            providers=[self._fixture.provider(), self._fixture.commercial_provider()],
+            provider_models=[self._fixture.provider_model()],
+            route_versions=[self._fixture.route_version()],
+        )
+
+
+class BffFixture:
+    """Shared state and constructors for BFF unit-test stand-ins."""
+
     def __init__(self) -> None:
         self.workflow_id = "uc1-enq-bff-unit"
         self.correlation_id = "cor_bff_unit"
@@ -44,86 +160,7 @@ class FakeProjectionStore:
         self.calendar_apply_audit_event_id = uuid4()
         self.now = datetime(2026, 4, 29, 12, 0, tzinfo=UTC)
 
-    def list_workflows(self, tenant_id: str, *, limit: int = 100) -> list[WorkflowRunReadModel]:
-        del tenant_id, limit
-        return [self._workflow()]
-
-    def get_workflow(self, tenant_id: str, workflow_id: str) -> WorkflowRunReadModel | None:
-        del tenant_id
-        if workflow_id != self.workflow_id:
-            return None
-        return self._workflow()
-
-    def list_workflow_history(
-        self,
-        tenant_id: str,
-        workflow_id: str,
-        *,
-        after_sequence: int | None = None,
-        limit: int = 500,
-    ) -> list[WorkflowHistoryEventReadModel]:
-        del tenant_id, workflow_id, after_sequence, limit
-        return [self._event()]
-
-    def list_recent_workflow_history(
-        self,
-        tenant_id: str,
-        *,
-        limit: int = 100,
-    ) -> list[WorkflowHistoryEventReadModel]:
-        del tenant_id, limit
-        return [self._event()]
-
-    def list_decision_trail(
-        self,
-        tenant_id: str,
-        *,
-        workflow_id: str | None = None,
-        limit: int = 500,
-    ) -> list[DecisionTrailEntryReadModel]:
-        del tenant_id, workflow_id, limit
-        return [self._decision()]
-
-    def list_tool_action_audit(
-        self,
-        tenant_id: str,
-        *,
-        workflow_id: str | None = None,
-        limit: int = 500,
-    ) -> list[ToolActionAuditReadModel]:
-        del tenant_id, workflow_id, limit
-        return [self._audit()]
-
-    def list_calendar_projections(
-        self,
-        tenant_id: str,
-        *,
-        workflow_id: str | None = None,
-        limit: int = 100,
-    ) -> list[CalendarProjectionReadModel]:
-        del tenant_id, workflow_id, limit
-        return [self._calendar_projection()]
-
-    def runtime_policy_snapshot(self, tenant_id: str) -> RuntimePolicySnapshot:
-        del tenant_id
-        return RuntimePolicySnapshot(
-            tenant_id="tenant_demo",
-            agents=[self._agent()],
-            model_routes=[self._route()],
-            tool_grants=[self._grant()],
-        )
-
-    def provider_governance_snapshot(self, tenant_id: str) -> ProviderGovernanceSnapshot:
-        del tenant_id
-        return ProviderGovernanceSnapshot(
-            tenant_id="tenant_demo",
-            catalogues=[self._catalogue_entry()],
-            providers=[self._provider(), self._commercial_provider()],
-            provider_models=[self._provider_model()],
-            route_versions=[self._route_version()],
-        )
-
-    def _workflow(self) -> WorkflowRunReadModel:
+    def workflow(self) -> WorkflowRunReadModel:
         return WorkflowRunReadModel(
             tenant_id="tenant_demo",
             workflow_id=self.workflow_id,
@@ -142,7 +179,7 @@ class FakeProjectionStore:
             metadata={"sender": "enquiry@example.com"},
         )
 
-    def _event(self) -> WorkflowHistoryEventReadModel:
+    def event(self) -> WorkflowHistoryEventReadModel:
         return WorkflowHistoryEventReadModel(
             tenant_id="tenant_demo",
             history_event_id=uuid4(),
@@ -157,7 +194,7 @@ class FakeProjectionStore:
             created_at=self.now,
         )
 
-    def _decision(self) -> DecisionTrailEntryReadModel:
+    def decision(self) -> DecisionTrailEntryReadModel:
         return DecisionTrailEntryReadModel(
             tenant_id="tenant_demo",
             invocation_id=self.invocation_id,
@@ -192,7 +229,7 @@ class FakeProjectionStore:
             created_at=self.now,
         )
 
-    def _audit(self) -> ToolActionAuditReadModel:
+    def audit(self) -> ToolActionAuditReadModel:
         return ToolActionAuditReadModel(
             tenant_id="tenant_demo",
             audit_event_id=self.audit_event_id,
@@ -219,7 +256,7 @@ class FakeProjectionStore:
             created_at=self.now,
         )
 
-    def _calendar_projection(self) -> CalendarProjectionReadModel:
+    def calendar_projection(self) -> CalendarProjectionReadModel:
         return CalendarProjectionReadModel(
             tenant_id="tenant_demo",
             approval_id=self.approval_id,
@@ -252,7 +289,7 @@ class FakeProjectionStore:
             updated_at=self.now,
         )
 
-    def _agent(self) -> AgentRegistryEntry:
+    def agent(self) -> AgentRegistryEntry:
         return AgentRegistryEntry(
             tenant_id="tenant_demo",
             agent_id="uc1.request_drafter",
@@ -266,7 +303,7 @@ class FakeProjectionStore:
             updated_at=self.now,
         )
 
-    def _route(self) -> ModelRoutingPolicy:
+    def routing_policy(self) -> ModelRoutingPolicy:
         return ModelRoutingPolicy(
             policy_id=uuid4(),
             tenant_id="tenant_demo",
@@ -281,7 +318,7 @@ class FakeProjectionStore:
             lifecycle_state="approved",
         )
 
-    def _grant(self) -> ToolGrant:
+    def grant(self) -> ToolGrant:
         return ToolGrant(
             grant_id=uuid4(),
             tenant_id="tenant_demo",
@@ -294,7 +331,7 @@ class FakeProjectionStore:
             redaction_policy={"redact_fields": ["body_text"]},
         )
 
-    def _catalogue_entry(self) -> ProviderCatalogueEntry:
+    def catalogue_entry(self) -> ProviderCatalogueEntry:
         return ProviderCatalogueEntry(
             catalogue_id="provider-catalogue.local.seed",
             schema_version="1.0.0",
@@ -302,7 +339,7 @@ class FakeProjectionStore:
             created_at=self.now,
         )
 
-    def _provider(self) -> ProviderCatalogueProvider:
+    def provider(self) -> ProviderCatalogueProvider:
         return ProviderCatalogueProvider(
             catalogue_id="provider-catalogue.local.seed",
             provider_id="local",
@@ -317,7 +354,7 @@ class FakeProjectionStore:
             audit={},
         )
 
-    def _commercial_provider(self) -> ProviderCatalogueProvider:
+    def commercial_provider(self) -> ProviderCatalogueProvider:
         return ProviderCatalogueProvider(
             catalogue_id="provider-catalogue.local.seed",
             provider_id="commercial.example",
@@ -332,7 +369,7 @@ class FakeProjectionStore:
             audit={},
         )
 
-    def _provider_model(self) -> ProviderCatalogueModel:
+    def provider_model(self) -> ProviderCatalogueModel:
         return ProviderCatalogueModel(
             catalogue_id="provider-catalogue.local.seed",
             provider_id="local",
@@ -345,7 +382,7 @@ class FakeProjectionStore:
             cost_policy={"currency": "USD"},
         )
 
-    def _route_version(self) -> ModelRouteVersion:
+    def route_version(self) -> ModelRouteVersion:
         return ModelRouteVersion(
             route_id=uuid4(),
             route_version=1,
@@ -368,31 +405,38 @@ class FakeProjectionStore:
         )
 
 
-def _client() -> tuple[TestClient, FakeProjectionStore]:
-    store = FakeProjectionStore()
+def _client() -> tuple[TestClient, BffFixture]:
+    fixture = BffFixture()
     settings = BffSettings(database_url="postgresql://invalid", tenant_id="tenant_demo")
     app = create_app(settings)
 
-    def fake_store_dependency() -> Iterator[Any]:
-        yield store
+    readers = PortReaders(
+        projection=FakeProjectionStore(fixture),  # type: ignore[arg-type]
+        audit=FakeAuditPortStore(fixture),  # type: ignore[arg-type]
+        policy=FakePolicySnapshotStore(fixture),  # type: ignore[arg-type]
+        governance=FakeProviderGovernanceStore(fixture),  # type: ignore[arg-type]
+    )
+
+    def fake_readers_dependency() -> Iterator[PortReaders]:
+        yield readers
 
     def fake_progress_dependency(once: bool = False) -> Iterator[Any]:
         del once
-        yield store
+        yield readers.projection
 
-    app.dependency_overrides[store_dependency] = fake_store_dependency
-    app.dependency_overrides[progress_snapshot_store_dependency] = fake_progress_dependency
-    return TestClient(app), store
+    app.dependency_overrides[readers_dependency] = fake_readers_dependency
+    app.dependency_overrides[progress_projection_dependency] = fake_progress_dependency
+    return TestClient(app), fixture
 
 
 def test_projection_endpoints_use_bff_response_contracts() -> None:
-    client, store = _client()
+    client, fixture = _client()
 
     workflows = client.get("/api/workflows").json()
-    detail = client.get(f"/api/workflows/{store.workflow_id}").json()
-    events = client.get(f"/api/workflows/{store.workflow_id}/events").json()
+    detail = client.get(f"/api/workflows/{fixture.workflow_id}").json()
+    events = client.get(f"/api/workflows/{fixture.workflow_id}/events").json()
 
-    assert workflows[0]["workflow_id"] == store.workflow_id
+    assert workflows[0]["workflow_id"] == fixture.workflow_id
     assert workflows[0]["workflow_type"] == "uc1_enquiry_qualification"
     assert detail["subject_from"] == "enquiry@example.com"
     assert detail["subject_ref"] == "enq_motor_private_001"
@@ -400,11 +444,11 @@ def test_projection_endpoints_use_bff_response_contracts() -> None:
 
 
 def test_audit_and_runtime_policy_endpoints_are_read_only_views() -> None:
-    client, store = _client()
+    client, fixture = _client()
 
-    decisions = client.get(f"/api/workflows/{store.workflow_id}/decision-trail").json()
-    verdicts = client.get(f"/api/workflows/{store.workflow_id}/tool-verdicts").json()
-    calendar_status = client.get(f"/api/workflows/{store.workflow_id}/calendar/status").json()
+    decisions = client.get(f"/api/workflows/{fixture.workflow_id}/decision-trail").json()
+    verdicts = client.get(f"/api/workflows/{fixture.workflow_id}/tool-verdicts").json()
+    calendar_status = client.get(f"/api/workflows/{fixture.workflow_id}/calendar/status").json()
     registry = client.get("/api/runtime/registry").json()
     grants = client.get("/api/runtime/grants").json()
     routing = client.get("/api/runtime/routing").json()
