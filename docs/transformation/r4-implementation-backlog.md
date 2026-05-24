@@ -151,7 +151,7 @@ channel runnable status are separate claims.
 
 - [x] Persist UC1 broker-firm-side refs for quoting queue, referral inbox, and
   decline ledger behind the existing connector adapters.
-- [ ] Persist or deterministically seed customer profile and product catalogue
+- [x] Persist or deterministically seed customer profile and product catalogue
   lookup data behind the existing read connectors.
 - [ ] Route accepted, referred, declined, and missing-data verdicts through the
   appropriate connector paths.
@@ -613,6 +613,58 @@ channel runnable status are separate claims.
   live-provider gates were not run. DB-backed verification and migration
   execution remain blocked by the local Postgres credential failure.
 
+### 2026-05-24 - UC1 Read-Connector Reference Data Persistence
+
+- Scope: second P2 UC1 completion slice for customer-profile and
+  product-catalogue lookup data behind the existing read connector adapters.
+- Files changed: `chorus/persistence/uc1_connectors.py`,
+  `chorus/connectors/uc1.py`, `chorus/connectors/__init__.py`, Postgres
+  current-state baseline, deterministic UC1 connector-reference seed data,
+  focused connector / gateway / persistence tests, connector and persistence
+  package instructions, scaffold path checks, architecture / evidence /
+  runbook docs, and this backlog handoff.
+- Behaviour changed:
+  - `sandbox-customer-profile` now resolves tenant-scoped synthetic
+    `local_customer_profiles` rows through `Uc1ConnectorReferenceDataStore`
+    and preserves the existing `customer_profile.lookup` output fields and
+    not-found status;
+  - `sandbox-product-catalogue` now resolves tenant-scoped synthetic
+    `local_product_catalogue_entries` rows through the same local reference
+    data store and preserves the existing `product_catalogue.lookup` output
+    fields, including `target_market` content;
+  - `default_registry(conn)` wires the active Postgres connection into the
+    UC1 read adapters, keeping read-connector reference data behind the
+    connector adapter registry and Tool Gateway path;
+  - the customer-profile and product-catalogue argument contracts, generated
+    models, UC1 workflow control flow, provider routing, approval behaviour,
+    eval fixture schema, and UC1 offline eval behaviour were intentionally
+    left unchanged.
+- Gates run:
+  - `uv run pytest tests/connectors/test_uc1_connectors.py -q` - green,
+    7 passed.
+  - `uv run pytest tests/tool_gateway/test_gateway.py -q` - 3 passed and
+    11 skipped; skipped cases were DB-backed because local Postgres on
+    `localhost:5432` rejected the configured `chorus` user.
+  - `uv run pytest tests/persistence/test_postgres_foundation.py -rs` -
+    1 passed and 15 skipped; skipped cases were DB-backed because local
+    Postgres rejected the configured `chorus` user.
+  - `uv run pytest tests/connectors/test_uc1_connectors.py tests/tool_gateway/test_gateway.py tests/persistence/test_postgres_foundation.py tests/workflows/test_uc1_workflow.py tests/workflows/test_activities.py -rs`
+    - 16 passed and 26 skipped; skipped Tool Gateway and persistence cases
+    include the new DB-backed read-connector seed assertions because local
+    Postgres rejected the configured `chorus` user.
+  - `uv run pytest tests/test_scaffold.py -q` - green, 2 passed.
+  - `just doctor-quick` - green.
+  - `just contracts-check` - green.
+  - `just eval` - green for the two current UC1 offline eval fixtures with
+    unchanged invariant names, order, and pass outcomes.
+  - `just lint` - green after sorting focused connector-test imports.
+  - `git diff --check` - green.
+- Skipped gates: `just contracts-gen` was not run because connector contracts
+  did not change; live `just db-migrate`, full `just test`, Redpanda
+  projection integration, frontend e2e, UC2 / UC3 runtime gates, and
+  live-provider gates were not run. DB-backed verification and migration
+  execution remain blocked by the local Postgres credential failure.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -660,20 +712,20 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: continue P2 UC1 Completion in Strategy order by persisting or deterministically seeding customer profile and product catalogue lookup data behind the existing UC1 read connector adapters.
+Current target slice: continue P2 UC1 Completion in Strategy order by routing accepted, referred, declined, and missing-data verdicts through the appropriate existing UC1 connector paths.
 
-Previous slice completed: UC1 broker-firm-side routing refs for quoting queue, referral inbox, and decline ledger are now persistence-backed behind the existing connector adapters. `chorus/persistence/uc1_connectors.py` owns `Uc1BrokerFirmRoutingStore`, `default_registry(conn)` wires that store into `sandbox-crm`, `sandbox-referral-inbox`, and `sandbox-decline-ledger`, and `infrastructure/postgres/migrations/001_current_state_baseline.sql` now creates `local_quoting_queue_routes`, `local_referral_inbox_routes`, and `local_decline_ledger_routes` with tenant isolation. Existing UC1 connector argument contracts and output field names were preserved; `route_status` was added as local sandbox evidence. UC1 workflow control flow, outbound-comms approval behaviour, read connectors, provider routing, eval fixture schema, and offline eval behaviour were left unchanged.
+Previous slice completed: customer profile and product catalogue lookup data are now persistence-backed through deterministic local Postgres seed records behind the existing UC1 read connector adapters. `chorus/persistence/uc1_connectors.py` now owns `Uc1ConnectorReferenceDataStore` alongside the routing store, `default_registry(conn)` wires the active connection into `sandbox-customer-profile` and `sandbox-product-catalogue`, `infrastructure/postgres/migrations/001_current_state_baseline.sql` now creates `local_customer_profiles` and `local_product_catalogue_entries` with tenant isolation, and `infrastructure/postgres/seeds/003_uc1_connector_reference_data.sql` seeds synthetic lookup rows for the demo tenants. Existing `customer_profile.lookup` and `product_catalogue.lookup` argument contracts and output field names were preserved. UC1 workflow control flow, outbound-comms approval behaviour, provider routing, eval fixture schema, and offline eval behaviour were left unchanged.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief.md, docs/domain-model.md, docs/r1-adapter-mapping.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, and the current P2 backlog items. Keep this slice focused on the second P2 item only: customer profile and product catalogue lookup data behind the existing read connectors.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief.md, docs/domain-model.md, docs/r1-adapter-mapping.md, docs/architecture.md, docs/evidence-map.md, docs/runbook.md, and the current P2 backlog items. Keep this slice focused on the third P2 item only: routing accepted, referred, declined, and missing-data verdicts through the appropriate existing connector paths.
 
-Before editing, inspect `chorus/connectors/uc1.py`, `chorus/connectors/__init__.py`, `chorus/connectors/types.py`, `chorus/tool_gateway/gateway.py`, the UC1 `customer_profile.lookup` and `product_catalogue.lookup` contracts and generated models under `contracts/connector/uc1/` and `chorus/contracts/generated/connector/uc1/`, `chorus/persistence/`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`, `infrastructure/postgres/seeds/`, `tests/connectors/test_uc1_connectors.py`, `tests/tool_gateway/test_gateway.py`, `tests/persistence/test_postgres_foundation.py`, `tests/workflows/test_uc1_workflow.py`, `tests/workflows/test_activities.py`, and searches for `_CANNED_CUSTOMER_PROFILES`, `_CANNED_PRODUCT_TARGET_MARKETS`, `local_customer_profiles`, `local_product_catalogue`, `customer_profile.lookup`, `product_catalogue.lookup`, `vulnerability_markers`, `target_market`, `fair_value_assessment_ref`, and UC1 connector persistence. Preserve current UC1 workflow and eval behaviour while moving only those read-connector data sources behind local persistence or deterministic seed records.
+Before editing, inspect `chorus/workflows/uc1.py`, `chorus/workflows/spine.py`, `chorus/workflows/types.py`, `chorus/workflows/activities.py`, `chorus/agent_runtime/runtime.py`, `chorus/llm_provider/adapter_replay.py`, `chorus/connectors/uc1.py`, `chorus/connectors/__init__.py`, `chorus/connectors/types.py`, `chorus/tool_gateway/gateway.py`, `chorus/persistence/uc1_connectors.py`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`, `infrastructure/postgres/seeds/`, `tests/workflows/test_uc1_workflow.py`, `tests/workflows/test_activities.py`, `tests/connectors/test_uc1_connectors.py`, `tests/tool_gateway/test_gateway.py`, `tests/persistence/test_postgres_foundation.py`, `tests/eval/test_run.py`, and searches for `crm.route_to_quoting_queue`, `referral_inbox.route`, `decline_ledger.route`, `outbound_comms.message`, `qualification verdict`, `verdict_ref`, `missing_data_request_ref`, `RouteVerdict`, `accepted`, `referred`, `declined`, `missing-data`, `customer_profile.lookup`, `product_catalogue.lookup`, and UC1 connector persistence. Preserve the existing Tool Gateway authority path, approval-required outbound-comms behaviour, read-connector seeding, provider route selection, and current eval fixture semantics unless the verdict-routing change requires a small focused preservation assertion.
 
-Keep this slice focused on customer profile and product catalogue read data only. Do not implement UC2 or UC3 runtime work, add new provider route wiring, add replay comparator code, broaden eval fixture coverage beyond what is needed to preserve current UC1 behaviour, change UI behaviour, or complete the remaining P2 items for verdict routing, policy snapshot persistence, or full UC1 connector-path eval fixtures unless a tiny supporting test assertion is required for the read-connector persistence/seeding change. If the data design requires storing personal data, changing cross-port contracts, or adding a migration boundary materially broader than local synthetic customer-profile and product-catalogue lookup records, stop and surface the blocking question before committing.
+Keep this slice focused on connector-path verdict routing only. Do not implement UC2 or UC3 runtime work, add new provider route wiring, add replay comparator code, broaden eval fixture coverage beyond what is needed to preserve or minimally prove current UC1 behaviour, change UI behaviour, or complete the remaining P2 items for policy snapshot persistence or full UC1 connector-path eval fixtures unless a tiny supporting test assertion is required for this verdict-routing change. If the routing design requires changing cross-port contracts, bypassing the Tool Gateway, changing approval semantics for outbound customer comms, storing real customer data, or adding a materially broader migration boundary than local sandbox routing/reference records, stop and surface the blocking question before committing.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
 - Rewrite the body of the `## Next Continuation Prompt` section in the backlog with the next slice's prompt, in Strategy order. If R4 is fully closed, write the literal `R4-COMPLETE` there instead.
-- Run relevant focused gates for the files touched, likely including `just contracts-gen` and `just contracts-check` if connector contracts change, focused connector / workflow / persistence tests, `just eval` if UC1 eval behaviour is affected, `just lint`, and `git diff --check`. If DB-backed gates cannot run because local Postgres or another live-stack dependency is unavailable, record the skipped gate and reason.
+- Run relevant focused gates for the files touched, likely including `just contracts-gen` and `just contracts-check` if connector contracts change, focused connector / workflow / persistence tests, `just test-replay` if deterministic workflow history changes, `just eval` if UC1 eval behaviour is affected, `just lint`, and `git diff --check`. If DB-backed gates cannot run because local Postgres or another live-stack dependency is unavailable, record the skipped gate and reason.
 - Stage everything and create one Conventional Commit (`type(scope): description`). Do not add `Co-Authored-By` or any AI attribution.
 - Leave the working tree clean.
 

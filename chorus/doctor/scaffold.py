@@ -89,6 +89,7 @@ PERSISTENCE_PATHS = [
     "infrastructure/postgres/README.md",
     "infrastructure/postgres/migrations/001_current_state_baseline.sql",
     "infrastructure/postgres/seeds/001_demo_tenants.sql",
+    "infrastructure/postgres/seeds/003_uc1_connector_reference_data.sql",
     "chorus/persistence/__init__.py",
     "chorus/persistence/migrate.py",
     "chorus/persistence/outbox.py",

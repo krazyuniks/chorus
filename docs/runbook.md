@@ -126,9 +126,10 @@ Inspect the grants for an agent:
 
 Every gateway call writes an audit row regardless of verdict; see the audit
 port section below. The UC1 quoting queue, referral inbox, and decline ledger
-adapters now persist their local sandbox refs in Postgres. Customer
-profile/product-catalogue persistence, full verdict routing, and connector-path
-eval fixtures remain P2 work.
+adapters persist their local sandbox refs in Postgres. Customer-profile and
+product-catalogue reads resolve tenant-scoped synthetic rows from the local
+Postgres seeds. Full verdict routing and connector-path eval fixtures remain
+P2 work.
 
 ### Audit / transcript ports
 

@@ -26,7 +26,10 @@ from chorus.connectors.uc1 import (
     SandboxQuotingQueueAdapter,
     SandboxReferralInboxAdapter,
 )
-from chorus.persistence.uc1_connectors import Uc1BrokerFirmRoutingStore
+from chorus.persistence.uc1_connectors import (
+    Uc1BrokerFirmRoutingStore,
+    Uc1ConnectorReferenceDataStore,
+)
 
 
 def default_registry(conn: Connection[Any]) -> ConnectorRegistry:
@@ -43,14 +46,15 @@ def default_registry(conn: Connection[Any]) -> ConnectorRegistry:
 
 def _default_adapters(conn: Connection[Any]) -> Sequence[ConnectorAdapter]:
     uc1_routing_store = Uc1BrokerFirmRoutingStore(conn)
+    uc1_reference_data = Uc1ConnectorReferenceDataStore(conn)
     return (
         CalendarAdapter(),
         SandboxQuotingQueueAdapter(uc1_routing_store),
         SandboxReferralInboxAdapter(uc1_routing_store),
         SandboxDeclineLedgerAdapter(uc1_routing_store),
         SandboxOutboundCommsAdapter(),
-        SandboxCustomerProfileAdapter(),
-        SandboxProductCatalogueAdapter(),
+        SandboxCustomerProfileAdapter(uc1_reference_data),
+        SandboxProductCatalogueAdapter(uc1_reference_data),
     )
 
 

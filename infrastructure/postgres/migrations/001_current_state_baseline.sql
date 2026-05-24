@@ -279,6 +279,101 @@ CREATE TABLE IF NOT EXISTS tool_action_audit (
     )
 );
 
+CREATE TABLE IF NOT EXISTS local_customer_profiles (
+    tenant_id text NOT NULL REFERENCES tenants (tenant_id) ON DELETE RESTRICT,
+    customer_ref text NOT NULL,
+    display_name_category text NOT NULL,
+    vulnerability_markers text[] NOT NULL DEFAULT ARRAY[]::text[],
+    consent_state_category text NOT NULL,
+    profile_status text NOT NULL DEFAULT 'active',
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, customer_ref),
+    CONSTRAINT local_customer_profiles_ref_shape CHECK (
+        customer_ref ~ '^cust_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_customer_profiles_display_name_check CHECK (
+        display_name_category IN (
+            'individual_personal_lines',
+            'household_personal_lines'
+        )
+    ),
+    CONSTRAINT local_customer_profiles_vulnerability_markers_check CHECK (
+        vulnerability_markers <@ ARRAY[
+            'bereavement_declared',
+            'communication_adjustment_requested',
+            'financial_difficulty_declared',
+            'health_condition_declared'
+        ]::text[]
+    ),
+    CONSTRAINT local_customer_profiles_consent_state_check CHECK (
+        consent_state_category IN (
+            'marketing_opt_in',
+            'marketing_opt_out',
+            'service_contact_only'
+        )
+    ),
+    CONSTRAINT local_customer_profiles_status_check CHECK (
+        profile_status IN ('active', 'archived')
+    )
+);
+
+CREATE TABLE IF NOT EXISTS local_product_catalogue_entries (
+    tenant_id text NOT NULL REFERENCES tenants (tenant_id) ON DELETE RESTRICT,
+    product_family_category text NOT NULL,
+    target_market_summary_category text NOT NULL,
+    min_age_category text,
+    construction_categories text[] NOT NULL DEFAULT ARRAY[]::text[],
+    excluded_postcode_categories text[] NOT NULL DEFAULT ARRAY[]::text[],
+    fair_value_assessment_ref text NOT NULL,
+    catalogue_status text NOT NULL DEFAULT 'active',
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, product_family_category),
+    CONSTRAINT local_product_catalogue_family_check CHECK (
+        product_family_category IN (
+            'motor_private_car',
+            'motor_commercial_vehicle',
+            'home_buildings',
+            'home_contents',
+            'home_combined',
+            'travel_single_trip',
+            'travel_annual_multi_trip',
+            'pet'
+        )
+    ),
+    CONSTRAINT local_product_catalogue_target_market_check CHECK (
+        target_market_summary_category IN (
+            'uk_resident_private_motor_standard',
+            'uk_resident_homeowner_buildings'
+        )
+    ),
+    CONSTRAINT local_product_catalogue_min_age_check CHECK (
+        min_age_category IS NULL
+        OR min_age_category IN ('age_25_plus')
+    ),
+    CONSTRAINT local_product_catalogue_construction_check CHECK (
+        construction_categories <@ ARRAY[
+            'standard_brick',
+            'standard_stone'
+        ]::text[]
+    ),
+    CONSTRAINT local_product_catalogue_postcode_exclusion_check CHECK (
+        excluded_postcode_categories <@ ARRAY[
+            'flood_zone_3',
+            'high_theft_metropolitan'
+        ]::text[]
+    ),
+    CONSTRAINT local_product_catalogue_fva_ref_shape CHECK (
+        fair_value_assessment_ref ~ '^fva_[A-Za-z0-9_-]+$'
+    ),
+    CONSTRAINT local_product_catalogue_status_check CHECK (
+        catalogue_status IN ('active', 'archived')
+    )
+);
+
 CREATE TABLE IF NOT EXISTS local_quoting_queue_routes (
     tenant_id text NOT NULL REFERENCES tenants (tenant_id) ON DELETE RESTRICT,
     queued_route_ref text NOT NULL,
@@ -1024,6 +1119,12 @@ CREATE INDEX IF NOT EXISTS decision_trail_workflow_idx
 CREATE INDEX IF NOT EXISTS tool_action_audit_workflow_idx
     ON tool_action_audit (tenant_id, workflow_id, occurred_at);
 
+CREATE INDEX IF NOT EXISTS local_customer_profiles_status_idx
+    ON local_customer_profiles (tenant_id, profile_status, customer_ref);
+
+CREATE INDEX IF NOT EXISTS local_product_catalogue_status_idx
+    ON local_product_catalogue_entries (tenant_id, catalogue_status, product_family_category);
+
 CREATE INDEX IF NOT EXISTS local_quoting_queue_workflow_idx
     ON local_quoting_queue_routes (tenant_id, workflow_id, created_at DESC);
 
@@ -1097,6 +1198,8 @@ ALTER TABLE tool_grants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workflow_read_models ENABLE ROW LEVEL SECURITY;
 ALTER TABLE decision_trail_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tool_action_audit ENABLE ROW LEVEL SECURITY;
+ALTER TABLE local_customer_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE local_product_catalogue_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE local_quoting_queue_routes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE local_referral_inbox_routes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE local_decline_ledger_routes ENABLE ROW LEVEL SECURITY;
@@ -1147,6 +1250,19 @@ CREATE POLICY tool_action_audit_tenant_isolation ON tool_action_audit
     FOR ALL TO chorus_app
     USING (tenant_id = chorus_current_tenant_id())
     WITH CHECK (tenant_id = chorus_current_tenant_id());
+
+DROP POLICY IF EXISTS local_customer_profiles_tenant_isolation
+    ON local_customer_profiles;
+CREATE POLICY local_customer_profiles_tenant_isolation ON local_customer_profiles
+    FOR SELECT TO chorus_app
+    USING (tenant_id = chorus_current_tenant_id());
+
+DROP POLICY IF EXISTS local_product_catalogue_entries_tenant_isolation
+    ON local_product_catalogue_entries;
+CREATE POLICY local_product_catalogue_entries_tenant_isolation
+    ON local_product_catalogue_entries
+    FOR SELECT TO chorus_app
+    USING (tenant_id = chorus_current_tenant_id());
 
 DROP POLICY IF EXISTS local_quoting_queue_routes_tenant_isolation
     ON local_quoting_queue_routes;
@@ -1217,6 +1333,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
 TO chorus_app;
 
 GRANT SELECT ON
+    local_customer_profiles,
+    local_product_catalogue_entries
+TO chorus_app;
+
+GRANT SELECT ON
     provider_catalogues,
     provider_catalogue_providers,
     provider_catalogue_models,
@@ -1236,6 +1357,10 @@ COMMENT ON TABLE decision_trail_entries IS
     'Durable Agent Runtime decision trail aligned with the agent_invocation_record contract.';
 COMMENT ON TABLE tool_action_audit IS
     'Authority-sensitive Tool Gateway and connector audit trail aligned with audit/tool contracts.';
+COMMENT ON TABLE local_customer_profiles IS
+    'Tenant-scoped synthetic UC1 customer-of-record rows for sandbox profile lookups.';
+COMMENT ON TABLE local_product_catalogue_entries IS
+    'Tenant-scoped synthetic UC1 product target-market rows for sandbox catalogue lookups.';
 COMMENT ON TABLE local_quoting_queue_routes IS
     'Local UC1 sandbox CRM records for accept verdicts routed to the quoting queue.';
 COMMENT ON TABLE local_referral_inbox_routes IS

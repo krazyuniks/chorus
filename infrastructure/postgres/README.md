@@ -3,7 +3,8 @@
 Postgres stores policy materialisation, audit evidence, transcript records,
 read models, episodic workflow history, transactional outbox rows, provider
 catalogue rows, approval package records, local UC1 connector-side routing
-records, and immutable route-version evidence for local governance inspection.
+records, UC1 connector read-reference data, and immutable route-version
+evidence for local governance inspection.
 
 - `migrations/` starts from `001_current_state_baseline.sql`, the current R4
   local POC schema baseline. Earlier experimental migration history lives in
@@ -15,6 +16,8 @@ records, and immutable route-version evidence for local governance inspection.
   `tenant_demo` and `tenant_demo_alt` for tenant-isolation evidence. The
   provider-governance seed mirrors local route materialisation into
   route-version rows and keeps non-runnable provider placeholders disabled.
+  The UC1 connector-reference seed backs the customer-profile and
+  product-catalogue read adapters with synthetic local rows.
 
 Run `just db-migrate` after the local Postgres service is running. The
 migration runner reads `CHORUS_DATABASE_URL` and defaults to

@@ -7,8 +7,8 @@ catalogue.
 The broker-firm-side write adapters persist local sandbox records for routing
 refs (`local_quoting_queue_routes`, `local_referral_inbox_routes`,
 `local_decline_ledger_routes`) and return those refs as connector evidence.
-The read adapters still return canned target-market / vulnerability data until
-their P2 persistence/seeding slice lands.
+The read adapters resolve tenant-scoped synthetic profile and target-market
+records seeded into the local Postgres sandbox.
 """
 
 from __future__ import annotations
@@ -17,7 +17,6 @@ import os
 import smtplib
 from collections.abc import Sequence
 from email.message import EmailMessage
-from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -52,6 +51,7 @@ from chorus.persistence.uc1_connectors import (
     QuotingQueueRouteWrite,
     ReferralInboxRouteWrite,
     Uc1BrokerFirmRoutingWriter,
+    Uc1ConnectorReferenceDataReader,
 )
 
 
@@ -372,20 +372,6 @@ class SandboxOutboundCommsAdapter:
         )
 
 
-_CANNED_CUSTOMER_PROFILES: dict[str, dict[str, Any]] = {
-    "cust_demo_001": {
-        "display_name_category": "individual_personal_lines",
-        "vulnerability_markers": [],
-        "consent_state_category": "marketing_opt_in",
-    },
-    "cust_demo_002": {
-        "display_name_category": "individual_personal_lines",
-        "vulnerability_markers": ["bereavement_declared"],
-        "consent_state_category": "marketing_opt_out",
-    },
-}
-
-
 class SandboxCustomerProfileAdapter:
     """`sandbox-customer-profile` adapter; read-only customer-of-record lookup.
 
@@ -399,6 +385,9 @@ class SandboxCustomerProfileAdapter:
     """
 
     adapter_id = "sandbox_customer_profile"
+
+    def __init__(self, reference_data: Uc1ConnectorReferenceDataReader) -> None:
+        self._reference_data = reference_data
 
     def tool_specs(self) -> Sequence[ToolSpec]:
         return (
@@ -419,7 +408,7 @@ class SandboxCustomerProfileAdapter:
         context: ConnectorContext,
         arguments: BaseModel,
     ) -> ConnectorResult:
-        del mode, context
+        del mode
         if tool_name != "customer_profile.lookup":
             raise ConnectorError(
                 f"SandboxCustomerProfileAdapter received unsupported tool {tool_name!r}"
@@ -430,8 +419,11 @@ class SandboxCustomerProfileAdapter:
                 f"{tool_name!r}"
             )
 
-        canned = _CANNED_CUSTOMER_PROFILES.get(arguments.customer_ref)
-        if canned is None:
+        profile = self._reference_data.lookup_customer_profile(
+            tenant_id=context.tenant_id,
+            customer_ref=arguments.customer_ref,
+        )
+        if profile is None:
             return ConnectorResult(
                 connector_invocation_id=uuid4(),
                 output={
@@ -446,33 +438,20 @@ class SandboxCustomerProfileAdapter:
                 "connector": "sandbox_customer_profile.local",
                 "customer_ref": arguments.customer_ref,
                 "lookup_status": "customer_found",
-                "display_name_category": canned["display_name_category"],
-                "vulnerability_markers": list(canned["vulnerability_markers"]),
-                "consent_state_category": canned["consent_state_category"],
+                "display_name_category": profile.display_name_category,
+                "vulnerability_markers": list(profile.vulnerability_markers),
+                "consent_state_category": profile.consent_state_category,
             },
         )
-
-
-_CANNED_PRODUCT_TARGET_MARKETS: dict[str, dict[str, Any]] = {
-    "motor_private_car": {
-        "target_market_summary_category": "uk_resident_private_motor_standard",
-        "min_age_category": "age_25_plus",
-        "excluded_postcode_categories": ["high_theft_metropolitan"],
-        "fair_value_assessment_ref": "fva_motor_private_2026_q1",
-    },
-    "home_buildings": {
-        "target_market_summary_category": "uk_resident_homeowner_buildings",
-        "construction_categories": ["standard_brick", "standard_stone"],
-        "excluded_postcode_categories": ["flood_zone_3"],
-        "fair_value_assessment_ref": "fva_home_buildings_2026_q1",
-    },
-}
 
 
 class SandboxProductCatalogueAdapter:
     """`sandbox-product-catalogue` adapter; read-only target-market lookup."""
 
     adapter_id = "sandbox_product_catalogue"
+
+    def __init__(self, reference_data: Uc1ConnectorReferenceDataReader) -> None:
+        self._reference_data = reference_data
 
     def tool_specs(self) -> Sequence[ToolSpec]:
         return (
@@ -493,7 +472,7 @@ class SandboxProductCatalogueAdapter:
         context: ConnectorContext,
         arguments: BaseModel,
     ) -> ConnectorResult:
-        del mode, context
+        del mode
         if tool_name != "product_catalogue.lookup":
             raise ConnectorError(
                 f"SandboxProductCatalogueAdapter received unsupported tool {tool_name!r}"
@@ -504,8 +483,11 @@ class SandboxProductCatalogueAdapter:
                 f"{tool_name!r}"
             )
 
-        canned = _CANNED_PRODUCT_TARGET_MARKETS.get(arguments.product_family_category.value)
-        if canned is None:
+        product = self._reference_data.lookup_product_catalogue(
+            tenant_id=context.tenant_id,
+            product_family_category=arguments.product_family_category.value,
+        )
+        if product is None:
             return ConnectorResult(
                 connector_invocation_id=uuid4(),
                 output={
@@ -520,7 +502,7 @@ class SandboxProductCatalogueAdapter:
                 "connector": "sandbox_product_catalogue.local",
                 "product_family_category": arguments.product_family_category.value,
                 "lookup_status": "product_family_found",
-                "target_market": dict(canned),
+                "target_market": product.target_market(),
             },
         )
 

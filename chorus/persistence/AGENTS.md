@@ -36,8 +36,9 @@ After the R3 F decomposition the read surfaces are split per port.
 - `provider_governance.py` owns the provider catalogue + route-version
   snapshot: `ProviderGovernanceStore.snapshot` composes provider catalogues +
   providers + provider models + route versions.
-- `uc1_connectors.py` owns the local UC1 broker-firm-side connector write
-  records for quoting queue, referral inbox, and decline ledger refs.
+- `uc1_connectors.py` owns the local UC1 connector-side records for quoting
+  queue, referral inbox, decline ledger, customer-profile lookup data, and
+  product-catalogue lookup data.
 - `_query.py` holds the shared row-fetch helper and tenant-context setter.
 - `outbox.py` contains outbox claim, publish, retry, and DLQ lifecycle helpers.
 - `redpanda.py` contains relay and projection-worker utilities.

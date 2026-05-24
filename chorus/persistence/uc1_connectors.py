@@ -1,10 +1,9 @@
 """UC1 connector-side sandbox persistence.
 
-The store in this module backs the local broker-firm-side UC1 write
-connectors. It is intentionally scoped to the three routing destinations that
-receive qualification verdicts: quoting queue, referral inbox, and decline
-ledger. Read-only customer profile and product catalogue state are separate R4
-work.
+The stores in this module back the local broker-firm-side UC1 connector
+adapters. Routing writes persist local sandbox refs for accept, refer, and
+decline verdicts. Read-only customer profile and product catalogue adapters
+resolve tenant-scoped synthetic records from deterministic local seed data.
 """
 
 from __future__ import annotations
@@ -82,6 +81,34 @@ class DeclineLedgerRouteRecord:
     route_status: str
 
 
+@dataclass(frozen=True)
+class CustomerProfileRecord:
+    display_name_category: str
+    vulnerability_markers: tuple[str, ...]
+    consent_state_category: str
+
+
+@dataclass(frozen=True)
+class ProductCatalogueRecord:
+    target_market_summary_category: str
+    fair_value_assessment_ref: str
+    min_age_category: str | None
+    construction_categories: tuple[str, ...]
+    excluded_postcode_categories: tuple[str, ...]
+
+    def target_market(self) -> dict[str, Any]:
+        target_market: dict[str, Any] = {
+            "target_market_summary_category": self.target_market_summary_category,
+            "excluded_postcode_categories": list(self.excluded_postcode_categories),
+            "fair_value_assessment_ref": self.fair_value_assessment_ref,
+        }
+        if self.min_age_category is not None:
+            target_market["min_age_category"] = self.min_age_category
+        if self.construction_categories:
+            target_market["construction_categories"] = list(self.construction_categories)
+        return target_market
+
+
 class Uc1BrokerFirmRoutingWriter(Protocol):
     def record_quoting_queue_route(
         self,
@@ -97,6 +124,22 @@ class Uc1BrokerFirmRoutingWriter(Protocol):
         self,
         command: DeclineLedgerRouteWrite,
     ) -> DeclineLedgerRouteRecord: ...
+
+
+class Uc1ConnectorReferenceDataReader(Protocol):
+    def lookup_customer_profile(
+        self,
+        *,
+        tenant_id: str,
+        customer_ref: str,
+    ) -> CustomerProfileRecord | None: ...
+
+    def lookup_product_catalogue(
+        self,
+        *,
+        tenant_id: str,
+        product_family_category: str,
+    ) -> ProductCatalogueRecord | None: ...
 
 
 class Uc1BrokerFirmRoutingStore:
@@ -307,17 +350,98 @@ class Uc1BrokerFirmRoutingStore:
         )
 
 
+class Uc1ConnectorReferenceDataStore:
+    """Postgres-backed local synthetic read data for UC1 read connectors."""
+
+    def __init__(self, conn: Connection[Any]) -> None:
+        self._conn = conn
+
+    def lookup_customer_profile(
+        self,
+        *,
+        tenant_id: str,
+        customer_ref: str,
+    ) -> CustomerProfileRecord | None:
+        set_tenant_context(self._conn, tenant_id)
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT
+                    display_name_category,
+                    vulnerability_markers,
+                    consent_state_category
+                FROM local_customer_profiles
+                WHERE tenant_id = %(tenant_id)s
+                  AND customer_ref = %(customer_ref)s
+                  AND profile_status = 'active'
+                """,
+                {
+                    "tenant_id": tenant_id,
+                    "customer_ref": customer_ref,
+                },
+            )
+            row = cur.fetchone()
+        if row is None:
+            return None
+        return CustomerProfileRecord(
+            display_name_category=row["display_name_category"],
+            vulnerability_markers=tuple(row["vulnerability_markers"]),
+            consent_state_category=row["consent_state_category"],
+        )
+
+    def lookup_product_catalogue(
+        self,
+        *,
+        tenant_id: str,
+        product_family_category: str,
+    ) -> ProductCatalogueRecord | None:
+        set_tenant_context(self._conn, tenant_id)
+        with self._conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT
+                    target_market_summary_category,
+                    fair_value_assessment_ref,
+                    min_age_category,
+                    construction_categories,
+                    excluded_postcode_categories
+                FROM local_product_catalogue_entries
+                WHERE tenant_id = %(tenant_id)s
+                  AND product_family_category = %(product_family_category)s
+                  AND catalogue_status = 'active'
+                """,
+                {
+                    "tenant_id": tenant_id,
+                    "product_family_category": product_family_category,
+                },
+            )
+            row = cur.fetchone()
+        if row is None:
+            return None
+        return ProductCatalogueRecord(
+            target_market_summary_category=row["target_market_summary_category"],
+            fair_value_assessment_ref=row["fair_value_assessment_ref"],
+            min_age_category=row["min_age_category"],
+            construction_categories=tuple(row["construction_categories"]),
+            excluded_postcode_categories=tuple(row["excluded_postcode_categories"]),
+        )
+
+
 def _new_ref(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex}"
 
 
 __all__ = [
+    "CustomerProfileRecord",
     "DeclineLedgerRouteRecord",
     "DeclineLedgerRouteWrite",
+    "ProductCatalogueRecord",
     "QuotingQueueRouteRecord",
     "QuotingQueueRouteWrite",
     "ReferralInboxRouteRecord",
     "ReferralInboxRouteWrite",
     "Uc1BrokerFirmRoutingStore",
     "Uc1BrokerFirmRoutingWriter",
+    "Uc1ConnectorReferenceDataReader",
+    "Uc1ConnectorReferenceDataStore",
 ]

@@ -31,8 +31,9 @@ the gateway.
   (persistence-backed referral routing), `sandbox-decline-ledger`
   (persistence-backed decline records), `sandbox-outbound-comms`
   (Mailpit-backed missing-data-request send, gated in write mode),
-  `sandbox-customer-profile` (read-only profile + vulnerability markers),
-  `sandbox-product-catalogue` (read-only target-market data).
+  `sandbox-customer-profile` (Postgres-seeded read-only profile +
+  vulnerability markers), `sandbox-product-catalogue` (Postgres-seeded
+  read-only target-market data).
 - `calendar.py` carries the Radicale-backed CalDAV adapter
   (`CalendarAdapter`) wrapping `RadicaleCalendarConnector` for
   approval-required write surfaces.

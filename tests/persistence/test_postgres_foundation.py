@@ -136,6 +136,8 @@ def test_migration_applies_schema_and_demo_seed_data(migrated_database_url: str)
     assert ("provider_catalogues",) in tables
     assert ("model_route_versions",) in tables
     assert ("approval_packages",) in tables
+    assert ("local_customer_profiles",) in tables
+    assert ("local_product_catalogue_entries",) in tables
     assert ("local_quoting_queue_routes",) in tables
     assert ("local_referral_inbox_routes",) in tables
     assert ("local_decline_ledger_routes",) in tables
@@ -153,10 +155,61 @@ def test_migrations_and_seeds_are_idempotent(migrated_database_url: str) -> None
             "SELECT count(*) FROM agent_registry WHERE metadata ->> 'seed' = 'true'"
         ).fetchone()
 
-    assert first == ["001_demo_tenants.sql", "002_provider_governance.sql"]
-    assert second == ["001_demo_tenants.sql", "002_provider_governance.sql"]
+    assert first == [
+        "001_demo_tenants.sql",
+        "002_provider_governance.sql",
+        "003_uc1_connector_reference_data.sql",
+    ]
+    assert second == [
+        "001_demo_tenants.sql",
+        "002_provider_governance.sql",
+        "003_uc1_connector_reference_data.sql",
+    ]
     assert tenant_count == (2,)
     assert seed_agents == (10,)
+
+
+def test_uc1_connector_reference_data_is_seeded(migrated_database_url: str) -> None:
+    with psycopg.connect(migrated_database_url) as conn:
+        profile = conn.execute(
+            """
+            SELECT
+                display_name_category,
+                vulnerability_markers,
+                consent_state_category,
+                profile_status
+            FROM local_customer_profiles
+            WHERE tenant_id = 'tenant_demo'
+              AND customer_ref = 'cust_demo_002'
+            """
+        ).fetchone()
+        product = conn.execute(
+            """
+            SELECT
+                target_market_summary_category,
+                construction_categories,
+                excluded_postcode_categories,
+                fair_value_assessment_ref,
+                catalogue_status
+            FROM local_product_catalogue_entries
+            WHERE tenant_id = 'tenant_demo'
+              AND product_family_category = 'home_buildings'
+            """
+        ).fetchone()
+
+    assert profile == (
+        "individual_personal_lines",
+        ["bereavement_declared"],
+        "marketing_opt_out",
+        "active",
+    )
+    assert product == (
+        "uk_resident_homeowner_buildings",
+        ["standard_brick", "standard_stone"],
+        ["flood_zone_3"],
+        "fva_home_buildings_2026_q1",
+        "active",
+    )
 
 
 def test_uc1_agent_registry_roles_are_constrained(migrated_database_url: str) -> None:

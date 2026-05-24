@@ -194,6 +194,29 @@ def _build_uc1_routing_request(
     )
 
 
+def _build_uc1_lookup_request(
+    *,
+    tool_name: str,
+    arguments: dict[str, object],
+) -> ToolGatewayRequest:
+    workflow_id = f"uc1-enq-lookup-{uuid4().hex}"
+    return ToolGatewayRequest(
+        tenant_id="tenant_demo",
+        correlation_id=f"cor_{workflow_id.replace('-', '_')}",
+        workflow_id=workflow_id,
+        invocation_id=str(uuid4()),
+        agent_id="uc1.context_gatherer",
+        tool_name=tool_name,
+        mode="read",
+        idempotency_key=f"{workflow_id}:{tool_name}",
+        arguments=arguments,
+        workflow_type="uc1_enquiry_qualification",
+        subject_id=str(uuid4()),
+        subject_ref=f"enq_gateway_{uuid4().hex[:12]}",
+        subject_summary="UC1 read connector request",
+    )
+
+
 def _build_registry(adapter: ConnectorAdapter) -> ConnectorRegistry:
     registry = ConnectorRegistry()
     registry.register(adapter)
@@ -520,6 +543,64 @@ def test_approved_write_apply_invokes_generic_connector_path(
     assert len(adapter.calls) == 1
     assert adapter.calls[0]["tool_name"] == "outbound_comms.message"
     assert adapter.calls[0]["mode"] == "write"
+
+
+@pytest.mark.parametrize(
+    ("tool_name", "arguments", "expected_output"),
+    [
+        (
+            "customer_profile.lookup",
+            {
+                "customer_ref": "cust_demo_002",
+                "enquiry_ref": "enq_gateway_lookup_001",
+                "lookup_policy_ref": "policy_uc1_customer_profile_lookup_v1",
+            },
+            {
+                "connector": "sandbox_customer_profile.local",
+                "customer_ref": "cust_demo_002",
+                "lookup_status": "customer_found",
+                "display_name_category": "individual_personal_lines",
+                "vulnerability_markers": ["bereavement_declared"],
+                "consent_state_category": "marketing_opt_out",
+            },
+        ),
+        (
+            "product_catalogue.lookup",
+            {
+                "product_family_category": "home_buildings",
+                "enquiry_ref": "enq_gateway_lookup_002",
+                "lookup_policy_ref": "policy_uc1_product_catalogue_lookup_v1",
+            },
+            {
+                "connector": "sandbox_product_catalogue.local",
+                "product_family_category": "home_buildings",
+                "lookup_status": "product_family_found",
+                "target_market": {
+                    "target_market_summary_category": "uk_resident_homeowner_buildings",
+                    "construction_categories": ["standard_brick", "standard_stone"],
+                    "excluded_postcode_categories": ["flood_zone_3"],
+                    "fair_value_assessment_ref": "fva_home_buildings_2026_q1",
+                },
+            },
+        ),
+    ],
+)
+def test_uc1_read_connectors_return_seeded_reference_data(
+    migrated_database_url: str,
+    tool_name: str,
+    arguments: dict[str, object],
+    expected_output: dict[str, object],
+) -> None:
+    request = _build_uc1_lookup_request(tool_name=tool_name, arguments=arguments)
+
+    with psycopg.connect(migrated_database_url) as conn:
+        gateway = ToolGateway(ToolGatewayStore(conn), default_registry(conn))
+        response = gateway.invoke(request)
+        conn.commit()
+
+    assert response.verdict == "allow"
+    assert response.enforced_mode == "read"
+    assert response.output == expected_output
 
 
 @pytest.mark.parametrize(
