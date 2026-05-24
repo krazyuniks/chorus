@@ -250,6 +250,7 @@ def test_retry_exhaustion_activity_writes_dlq_outbox_and_audit(
     migrated_database_url: str,
 ) -> None:
     subject_id = uuid4()
+    subject_ref = "enq_retry_exhaustion_001"
     workflow_id = "uc1-enq-retry-exhaustion-dlq"
     with psycopg.connect(migrated_database_url) as conn:
         result = record_retry_exhaustion_dlq(
@@ -258,7 +259,10 @@ def test_retry_exhaustion_activity_writes_dlq_outbox_and_audit(
                 tenant_id="tenant_demo",
                 correlation_id=f"cor_{workflow_id.replace('-', '_')}",
                 workflow_id=workflow_id,
+                workflow_type="uc1_enquiry_qualification",
+                workflow_actor_id="uc1.workflow",
                 subject_id=str(subject_id),
+                subject_ref=subject_ref,
                 sequence=4,
                 failed_step="classification",
                 failed_activity="chorus.invoke_agent_runtime",
@@ -268,16 +272,24 @@ def test_retry_exhaustion_activity_writes_dlq_outbox_and_audit(
         )
         conn.commit()
         dlq_row = conn.execute(
-            "SELECT status FROM outbox_events WHERE event_id = %s",
+            """
+            SELECT status, workflow_type, subject_ref
+            FROM outbox_events
+            WHERE event_id = %s
+            """,
             (result.event_id,),
         ).fetchone()
         audit_row = conn.execute(
-            "SELECT action FROM tool_action_audit WHERE audit_event_id = %s",
+            """
+            SELECT action, actor_id
+            FROM tool_action_audit
+            WHERE audit_event_id = %s
+            """,
             (result.audit_event_id,),
         ).fetchone()
 
-    assert dlq_row == ("dlq",)
-    assert audit_row == ("workflow.retry_exhausted.dlq_recorded",)
+    assert dlq_row == ("dlq", "uc1_enquiry_qualification", subject_ref)
+    assert audit_row == ("workflow.retry_exhausted.dlq_recorded", "uc1.workflow")
 
 
 def test_rls_limits_reads_to_current_tenant(migrated_database_url: str) -> None:

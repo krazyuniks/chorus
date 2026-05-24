@@ -136,7 +136,7 @@ channel runnable status are separate claims.
 
 - [x] Widen projection contracts and DB constraints beyond
   `uc1_enquiry_qualification` and `enq_` subject refs.
-- [ ] Remove UC1-specific workflow type and actor hardcoding from shared
+- [x] Remove UC1-specific workflow type and actor hardcoding from shared
   activity-owned DLQ/outbox paths.
 - [ ] Generalise Tool Gateway approval package creation and apply semantics
   beyond the current calendar-shaped path.
@@ -376,6 +376,42 @@ channel runnable status are separate claims.
   the slice did not implement runtime workflows, connectors, replay, or UI
   behaviour.
 
+### 2026-05-24 - Activity-Owned DLQ / Outbox Correlation Generalisation
+
+- Scope: second P1 multi-use-case foundation slice for shared
+  activity-owned DLQ / outbox hardcoding only.
+- Files changed: shared workflow DTOs, `WorkflowSpine` command construction,
+  shared workflow activities, UC1 workflow constants, focused workflow /
+  persistence tests, workflow package instructions, and this backlog handoff.
+- Behaviour changed:
+  - shared tool-failure compensation and retry-exhaustion DLQ commands now
+    carry `workflow_type`, `workflow_actor_id`, `subject_id`, and
+    `subject_ref` from the use-case workflow correlation;
+  - activity-owned compensation and retry-DLQ audit records use the supplied
+    workflow actor instead of a hardcoded UC1 actor;
+  - activity-owned retry-DLQ workflow events persist the supplied
+    `workflow_type` and safe `subject_ref` instead of hardcoding
+    `uc1_enquiry_qualification` or omitting the subject ref;
+  - UC1 preserves its existing workflow actor through the use-case-owned
+    `UC1_WORKFLOW_ACTOR_ID` constant in `chorus/workflows/uc1.py`;
+  - the projection contract / DB identifier surface from the previous slice
+    was not changed, and the UC1-shaped `enquiry_summary` vocabulary was
+    intentionally left for the later subject-summary vocabulary slice.
+- Gates run:
+  - `uv run pytest tests/workflows/test_uc1_workflow.py tests/workflows/test_activities.py tests/persistence/test_postgres_foundation.py -rs`
+    - 5 passed and 13 skipped; the skipped persistence cases include the
+    updated DB-backed retry-DLQ assertion because local Postgres on
+    `localhost:5432` rejected the configured `chorus` user.
+  - `just test-replay` - green, 2 passed and 5 deselected.
+  - `just lint` - green, including ruff, pyright, and frontend type checking.
+  - `git diff --check` - green.
+  - `just contracts-check` - green via the commit hook.
+- Skipped gates: live `just db-migrate`, Redpanda projection tests, full
+  `just test`, eval, frontend e2e, and live-stack gates were not run; the
+  local Postgres credential failure blocked DB-backed verification, and the
+  slice did not implement runtime workflows, connectors, replay, contract, or
+  UI behaviour.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -423,13 +459,13 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: continue P1 multi-use-case foundation in Strategy order by removing UC1-specific workflow type and actor hardcoding from shared activity-owned DLQ/outbox paths.
+Current target slice: continue P1 multi-use-case foundation in Strategy order by generalising Tool Gateway approval package creation and apply semantics beyond the current calendar-shaped path.
 
-Previous slice completed: `contracts/projection/workflow_event.schema.json`, the generated projection model, and Postgres workflow-type / subject-ref checks now admit the declared UC1, UC2, and UC3 workflow families and safe root-subject prefixes. Preserve that surface unless a focused test proves it is wrong.
+Previous slice completed: shared WorkflowSpine compensation and retry-DLQ commands now carry `workflow_type`, `workflow_actor_id`, `subject_id`, and `subject_ref` from use-case correlation; shared activity-owned compensation and retry-DLQ audit / outbox writes use those fields instead of hardcoded UC1 workflow type or actor values. UC1 preserves its actor via `UC1_WORKFLOW_ACTOR_ID` in `chorus/workflows/uc1.py`. Preserve that surface unless a focused test proves it is wrong.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief.md, docs/domain-model.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/product-brief-uc3.md, and docs/domain-model-uc3.md. Keep the slice focused on shared activity-owned DLQ/outbox hardcoding only. Do not implement UC2 or UC3 workflows, intake contracts, connector adapters, provider routes, replay comparator code, generic approval package semantics, eval fixture schema breadth, or business-specific UI breadth in this slice.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief.md, docs/domain-model.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/product-brief-uc3.md, and docs/domain-model-uc3.md. Keep this slice focused on generic approval package creation and apply semantics in the Tool Gateway. Do not implement UC2 or UC3 workflows, intake contracts, connector adapters, provider routes, replay comparator code, eval fixture schema breadth, use-case-neutral subject-summary vocabulary, or business-specific UI breadth in this slice.
 
-Before editing, inspect `chorus/workflows/activities.py`, `chorus/workflows/types.py`, `chorus/workflows/spine.py`, `chorus/persistence/outbox.py`, `chorus/persistence/projection.py`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`, `tests/workflows/test_activities.py`, `tests/persistence/test_postgres_foundation.py`, and searches for hardcoded `uc1_enquiry_qualification`, UC1-only subject refs, or UC1-only actor identifiers in shared activity-owned DLQ/outbox paths. Preserve UC1 behaviour and existing tests. Keep UC1 workflow-specific constants in `chorus/workflows/uc1.py` where they are truly use-case-owned.
+Before editing, inspect `chorus/tool_gateway/gateway.py`, `chorus/connectors/types.py`, `chorus/connectors/uc1.py`, `chorus/persistence/projection.py`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`, `tests/tool_gateway/test_gateway.py`, `tests/persistence/test_postgres_foundation.py`, and searches for calendar-only approval package/apply assumptions such as `calendar_refs`, `calendar.create_hold`, `calendar.cancel_hold`, `approval_policy.calendar_write`, `approval_sla.calendar_write`, and approval-package `workflow_type` hardcoding. Preserve existing calendar approval behaviour and tests while making the package authority envelope generic enough for future approval-gated connector actions named in the UC1, UC2, and UC3 design docs.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.

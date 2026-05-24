@@ -21,8 +21,8 @@ the same primitives.
 - Workflow event writes go through `WorkflowSpine.emit` (raw) or
   `WorkflowSpine.step` (start + completion pair).
 - Preserve correlation fields: `tenant_id`, `correlation_id`, `workflow_id`,
-  and the use case's `subject_id` / `subject_ref` (UC1: `enquiry_id` /
-  `enquiry_ref`).
+  `workflow_type`, `workflow_actor_id`, and the use case's `subject_id` /
+  `subject_ref` (UC1: `enquiry_id` / `enquiry_ref`).
 - Workflow changes require focused workflow tests and replay coverage with
   `just test-replay`, or a documented exception.
 

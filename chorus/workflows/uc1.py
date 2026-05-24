@@ -41,6 +41,7 @@ from chorus.workflows.types import (
 )
 
 UC1_WORKFLOW_TYPE = "uc1_enquiry_qualification"
+UC1_WORKFLOW_ACTOR_ID = "uc1.workflow"
 
 UC1_AGENT_IO_CONTRACT = "contracts/llm_provider/uc1_agent_io.schema.json"
 
@@ -150,6 +151,7 @@ class Uc1EnquiryQualificationWorkflow:
             correlation_id=intake.correlation_id,
             workflow_id=workflow.info().workflow_id,
             workflow_type=UC1_WORKFLOW_TYPE,
+            workflow_actor_id=UC1_WORKFLOW_ACTOR_ID,
             subject_id=intake.enquiry_id,
             subject_ref=intake.enquiry_ref,
         )

@@ -22,6 +22,7 @@ from temporalio.worker import Replayer, Worker
 from chorus.workflows.spine import (
     ACTIVITY_INVOKE_AGENT_RUNTIME,
     ACTIVITY_INVOKE_TOOL_GATEWAY,
+    ACTIVITY_RECORD_RETRY_EXHAUSTION_DLQ,
     ACTIVITY_RECORD_WORKFLOW_EVENT,
 )
 from chorus.workflows.types import (
@@ -29,6 +30,8 @@ from chorus.workflows.types import (
     AgentInvocationResponse,
     EnquiryAttachmentSummary,
     EnquirySender,
+    RetryExhaustionDlqCommand,
+    RetryExhaustionDlqResult,
     ToolGatewayRequest,
     ToolGatewayResponse,
     Uc1EnquiryIntake,
@@ -123,6 +126,26 @@ def _gateway_activity_factory(*, verdict: str = "propose"):
         )
 
     return fake_gateway
+
+
+def _retry_exhaustion_dlq_activity_factory(commands: list[RetryExhaustionDlqCommand]):
+    @activity.defn(name=ACTIVITY_RECORD_RETRY_EXHAUSTION_DLQ)
+    async def fake_retry_exhaustion_dlq(
+        command: RetryExhaustionDlqCommand,
+    ) -> RetryExhaustionDlqResult:
+        commands.append(command)
+        return RetryExhaustionDlqResult(
+            outbox_id=str(uuid4()),
+            event_id=str(uuid4()),
+            audit_event_id=str(uuid4()),
+            action="workflow.retry_exhausted.dlq_recorded",
+            outbox_status="dlq",
+            verdict="recorded",
+            reason=command.failure_reason,
+            sequence=command.sequence,
+        )
+
+    return fake_retry_exhaustion_dlq
 
 
 @pytest.mark.asyncio
@@ -229,4 +252,42 @@ async def test_uc1_workflow_escalates_on_gateway_block() -> None:
     assert result.outcome == "escalated"
     assert result.escalation_reason == "tool gateway returned block"
     assert result.path[-1] == "escalate"
+    assert events[-1].event_type == "workflow.escalated"
+
+
+@pytest.mark.asyncio
+async def test_uc1_workflow_passes_correlation_to_retry_dlq_activity() -> None:
+    events: list[WorkflowEventCommand] = []
+    dlq_commands: list[RetryExhaustionDlqCommand] = []
+    intake = _sample_intake()
+
+    async with (
+        await WorkflowEnvironment.start_time_skipping() as env,
+        Worker(
+            env.client,
+            task_queue="test-uc1-retry-dlq",
+            workflows=[Uc1EnquiryQualificationWorkflow],
+            activities=[
+                _record_activity_factory(events),
+                _agent_activity_factory(failing=True),
+                _retry_exhaustion_dlq_activity_factory(dlq_commands),
+            ],
+        ),
+    ):
+        result = await env.client.execute_workflow(
+            "Uc1EnquiryQualificationWorkflow",
+            intake,
+            id="uc1-workflow-retry-dlq-test",
+            task_queue="test-uc1-retry-dlq",
+            result_type=Uc1WorkflowResult,
+        )
+
+    assert result.outcome == "escalated"
+    assert len(dlq_commands) == 1
+    command = dlq_commands[0]
+    assert command.workflow_type == "uc1_enquiry_qualification"
+    assert command.workflow_actor_id == "uc1.workflow"
+    assert command.subject_id == intake.enquiry_id
+    assert command.subject_ref == "enq_motor_private_001"
+    assert command.failed_step == "classification"
     assert events[-1].event_type == "workflow.escalated"

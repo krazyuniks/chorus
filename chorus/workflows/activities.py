@@ -1,4 +1,4 @@
-"""Temporal activities for the UC1 enquiry-qualification workflow.
+"""Temporal activities for workflows on the shared spine.
 
 Activity names are workflow-agnostic (`chorus.*`) since they are reused across
 every use case on the shared spine. Activities own the IO, persistence, event
@@ -208,8 +208,9 @@ def _record_tool_failure_compensation(
     audit_event_id = uuid5(
         NAMESPACE_URL,
         (
-            "chorus:uc1:connector-failure-compensation:"
-            f"{command.tenant_id}:{command.workflow_id}:{command.idempotency_key}"
+            "chorus:workflow:connector-failure-compensation:"
+            f"{command.workflow_type}:{command.tenant_id}:"
+            f"{command.workflow_id}:{command.idempotency_key}"
         ),
     )
     audit_event = AuditEvent.model_validate(
@@ -220,7 +221,7 @@ def _record_tool_failure_compensation(
             "tenant_id": command.tenant_id,
             "correlation_id": command.correlation_id,
             "workflow_id": command.workflow_id,
-            "actor": {"type": "system", "id": "uc1.workflow"},
+            "actor": {"type": "system", "id": command.workflow_actor_id},
             "category": "connector",
             "action": action,
             "verdict": "recorded",
@@ -236,6 +237,8 @@ def _record_tool_failure_compensation(
                     "status": "escalated",
                     "reason": command.failure_reason,
                     "subject_id": command.subject_id,
+                    "subject_ref": command.subject_ref,
+                    "workflow_type": command.workflow_type,
                 },
             },
         }
@@ -318,8 +321,9 @@ def record_retry_exhaustion_dlq(
                 uuid5(
                     NAMESPACE_URL,
                     (
-                        "chorus:uc1:retry-exhaustion-event:"
-                        f"{command.tenant_id}:{command.workflow_id}:{command.sequence}"
+                        "chorus:workflow:retry-exhaustion-event:"
+                        f"{command.workflow_type}:{command.tenant_id}:"
+                        f"{command.workflow_id}:{command.sequence}"
                     ),
                 )
             ),
@@ -328,8 +332,9 @@ def record_retry_exhaustion_dlq(
             "tenant_id": command.tenant_id,
             "correlation_id": command.correlation_id,
             "workflow_id": command.workflow_id,
-            "workflow_type": "uc1_enquiry_qualification",
+            "workflow_type": command.workflow_type,
             "subject_id": command.subject_id,
+            "subject_ref": command.subject_ref,
             "sequence": command.sequence,
             "step": command.failed_step,
             "payload": {
@@ -341,14 +346,16 @@ def record_retry_exhaustion_dlq(
                 "retry_attempts": command.attempts,
                 "dlq_status": "dlq",
                 "reason": command.failure_reason,
+                "subject_ref": command.subject_ref,
             },
         }
     )
     audit_event_id = uuid5(
         NAMESPACE_URL,
         (
-            "chorus:uc1:retry-exhaustion-dlq:"
-            f"{command.tenant_id}:{command.workflow_id}:{command.sequence}"
+            "chorus:workflow:retry-exhaustion-dlq:"
+            f"{command.workflow_type}:{command.tenant_id}:"
+            f"{command.workflow_id}:{command.sequence}"
         ),
     )
     audit_event = AuditEvent.model_validate(
@@ -359,7 +366,7 @@ def record_retry_exhaustion_dlq(
             "tenant_id": command.tenant_id,
             "correlation_id": command.correlation_id,
             "workflow_id": command.workflow_id,
-            "actor": {"type": "system", "id": "uc1.workflow"},
+            "actor": {"type": "system", "id": command.workflow_actor_id},
             "category": "workflow",
             "action": action,
             "verdict": "recorded",
@@ -369,6 +376,9 @@ def record_retry_exhaustion_dlq(
                     "failed_step": command.failed_step,
                     "attempts": command.attempts,
                     "reason": command.failure_reason,
+                    "subject_id": command.subject_id,
+                    "subject_ref": command.subject_ref,
+                    "workflow_type": command.workflow_type,
                 },
                 "dlq": {
                     "status": "dlq",

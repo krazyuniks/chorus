@@ -25,6 +25,7 @@ class WorkflowCorrelation:
     correlation_id: str
     workflow_id: str
     workflow_type: str
+    workflow_actor_id: str
     subject_id: str
     subject_ref: str
 
@@ -155,7 +156,10 @@ class ToolFailureCompensationCommand:
     tenant_id: str
     correlation_id: str
     workflow_id: str
+    workflow_type: str
+    workflow_actor_id: str
     subject_id: str
+    subject_ref: str
     invocation_id: str
     agent_id: str
     tool_name: str
@@ -178,7 +182,10 @@ class RetryExhaustionDlqCommand:
     tenant_id: str
     correlation_id: str
     workflow_id: str
+    workflow_type: str
+    workflow_actor_id: str
     subject_id: str
+    subject_ref: str
     sequence: int
     failed_step: str
     failed_activity: str
