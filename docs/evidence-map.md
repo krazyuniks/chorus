@@ -85,7 +85,7 @@ The projection sink derives read models for inspection.
 
 | Claim | Artefacts | Status |
 |---|---|---|
-| Domain events project into read models | `chorus/persistence/projection.py` (workflow + calendar projection), `chorus/persistence/redpanda.py`, `tests/persistence/test_redpanda_projection.py` | The projection port keeps the workflow + calendar surface. |
+| Domain events project into read models | `chorus/persistence/projection.py` (workflow + calendar projection), `chorus/persistence/redpanda.py`, `contracts/projection/workflow_event.schema.json`, `tests/persistence/test_redpanda_projection.py` | The projection port keeps the workflow + calendar surface. Its shared event contract and Postgres checks now admit the declared UC1, UC2, and UC3 workflow families; runtime projection remains UC1 until later R4 slices add UC2 and UC3 workflows. |
 | The read surface is read-only | `chorus/bff/app.py` (per-port `PortReaders` dependency), `frontend/src/routes/` | Implementation in code. |
 | Replaying the same events twice converges | `tests/persistence/test_redpanda_projection.py`, `chorus/eval/invariants.py` (`assert_projection_convergence`) | Implementation in code. |
 

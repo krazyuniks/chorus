@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from chorus.contracts import check
 from chorus.contracts.gen import model_output_path, schema_files
@@ -47,6 +48,7 @@ from chorus.contracts.generated.intake.uc1.web_form_channel_enquiry import (
 from chorus.contracts.generated.llm_provider.model_route_version import ModelRouteVersion
 from chorus.contracts.generated.llm_provider.provider_catalogue import ProviderCatalogue
 from chorus.contracts.generated.llm_provider.uc1_agent_io import Uc1AgentIO
+from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -67,6 +69,39 @@ def test_contract_schemas_have_samples_and_generated_models() -> None:
 
 def _sample(rel: str) -> Any:
     return json.loads((ROOT / rel).read_text())
+
+
+def test_projection_workflow_event_accepts_r4_subject_identifiers() -> None:
+    cases = [
+        ("uc1_enquiry_qualification", "enq_motor_private_001"),
+        (
+            "uc2_legal_services_intake_conflict_check",
+            "legal_intake_corporate_referral_001",
+        ),
+        ("uc3_ifa_suitability_intake", "advice_enquiry_web_001"),
+    ]
+
+    for workflow_type, subject_ref in cases:
+        event = WorkflowEvent.model_validate(
+            {
+                "schema_version": "1.0.0",
+                "event_id": str(uuid4()),
+                "event_type": "workflow.started",
+                "occurred_at": "2026-04-29T12:00:00Z",
+                "tenant_id": "tenant_demo",
+                "correlation_id": f"cor_{subject_ref}",
+                "workflow_id": f"{workflow_type}-{subject_ref}",
+                "workflow_type": workflow_type,
+                "subject_id": str(uuid4()),
+                "subject_ref": subject_ref,
+                "sequence": 1,
+                "step": "intake",
+                "payload": {"subject": subject_ref},
+            }
+        )
+
+        assert event.workflow_type.value == workflow_type
+        assert event.subject_ref == subject_ref
 
 
 def test_generated_models_validate_representative_samples() -> None:

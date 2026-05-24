@@ -57,19 +57,22 @@
     },
     "workflow_type": {
       "type": "string",
+      "description": "Workflow family on the shared spine for declared UC1, UC2, or UC3.",
       "enum": [
-        "uc1_enquiry_qualification"
+        "uc1_enquiry_qualification",
+        "uc2_legal_services_intake_conflict_check",
+        "uc3_ifa_suitability_intake"
       ]
     },
     "subject_id": {
       "type": "string",
       "format": "uuid",
-      "description": "The subject the workflow operates on (UC1: enquiry id)."
+      "description": "Root subject UUID: UC1 enquiry, UC2 legal intake, or UC3 advice enquiry."
     },
     "subject_ref": {
       "type": "string",
-      "pattern": "^enq_[A-Za-z0-9_-]+$",
-      "description": "Subject reference in the use case's ubiquitous language."
+      "pattern": "^(enq|legal_intake|advice_enquiry)_[A-Za-z0-9_-]+$",
+      "description": "Safe root-subject ref: `enq_`, `legal_intake_`, or `advice_enquiry_`."
     },
     "sequence": {
       "type": "integer",

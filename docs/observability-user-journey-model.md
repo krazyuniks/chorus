@@ -92,7 +92,7 @@ categorical values.
 | `chorus.tenant_id` | Tenant join key. | Existing span helper supports this. |
 | `chorus.correlation_id` | Cross-surface workflow/business correlation. | Existing span helper supports this. |
 | `chorus.workflow_id` | Temporal workflow join key. | Existing span helper supports this. |
-| `chorus.workflow.type` | Workflow family such as `uc1_enquiry_qualification`. | Low-cardinality. |
+| `chorus.workflow.type` | Declared workflow family such as `uc1_enquiry_qualification`, `uc2_legal_services_intake_conflict_check`, or `uc3_ifa_suitability_intake`. | Low-cardinality. |
 | `chorus.workflow.step` | Current workflow step. | Use bounded step names. |
 | `chorus.invocation_id` | Agent invocation join key. | Set on Agent Runtime spans where available. |
 | `chorus.agent.id` | Governed agent ID. | Stable logical agent, not a cloud identity. |

@@ -8,7 +8,7 @@ The schemas are organised around the six named ports of the hexagon plus the eva
 - `llm_provider/` — LLM provider port: agent IO envelopes, the provider catalogue, immutable model-route versions, and route metadata (ADR 0018).
 - `connector/` — Tool Gateway connector contracts: the `tool_call` and `gateway_verdict` envelopes plus per-tool argument schemas. `connector/uc1/` holds UC1-specific tool payloads.
 - `audit/` — audit ports: the decision-trail record (`agent_invocation_record`), the full-fidelity transcript, and the tool-action `audit_event` (ADR 0019).
-- `projection/` — domain event-stream contract (`workflow_event`) and read-model schemas.
+- `projection/` — domain event-stream contract (`workflow_event`) and read-model schemas. The shared workflow event contract admits the declared UC1, UC2, and UC3 workflow families and their safe root-subject refs; use-case-specific payload breadth lands in later slices.
 - `observability/` — observability sink contracts.
 - `eval/` — eval fixture expectation schema for invariants plus use-case scenarios (ADR 0019).
 

@@ -20,6 +20,8 @@ class EventType(StrEnum):
 
 class WorkflowType(StrEnum):
     UC1_ENQUIRY_QUALIFICATION = "uc1_enquiry_qualification"
+    UC2_LEGAL_SERVICES_INTAKE_CONFLICT_CHECK = "uc2_legal_services_intake_conflict_check"
+    UC3_IFA_SUITABILITY_INTAKE = "uc3_ifa_suitability_intake"
 
 
 class WorkflowEvent(BaseModel):
@@ -33,15 +35,21 @@ class WorkflowEvent(BaseModel):
     tenant_id: Annotated[str, Field(min_length=1)]
     correlation_id: Annotated[str, Field(pattern="^cor_[A-Za-z0-9_-]+$")]
     workflow_id: Annotated[str, Field(min_length=1)]
-    workflow_type: WorkflowType
+    workflow_type: Annotated[
+        WorkflowType,
+        Field(description="Workflow family on the shared spine for declared UC1, UC2, or UC3."),
+    ]
     subject_id: Annotated[
-        UUID | None, Field(description="The subject the workflow operates on (UC1: enquiry id).")
+        UUID | None,
+        Field(
+            description="Root subject UUID: UC1 enquiry, UC2 legal intake, or UC3 advice enquiry."
+        ),
     ] = None
     subject_ref: Annotated[
         str | None,
         Field(
-            description="Subject reference in the use case's ubiquitous language.",
-            pattern="^enq_[A-Za-z0-9_-]+$",
+            description="Safe root-subject ref: `enq_`, `legal_intake_`, or `advice_enquiry_`.",
+            pattern="^(enq|legal_intake|advice_enquiry)_[A-Za-z0-9_-]+$",
         ),
     ] = None
     sequence: Annotated[int, Field(ge=1)]

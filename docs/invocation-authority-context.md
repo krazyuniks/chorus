@@ -68,7 +68,7 @@ invocation_authority_context
   tenant_id
   correlation_id
   workflow_id
-  workflow_type                -- uc1_enquiry_qualification initially
+  workflow_type                -- one declared R4 workflow family; UC1 runnable today
   invocation_id
   parent_invocation_id         -- nullable
   agent_id

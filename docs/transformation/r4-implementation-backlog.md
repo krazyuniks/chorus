@@ -134,7 +134,7 @@ channel runnable status are separate claims.
 
 ### P1 - Multi-Use-Case Foundation
 
-- [ ] Widen projection contracts and DB constraints beyond
+- [x] Widen projection contracts and DB constraints beyond
   `uc1_enquiry_qualification` and `enq_` subject refs.
 - [ ] Remove UC1-specific workflow type and actor hardcoding from shared
   activity-owned DLQ/outbox paths.
@@ -338,6 +338,44 @@ channel runnable status are separate claims.
   documentation and backlog / pointer updates. No contracts, runtime code,
   connectors, provider routes, replay code, or database schema changed.
 
+### 2026-05-24 - Projection Identifier Generalisation
+
+- Scope: first P1 multi-use-case foundation slice for projection contract and
+  DB-constraint generalisation only.
+- Files changed: `contracts/projection/workflow_event.schema.json`, generated
+  projection model, Postgres current-state baseline, focused contract and
+  persistence tests, projection / persistence documentation references, and
+  this backlog handoff.
+- Behaviour changed:
+  - the shared `workflow_event` contract now admits
+    `uc1_enquiry_qualification`,
+    `uc2_legal_services_intake_conflict_check`, and
+    `uc3_ifa_suitability_intake`;
+  - shared projection subject refs now admit `enq_`, `legal_intake_`, and
+    `advice_enquiry_` safe root-subject prefixes;
+  - Postgres `workflow_read_models`, `outbox_events`, and
+    `approval_packages` workflow-type checks mirror the declared workflow
+    family set;
+  - UC1 connector contracts, UC1 connector `enq_` argument refs, eval fixture
+    enums, DLQ code, gateway approval creation / apply semantics, and UI
+    breadth were intentionally left for later P1 / P2 slices.
+- Gates run:
+  - `just contracts-gen` - regenerated the projection Pydantic model.
+  - `just contracts-check` - green after regeneration.
+  - `uv run pytest tests/test_contracts.py tests/persistence/test_postgres_foundation.py -rs`
+    - 4 passed and 13 skipped; the skipped persistence cases include the new
+    database-backed R4 identifier-constraint checks because local Postgres on
+    `localhost:5432` rejected the configured `chorus` user.
+  - `uv run pytest tests/bff/test_app_unit.py tests/workflows/test_activities.py`
+    - green, 5 passed.
+  - `just lint` - green after shortening generated schema descriptions.
+  - `git diff --check` - green.
+- Skipped gates: live `just db-migrate`, Redpanda projection tests, full
+  `just test`, replay, eval, frontend e2e, and live-stack gates were not run;
+  the local Postgres credential failure blocked DB-backed verification, and
+  the slice did not implement runtime workflows, connectors, replay, or UI
+  behaviour.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -385,16 +423,18 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: begin P1 multi-use-case foundation in Strategy order by widening projection contracts and DB constraints beyond `uc1_enquiry_qualification` and `enq_` subject refs.
+Current target slice: continue P1 multi-use-case foundation in Strategy order by removing UC1-specific workflow type and actor hardcoding from shared activity-owned DLQ/outbox paths.
 
-Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief.md, docs/domain-model.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/product-brief-uc3.md, and docs/domain-model-uc3.md. Keep the slice focused on projection contract / schema / DB-constraint generalisation and matching docs/backlog updates. Do not implement UC2 or UC3 workflows, intake contracts, connector adapters, provider routes, replay comparator code, or business-specific UI breadth in this slice.
+Previous slice completed: `contracts/projection/workflow_event.schema.json`, the generated projection model, and Postgres workflow-type / subject-ref checks now admit the declared UC1, UC2, and UC3 workflow families and safe root-subject prefixes. Preserve that surface unless a focused test proves it is wrong.
 
-Before editing, inspect the current projection contracts, Postgres baseline, projection persistence, BFF projection readers, projection tests, and any doctor / evidence references that enforce `uc1_enquiry_qualification` workflow type or `enq_` subject refs. Generalise only the shared projection surfaces needed for UC1, UC2, and UC3 subject/workflow identifiers; preserve UC1 behaviour and existing tests.
+Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md, docs/product-brief.md, docs/domain-model.md, docs/product-brief-uc2.md, docs/domain-model-uc2.md, docs/product-brief-uc3.md, and docs/domain-model-uc3.md. Keep the slice focused on shared activity-owned DLQ/outbox hardcoding only. Do not implement UC2 or UC3 workflows, intake contracts, connector adapters, provider routes, replay comparator code, generic approval package semantics, eval fixture schema breadth, or business-specific UI breadth in this slice.
+
+Before editing, inspect `chorus/workflows/activities.py`, `chorus/workflows/types.py`, `chorus/workflows/spine.py`, `chorus/persistence/outbox.py`, `chorus/persistence/projection.py`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`, `tests/workflows/test_activities.py`, `tests/persistence/test_postgres_foundation.py`, and searches for hardcoded `uc1_enquiry_qualification`, UC1-only subject refs, or UC1-only actor identifiers in shared activity-owned DLQ/outbox paths. Preserve UC1 behaviour and existing tests. Keep UC1 workflow-specific constants in `chorus/workflows/uc1.py` where they are truly use-case-owned.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
 - Rewrite the body of the `## Next Continuation Prompt` section in the backlog with the next slice's prompt, in Strategy order. If R4 is fully closed, write the literal `R4-COMPLETE` there instead.
-- Run relevant focused gates for the files touched, including `git diff --check` and `just contracts-check` if contract files change. If a documented gate cannot run because the live stack is unavailable, record the skipped gate and reason.
+- Run relevant focused gates for the files touched, including `git diff --check`. Run `just contracts-check` if contract files change. If a documented gate cannot run because the live stack is unavailable, record the skipped gate and reason.
 - Stage everything and create one Conventional Commit (`type(scope): description`). Do not add `Co-Authored-By` or any AI attribution.
 - Leave the working tree clean.
 

@@ -8,6 +8,9 @@ for local governance inspection.
 - `migrations/` starts from `001_current_state_baseline.sql`, the current R4
   local POC schema baseline. Earlier experimental migration history lives in
   git history, not in the executable migration directory.
+- The projection, outbox, and approval-package workflow-type checks admit the
+  declared UC1, UC2, and UC3 workflow families. Calendar-specific approval
+  action constraints remain in place until the approval-generalisation slice.
 - `seeds/` contains idempotent local demo data. The initial seed creates
   `tenant_demo` and `tenant_demo_alt` for tenant-isolation evidence. The
   provider-governance seed mirrors local route materialisation into

@@ -157,10 +157,15 @@ CREATE TABLE IF NOT EXISTS workflow_read_models (
     ),
     CONSTRAINT workflow_read_models_sequence_non_negative CHECK (last_event_sequence >= 0),
     CONSTRAINT workflow_read_models_workflow_type_check CHECK (
-        workflow_type IN ('uc1_enquiry_qualification')
+        workflow_type IN (
+            'uc1_enquiry_qualification',
+            'uc2_legal_services_intake_conflict_check',
+            'uc3_ifa_suitability_intake'
+        )
     ),
     CONSTRAINT workflow_read_models_subject_ref_shape CHECK (
-        subject_ref IS NULL OR subject_ref ~ '^enq_[A-Za-z0-9_-]+$'
+        subject_ref IS NULL
+        OR subject_ref ~ '^(enq|legal_intake|advice_enquiry)_[A-Za-z0-9_-]+$'
     ),
     UNIQUE (tenant_id, correlation_id)
 );
@@ -348,9 +353,16 @@ CREATE TABLE IF NOT EXISTS outbox_events (
     CONSTRAINT outbox_sequence_positive CHECK (sequence >= 1),
     CONSTRAINT outbox_status_check CHECK (status IN ('pending', 'publishing', 'sent', 'failed', 'dlq')),
     CONSTRAINT outbox_attempts_non_negative CHECK (attempts >= 0),
-    CONSTRAINT outbox_workflow_type_check CHECK (workflow_type IN ('uc1_enquiry_qualification')),
+    CONSTRAINT outbox_workflow_type_check CHECK (
+        workflow_type IN (
+            'uc1_enquiry_qualification',
+            'uc2_legal_services_intake_conflict_check',
+            'uc3_ifa_suitability_intake'
+        )
+    ),
     CONSTRAINT outbox_subject_ref_shape CHECK (
-        subject_ref IS NULL OR subject_ref ~ '^enq_[A-Za-z0-9_-]+$'
+        subject_ref IS NULL
+        OR subject_ref ~ '^(enq|legal_intake|advice_enquiry)_[A-Za-z0-9_-]+$'
     ),
     UNIQUE (tenant_id, workflow_id, sequence)
 );
@@ -543,7 +555,11 @@ CREATE TABLE IF NOT EXISTS approval_packages (
         correlation_id ~ '^cor_[A-Za-z0-9_-]+$'
     ),
     CONSTRAINT approval_packages_workflow_type_check CHECK (
-        workflow_type IN ('uc1_enquiry_qualification')
+        workflow_type IN (
+            'uc1_enquiry_qualification',
+            'uc2_legal_services_intake_conflict_check',
+            'uc3_ifa_suitability_intake'
+        )
     ),
     CONSTRAINT approval_packages_tool_name_check CHECK (
         tool_name IN ('calendar.create_hold', 'calendar.cancel_hold')
@@ -747,11 +763,16 @@ ALTER TABLE tool_action_audit ADD CONSTRAINT tool_action_tool_name_check CHECK (
 ALTER TABLE workflow_read_models DROP CONSTRAINT IF EXISTS workflow_read_models_step_check;
 ALTER TABLE workflow_read_models DROP CONSTRAINT IF EXISTS workflow_read_models_workflow_type_check;
 ALTER TABLE workflow_read_models ADD CONSTRAINT workflow_read_models_workflow_type_check CHECK (
-    workflow_type IN ('uc1_enquiry_qualification')
+    workflow_type IN (
+        'uc1_enquiry_qualification',
+        'uc2_legal_services_intake_conflict_check',
+        'uc3_ifa_suitability_intake'
+    )
 );
 ALTER TABLE workflow_read_models DROP CONSTRAINT IF EXISTS workflow_read_models_subject_ref_shape;
 ALTER TABLE workflow_read_models ADD CONSTRAINT workflow_read_models_subject_ref_shape CHECK (
-    subject_ref IS NULL OR subject_ref ~ '^enq_[A-Za-z0-9_-]+$'
+    subject_ref IS NULL
+    OR subject_ref ~ '^(enq|legal_intake|advice_enquiry)_[A-Za-z0-9_-]+$'
 );
 
 ALTER TABLE workflow_history_events DROP CONSTRAINT IF EXISTS workflow_history_step_check;
@@ -787,16 +808,25 @@ ALTER TABLE outbox_events ADD CONSTRAINT outbox_status_check CHECK (
 );
 ALTER TABLE outbox_events DROP CONSTRAINT IF EXISTS outbox_workflow_type_check;
 ALTER TABLE outbox_events ADD CONSTRAINT outbox_workflow_type_check CHECK (
-    workflow_type IN ('uc1_enquiry_qualification')
+    workflow_type IN (
+        'uc1_enquiry_qualification',
+        'uc2_legal_services_intake_conflict_check',
+        'uc3_ifa_suitability_intake'
+    )
 );
 ALTER TABLE outbox_events DROP CONSTRAINT IF EXISTS outbox_subject_ref_shape;
 ALTER TABLE outbox_events ADD CONSTRAINT outbox_subject_ref_shape CHECK (
-    subject_ref IS NULL OR subject_ref ~ '^enq_[A-Za-z0-9_-]+$'
+    subject_ref IS NULL
+    OR subject_ref ~ '^(enq|legal_intake|advice_enquiry)_[A-Za-z0-9_-]+$'
 );
 
 ALTER TABLE approval_packages DROP CONSTRAINT IF EXISTS approval_packages_workflow_type_check;
 ALTER TABLE approval_packages ADD CONSTRAINT approval_packages_workflow_type_check CHECK (
-    workflow_type IN ('uc1_enquiry_qualification')
+    workflow_type IN (
+        'uc1_enquiry_qualification',
+        'uc2_legal_services_intake_conflict_check',
+        'uc3_ifa_suitability_intake'
+    )
 );
 
 CREATE INDEX IF NOT EXISTS agent_registry_tenant_role_idx

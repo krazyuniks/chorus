@@ -62,6 +62,7 @@ def _workflow_event(
     tenant_id: str,
     workflow_id: str,
     sequence: int,
+    workflow_type: str = "uc1_enquiry_qualification",
     event_type: str = "workflow.started",
     step: str | None = "intake",
     subject_ref: str = "enq_test_001",
@@ -75,7 +76,7 @@ def _workflow_event(
             "tenant_id": tenant_id,
             "correlation_id": f"cor_{workflow_id.replace('-', '_')}",
             "workflow_id": workflow_id,
-            "workflow_type": "uc1_enquiry_qualification",
+            "workflow_type": workflow_type,
             "subject_id": str(uuid4()),
             "subject_ref": subject_ref,
             "sequence": sequence,
@@ -175,6 +176,45 @@ def test_projection_store_records_read_model_history_and_outbox(
     assert read_model is not None
     assert read_model.workflow_type == "uc1_enquiry_qualification"
     assert read_model.subject_ref == "enq_test_001"
+
+
+@pytest.mark.parametrize(
+    ("workflow_type", "subject_ref"),
+    [
+        ("uc1_enquiry_qualification", "enq_projection_001"),
+        (
+            "uc2_legal_services_intake_conflict_check",
+            "legal_intake_projection_001",
+        ),
+        ("uc3_ifa_suitability_intake", "advice_enquiry_projection_001"),
+    ],
+)
+def test_projection_constraints_accept_r4_use_case_identifiers(
+    migrated_database_url: str,
+    workflow_type: str,
+    subject_ref: str,
+) -> None:
+    workflow_id = f"{workflow_type.replace('_', '-')}-{uuid4().hex[:8]}"
+    with psycopg.connect(migrated_database_url) as conn:
+        conn.execute("SELECT set_config('app.tenant_id', 'tenant_demo', false)")
+        store = ProjectionStore(conn)
+        event = _workflow_event(
+            tenant_id="tenant_demo",
+            workflow_id=workflow_id,
+            workflow_type=workflow_type,
+            sequence=1,
+            event_type="workflow.started",
+            subject_ref=subject_ref,
+        )
+        store.record_workflow_event(event)
+        store.apply_workflow_event(event)
+        conn.commit()
+
+        read_model = store.get_workflow("tenant_demo", workflow_id)
+
+    assert read_model is not None
+    assert read_model.workflow_type == workflow_type
+    assert read_model.subject_ref == subject_ref
 
 
 def test_outbox_claim_sent_and_failed_transitions(migrated_database_url: str) -> None:
