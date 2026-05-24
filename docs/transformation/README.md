@@ -1,7 +1,7 @@
 ---
 type: project-doc
 status: active
-date: 2026-05-19
+date: 2026-05-24
 ---
 
 # Chorus Design Control
@@ -41,6 +41,9 @@ Production deployment is out of scope for the local POC.
 - [engineering-thesis.md](engineering-thesis.md) is the thesis statement
   in long form: named ports, LLM provider port design, two audit ports,
   and the replay-as-eval-substrate pattern.
+- [r4-design-decisions.md](r4-design-decisions.md) records the accepted R4
+  sequencing, runnable-channel, replay-comparison, approval-package, and
+  route-alignment decisions.
 - [code-refactor-directions.md](code-refactor-directions.md) names the code
   direction required to keep the implementation aligned with the thesis.
 - [eval-reshape-directions.md](eval-reshape-directions.md) shifts eval from

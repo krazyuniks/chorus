@@ -94,6 +94,10 @@ Unless a later R4 design decision narrows scope, a use case is runnable when:
   route when the required local credentials are present;
 - all skipped live-provider or live-stack gates are recorded with reasons.
 
+For channel coverage, use the distinction in
+`docs/transformation/r4-design-decisions.md`: use-case runnable status and
+channel runnable status are separate claims.
+
 ## Backlog
 
 ### P0 - Current-Docs Alignment And R4 Scoping
@@ -106,12 +110,12 @@ Unless a later R4 design decision narrows scope, a use case is runnable when:
   and SQL comments also read as current-state artefacts. The current migration
   chain still contains old executable SQL and should be squashed or replaced in
   a dedicated DB-baseline slice rather than edited casually.
-- [ ] Write the R4 design decisions note covering:
-  - [ ] whether R4 completes UC1 broker-firm-side persistence before UC2/UC3;
-  - [ ] what counts as "runnable" for channel coverage;
-  - [ ] what cross-provider replay compares;
-  - [ ] how generic approval packages work beyond calendar writes;
-  - [ ] how provider route catalogue, DB policy, provider catalogue rows, UI,
+- [x] Write the R4 design decisions note covering:
+  - [x] whether R4 completes UC1 broker-firm-side persistence before UC2/UC3;
+  - [x] what counts as "runnable" for channel coverage;
+  - [x] what cross-provider replay compares;
+  - [x] how generic approval packages work beyond calendar writes;
+  - [x] how provider route catalogue, DB policy, provider catalogue rows, UI,
     and eval route selection stay aligned.
 - [ ] Write `docs/product-brief-uc2.md`.
 - [ ] Write `docs/domain-model-uc2.md`.
@@ -250,6 +254,31 @@ Unless a later R4 design decision narrows scope, a use case is runnable when:
   only, and the local Postgres service was not available with the configured
   credentials for migration execution.
 
+### 2026-05-24 - R4 Design Decisions
+
+- Scope: design-control note for R4 sequencing, runnable channel coverage,
+  cross-provider replay comparison, generic approval packages, and provider
+  route alignment.
+- Files changed: `docs/transformation/r4-design-decisions.md`,
+  `docs/transformation/README.md`, and this backlog handoff.
+- Decisions recorded:
+  - UC2 and UC3 product briefs/domain models come before runtime breadth, but
+    UC2/UC3 runtime implementation waits until UC1 broker-firm-side connector
+    persistence is complete.
+  - Use-case runnable status and channel runnable status are separate claims.
+  - Cross-provider replay uses the tiered comparator from the eval direction,
+    not exact live-provider output equality.
+  - Approval packages are generic Tool Gateway authority envelopes; calendar
+    writes are only the current local subset.
+  - Live-provider routes are usable only when executable catalogue, DB policy,
+    route versions, provider catalogue rows, BFF views, and eval selection
+    agree.
+- Gates run:
+  - `git diff --check` - green.
+- Skipped gates: `just doctor`, `just contracts-check`, `just test`, replay,
+  eval, frontend, and e2e gates were not run because this slice only adds a
+  prescriptive design note and backlog/index updates.
+
 ## Session Cadence
 
 A session is one autonomous agent invocation. Each session must complete a
@@ -297,16 +326,11 @@ We are in /home/ryan/Work/chorus. Continue the Chorus R4 preflight using docs/tr
 
 Read AGENTS.md and docs/transformation/r4-implementation-backlog.md (including its Session Cadence section), then run `git status --short --branch`. Preserve unrelated user changes.
 
-Current target slice: write the R4 design decisions note in Strategy order. Create the note under docs/transformation/ and update docs/transformation/README.md if needed so it is part of the current design-control set.
+Current target slice: write the UC2 product brief and UC2 domain model in Strategy order. Create docs/product-brief-uc2.md and docs/domain-model-uc2.md.
 
-The note must cover these decisions:
-- whether R4 completes UC1 broker-firm-side persistence before UC2/UC3;
-- what counts as "runnable" for channel coverage;
-- what cross-provider replay compares;
-- how generic approval packages work beyond calendar writes;
-- how provider route catalogue, DB policy, provider catalogue rows, UI, and eval route selection stay aligned.
+Before encoding UC2 conduct hooks, verify current SRA and UK AML regulatory references from official sources. Use the architecture authority order from AGENTS.md plus docs/transformation/r4-design-decisions.md. Keep this slice focused on UC2 docs and matching backlog/docs updates. Do not implement UC2 contracts, workflow code, connector adapters, provider routes, replay code, or database schema changes in this slice.
 
-Use the architecture authority order from AGENTS.md. Keep this slice focused on design decisions and matching backlog/docs updates. Do not implement UC2, UC3, provider routes, replay code, or database schema changes in this slice.
+The UC2 brief/model must cover actors and roles, inbound artefacts, lifecycle records and state machine, commands and events, value objects and safe refs, approval points, policies and conduct invariants, connector inventory, failure/escalation paths, field placement across ports, banned/ambiguous terms, and R4 local POC boundaries.
 
 End-of-session contract (mandatory; see Session Cadence in the backlog):
 - Update checkboxes and evidence notes for the slice you completed.
