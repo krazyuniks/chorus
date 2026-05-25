@@ -62,6 +62,7 @@ surfaces such as the frontend dev server remain non-gating.
 | `just status` | Compose service status. |
 | `just logs <service>` | Tail logs for one service. |
 | `just doctor` | Scaffold and fail-fast required stack readiness checks. |
+| `just service-import-contracts` | Verify service pyprojects declare dependencies used by their service-owned `chorus` entrypoints. |
 | `just contracts-check` | Schema, generated-model, and sample drift gate. |
 | `just test` / `just test-replay` | Python tests; Temporal replay tests. |
 | `just lint` / `just fmt` | Linters and formatters. |
@@ -407,6 +408,7 @@ activation, and full fixture playback land in a later phase.
 | `just doctor` reports `RestartCount > 0` | A container restarted since it was created. | Inspect `just logs <service>` and recreate only after preserving the evidence needed for the investigation. |
 | `just doctor` reports an unapplied migration or checksum mismatch | Postgres schema state is behind the repo, or an applied migration was edited. | Run `just db-migrate` for unapplied migrations. For checksum drift, create a new migration rather than editing the applied file. |
 | `just doctor` reports missing Schema Registry subjects | Declared `x-subject` contracts are not registered. | Run `just schemas-register`; it registers missing declared subjects without creating new versions for subjects already present. |
+| `just service-import-contracts` reports a missing dependency | A service-owned `chorus` entrypoint now reaches a third-party runtime import not declared in that service's `services/<name>/pyproject.toml`. | Add the dependency to that service pyproject and rebuild the image with `just up`, or update the explicit service import contract if the Dockerfile entrypoint changed. |
 | Docker compose fails validation | An unset variable lacks a `${VAR:-default}` fallback. | Run `./scripts/dc config` to see the rendered file; add the default in `compose.yml`. |
 | Pre-commit hooks reject a commit | A lint or contracts gate failed. | Run `just hooks` to reproduce outside the commit. Do not bypass with `--no-verify`. |
 | A workflow is stuck | A long-poll, a wait, or a deadlocked dependency. | Inspect the run in the Temporal UI at `http://localhost:8233`; terminate or reset from there. Never wipe Postgres to clear a stuck run; the audit trail is evidence. |
@@ -430,7 +432,8 @@ gate fails on the next regeneration.
 
 ## CI gates
 
-`.github/workflows/ci.yml` runs lint, contracts-check, doctor, Python tests,
-and frontend lint and test on every push and pull request. `replay.yml` runs
-the Temporal replay coverage; `eval.yml` runs the eval fixtures. Treat a red CI
-as the same severity as a red local `just doctor`.
+`.github/workflows/ci.yml` runs lint, service import contracts,
+contracts-check, doctor, Python tests, and frontend lint and test on every push
+and pull request. `replay.yml` runs the Temporal replay coverage; `eval.yml`
+runs the eval fixtures. Treat a red CI as the same severity as a red local
+`just doctor`.

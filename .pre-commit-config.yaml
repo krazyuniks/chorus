@@ -43,6 +43,13 @@ repos:
         types: [python]
         pass_filenames: false
 
+      - id: service-import-contracts
+        name: service import contracts
+        entry: uv run python -m chorus.doctor.service_import_contracts
+        language: system
+        files: ^(chorus/.*\.py|services/[^/]+/(pyproject\.toml|Dockerfile))$
+        pass_filenames: false
+
       - id: frontend-typecheck
         name: frontend tsc --noEmit
         entry: bash -c 'cd frontend && npm run lint'

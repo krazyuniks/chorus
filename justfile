@@ -75,6 +75,10 @@ doctor:
 doctor-quick:
     uv run python -m chorus.doctor --quick
 
+# Verify per-service pyprojects cover service-owned Chorus runtime imports.
+service-import-contracts:
+    uv run python -m chorus.doctor.service_import_contracts
+
 # Apply Postgres migrations and idempotent local demo seed data.
 db-migrate:
     uv run python -m chorus.persistence.migrate
@@ -156,8 +160,8 @@ eval:
 # Run linters (Python ruff + pyright, frontend tsc).
 lint: lint-python lint-frontend
 
-# Run Python ruff lint + format check + pyright strict.
-lint-python:
+# Run Python ruff lint + format check + service import contracts + pyright strict.
+lint-python: service-import-contracts
     uv run ruff check .
     uv run ruff format --check .
     uv run pyright

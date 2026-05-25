@@ -32,6 +32,8 @@ jobs:
         run: uv run ruff check .
       - name: Ruff format check
         run: uv run ruff format --check .
+      - name: Service import contracts
+        run: uv run python -m chorus.doctor.service_import_contracts
       - name: Pyright (strict)
         run: uv run pyright
 

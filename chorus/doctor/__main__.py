@@ -24,6 +24,7 @@ from chorus.doctor.projection_port import (
     check_schema_registry,
 )
 from chorus.doctor.scaffold import check_compose, check_executables, check_paths
+from chorus.doctor.service_import_contracts import check_service_import_contracts_command
 from chorus.doctor.stack_health import check_compose_runtime
 from chorus.doctor.ui import check_bff, check_frontend_dev
 from chorus.doctor.workflow_runtime import check_temporal
@@ -50,6 +51,7 @@ def main(argv: list[str] | None = None) -> int:
     failures += check_paths()
     failures += check_executables()
     failures += check_compose()
+    failures += check_service_import_contracts_command()
 
     if not args.quick:
         stack_failures = 0

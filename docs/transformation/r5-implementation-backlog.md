@@ -68,7 +68,7 @@ documented exit criteria are green.
 
 - [x] No test in `tests/` is allowed to skip on missing infrastructure. Either
   the gate runs green or the suite fails.
-- [ ] Per-service pyprojects under `services/*/` are kept in sync with the
+- [x] Per-service pyprojects under `services/*/` are kept in sync with the
   runtime imports of the `chorus` package by an automated check.
 - [ ] `.env.example` declares the same keys with the same values as `.env`;
   drift is caught by a check in `just lint` or `just doctor`.
@@ -140,10 +140,23 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
   tests/doctor/test_stack_health.py
   tests/persistence/test_redpanda_schema_registration.py`, `just
   schemas-register`, `just doctor`, `just lint`, and `git diff --check`.
-- [ ] Add a contract check that fails CI when a runtime import in the
+- [x] Add a contract check that fails CI when a runtime import in the
   `chorus` package needs a dependency not declared in the per-service
   pyproject that consumes it. Either auto-derive per-service deps from the
   imports or assert the set is the same.
+  Evidence (2026-05-25): `chorus/doctor/service_import_contracts.py`
+  walks each configured service-owned `chorus` entrypoint via Python AST,
+  follows transitive in-package imports, skips `TYPE_CHECKING` imports,
+  checks the resulting third-party import roots against explicit
+  import-to-dependency mappings, and verifies that every non-template
+  `services/*/pyproject.toml` has an explicit service contract. The active
+  map covers `services/bff` -> `chorus.bff.app` and `services/intake-poller`
+  -> `chorus.workflows.worker`, with Dockerfile entrypoint refs checked for
+  drift. The check is wired into `just service-import-contracts`,
+  `just lint-python`, `python -m chorus.doctor`, CI lint, and pre-commit;
+  `docs/runbook.md` documents the operator command and failure mode.
+  Verified with `uv run pytest tests/doctor/test_service_import_contracts.py`,
+  `just lint`, `just doctor`, and `git diff --check`.
 - [ ] Add a `.env` / `.env.example` drift check to `just lint`. The two files
   must declare the same keys; values may differ only for explicitly listed
   secret keys (API keys, passwords).
@@ -248,31 +261,30 @@ session is reprompted with the answer included.
 
 ```text
 We are in /home/ryan/Work/chorus. Continue R5 P0 — Infrastructure
-Prerequisites And Gate Hygiene — by adding the per-service dependency import
-contract check.
+Prerequisites And Gate Hygiene — by adding the `.env` / `.env.example` drift
+check.
 
 Read AGENTS.md and docs/transformation/r5-implementation-backlog.md, then run
 `git status --short --branch`. Preserve unrelated user changes.
 
-Inspect the current command and dependency surface before editing: `just
---list`, `justfile`, root `pyproject.toml`, `uv.lock`, every
-`services/*/pyproject.toml`, service Dockerfiles, `.github/workflows/ci.yml`,
-`.pre-commit-config.yaml`, and the current runtime imports under `chorus/`.
+Inspect the current environment and gate surface before editing: `just --list`,
+`justfile`, `.env.example`, `.env`, `.github/workflows/ci.yml`,
+`.pre-commit-config.yaml`, `docs/runbook.md`, and any existing environment
+loading helpers under `chorus/doctor/`, `tests/conftest.py`, and `scripts/`.
 
-Implement a deterministic check that fails CI when a runtime import used by a
-service-owned entrypoint from the `chorus` package requires a third-party
-dependency that the consuming `services/*/pyproject.toml` does not declare.
-Prefer a small script or doctor/lint-adjacent helper that derives imports via
-Python AST rather than grep. Keep the mapping explicit where a service owns
-only part of the `chorus` package. Wire the check into the existing `just`
-surface where it belongs for R5 gate hygiene, update docs/runbook.md if the
-operator command or failure mode changes, and add focused tests.
+Implement a deterministic check that fails when `.env` and `.env.example` do
+not declare the same keys. Values must match unless the key is in an explicit
+secret-value allowlist such as API keys and passwords; for allowed secret
+keys, the check should still require both files to declare the key. Wire the
+check into `just lint` or `just doctor` where it best fits R5 gate hygiene,
+update `docs/runbook.md` if the operator command or failure mode changes, and
+add focused tests.
 
 Run the focused pytest target for the new check, `just lint`, `just doctor`,
 and `git diff --check`. Do not run destructive Docker, volume, database,
-reset, or checkout commands. If the dependency ownership boundary is ambiguous
-enough that multiple designs would be reasonable, stop without committing or
-touching checkboxes and surface the question.
+reset, or checkout commands. If the secret-value allowlist or `.env` ownership
+boundary is ambiguous enough that multiple designs would be reasonable, stop
+without committing or touching checkboxes and surface the question.
 
 End-of-session contract:
 - Update checkboxes and evidence notes for the slice you completed.
