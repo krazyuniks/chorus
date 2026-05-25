@@ -140,13 +140,15 @@ services:
     image: ${RADICALE_IMAGE:-kozea/radicale:stable}
     container_name: chorus-caldav-sandbox
     restart: unless-stopped
-    command:
-      - sh
+    user: "0:0"
+    entrypoint:
+      - /bin/sh
       - -ceu
+    command:
       - |
         mkdir -p /data/collections/collection-root/cal_uc1_local_followup
         printf '{"tag":"VCALENDAR","D:displayname":"cal_uc1_local_followup"}\n' > /data/collections/collection-root/cal_uc1_local_followup/.Radicale.props
-        exec radicale --config /config/config
+        exec /app/bin/python /app/bin/radicale --config /config/config
     volumes:
       - radicale-data:/data
       - ./infrastructure/radicale/config:/config/config:ro
