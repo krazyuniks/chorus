@@ -82,9 +82,11 @@ documented exit criteria are green.
 - [ ] OpenAI and DeepSeek live routes activate when `OPENAI_API_KEY` /
   `DEEPSEEK_API_KEY` are present and fail loudly with an explicit error when a
   declared-active route is requested without credentials.
-- [ ] `just doctor` verifies stack health (postgres, redpanda, mailpit,
-  radicale, temporal) and refuses to report success when any container is in a
-  restart loop, any port is unreachable, or any migration is unapplied.
+- [x] `just doctor` verifies stack health (postgres, redpanda, mailpit,
+  radicale, temporal) and refuses to report success when any long-lived
+  container is not running / healthy, any one-shot init container exits
+  unsuccessfully, any container has restarted since boot, any required port is
+  unreachable, or any migration is unapplied.
 - [ ] README, runbook, evidence-map, architecture, and ADR set declare UC1,
   UC2, and UC3 all runnable, with current commands and current evidence
   references only.
@@ -118,11 +120,26 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
   tests/persistence/test_redpanda_projection.py tests/tool_gateway/test_gateway.py
   tests/bff/test_app.py tests/agent_runtime/test_runtime.py`, full
   `uv run pytest`, `just lint`, and `git diff --check`.
-- [ ] Add `just doctor` (or extend it) to verify, before any other gate:
-  postgres reachable at the URL in `.env`, redpanda bootstrap reachable, all
-  declared migrations applied, all Compose containers in `running` or
-  `healthy` state, no container with `RestartCount > 0` since boot. Fail loud
-  on any divergence.
+- [x] Add `just doctor` (or extend it) to verify, before any other gate:
+  postgres reachable at the URL in `.env`, redpanda bootstrap reachable,
+  Mailpit reachable, Radicale reachable, Temporal reachable, all declared
+  migrations applied, all long-lived Compose containers in `running` or
+  `healthy` state, one-shot init containers completed successfully, no
+  container with `RestartCount > 0` since boot. Fail loud on any divergence.
+  Evidence (2026-05-25): `chorus/doctor/stack_health.py` now checks declared
+  Compose services through `scripts/dc`, accepts completed one-shot init
+  helpers only with exit 0, fails on unhealthy / missing / restarted
+  containers, and runs before downstream probes. `chorus/doctor/projection_port.py`
+  now requires `CHORUS_DATABASE_URL`, verifies Postgres reachability and
+  migration checksums, and probes Redpanda bootstrap. `chorus/doctor/connector_port.py`
+  now fails on missing Mailpit SMTP / HTTP and adds Radicale. `check_temporal`
+  fails when the Temporal frontend is unreachable. `chorus/persistence/redpanda.py`
+  now registers missing `x-subject` contracts from the current `contracts/`
+  tree so the Schema Registry doctor check and `just schemas-register` agree.
+  Runbook and architecture docs were updated. Verified with `uv run pytest
+  tests/doctor/test_stack_health.py
+  tests/persistence/test_redpanda_schema_registration.py`, `just
+  schemas-register`, `just doctor`, `just lint`, and `git diff --check`.
 - [ ] Add a contract check that fails CI when a runtime import in the
   `chorus` package needs a dependency not declared in the per-service
   pyproject that consumes it. Either auto-derive per-service deps from the
@@ -231,31 +248,31 @@ session is reprompted with the answer included.
 
 ```text
 We are in /home/ryan/Work/chorus. Continue R5 P0 — Infrastructure
-Prerequisites And Gate Hygiene — by extending `just doctor` so stack health is
-verified before any other gate.
+Prerequisites And Gate Hygiene — by adding the per-service dependency import
+contract check.
 
 Read AGENTS.md and docs/transformation/r5-implementation-backlog.md, then run
 `git status --short --branch`. Preserve unrelated user changes.
 
-Inspect the current command surface before editing: `just --list`, `justfile`,
-doctor-related scripts/modules under `scripts/`, `chorus/doctor/`, compose
-configuration, migration code, and docs/runbook.md. Use `scripts/dc` or
-existing `just` recipes for Compose interaction; do not run destructive Docker,
-volume, database, reset, or checkout commands.
+Inspect the current command and dependency surface before editing: `just
+--list`, `justfile`, root `pyproject.toml`, `uv.lock`, every
+`services/*/pyproject.toml`, service Dockerfiles, `.github/workflows/ci.yml`,
+`.pre-commit-config.yaml`, and the current runtime imports under `chorus/`.
 
-Implement or extend `just doctor` so it fails loudly when any required local
-stack prerequisite is unhealthy: Postgres reachable at the URL in `.env`,
-Redpanda bootstrap reachable, Mailpit reachable, Radicale reachable, Temporal
-reachable, declared migrations applied, all Compose containers in `running` or
-`healthy` state, and no container has `RestartCount > 0` since boot. Prefer
-small, testable checks in the existing doctor boundary; do not widen runtime
-behaviour unless the current doctor code requires a narrow helper.
+Implement a deterministic check that fails CI when a runtime import used by a
+service-owned entrypoint from the `chorus` package requires a third-party
+dependency that the consuming `services/*/pyproject.toml` does not declare.
+Prefer a small script or doctor/lint-adjacent helper that derives imports via
+Python AST rather than grep. Keep the mapping explicit where a service owns
+only part of the `chorus` package. Wire the check into the existing `just`
+surface where it belongs for R5 gate hygiene, update docs/runbook.md if the
+operator command or failure mode changes, and add focused tests.
 
-Add focused tests for the doctor health checks, update docs/runbook.md if
-commands or failure modes change, and run the relevant focused pytest targets,
-`just doctor`, `just lint`, and `git diff --check`. If the local stack is not
-running or an existing runtime path silently swallows an infrastructure error,
-stop without committing or touching checkboxes and surface the blocker.
+Run the focused pytest target for the new check, `just lint`, `just doctor`,
+and `git diff --check`. Do not run destructive Docker, volume, database,
+reset, or checkout commands. If the dependency ownership boundary is ambiguous
+enough that multiple designs would be reasonable, stop without committing or
+touching checkboxes and surface the question.
 
 End-of-session contract:
 - Update checkboxes and evidence notes for the slice you completed.

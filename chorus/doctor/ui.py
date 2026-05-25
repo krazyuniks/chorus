@@ -8,7 +8,7 @@ alongside the live substrate they depend on.
 from __future__ import annotations
 
 from chorus.doctor._net import env_int, http_get, tcp_reachable
-from chorus.doctor._reporting import fail, ok, section, skip
+from chorus.doctor._reporting import fail, info, ok, section, skip
 
 
 def check_bff() -> int:
@@ -29,7 +29,7 @@ def check_frontend_dev() -> int:
     section("frontend dev server (projection-port consumer)")
     port = env_int("FRONTEND_PORT", 5173)
     if not tcp_reachable("localhost", port):
-        skip(f"frontend dev server not reachable on localhost:{port} (run 'npm run dev')")
+        info(f"frontend dev server not running on localhost:{port} (optional dev surface)")
         return 0
     ok(f"frontend dev server reachable on localhost:{port}")
     return 0

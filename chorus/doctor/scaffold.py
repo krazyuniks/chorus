@@ -181,11 +181,11 @@ def check_executables() -> int:
 
 def check_compose() -> int:
     section("compose")
-    result = _run(["docker", "compose", "config", "--quiet"])
+    result = _run([str(ROOT / "scripts/dc"), "config", "--quiet"])
     if result.returncode == 0:
         ok("compose.yml validates")
         return 0
-    fail("compose.yml failed validation")
+    fail("compose.yml failed validation through scripts/dc")
     if result.stderr.strip():
         print(result.stderr.strip())
     return 1

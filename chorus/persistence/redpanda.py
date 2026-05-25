@@ -8,7 +8,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
@@ -47,9 +47,9 @@ def schema_registry_url_from_env() -> str:
     return DEFAULT_SCHEMA_REGISTRY_URL
 
 
-def _event_schema_subjects() -> dict[str, str]:
+def contract_schema_subjects() -> dict[str, str]:
     subjects: dict[str, str] = {}
-    for path in sorted((ROOT / "contracts" / "events").glob("*.schema.json")):
+    for path in sorted((ROOT / "contracts").rglob("*.schema.json")):
         schema = json.loads(path.read_text(encoding="utf-8"))
         subject = schema.get("x-subject")
         if isinstance(subject, str) and subject:
@@ -57,12 +57,52 @@ def _event_schema_subjects() -> dict[str, str]:
     return subjects
 
 
+def registered_schema_subjects(base_url: str) -> set[str]:
+    request = urllib.request.Request(
+        f"{base_url}/subjects",
+        headers={"Accept": "application/vnd.schemaregistry.v1+json"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            if response.status != 200:
+                raise WorkflowEventPublishError(
+                    f"Schema Registry returned {response.status} for /subjects"
+                )
+            raw_subjects = cast(object, json.loads(response.read().decode("utf-8")))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise WorkflowEventPublishError(
+            f"Schema Registry rejected /subjects: HTTP {exc.code} {detail}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise WorkflowEventPublishError(f"Schema Registry /subjects unreachable: {exc}") from exc
+    if not isinstance(raw_subjects, list):
+        raise WorkflowEventPublishError("Schema Registry /subjects returned non-list JSON")
+    return {subject for subject in cast(list[object], raw_subjects) if isinstance(subject, str)}
+
+
+def missing_schema_subjects(
+    declared_subjects: Mapping[str, str],
+    registered_subjects: set[str],
+) -> dict[str, str]:
+    return {
+        path_text: subject
+        for path_text, subject in declared_subjects.items()
+        if subject not in registered_subjects
+    }
+
+
 def register_event_schemas_once(*, schema_registry_url: str | None = None) -> int:
-    """Register event JSON Schemas with Redpanda Schema Registry."""
+    """Register missing x-subject contract schemas with Redpanda Schema Registry."""
 
     base_url = (schema_registry_url or schema_registry_url_from_env()).rstrip("/")
     registered = 0
-    for path_text, subject in _event_schema_subjects().items():
+    subjects_to_register = missing_schema_subjects(
+        contract_schema_subjects(),
+        registered_schema_subjects(base_url),
+    )
+    for path_text, subject in subjects_to_register.items():
         path = Path(path_text)
         schema_text = path.read_text(encoding="utf-8")
         body = json.dumps(
@@ -310,7 +350,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "register-schemas":
         count = register_event_schemas_once(schema_registry_url=args.schema_registry_url)
-        print(f"Registered {count} event schema subject(s).")
+        print(f"Registered {count} schema subject(s).")
         return 0
 
     if args.command == "relay-once":

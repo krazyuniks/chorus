@@ -10,15 +10,21 @@ from __future__ import annotations
 import argparse
 import sys
 
-from chorus.doctor.connector_port import check_mailpit
+from chorus.doctor._env import load_local_env
+from chorus.doctor.connector_port import check_mailpit, check_radicale
 from chorus.doctor.observability_port import (
     check_loki,
     check_otel,
     check_prometheus,
     check_tempo,
 )
-from chorus.doctor.projection_port import check_postgres_migrations, check_schema_registry
+from chorus.doctor.projection_port import (
+    check_postgres_migrations,
+    check_redpanda_bootstrap,
+    check_schema_registry,
+)
 from chorus.doctor.scaffold import check_compose, check_executables, check_paths
+from chorus.doctor.stack_health import check_compose_runtime
 from chorus.doctor.ui import check_bff, check_frontend_dev
 from chorus.doctor.workflow_runtime import check_temporal
 
@@ -36,6 +42,7 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     args = parser.parse_args(argv)
+    load_local_env()
 
     failures = 0
     print("Chorus doctor - runtime, evidence, and planning readiness")
@@ -45,16 +52,25 @@ def main(argv: list[str] | None = None) -> int:
     failures += check_compose()
 
     if not args.quick:
-        failures += check_postgres_migrations()
-        failures += check_temporal()
-        failures += check_schema_registry()
-        failures += check_mailpit()
-        failures += check_otel()
-        failures += check_tempo()
-        failures += check_loki()
-        failures += check_prometheus()
-        failures += check_bff()
-        failures += check_frontend_dev()
+        stack_failures = 0
+        stack_failures += check_compose_runtime()
+        stack_failures += check_postgres_migrations()
+        stack_failures += check_redpanda_bootstrap()
+        stack_failures += check_schema_registry()
+        stack_failures += check_mailpit()
+        stack_failures += check_radicale()
+        stack_failures += check_temporal()
+        failures += stack_failures
+
+        if stack_failures == 0:
+            failures += check_otel()
+            failures += check_tempo()
+            failures += check_loki()
+            failures += check_prometheus()
+            failures += check_bff()
+            failures += check_frontend_dev()
+        else:
+            print("\nRequired stack prerequisites failed; downstream optional probes were not run.")
 
     if failures:
         print(f"\n{failures} check(s) failed")
@@ -64,8 +80,8 @@ def main(argv: list[str] | None = None) -> int:
         print("\nQuick checks passed. Run 'just doctor' (without --quick) to probe the live stack.")
     else:
         print(
-            "\nAll checks passed. Skipped probes mark runtime surfaces that are not "
-            "currently reachable; rerun after 'just up' when live evidence is required."
+            "\nAll required stack checks passed. Optional UI/dev probes are "
+            "reported as informational when their development servers are not running."
         )
     return 0
 

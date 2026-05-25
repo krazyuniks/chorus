@@ -67,7 +67,7 @@ caldav-propfind:
 
 # ----- Health -----
 
-# Verify Phase 0 scaffold and probe the live local stack (skips probes for services that aren't up).
+# Verify scaffold and required live-stack prerequisites; fails when required services are unhealthy.
 doctor:
     uv run python -m chorus.doctor
 

@@ -11,6 +11,10 @@ def fail(message: str) -> None:
     print(f"fail  - {message}")
 
 
+def info(message: str) -> None:
+    print(f"info  - {message}")
+
+
 def skip(message: str) -> None:
     print(f"skip  - {message}")
 

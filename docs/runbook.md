@@ -40,12 +40,19 @@ provider route activation, and full eval fixture playback remain absent.
 just env                        # ensure .env exists
 just up                         # docker compose up -d via scripts/dc
 just db-migrate                 # apply Postgres migrations and the demo seed
-just schemas-register           # register event schemas with the Schema Registry
-just doctor                     # scaffold and runtime readiness checks
+just schemas-register           # register missing x-subject contracts with the Schema Registry
+just doctor                     # fail-fast scaffold and required stack readiness checks
 ```
 
 `scripts/dc` is the canonical `docker compose` wrapper: it sources `.env`,
 exports `UID`/`GID`, and execs `docker compose`. Use it for ad-hoc operations.
+`just doctor` now treats the local stack as a prerequisite gate: required
+Compose services must be running or healthy, one-shot init containers must have
+completed with exit 0, no container may have `RestartCount > 0`, Postgres must
+be reachable at `CHORUS_DATABASE_URL`, migrations must be applied with the
+recorded checksum, Redpanda bootstrap and Schema Registry must be reachable,
+Mailpit SMTP / HTTP, Radicale, and Temporal must respond. Optional development
+surfaces such as the frontend dev server remain non-gating.
 
 ### Daily commands
 
@@ -54,7 +61,7 @@ exports `UID`/`GID`, and execs `docker compose`. Use it for ad-hoc operations.
 | `just up` / `just down` | Bring the substrate up or down. |
 | `just status` | Compose service status. |
 | `just logs <service>` | Tail logs for one service. |
-| `just doctor` | Scaffold and runtime readiness checks. |
+| `just doctor` | Scaffold and fail-fast required stack readiness checks. |
 | `just contracts-check` | Schema, generated-model, and sample drift gate. |
 | `just test` / `just test-replay` | Python tests; Temporal replay tests. |
 | `just lint` / `just fmt` | Linters and formatters. |
@@ -74,6 +81,7 @@ exports `UID`/`GID`, and execs `docker compose`. Use it for ad-hoc operations.
 | Temporal UI | `http://localhost:8233` |
 | Mailpit SMTP | `localhost:1025` |
 | Mailpit UI / HTTP API | `http://localhost:8025` |
+| Radicale / CalDAV sandbox | `http://localhost:5232` |
 | Grafana | `http://localhost:3001` |
 | OTLP gRPC / HTTP | `localhost:4317` / `localhost:4318` |
 | BFF | `localhost:8000` |
@@ -323,10 +331,11 @@ git diff --check
 ```
 
 Run `just test-frontend` when frontend code or fixture data changes. Run
-live-stack, DB-backed, provider, and e2e gates only when the closure slice
-touches those surfaces or when the local credentials and stack are available.
-If local Postgres rejects the configured `chorus` user, record the affected
-DB-backed checks as skipped rather than claiming live DB evidence.
+live-stack, DB-backed, provider, and e2e gates when the closure slice touches
+those surfaces or when the local credentials and stack are available. In R5,
+missing or unreachable infrastructure is a gate failure, not a skip. If local
+Postgres rejects the configured `chorus` user, fix the stack or stop and record
+the blocker; do not claim live DB evidence.
 
 ## UC1 happy-path walk-through
 
@@ -394,6 +403,10 @@ activation, and full fixture playback land in a later phase.
 |---|---|---|
 | `Port already allocated` | Another local stack holds the default port. | Set the relevant `*_PORT` variable in `.env`; defaults are in `.env.example`. |
 | `just doctor` fails on a missing path | A required artefact is absent. | Treat it as a contract violation, not a doctor bug. Restore the artefact. |
+| `just doctor` reports an unhealthy or missing Compose service | The local stack is not ready. | Run `just status` and `just logs <service>`, then rebuild with `just up` if an image was stale after a dependency change. |
+| `just doctor` reports `RestartCount > 0` | A container restarted since it was created. | Inspect `just logs <service>` and recreate only after preserving the evidence needed for the investigation. |
+| `just doctor` reports an unapplied migration or checksum mismatch | Postgres schema state is behind the repo, or an applied migration was edited. | Run `just db-migrate` for unapplied migrations. For checksum drift, create a new migration rather than editing the applied file. |
+| `just doctor` reports missing Schema Registry subjects | Declared `x-subject` contracts are not registered. | Run `just schemas-register`; it registers missing declared subjects without creating new versions for subjects already present. |
 | Docker compose fails validation | An unset variable lacks a `${VAR:-default}` fallback. | Run `./scripts/dc config` to see the rendered file; add the default in `compose.yml`. |
 | Pre-commit hooks reject a commit | A lint or contracts gate failed. | Run `just hooks` to reproduce outside the commit. Do not bypass with `--no-verify`. |
 | A workflow is stuck | A long-poll, a wait, or a deadlocked dependency. | Inspect the run in the Temporal UI at `http://localhost:8233`; terminate or reset from there. Never wipe Postgres to clear a stuck run; the audit trail is evidence. |

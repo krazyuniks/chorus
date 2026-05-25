@@ -9,58 +9,132 @@ fans out across both stores.
 from __future__ import annotations
 
 import json
-from typing import Any
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from typing import Any, Literal, cast
 
 import psycopg
+from confluent_kafka.admin import AdminClient
 from psycopg import Connection
 
-from chorus.doctor._net import env_int, http_get, tcp_reachable
+from chorus.doctor._env import redacted_url, required_env
+from chorus.doctor._net import env_int, http_get, tcp_reachable, url_host_port
 from chorus.doctor._reporting import fail, ok, section, skip
 from chorus.doctor.scaffold import ROOT
 
+FindingLevel = Literal["ok", "fail"]
 
-def _applied_migrations(conn: Connection[Any]) -> set[str]:
-    rows = conn.execute("SELECT filename FROM schema_migrations").fetchall()
-    return {str(r[0]) for r in rows}
+
+@dataclass(frozen=True)
+class MigrationFinding:
+    level: FindingLevel
+    message: str
+
+
+def _applied_migrations(conn: Connection[Any]) -> dict[str, str]:
+    rows = conn.execute("SELECT filename, checksum_sha256 FROM schema_migrations").fetchall()
+    return {str(row[0]): str(row[1]) for row in rows}
+
+
+def migration_findings(
+    expected: Mapping[str, str],
+    applied: Mapping[str, str],
+) -> list[MigrationFinding]:
+    findings: list[MigrationFinding] = []
+    for filename, checksum in sorted(expected.items()):
+        applied_checksum = applied.get(filename)
+        if applied_checksum is None:
+            findings.append(
+                MigrationFinding(
+                    "fail",
+                    f"migration not applied: {filename} - run 'just db-migrate'",
+                )
+            )
+        elif applied_checksum != checksum:
+            findings.append(
+                MigrationFinding(
+                    "fail",
+                    f"migration checksum mismatch: {filename} - create a new migration",
+                )
+            )
+        else:
+            findings.append(MigrationFinding("ok", f"migration applied: {filename}"))
+    return findings
 
 
 def check_postgres_migrations() -> int:
     section("postgres migrations (projection / audit port substrate)")
-    pg_port = env_int("CHORUS_PG_PORT", 5432)
-    if not tcp_reachable("localhost", pg_port):
-        skip(f"postgres not reachable on localhost:{pg_port} (run 'just up')")
-        return 0
+    database_url = required_env("CHORUS_DATABASE_URL")
+    if database_url is None:
+        fail("CHORUS_DATABASE_URL is not set in .env or the process environment")
+        return 1
+    host_port = url_host_port(database_url, default_port=5432)
+    if host_port is None:
+        fail(f"CHORUS_DATABASE_URL is not a valid Postgres URL: {redacted_url(database_url)}")
+        return 1
+    pg_host, pg_port = host_port
+    if not tcp_reachable(pg_host, pg_port):
+        fail(f"postgres not reachable at {pg_host}:{pg_port} from CHORUS_DATABASE_URL")
+        return 1
 
     from chorus.persistence.migrate import (
         MIGRATIONS_DIR,
-        database_url_from_env,
         sql_files,
     )
 
-    expected = [f.filename for f in sql_files(MIGRATIONS_DIR)]
+    expected_files = sql_files(MIGRATIONS_DIR)
+    expected = {file.filename: file.checksum_sha256 for file in expected_files}
     if not expected:
         skip("no migration files present yet")
         return 0
 
     try:
-        with psycopg.connect(database_url_from_env(), connect_timeout=2) as conn:
+        with psycopg.connect(database_url, connect_timeout=2) as conn:
             row = conn.execute("SELECT to_regclass('public.schema_migrations')").fetchone()
             if row is None or row[0] is None:
                 fail("schema_migrations table missing - run 'just db-migrate'")
                 return 1
             applied = _applied_migrations(conn)
     except psycopg.Error as exc:
-        fail(f"postgres reachable but query failed: {exc}")
+        fail(f"postgres query failed at {redacted_url(database_url)}: {exc}")
         return 1
 
     failures = 0
-    for filename in expected:
-        if filename in applied:
-            ok(f"migration applied: {filename}")
+    for finding in migration_findings(expected, applied):
+        if finding.level == "ok":
+            ok(finding.message)
         else:
-            fail(f"migration not applied: {filename} - run 'just db-migrate'")
+            fail(finding.message)
             failures += 1
     return failures
+
+
+def _bootstrap_list(bootstrap_servers: str) -> Sequence[str]:
+    return [server.strip() for server in bootstrap_servers.split(",") if server.strip()]
+
+
+def check_redpanda_bootstrap() -> int:
+    section("redpanda bootstrap (projection event substrate)")
+    bootstrap_servers = required_env("CHORUS_REDPANDA_BOOTSTRAP_SERVERS")
+    if bootstrap_servers is None:
+        fail("CHORUS_REDPANDA_BOOTSTRAP_SERVERS is not set in .env or the process environment")
+        return 1
+    for server in _bootstrap_list(bootstrap_servers):
+        if ":" not in server:
+            fail(f"redpanda bootstrap server is missing host:port: {server}")
+            return 1
+    try:
+        metadata = AdminClient({"bootstrap.servers": bootstrap_servers}).list_topics(timeout=2)
+    except Exception as exc:
+        fail(f"redpanda bootstrap not reachable via {bootstrap_servers}: {exc}")
+        return 1
+    brokers = cast(object, getattr(metadata, "brokers", {}))
+    if isinstance(brokers, Mapping):
+        broker_count = len(cast(Mapping[object, object], brokers))
+    else:
+        broker_count = 0
+    ok(f"redpanda bootstrap reachable via {bootstrap_servers} ({broker_count} broker(s))")
+    return 0
 
 
 def _expected_event_subjects() -> dict[str, str | None]:

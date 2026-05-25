@@ -39,8 +39,8 @@ def check_temporal() -> int:
     port = env_int("TEMPORAL_PORT", 7233)
     ui_port = env_int("TEMPORAL_UI_PORT", 8233)
     if not tcp_reachable("localhost", port):
-        skip(f"temporal frontend not reachable on localhost:{port} (run 'just up')")
-        return 0
+        fail(f"temporal frontend not reachable on localhost:{port} (run 'just up')")
+        return 1
     ok(f"temporal frontend reachable on localhost:{port}")
     if tcp_reachable("localhost", ui_port):
         ok(f"temporal UI reachable on localhost:{ui_port}")

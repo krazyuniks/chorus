@@ -6,6 +6,7 @@ import os
 import socket
 import urllib.error
 import urllib.request
+from urllib.parse import urlsplit
 
 
 def tcp_reachable(host: str, port: int, timeout: float = 0.5) -> bool:
@@ -42,3 +43,15 @@ def env_int(name: str, default: int) -> int:
         return int(raw)
     except ValueError:
         return default
+
+
+def url_host_port(url: str, *, default_port: int | None = None) -> tuple[str, int] | None:
+    try:
+        parsed = urlsplit(url)
+        host = parsed.hostname
+        port = parsed.port or default_port
+    except ValueError:
+        return None
+    if host is None or port is None:
+        return None
+    return host, port
