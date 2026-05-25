@@ -1,19 +1,15 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
-from collections.abc import Iterator
 from dataclasses import dataclass, field
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any, cast
-from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
 
 import psycopg
 import pytest
-from psycopg import sql
 
 from chorus.agent_runtime import (
     EXECUTION_PIPELINE_VERSION,
@@ -46,14 +42,10 @@ from chorus.llm_provider import (
     RouteCatalogue,
     RouteCatalogueEntry,
 )
-from chorus.persistence import apply_migrations
 from chorus.workflows.activities import invoke_agent_runtime_activity
 from chorus.workflows.types import AgentInvocationRequest
 
-ADMIN_DATABASE_URL = os.environ.get(
-    "CHORUS_TEST_ADMIN_DATABASE_URL",
-    "postgresql://chorus:chorus@localhost:55432/postgres",
-)
+TEST_DATABASE_PREFIX = "chorus_agent_runtime_test"
 PROMPT_HASHES = {
     "classifier": "sha256:6e25aca95c76a38b089fedbcac94316a47e18a9d2575089363f5c35f1cbcd67e",
     "context_gatherer": ("sha256:ebbbcc8091838ce2962642f3436b1188bef35fe0dc8ab67ededd475aaa683e20"),
@@ -61,38 +53,6 @@ PROMPT_HASHES = {
     "request_drafter": ("sha256:e25a62fe7137f6f88a0987cb9897417532a7a5dc807eb954a48c3b770923bcbd"),
     "validator": "sha256:157b1c9e3b0916bed7814bd01e912c62d38b87d4ceee9af25807f7b062fc0743",
 }
-
-
-def _database_url(dbname: str) -> str:
-    parts = urlsplit(ADMIN_DATABASE_URL)
-    return urlunsplit((parts.scheme, parts.netloc, f"/{dbname}", parts.query, parts.fragment))
-
-
-@pytest.fixture(scope="module")
-def migrated_database_url() -> Iterator[str]:
-    dbname = f"chorus_agent_runtime_test_{uuid4().hex}"
-
-    try:
-        with psycopg.connect(ADMIN_DATABASE_URL, autocommit=True, connect_timeout=2) as admin:
-            admin.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(dbname)))
-    except psycopg.OperationalError as exc:
-        pytest.skip(f"Postgres is not available for agent runtime tests: {exc}")
-
-    database_url = _database_url(dbname)
-    try:
-        apply_migrations(database_url)
-        yield database_url
-    finally:
-        with psycopg.connect(ADMIN_DATABASE_URL, autocommit=True, connect_timeout=2) as admin:
-            admin.execute(
-                """
-                SELECT pg_terminate_backend(pid)
-                FROM pg_stat_activity
-                WHERE datname = %s AND pid <> pg_backend_pid()
-                """,
-                (dbname,),
-            )
-            admin.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(dbname)))
 
 
 def _request(

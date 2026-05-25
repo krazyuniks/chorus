@@ -66,7 +66,7 @@ documented exit criteria are green.
 
 ## Exit Criteria
 
-- [ ] No test in `tests/` is allowed to skip on missing infrastructure. Either
+- [x] No test in `tests/` is allowed to skip on missing infrastructure. Either
   the gate runs green or the suite fails.
 - [ ] Per-service pyprojects under `services/*/` are kept in sync with the
   runtime imports of the `chorus` package by an automated check.
@@ -103,11 +103,21 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
 
 ### P0 — Infrastructure Prerequisites And Gate Hygiene
 
-- [ ] Remove every `pytest.mark.skip` / `pytest.skip(...)` and every
+- [x] Remove every `pytest.mark.skip` / `pytest.skip(...)` and every
   "skip-on-missing-DB" branch from `tests/`. Tests that need Postgres must
   fail when Postgres is unreachable, not skip. Tests that need a live provider
   must be in a separate suite gated by credentials, where the gate emits a
   hard failure if asked to run without them.
+  Evidence (2026-05-25): `tests/conftest.py` owns the shared
+  `migrated_database_url` and `redpanda_bootstrap` fixtures; both read required
+  URLs from `.env` / environment and raise hard fixture errors when unset or
+  unreachable. Local skip wrappers and hardcoded Postgres / Redpanda fallbacks
+  were removed from the DB-backed persistence, BFF, agent-runtime, and
+  tool-gateway suites. Verified with `rg` for `pytest.skip` / `skipif`, focused
+  `uv run pytest tests/persistence/test_postgres_foundation.py
+  tests/persistence/test_redpanda_projection.py tests/tool_gateway/test_gateway.py
+  tests/bff/test_app.py tests/agent_runtime/test_runtime.py`, full
+  `uv run pytest`, `just lint`, and `git diff --check`.
 - [ ] Add `just doctor` (or extend it) to verify, before any other gate:
   postgres reachable at the URL in `.env`, redpanda bootstrap reachable, all
   declared migrations applied, all Compose containers in `running` or
@@ -120,9 +130,13 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
 - [ ] Add a `.env` / `.env.example` drift check to `just lint`. The two files
   must declare the same keys; values may differ only for explicitly listed
   secret keys (API keys, passwords).
-- [ ] Replace the per-test hardcoded Postgres URL fallbacks with a single
+- [x] Replace the per-test hardcoded Postgres URL fallbacks with a single
   shared helper that reads from environment only and fails loud when the
   variable is unset.
+  Evidence (2026-05-25): completed as part of the skip-removal slice. DB-backed
+  tests now use the shared `migrated_database_url` fixture in `tests/conftest.py`;
+  `CHORUS_TEST_ADMIN_DATABASE_URL` is required and no test module keeps a
+  hardcoded Postgres URL fallback.
 - [ ] Document the local development bootstrap end-to-end in
   `docs/runbook.md`: how to bring the stack up, how `tests/conftest.py` picks
   the URLs up, what to do when migrations drift, what to do when an image
@@ -216,31 +230,32 @@ session is reprompted with the answer included.
 ## Next Continuation Prompt
 
 ```text
-We are in /home/ryan/Work/chorus. Start R5 P0 — Infrastructure Prerequisites
-And Gate Hygiene — by removing every skip-on-missing-DB branch from `tests/`.
-Tests that need Postgres must connect to the URL from `tests/conftest.py` /
-`.env` and fail loudly when Postgres is unreachable, not skip.
+We are in /home/ryan/Work/chorus. Continue R5 P0 — Infrastructure
+Prerequisites And Gate Hygiene — by extending `just doctor` so stack health is
+verified before any other gate.
 
 Read AGENTS.md and docs/transformation/r5-implementation-backlog.md, then run
 `git status --short --branch`. Preserve unrelated user changes.
 
-Inspect: tests/conftest.py, tests/persistence/, tests/tool_gateway/,
-tests/bff/, tests/agent_runtime/, tests/workflows/, and any other test file
-that calls `pytest.skip`, `pytestmark = pytest.mark.skipif`, or guards a fixture
-on missing DB/credentials. Search for `pytest.skip`, `skipif`, `DATABASE_URL`,
-`getenv`, `OperationalError`, and similar.
+Inspect the current command surface before editing: `just --list`, `justfile`,
+doctor-related scripts/modules under `scripts/`, `chorus/doctor/`, compose
+configuration, migration code, and docs/runbook.md. Use `scripts/dc` or
+existing `just` recipes for Compose interaction; do not run destructive Docker,
+volume, database, reset, or checkout commands.
 
-Replace every skip-on-infrastructure branch with a hard failure when the
-required service is unreachable. Live-provider tests that need OpenAI or
-DeepSeek credentials may live in a separate suite gated by environment markers,
-but inside that suite the gate must fail loudly when asked to run without the
-credentials present. No silent skip.
+Implement or extend `just doctor` so it fails loudly when any required local
+stack prerequisite is unhealthy: Postgres reachable at the URL in `.env`,
+Redpanda bootstrap reachable, Mailpit reachable, Radicale reachable, Temporal
+reachable, declared migrations applied, all Compose containers in `running` or
+`healthy` state, and no container has `RestartCount > 0` since boot. Prefer
+small, testable checks in the existing doctor boundary; do not widen runtime
+behaviour unless the current doctor code requires a narrow helper.
 
-Run focused gates for the files touched, including `uv run pytest`,
-`just lint`, and `git diff --check`. Do not change runtime code unless a test
-guard depends on it. If a test reveals that runtime code silently swallows a
-DB error and the test was hiding that, surface the question instead of
-broadening the slice.
+Add focused tests for the doctor health checks, update docs/runbook.md if
+commands or failure modes change, and run the relevant focused pytest targets,
+`just doctor`, `just lint`, and `git diff --check`. If the local stack is not
+running or an existing runtime path silently swallows an infrastructure error,
+stop without committing or touching checkboxes and surface the blocker.
 
 End-of-session contract:
 - Update checkboxes and evidence notes for the slice you completed.

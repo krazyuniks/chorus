@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 import json
-import os
-from collections.abc import Iterator
 from pathlib import Path
 from typing import cast
-from urllib.parse import urlsplit, urlunsplit
 from uuid import UUID, uuid4
 
 import psycopg
 import pytest
-from psycopg import sql
 from psycopg.types.json import Jsonb
 
 from chorus.contracts.generated.eval.replay_run_record import ReplayRunRecord
@@ -26,43 +22,8 @@ from chorus.persistence.runtime_policy import PolicySnapshotStore
 from chorus.workflows.activities import record_retry_exhaustion_dlq
 from chorus.workflows.types import RetryExhaustionDlqCommand
 
-ADMIN_DATABASE_URL = os.environ.get(
-    "CHORUS_TEST_ADMIN_DATABASE_URL",
-    "postgresql://chorus:chorus@localhost:55432/postgres",
-)
 ROOT = Path(__file__).resolve().parents[2]
-
-
-def _database_url(dbname: str) -> str:
-    parts = urlsplit(ADMIN_DATABASE_URL)
-    return urlunsplit((parts.scheme, parts.netloc, f"/{dbname}", parts.query, parts.fragment))
-
-
-@pytest.fixture(scope="module")
-def migrated_database_url() -> Iterator[str]:
-    dbname = f"chorus_persistence_test_{uuid4().hex}"
-
-    try:
-        with psycopg.connect(ADMIN_DATABASE_URL, autocommit=True, connect_timeout=2) as admin:
-            admin.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(dbname)))
-    except psycopg.OperationalError as exc:
-        pytest.skip(f"Postgres is not available for persistence tests: {exc}")
-
-    database_url = _database_url(dbname)
-    try:
-        apply_migrations(database_url)
-        yield database_url
-    finally:
-        with psycopg.connect(ADMIN_DATABASE_URL, autocommit=True, connect_timeout=2) as admin:
-            admin.execute(
-                """
-                SELECT pg_terminate_backend(pid)
-                FROM pg_stat_activity
-                WHERE datname = %s AND pid <> pg_backend_pid()
-                """,
-                (dbname,),
-            )
-            admin.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(dbname)))
+TEST_DATABASE_PREFIX = "chorus_persistence_test"
 
 
 def _workflow_event(

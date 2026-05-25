@@ -1,56 +1,17 @@
 from __future__ import annotations
 
-import os
-from collections.abc import Iterator
 from datetime import UTC, datetime
-from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
 
 import psycopg
 import pytest
 from fastapi.testclient import TestClient
-from psycopg import sql
 
 from chorus.bff import BffSettings, create_app
 from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
-from chorus.persistence import ProjectionStore, apply_migrations
+from chorus.persistence import ProjectionStore
 
-ADMIN_DATABASE_URL = os.environ.get(
-    "CHORUS_TEST_ADMIN_DATABASE_URL",
-    "postgresql://chorus:chorus@localhost:55432/postgres",
-)
-
-
-def _database_url(dbname: str) -> str:
-    parts = urlsplit(ADMIN_DATABASE_URL)
-    return urlunsplit((parts.scheme, parts.netloc, f"/{dbname}", parts.query, parts.fragment))
-
-
-@pytest.fixture(scope="module")
-def migrated_database_url() -> Iterator[str]:
-    dbname = f"chorus_bff_test_{uuid4().hex}"
-
-    try:
-        with psycopg.connect(ADMIN_DATABASE_URL, autocommit=True, connect_timeout=2) as admin:
-            admin.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(dbname)))
-    except psycopg.OperationalError as exc:
-        pytest.skip(f"Postgres is not available for BFF tests: {exc}")
-
-    database_url = _database_url(dbname)
-    try:
-        apply_migrations(database_url)
-        yield database_url
-    finally:
-        with psycopg.connect(ADMIN_DATABASE_URL, autocommit=True, connect_timeout=2) as admin:
-            admin.execute(
-                """
-                SELECT pg_terminate_backend(pid)
-                FROM pg_stat_activity
-                WHERE datname = %s AND pid <> pg_backend_pid()
-                """,
-                (dbname,),
-            )
-            admin.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(dbname)))
+TEST_DATABASE_PREFIX = "chorus_bff_test"
 
 
 @pytest.fixture
