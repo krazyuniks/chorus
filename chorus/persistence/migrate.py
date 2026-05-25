@@ -16,7 +16,7 @@ from psycopg import Connection, sql
 ROOT = Path(__file__).resolve().parents[2]
 MIGRATIONS_DIR = ROOT / "infrastructure" / "postgres" / "migrations"
 SEEDS_DIR = ROOT / "infrastructure" / "postgres" / "seeds"
-DEFAULT_DATABASE_URL = "postgresql://chorus:chorus@localhost:5432/chorus"
+DEFAULT_DATABASE_URL = "postgresql://chorus:chorus@localhost:55432/chorus"
 
 MIGRATION_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS schema_migrations (

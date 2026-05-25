@@ -22,7 +22,7 @@ from chorus.persistence.migrate import database_url_from_env
 from chorus.persistence.outbox import OutboxStore, OutboxWorkflowEvent
 from chorus.persistence.projection import ProjectionStore
 
-DEFAULT_BOOTSTRAP_SERVERS = "localhost:9092"
+DEFAULT_BOOTSTRAP_SERVERS = "localhost:19092"
 DEFAULT_SCHEMA_REGISTRY_URL = "http://localhost:8081"
 DEFAULT_WORKFLOW_TOPIC = "chorus.workflow.events.v1"
 DEFAULT_CONSUMER_GROUP = "chorus.projection-worker.v1"

@@ -19,9 +19,9 @@ from chorus.persistence.redpanda import (
 
 ADMIN_DATABASE_URL = os.environ.get(
     "CHORUS_TEST_ADMIN_DATABASE_URL",
-    "postgresql://chorus:chorus@localhost:5432/postgres",
+    "postgresql://chorus:chorus@localhost:55432/postgres",
 )
-BOOTSTRAP_SERVERS = os.environ.get("CHORUS_REDPANDA_BOOTSTRAP_SERVERS", "localhost:9092")
+BOOTSTRAP_SERVERS = os.environ.get("CHORUS_REDPANDA_BOOTSTRAP_SERVERS", "localhost:19092")
 
 
 def _database_url(dbname: str) -> str:

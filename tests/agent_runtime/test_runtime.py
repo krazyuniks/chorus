@@ -52,7 +52,7 @@ from chorus.workflows.types import AgentInvocationRequest
 
 ADMIN_DATABASE_URL = os.environ.get(
     "CHORUS_TEST_ADMIN_DATABASE_URL",
-    "postgresql://chorus:chorus@localhost:5432/postgres",
+    "postgresql://chorus:chorus@localhost:55432/postgres",
 )
 PROMPT_HASHES = {
     "classifier": "sha256:6e25aca95c76a38b089fedbcac94316a47e18a9d2575089363f5c35f1cbcd67e",

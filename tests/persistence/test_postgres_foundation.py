@@ -28,7 +28,7 @@ from chorus.workflows.types import RetryExhaustionDlqCommand
 
 ADMIN_DATABASE_URL = os.environ.get(
     "CHORUS_TEST_ADMIN_DATABASE_URL",
-    "postgresql://chorus:chorus@localhost:5432/postgres",
+    "postgresql://chorus:chorus@localhost:55432/postgres",
 )
 ROOT = Path(__file__).resolve().parents[1]
 
