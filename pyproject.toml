@@ -16,6 +16,7 @@ dependencies = [
     "confluent-kafka>=2.12.2",
     "fastapi>=0.125.0",
     "httpx>=0.28.1",
+    "jsonschema[format]>=4.26.0",
     "openai>=1.60.0",
     "psycopg[binary]>=3.2",
     "pydantic>=2.13.3",
@@ -26,7 +27,6 @@ dependencies = [
 [dependency-groups]
 dev = [
     "datamodel-code-generator>=0.56.1",
-    "jsonschema[format]>=4.26.0",
     "pyright>=1.1",
     "pytest>=8.3",
     "pytest-asyncio>=0.25",

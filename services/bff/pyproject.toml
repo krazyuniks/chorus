@@ -4,11 +4,16 @@ version = "0.1.0"
 description = "FastAPI backend-for-frontend for Chorus projection and evidence views."
 requires-python = ">=3.14"
 dependencies = [
+    "confluent-kafka>=2.12.2",
     "fastapi>=0.125.0",
+    "httpx>=0.28.1",
+    "jsonschema[format]>=4.26.0",
+    "openai>=1.60.0",
     "opentelemetry-distro[otlp]>=0.50b0",
     "pip>=25.0",
     "psycopg[binary]>=3.2",
     "pydantic>=2.13.3",
+    "temporalio>=1.26.0",
     "uvicorn[standard]>=0.38.0",
 ]
 
