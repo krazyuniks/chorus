@@ -30,7 +30,7 @@ ADMIN_DATABASE_URL = os.environ.get(
     "CHORUS_TEST_ADMIN_DATABASE_URL",
     "postgresql://chorus:chorus@localhost:55432/postgres",
 )
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _database_url(dbname: str) -> str:
@@ -236,8 +236,8 @@ def test_agent_registry_roles_are_constrained_for_seeded_r4_agents(
         ("context_gatherer",),
         ("engagement_decider",),
         ("qualifier",),
-        ("research_analyst",),
         ("request_drafter",),
+        ("research_analyst",),
         ("risk_analyst",),
         ("suitability_decider",),
         ("validator",),
