@@ -44,6 +44,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help="Run credential-gated live OpenAI provider integration tests.",
     )
+    parser.addoption(
+        "--live-deepseek",
+        action="store_true",
+        default=False,
+        help="Run credential-gated live DeepSeek provider integration tests.",
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -51,20 +57,34 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "live_openai: credential-gated live OpenAI provider integration test",
     )
+    config.addinivalue_line(
+        "markers",
+        "live_deepseek: credential-gated live DeepSeek provider integration test",
+    )
     if bool(config.getoption("--live-openai")) and not os.environ.get("OPENAI_API_KEY", "").strip():
         raise pytest.UsageError(
             "Live OpenAI integration tests require OPENAI_API_KEY to be set and non-empty."
         )
+    if (
+        bool(config.getoption("--live-deepseek"))
+        and not os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    ):
+        raise pytest.UsageError(
+            "Live DeepSeek integration tests require DEEPSEEK_API_KEY to be set and non-empty."
+        )
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    if bool(config.getoption("--live-openai")):
-        return
+    live_openai_requested = bool(config.getoption("--live-openai"))
+    live_deepseek_requested = bool(config.getoption("--live-deepseek"))
 
     selected: list[pytest.Item] = []
     deselected: list[pytest.Item] = []
     for item in items:
-        if "live_openai" in item.keywords:
+        unrequested_live_test = ("live_openai" in item.keywords and not live_openai_requested) or (
+            "live_deepseek" in item.keywords and not live_deepseek_requested
+        )
+        if unrequested_live_test:
             deselected.append(item)
         else:
             selected.append(item)

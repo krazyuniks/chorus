@@ -79,7 +79,7 @@ existing BFF/UI surfaces.
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|
 | Intake | email-channel, web-form-channel, partner-portal-channel, synthetic-channel | email-channel, corporate-intake-form, intermediary-referral-channel | web-form-channel, email-channel, introducer-referral-channel |
-| LLM provider | OpenAI-SDK adapter; route metadata: active local `recorded-replay` (`local` / `uc1-happy-path-v1`), DeepSeek `deepseek-v4-flash` (dev), and OpenAI `gpt-5.4-mini-2026-03-17` (demo / eval); worker startup fails when an approved live route is selected without its credential env var; explicit OpenAI replay integration runs with `just test-live-openai` when `OPENAI_API_KEY` is set | same adapter and route shape | same adapter and route shape |
+| LLM provider | OpenAI-SDK adapter; route metadata: active local `recorded-replay` (`local` / `uc1-happy-path-v1`), DeepSeek `deepseek-v4-flash` (dev), and OpenAI `gpt-5.4-mini-2026-03-17` (demo / eval); worker startup fails when an approved live route is selected without its credential env var; explicit OpenAI and DeepSeek replay integrations run with `just test-live-openai` / `just test-live-deepseek` when the matching key is set | same adapter and route shape | same adapter and route shape |
 | Connector | sandbox-crm, sandbox-referral-inbox, sandbox-decline-ledger, sandbox-outbound-comms, sandbox-customer-profile, sandbox-product-catalogue | adds sandbox-conflict-check, sandbox-kyc-bo, sandbox-aml-record-store, sandbox-engagement-letter-store | adds sandbox-attitude-to-risk-profiler, sandbox-capacity-for-loss-tool, sandbox-suitability-report-store, sandbox-platform-research |
 | Audit / transcript | decision-trail adapter, transcript adapter (Postgres-backed) | same | same |
 | Projection sink | Postgres projection adapter; Redpanda event consumer feeding the read-only BFF | same | same |
@@ -185,6 +185,15 @@ just test-live-openai
 It requires `OPENAI_API_KEY` in the process environment or `.env`; without
 that key the command fails before provider calls.
 
+The explicit live DeepSeek replay check is:
+
+```bash
+just test-live-deepseek
+```
+
+It requires `DEEPSEEK_API_KEY` in the process environment or `.env`; without
+that key the command fails before provider calls.
+
 The runtime code carries the named-port surface: the LLM provider port,
 connector adapter registry, audit / transcript split, workflow spine with UC1,
 UC2, and UC3 definitions on it, per-port projection / doctor decomposition,
@@ -194,16 +203,19 @@ synthetic intake commands and relay/projection evidence loops.
 The live-provider startup credential gate is in place. OpenAI live-provider
 replay integration now runs explicitly with `just test-live-openai`, hard
 fails when `OPENAI_API_KEY` is absent, and compares UC1, UC2, and UC3
-happy-path captured transcripts through `demo-eval-canonical`; DeepSeek
-coverage and persisted replay-run rows remain open. The
+happy-path captured transcripts through `demo-eval-canonical`. DeepSeek
+live-provider replay integration runs with the `just test-live-deepseek`
+command, hard fails when `DEEPSEEK_API_KEY` is absent, and compares the same
+happy-path captured transcripts through `dev`; persisted replay-run rows
+remain open. The
 closed R4 backlog and closure notes live in
 [`docs/transformation/r4-implementation-backlog.md`](docs/transformation/r4-implementation-backlog.md).
 
 ## Current Work
 
 R5 is active. Work proceeds from the R5 backlog, closing documented local
-runnable paths first and the remaining DeepSeek / live replay persistence
-slices later without widening into production connectors or hosted deployment.
+runnable paths first and the remaining live replay persistence slice later
+without widening into production connectors or hosted deployment.
 Architectural decisions are recorded in [`adrs/`](adrs/); only current
 decisions are kept in the repository.
 

@@ -12,6 +12,7 @@ from chorus.eval.scenario_player import CapturedRun
 from chorus.llm_provider import RouteCatalogue, default_route_catalogue
 
 LIVE_OPENAI_ROUTE_ID = "demo-eval-canonical"
+LIVE_DEEPSEEK_ROUTE_ID = "dev"
 ALLOWED_LIVE_COMPARATOR_OUTCOMES = frozenset({"success", "review-finding", "metrics-only"})
 
 
@@ -137,6 +138,7 @@ def _default_policy_snapshot_ref(run: CapturedRun) -> str | None:
 
 __all__ = [
     "ALLOWED_LIVE_COMPARATOR_OUTCOMES",
+    "LIVE_DEEPSEEK_ROUTE_ID",
     "LIVE_OPENAI_ROUTE_ID",
     "LiveProviderCredentialError",
     "captured_transcripts_for_replay",

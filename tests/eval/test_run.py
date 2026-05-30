@@ -15,6 +15,7 @@ from chorus.eval import run
 from chorus.eval.common_invariants import COMMON_INVARIANTS
 from chorus.eval.invariants import UC1_INVARIANTS, UC2_INVARIANTS, UC3_INVARIANTS
 from chorus.eval.live_provider_integration import (
+    LIVE_DEEPSEEK_ROUTE_ID,
     LiveProviderCredentialError,
     require_live_route_credential,
 )
@@ -653,6 +654,51 @@ def test_replay_treats_regulated_status_aliases_as_review_findings() -> None:
     assert result.record.comparator.result["reason_code"] == "structured_data_review_required"
 
 
+def test_replay_treats_missing_data_pending_conduct_as_review_finding() -> None:
+    transcript = _qualifier_transcript()
+    structured = _qualification_structured_data()
+    structured.update(
+        {
+            "conduct_hooks_pass": False,
+            "customer_ref": None,
+            "verdict_ref": None,
+            "routing_policy_ref": None,
+            "product_family_category": "motor",
+            "qualification_verdict_category": "missing_data",
+            "missing_data_request_required": True,
+        }
+    )
+    structured["best_interests_check"] = {
+        **structured["best_interests_check"],
+        "status": "pending",
+        "summary": "Best interests assessment incomplete due to missing customer information.",
+    }
+    structured["demands_and_needs_statement"] = {
+        **structured["demands_and_needs_statement"],
+        "captured": False,
+        "summary": "Customer demands and needs are not fully captured yet.",
+    }
+    structured["target_market_check"] = {
+        **structured["target_market_check"],
+        "status": "pending",
+        "summary": "Target market check is incomplete without customer details.",
+    }
+    structured["foreseeable_harm_check"] = {
+        **structured["foreseeable_harm_check"],
+        "status": "pending",
+        "summary": "Foreseeable harm assessment is incomplete due to missing data.",
+    }
+
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_returning(_invocation_result(structured_data=structured)),
+    )
+
+    assert result.record.comparator.status.value == "pass"
+    assert result.record.comparator.result["tier"] == "review_finding"
+    assert result.record.comparator.result["reason_code"] == "structured_data_review_required"
+
+
 def test_replay_review_finds_recommended_next_step_rationale_and_confidence() -> None:
     transcript = replace(
         _qualifier_transcript(),
@@ -854,6 +900,20 @@ def test_live_openai_route_credential_gate_fails_loudly(
     assert str(exc_info.value) == (
         "Live provider integration test for route 'demo-eval-canonical' requires "
         "OPENAI_API_KEY to be set and non-empty."
+    )
+
+
+def test_live_deepseek_route_credential_gate_fails_loudly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "")
+
+    with pytest.raises(LiveProviderCredentialError) as exc_info:
+        require_live_route_credential(LIVE_DEEPSEEK_ROUTE_ID)
+
+    assert str(exc_info.value) == (
+        "Live provider integration test for route 'dev' requires "
+        "DEEPSEEK_API_KEY to be set and non-empty."
     )
 
 

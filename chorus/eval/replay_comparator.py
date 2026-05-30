@@ -310,7 +310,10 @@ def classify_replay_decision_failure(
         expected_structured_data,
         actual_structured_data,
     )
-    if regulated_fields:
+    if regulated_fields and not _same_non_terminal_missing_data_route(
+        expected_route,
+        actual_route,
+    ):
         mismatch_groups.append(("regulated_outcome_mismatch", regulated_fields))
 
     approval_fields = _changed_field_names(
@@ -666,6 +669,13 @@ def _same_uc1_route_category(expected: dict[str, Any], actual: dict[str, Any]) -
         and actual_route.category is not None
         and expected_route.category == actual_route.category
     )
+
+
+def _same_non_terminal_missing_data_route(
+    expected_route: _RouteCategory,
+    actual_route: _RouteCategory,
+) -> bool:
+    return expected_route.category == "missing_data" and actual_route.category == "missing_data"
 
 
 def _derived_connector_action_field_names(

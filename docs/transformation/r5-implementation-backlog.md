@@ -46,10 +46,9 @@ R5 is not production hosting, not a SaaS build, and not a generic workflow DSL.
   hash, response schema, structured output, route-governance alignment,
   replay-run records, tiered comparator). Live OpenAI and DeepSeek routes are
   credential-gated at worker startup and inactive by default. The explicit
-  OpenAI live replay integration test now replays UC1, UC2, and UC3
-  happy-path captured transcripts through `demo-eval-canonical`; DeepSeek
-  live replay and persisted live replay rows remain deferred to the next P3
-  slices.
+  OpenAI and DeepSeek live replay integration tests now replay UC1, UC2, and
+  UC3 happy-path captured transcripts through `demo-eval-canonical` and
+  `dev`; persisted live replay rows remain deferred to the next P3 slice.
 - The Compose stack runs against Postgres on host `:55432` and Redpanda on
   `:19092`. Tests load `.env` automatically through `tests/conftest.py`.
 - The DB-backed persistence, BFF, agent-runtime, tool-gateway, and focused UC2
@@ -93,7 +92,7 @@ documented exit criteria are green.
   least one conduct-relevant branch fixture played end-to-end through the
   running stack; the recorded comparator output is green or has explicit
   review findings, not skipped tiers.
-- [ ] OpenAI and DeepSeek live routes activate when `OPENAI_API_KEY` /
+- [x] OpenAI and DeepSeek live routes activate when `OPENAI_API_KEY` /
   `DEEPSEEK_API_KEY` are present and fail loudly with an explicit error when a
   declared-active route is requested without credentials.
 - [x] `just doctor` verifies stack health (postgres, redpanda, mailpit,
@@ -529,7 +528,32 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
   `OPENAI_API_KEY= uv run pytest tests/eval/test_live_openai_integration.py
   --live-openai -q`, `just test-live-openai`, `just contracts-check`, `just
   lint`, `just doctor`, and `git diff --check`.
-- [ ] Same integration test against the DeepSeek route.
+- [x] Same integration test against the DeepSeek route.
+  Evidence (2026-05-30): `tests/eval/test_live_deepseek_integration.py` is
+  marked `live_deepseek` and is deselected from the default pytest suite
+  unless `--live-deepseek` is passed; `just test-live-deepseek` is the
+  explicit operator command. `tests/conftest.py` fails collection with `Live
+  DeepSeek integration tests require DEEPSEEK_API_KEY to be set and
+  non-empty.` when the command is requested without a key. The test reuses
+  the UC1, UC2, and UC3 happy captured-run paths, replays every captured LLM
+  transcript through the live DeepSeek `dev` route, captures the replay
+  comparator record, and fails on hard-fail or decision-fail outcomes. The
+  worker startup suite now explicitly proves an approved `dev` route fails
+  boot without `DEEPSEEK_API_KEY`. `chorus/eval/replay_comparator.py` now
+  keeps terminal UC1 regulated-outcome divergence in the decision-fail tier
+  while classifying same-route missing-data conduct-hook pending evidence as
+  a non-terminal review finding. README, runbook, architecture, and
+  evidence-map now document the explicit DeepSeek command while leaving live
+  replay-run persistence open. Verified with `uv run pytest
+  tests/eval/test_run.py::test_replay_treats_missing_data_pending_conduct_as_review_finding
+  tests/eval/test_run.py::test_replay_decision_fails_terminal_verdict_mismatch
+  tests/eval/test_run.py::test_replay_hard_fails_missing_required_uc1_conduct_hooks
+  -q`, `uv run pytest
+  tests/eval/test_run.py::test_live_deepseek_route_credential_gate_fails_loudly
+  tests/workflows/test_worker_startup_gate.py -q`, the expected failing
+  `DEEPSEEK_API_KEY= uv run pytest tests/eval/test_live_deepseek_integration.py
+  --live-deepseek -q`, `just test-live-deepseek`, `just contracts-check`,
+  `just lint`, `just doctor`, and `git diff --check`.
 - [ ] Wire the replay comparator into the live integration test so each live
   run produces a `replay_run_records` row joining the live transcript with
   the recorded-replay transcript.
@@ -574,8 +598,7 @@ session is reprompted with the answer included.
 
 ```text
 We are in /home/ryan/Work/chorus. Continue R5 P3 — Live Provider Route
-Activation — by implementing the credential-gated live DeepSeek integration
-test.
+Activation — by persisting live replay comparator records.
 
 Read AGENTS.md and docs/transformation/r5-implementation-backlog.md, then run
 `git status --short --branch`. Preserve unrelated user changes.
@@ -585,7 +608,9 @@ editing: `just --list`, `justfile`, `chorus/workflows/worker.py`,
 `chorus/llm_provider/route_catalogue.py`, `chorus/llm_provider/adapter_openai.py`,
 `chorus/agent_runtime/runtime.py`, `chorus/eval/replay.py`,
 `chorus/eval/replay_comparator.py`, `chorus/eval/live_provider_integration.py`,
-`tests/eval/test_live_openai_integration.py`, `chorus/persistence/replay_runs.py`,
+`tests/eval/test_live_openai_integration.py`,
+`tests/eval/test_live_deepseek_integration.py`,
+`chorus/persistence/replay_runs.py`,
 `chorus/persistence/runtime_policy.py`, `chorus/persistence/provider_governance.py`,
 `infrastructure/postgres/seeds/002_provider_governance.sql`,
 `infrastructure/postgres/seeds/001_demo_tenants.sql`,
@@ -594,30 +619,31 @@ editing: `just --list`, `justfile`, `chorus/workflows/worker.py`,
 `tests/workflows/test_worker_startup_gate.py`, `docs/runbook.md`,
 `docs/evidence-map.md`, `docs/architecture.md`, and `README.md`.
 
-Before editing, confirm `DEEPSEEK_API_KEY` is present and non-empty in the
-environment. If it is missing, stop without changing checkboxes or committing
-and report that this P3 slice requires a user-provided DeepSeek key; do not add
-or commit credentials.
+Before editing, confirm `OPENAI_API_KEY` and `DEEPSEEK_API_KEY` are present
+and non-empty in the environment. If either is missing, stop without changing
+checkboxes or committing and report that this P3 persistence slice requires
+user-provided live-provider keys; do not add or commit credentials.
 
-Implement the next narrow slice: a focused live-provider integration test,
-invoked explicitly and hard-gated on `DEEPSEEK_API_KEY`, that drives UC1, UC2,
-and UC3 happy-path fixtures through the live DeepSeek `dev`
-route end-to-end, captures the comparator record, and asserts the comparator
-outcome is one of `success`, `review-finding`, or `metrics-only`. Treat
-`hard-fail` and `decision-fail` as test failures. The default recorded-replay
-tests and worker startup path must continue to run without live credentials.
+Implement the next narrow slice: wire the explicit live OpenAI and live
+DeepSeek integration tests so each replay comparator record is written through
+`ReplayRunStore` to the test database's `replay_run_records` table. Assert
+that the persisted rows join the original recorded-replay invocation /
+transcript refs with the live alternate route metadata and preserve the same
+bounded comparator result that the in-memory live test asserted. The default
+recorded-replay tests and worker startup path must continue to run without
+live credentials.
 
-Keep scope tight: do not add real provider credentials, do not implement the
-live replay-run persistence slice yet, do not add production connector paths,
-do not add mutating approval or admin UI, and do not add a generic
-workflow-route DSL. Do not run destructive Docker/database operations.
+Keep scope tight: do not add real provider credentials, do not add production
+connector paths, do not add mutating approval or admin UI, do not add a
+generic workflow-route DSL, and do not create a new replay persistence
+subsystem when `chorus/persistence/replay_runs.py` already owns the table
+surface. Do not run destructive Docker/database operations.
 
 Update code, focused tests, README, runbook, evidence-map, architecture, and
-this backlog for the live DeepSeek integration-test status only. Run the
-smallest offline tests that prove the credential gate fails loudly when the
-live test is asked to run without `DEEPSEEK_API_KEY`, then run the explicit
-live DeepSeek integration test with the provided credential, followed by `just
-contracts-check`, `just lint`, `just doctor`, and `git diff --check`.
+this backlog for the persisted live replay-run status only. Run focused
+offline persistence/comparator tests first, then run `just test-live-openai`
+and `just test-live-deepseek` with the provided credentials, followed by
+`just contracts-check`, `just lint`, `just doctor`, and `git diff --check`.
 
 End-of-session contract:
 - Update checkboxes and evidence notes for the slice you completed.

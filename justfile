@@ -157,6 +157,10 @@ test-e2e:
 test-live-openai:
     uv run pytest tests/eval/test_live_openai_integration.py --live-openai -q
 
+# Run the credential-gated live DeepSeek provider integration test.
+test-live-deepseek:
+    uv run pytest tests/eval/test_live_deepseek_integration.py --live-deepseek -q
+
 # ----- Eval -----
 
 # Run eval fixtures.
