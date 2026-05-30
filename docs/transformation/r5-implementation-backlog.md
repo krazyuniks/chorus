@@ -25,13 +25,13 @@ R5 is not production hosting, not a SaaS build, and not a generic workflow DSL.
 - UC1 is locally runnable through the Mailpit email-intake path on the shared
   `WorkflowSpine`.
 - UC2 has intake and connector contracts, a shared-spine workflow definition,
-  a code-level synthetic email-intake adapter, deterministic sandbox connector
-  adapters, Tool Gateway grants, recorded-replay route policies for its four
-  workflow agent tasks, approval-package evidence for `engagement_letter.send`,
-  tightened conduct invariants, and workflow-path eval playback for one happy
-  acceptance/send-approval-gated fixture and one conflict-exception branch. It
-  does **not** yet have a documented local operator command, projection/UI
-  confirmation for a triggered workflow, or live-provider replay.
+  a documented local synthetic email-intake command, deterministic sandbox
+  connector adapters, Tool Gateway grants, recorded-replay route policies for
+  its four workflow agent tasks, approval-package evidence for
+  `engagement_letter.send`, tightened conduct invariants, workflow-path eval
+  playback for one happy acceptance/send-approval-gated fixture and one
+  conflict-exception branch, and projection/BFF/UI confirmation for triggered
+  happy-path evidence. Live-provider replay remains deferred to P3.
 - UC3 has intake and connector contracts, a shared-spine workflow definition,
   deterministic sandbox connector adapters, Tool Gateway grants,
   approval-package evidence for `suitability_report.issue`, conduct invariants,
@@ -315,8 +315,24 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
   src/api/queries.test.ts 'src/routes/-workflows.$workflowId.test.tsx'`, `cd
   frontend && npm run test:e2e`, `just contracts-check`, `just lint`, `just
   doctor`, and `git diff --check`.
-- [ ] Document the UC2 runnable command in `docs/runbook.md` and the README
+- [x] Document the UC2 runnable command in `docs/runbook.md` and the README
   with the exact one-liner used to start it locally.
+  Evidence (2026-05-30): `docs/runbook.md` and `README.md` now document the
+  exact operator command `uv run python -m
+  chorus.workflows.uc2_synthetic_intake`, the default UC2
+  `email_legal_intake` fixture, the stable workflow ID
+  `uc2-legal-ddbe16eabd909b417f25119f`, correlation ID
+  `cor_legal_email_001`, the `started: false` duplicate semantics, the
+  `just relay-once` / `just project-once` evidence loop, and the BFF,
+  frontend, and Temporal inspection targets. `docs/evidence-map.md` and
+  `docs/architecture.md` now describe UC2 as having a documented local
+  synthetic-intake path while leaving UC3 local intake and live-provider route
+  activation open. No command/output contract changed, so the existing
+  focused UC2 intake, BFF projection, and UI smoke suites remain the evidence
+  surface. Verified with `uv run pytest
+  tests/workflows/test_uc2_synthetic_intake.py tests/bff/test_app.py -q`, `cd
+  frontend && npm run test:e2e`, `just contracts-check`, `just lint`, `just
+  doctor`, and `git diff --check`.
 
 ### P2 — UC3 To Runnable
 
@@ -383,40 +399,42 @@ session is reprompted with the answer included.
 ## Next Continuation Prompt
 
 ```text
-We are in /home/ryan/Work/chorus. Continue R5 P1 — UC2 To Runnable — by
-documenting the UC2 runnable local intake command and evidence loop.
+We are in /home/ryan/Work/chorus. Continue R5 P2 — UC3 To Runnable — by
+adding the UC3 local synthetic intake adapter.
 
 Read AGENTS.md and docs/transformation/r5-implementation-backlog.md, then run
 `git status --short --branch`. Preserve unrelated user changes.
 
-Inspect the current UC2 local start path and operator docs before editing:
-`just --list`, `justfile`, `chorus/workflows/uc2_synthetic_intake.py`,
-`chorus/workflows/worker.py`, `chorus/eval/uc2_workflow_playback.py`,
-`chorus/persistence/redpanda.py`, `chorus/bff/app.py`, `README.md`,
-`docs/runbook.md`, `docs/evidence-map.md`, `docs/architecture.md`,
-`tests/workflows/test_uc2_synthetic_intake.py`, `tests/bff/test_app.py`, and
-`frontend/tests/e2e/smoke.spec.ts`.
+Inspect the current UC3 workflow/contracts and the UC2 local adapter pattern
+before editing: `just --list`, `justfile`,
+`chorus/workflows/uc2_synthetic_intake.py`, `chorus/workflows/uc3.py`,
+`chorus/workflows/types.py`, `chorus/workflows/worker.py`,
+`contracts/intake/uc3/email_advice_enquiry.schema.json`,
+`contracts/intake/uc3/samples/email_advice_enquiry.sample.json`,
+`tests/workflows/test_uc2_synthetic_intake.py`,
+`tests/workflows/test_uc3_workflow.py`, `docs/runbook.md`,
+`docs/evidence-map.md`, `docs/architecture.md`, and `README.md`.
 
-Implement the next narrow slice: document the exact one-liner an operator
-uses locally to start the UC2 synthetic email-intake fixture, then relay and
-project its workflow events so the run is inspectable in the existing BFF/UI
-surfaces. Prefer the existing `uv run python -m
-chorus.workflows.uc2_synthetic_intake ...` path unless the current project
-shape already has or clearly needs a small `just` alias for operator
-ergonomics. Do not broaden into live provider credentials, UC3, a generic
-workflow-start DSL, mutating approval/admin UI, destructive Docker/database
-operations, or production connector paths.
+Implement the next narrow slice: add a UC3 one-shot synthetic intake adapter
+that validates the documented `email_advice_enquiry` sample with the generated
+contract model, normalises it to the existing `Uc3AdviceEnquiry` workflow DTO,
+derives stable safe workflow IDs / refs / idempotency refs, and delegates to a
+small Temporal starter for `Uc3IfaSuitabilityIntakeWorkflow.run` on the shared
+task queue. Register the UC3 workflow on the existing worker if it is not
+already registered. Mirror the UC2 adapter shape closely; do not add a generic
+workflow-start DSL, UC3 model route policy seeding, UC3 eval playback,
+operator runbook command, mutating approval/admin UI, live provider
+credentials, destructive Docker/database operations, or production connector
+paths.
 
-Update `docs/runbook.md` and README with the exact command sequence and the
-expected inspection commands/URLs. Keep evidence-map and architecture text
-current if their UC2 runnable-status language changes. Add or adjust focused
-tests only if the documented command or output contract changes; otherwise
-use the existing focused UC2 intake/projection/BFF/UI tests as evidence. Use
-the running local stack if required, but do not run destructive Docker, volume,
-database, reset, or checkout commands. If the stack gate cannot be made green
-without destructive action, stop without committing and surface the blocker.
+Add focused tests mirroring the UC2 synthetic-intake coverage: generated
+contract validation, invalid-fixture failure, deterministic safe start-request
+construction, and starter delegation / duplicate behaviour without requiring
+live Temporal. Update README, runbook, evidence-map, and architecture only for
+the new code-level UC3 adapter status; leave the documented UC3 runnable
+operator command to the later P2 documentation slice.
 
-Run the focused tests relevant to any command/doc-surface changes,
+Run the focused UC3 intake tests plus any worker-registration tests you change,
 `just contracts-check`, `just lint`, `just doctor`, and `git diff --check`.
 
 End-of-session contract:

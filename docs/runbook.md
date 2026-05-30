@@ -14,22 +14,19 @@ dependency. Deployment and hosting are out of the Chorus repository; see
 
 The runbook starts with the local development bootstrap. The **per-port
 operations reference** then shows how to inspect each of the six named ports,
-and the **UC1 happy-path walk-through** threads those ports into one
-end-to-end run.
+and the UC1 and UC2 walk-throughs thread those ports into end-to-end local
+runs.
 
 Current runnable scope: UC1 runs locally through the Mailpit
-enquiry-qualification path on the shared `WorkflowSpine`. UC2 and UC3 have
-shared-spine workflow definitions, deterministic sandbox connector adapters,
-Tool Gateway grants, approval-package evidence, conduct invariants,
-schema-only fixture evidence, and read-only projection/BFF/UI inspection
-surfaces. UC2 has a code-level synthetic email-intake fixture adapter for R5
-P1 test evidence, recorded-replay model-route policies for the four UC2
-workflow agent tasks, and workflow-path eval playback for the happy
-acceptance/send-approval-gated fixture plus one conflict-exception branch.
-The happy-path playback now projects into the read-only BFF/UI surfaces with
-workflow progress, decision-trail rows, Tool Gateway audit rows, and the
-`engagement_letter.send` approval package inspectable. UC2 still lacks a
-documented operator command for that runnable path. UC3 does not yet have
+enquiry-qualification path on the shared `WorkflowSpine`. UC2 runs locally
+through the documented synthetic email legal-intake fixture on the same spine:
+the command validates the UC2 intake contract sample, starts the workflow,
+and the relay/projection loop makes workflow progress, decision-trail rows,
+Tool Gateway audit rows, and the `engagement_letter.send` approval package
+inspectable in the existing BFF/UI surfaces. UC3 has shared-spine workflow
+definition, deterministic sandbox connector adapters, Tool Gateway grants,
+approval-package evidence, conduct invariants, schema-only fixture evidence,
+and read-only projection/BFF/UI inspection surfaces, but it does not yet have
 use-case route activation, full eval fixture playback, or a local intake
 start path.
 
@@ -272,13 +269,33 @@ Message-ID when rehearsing.
 
 R4 closes with the Mailpit/email UC1 channel runnable and keeps the UC1
 web-form, partner-portal, and synthetic-channel contracts in place. UC2 and
-UC3 intake contracts exist. R5 P1 adds a code-level UC2 synthetic email-intake
+UC3 intake contracts exist. R5 P1 adds a local UC2 synthetic email-intake
 fixture adapter that validates the documented contract sample and starts the
-UC2 workflow. The eval playback path now uses that adapter to run the UC2
-happy fixture and conflict-exception fixture through the workflow/runtime
-activities in tests, and the happy-path evidence projects into the existing
-BFF/UI inspection surfaces; the operator-facing UC2 command remains a later
-runbook slice. UC3 still has no local intake adapter.
+UC2 workflow. The operator command is:
+
+```bash
+uv run python -m chorus.workflows.uc2_synthetic_intake
+```
+
+The command uses
+`contracts/intake/uc2/samples/email_legal_intake.sample.json` by default and
+prints the workflow ID, legal intake ref, correlation ID, and whether the
+workflow was newly started. On a clean database the default fixture prints:
+
+```text
+workflow_type: uc2_legal_services_intake_conflict_check
+workflow: uc2-legal-ddbe16eabd909b417f25119f
+legal_intake_ref: legal_intake_legal_email_001
+correlation_id: cor_legal_email_001
+started: true
+```
+
+`started: false` means the stable workflow ID for the fixture's Message-ID
+already exists; inspect the existing run rather than resetting local data.
+The eval playback path uses the same adapter to run the UC2 happy fixture and
+conflict-exception fixture through the workflow/runtime activities in tests,
+and the happy-path evidence projects into the existing BFF/UI inspection
+surfaces. UC3 still has no local intake adapter.
 
 ### LLM provider port
 
@@ -376,9 +393,9 @@ email, or e-signature systems. The local Postgres governance seed now
 expresses UC2 Tool Gateway grants for those tool names; `engagement_letter.send`
 is the approval-required write, while conflict exception and AML EDD approval
 remain conduct-gated/manual-review evidence until a later slice adds an exact
-connector request shape for those packages. The runbook does not yet claim a
-runnable UC2 operator intake command. The R5 P1 eval playback path does
-exercise the happy `engagement_letter.send` approval package and the
+connector request shape for those packages. The documented UC2 synthetic
+intake command exercises the happy `engagement_letter.send` approval package;
+the R5 P1 eval playback path also exercises the
 `engagement_letter.route_manual_review` conflict-exception branch through real
 Tool Gateway audit rows.
 
@@ -529,17 +546,92 @@ infrastructure is a gate failure, not a skip. If local Postgres rejects the
 configured `chorus` user, fix the stack or stop and record the blocker; do not
 claim live DB evidence.
 
+## UC2 synthetic email-intake walk-through
+
+This is the local UC2 runnable path. It uses the documented synthetic
+`email_legal_intake` fixture, the shared `WorkflowSpine`, the recorded-replay
+LLM provider route, deterministic sandbox connector adapters, the Tool
+Gateway, Postgres audit/transcript stores, Redpanda relay, and the read-only
+BFF/UI projection surfaces. It does not require live provider credentials and
+does not call production legal, AML, identity, document, email, or e-signature
+systems.
+
+1. **Bring the stack up.** Run the standard bring-up commands:
+   `just up && just db-migrate && just schemas-register && just doctor`.
+   The `intake-poller` service started by Compose is the Temporal worker for
+   the shared `chorus-uc1` task queue; `just worker` is only needed when you
+   intentionally run the worker on the host instead.
+
+2. **Start the UC2 synthetic email-intake fixture.** Run the one-shot intake
+   command from the repository root:
+
+   ```bash
+   uv run python -m chorus.workflows.uc2_synthetic_intake
+   ```
+
+   The default fixture is
+   `contracts/intake/uc2/samples/email_legal_intake.sample.json`. On a clean
+   database it starts workflow
+   `uc2-legal-ddbe16eabd909b417f25119f` with correlation ID
+   `cor_legal_email_001`. `started: false` means the deterministic workflow ID
+   already exists for that fixture Message-ID.
+
+3. **Relay and project workflow events.** After the worker has processed the
+   run, publish the outbox events and project them into the read model:
+
+   ```bash
+   just relay-once
+   ```
+
+   ```bash
+   just project-once
+   ```
+
+   If the BFF still shows a non-terminal status, wait for the Temporal worker
+   to finish and repeat the same two bounded commands. Do not reset Postgres
+   or Docker volumes to make a duplicate fixture start.
+
+4. **Inspect the workflow summary.** The BFF endpoint should show the UC2
+   workflow type, `completed` status, `close` current step, and the legal
+   intake subject summary:
+
+   ```bash
+   curl -s http://localhost:18001/api/workflows/uc2-legal-ddbe16eabd909b417f25119f | jq '{workflow_id, workflow_type, status, current_step, subject_ref, subject_summary}'
+   ```
+
+5. **Inspect evidence rows.** These read-only endpoints expose the projected
+   event timeline, the four UC2 agent decisions, Tool Gateway verdicts, and
+   the approval-required engagement-letter package:
+
+   ```bash
+   curl -s http://localhost:18001/api/workflows/uc2-legal-ddbe16eabd909b417f25119f/events | jq '.[].step'
+   ```
+
+   ```bash
+   curl -s http://localhost:18001/api/workflows/uc2-legal-ddbe16eabd909b417f25119f/decision-trail | jq '.[].task_kind'
+   ```
+
+   ```bash
+   curl -s http://localhost:18001/api/workflows/uc2-legal-ddbe16eabd909b417f25119f/tool-verdicts | jq '.[].tool_name'
+   ```
+
+   ```bash
+   curl -s http://localhost:18001/api/workflows/uc2-legal-ddbe16eabd909b417f25119f/approval-packages | jq '.[] | {requested_action, approval_state, latest_verdict, action_refs}'
+   ```
+
+   When the frontend dev server is running, inspect the same read model at
+   `http://localhost:5174/workflows/uc2-legal-ddbe16eabd909b417f25119f`.
+   The Temporal UI at `http://localhost:8233` can be used to inspect the
+   workflow execution by the same workflow ID.
+
 ## UC1 happy-path walk-through
 
 This is the end-to-end happy path threaded through the six ports. The port
 sequence is stable; the UC1 enquiry-qualification workflow runs it
-end-to-end on the shared `WorkflowSpine`. R4 added UC2 and UC3 workflow
-definitions on the same spine, but those use cases are inspection and
-schema-only evidence paths until documented operator intake commands and UC3
-provider route activation land in later phases. UC2 now has recorded-replay
-route policies and workflow-path eval playback for its happy acceptance path
-and conflict-exception branch, but the documented UC2 operator command and
-UC3 provider route activation remain open.
+end-to-end on the shared `WorkflowSpine`. UC2 now has its own synthetic
+email-intake walk-through above. UC3 remains an inspection and schema-only
+evidence path until local intake, provider route activation, and full fixture
+playback land in later phases.
 
 1. **Bring the stack up (all ports).** Run the bring-up commands above:
    `just up && just db-migrate && just schemas-register && just doctor`.

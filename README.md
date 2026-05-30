@@ -64,13 +64,13 @@ flowchart TB
 ```
 
 The adapter inventory behind each port, as closed in R4 and extended in R5.
-UC1 is the locally runnable worked set. UC2 now has a code-level synthetic
-email-intake fixture adapter, recorded-replay model routes for its workflow
-agent tasks, and workflow-path eval playback for one happy fixture and one
-conflict-exception branch, plus projection/BFF/UI confirmation for triggered
-happy-path evidence. UC2 and UC3 are not claimed as locally runnable use cases
-because documented operator intake commands, UC3 provider route activation,
-and UC3 fixture playback remain deferred.
+UC1 is locally runnable through Mailpit email intake. UC2 is locally runnable
+through the documented synthetic email legal-intake fixture: the one-shot
+command validates the intake contract sample, starts the UC2 workflow, and the
+relay/projection loop exposes workflow progress, decision-trail rows, Tool
+Gateway verdicts, and the `engagement_letter.send` approval package in the
+existing BFF/UI surfaces. UC3 remains a shared-surface adapter-reuse proof
+until local intake, provider route activation, and full fixture playback land.
 
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|
@@ -120,22 +120,44 @@ order:
 
 Chorus runs entirely on a local sandbox stack: Postgres, Redpanda, Temporal,
 Mailpit, and a local connector substrate, with OpenTelemetry and Grafana for
-observability. There is no hosted dependency. The full command path and the
-UC1 happy-path walk-through are in [`docs/runbook.md`](docs/runbook.md).
+observability. There is no hosted dependency. The full command path plus UC1
+and UC2 walk-throughs are in [`docs/runbook.md`](docs/runbook.md).
+
+The UC2 local operator loop is:
+
+```bash
+just up && just db-migrate && just schemas-register && just doctor
+```
+
+```bash
+uv run python -m chorus.workflows.uc2_synthetic_intake
+```
+
+```bash
+just relay-once && just project-once
+```
+
+The default UC2 fixture starts workflow
+`uc2-legal-ddbe16eabd909b417f25119f` on a clean database. Inspect it at
+`http://localhost:18001/api/workflows/uc2-legal-ddbe16eabd909b417f25119f`,
+or in the frontend at
+`http://localhost:5174/workflows/uc2-legal-ddbe16eabd909b417f25119f` when
+`just frontend-dev` is running.
 
 The runtime code carries the named-port surface: the LLM provider port,
 connector adapter registry, audit / transcript split, workflow spine with UC1,
 UC2, and UC3 definitions on it, per-port projection / doctor decomposition,
-and invariant-plus-replay eval. R4 is closed as local POC evidence: UC1 is the
-local runnable path, while UC2 and UC3 are shared-surface adapter-reuse proofs
-with explicit runnable-status exceptions. The closed R4 backlog and closure
-notes live in
+and invariant-plus-replay eval. R4 is closed as local POC evidence; R5 is
+closing the documented runnable gaps, with UC2 now having a local synthetic
+intake command and evidence loop while UC3 and live-provider route activation
+remain open. The closed R4 backlog and closure notes live in
 [`docs/transformation/r4-implementation-backlog.md`](docs/transformation/r4-implementation-backlog.md).
 
 ## Current Work
 
-R4 is closed. Any next phase should start from the recorded closure exceptions
-instead of widening R4 in place.
+R5 is active. Work proceeds from the R5 backlog, closing documented local
+runnable paths first and live-provider activation later without widening into
+production connectors or hosted deployment.
 Architectural decisions are recorded in [`adrs/`](adrs/); only current
 decisions are kept in the repository.
 
