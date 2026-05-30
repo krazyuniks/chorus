@@ -83,6 +83,10 @@ Only these value-only differences are allowed locally:
 `GRAFANA_ADMIN_PASSWORD`, `DEEPSEEK_API_KEY`, and `OPENAI_API_KEY`. If a new
 runtime variable is added, add it to both files and keep the runbook endpoint
 table current. Do not commit real provider keys or private credentials.
+Leaving `DEEPSEEK_API_KEY` and `OPENAI_API_KEY` blank is valid while approved
+routes select `recorded-replay`; the worker fails on startup only after an
+approved route policy selects the corresponding live `dev` or
+`demo-eval-canonical` route without the required key.
 
 The default infrastructure URLs consumed by host-side gates are:
 
@@ -366,8 +370,13 @@ for the UC2 workflow agent tasks
 workflow agent tasks (`uc3_advice_scope_classification`,
 `uc3_fact_find_summary`, `uc3_risk_profile_assessment`,
 `uc3_consumer_duty_support_assessment`, and
-`uc3_suitability_conclusion`). Live route activation remains deferred until
-required local credentials and live route gates are aligned. Replay-run evidence
+`uc3_suitability_conclusion`). Worker startup now checks the approved route
+policies before connecting to Temporal: `recorded-replay` starts without live
+credentials, while an approved `demo-eval-canonical` route without
+`OPENAI_API_KEY` or an approved `dev` route without `DEEPSEEK_API_KEY` exits
+with `Live provider route credential gate failed` and names the route and
+missing credential. Live end-to-end provider calls and credential-gated replay
+comparisons remain deferred to the next R5 P3 slices. Replay-run evidence
 records now persist the original invocation/transcript refs, alternate route
 metadata, comparator status, lineage refs, and token/cost/latency metrics. The
 hard-fail comparator tier classifies schema, policy snapshot, conduct hook,
@@ -818,6 +827,7 @@ deferred to R5 P3.
 | `just doctor` reports missing Schema Registry subjects | Declared `x-subject` contracts are not registered. | Run `just schemas-register`; it registers missing declared subjects without creating new versions for subjects already present. |
 | `just service-import-contracts` reports a missing dependency | A service-owned `chorus` entrypoint now reaches a third-party runtime import not declared in that service's `services/<name>/pyproject.toml`. | Add the dependency to that service pyproject and rebuild the image with `just up`, or update the explicit service import contract if the Dockerfile entrypoint changed. |
 | `just env-check` reports `.env` drift | The local runtime file no longer matches the committed template. | Restore the local value to the committed default, add the key to both files, or extend the explicit secret-value allowlist only for genuine credentials. |
+| `just worker` prints `Live provider route credential gate failed` | An approved `model_routing_policies` row selects a live OpenAI-compatible route and the required credential env var is blank or unset. | Set the named credential in `.env` only for intentional live-provider testing, or restore the approved policy to `recorded-replay`. Do not rely on fallback replay for a selected live route. |
 | Docker compose fails validation | An unset variable lacks a `${VAR:-default}` fallback. | Run `./scripts/dc config` to see the rendered file; add the default in `compose.yml`. |
 | Pre-commit hooks reject a commit | A lint or contracts gate failed. | Run `just hooks` to reproduce outside the commit. Do not bypass with `--no-verify`. |
 | A workflow is stuck | A long-poll, a wait, or a deadlocked dependency. | Inspect the run in the Temporal UI at `http://localhost:8233`; terminate or reset from there. Never wipe Postgres to clear a stuck run; the audit trail is evidence. |

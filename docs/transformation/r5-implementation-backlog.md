@@ -45,7 +45,8 @@ R5 is not production hosting, not a SaaS build, and not a generic workflow DSL.
 - The OpenAI-compatible provider adapter is hardened (prompt loading, prompt
   hash, response schema, structured output, route-governance alignment,
   replay-run records, tiered comparator). Live OpenAI and DeepSeek routes are
-  credential-gated and inactive by default.
+  credential-gated at worker startup and inactive by default; live-provider
+  integration tests remain deferred to P3.
 - The Compose stack runs against Postgres on host `:55432` and Redpanda on
   `:19092`. Tests load `.env` automatically through `tests/conftest.py`.
 - The DB-backed persistence, BFF, agent-runtime, tool-gateway, and focused UC2
@@ -469,10 +470,29 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
 
 ### P3 — Live Provider Route Activation
 
-- [ ] Implement a startup gate: when `model_routing_policies` selects a live
+- [x] Implement a startup gate: when `model_routing_policies` selects a live
   route and the required credential env var is missing, the worker fails fast
   on boot with a specific error message naming the route and the missing
   credential. No fallback to recorded replay; no silent skip.
+  Evidence (2026-05-30): `OpenAICompatibleAdapter` now exposes its required
+  credential env var through the route catalogue, while recorded replay has no
+  credential requirement. `chorus.workflows.worker` validates distinct
+  approved `model_routing_policies.runtime_route_id` values for active tenants
+  before connecting to Temporal, raises `WorkerStartupConfigurationError` with
+  `Live provider route credential gate failed: route
+  'demo-eval-canonical' missing credential 'OPENAI_API_KEY'.` when a selected
+  live OpenAI route lacks its key, and does not rewrite or fall back from the
+  selected route. Focused coverage in
+  `tests/workflows/test_worker_startup_gate.py` proves recorded-replay boot
+  accepts missing live credentials and a promoted live OpenAI route fails
+  loudly before worker startup. README, runbook, evidence-map, and
+  architecture now describe the startup gate without claiming live provider
+  calls are active. Verified with `uv run pytest
+  tests/workflows/test_worker_startup_gate.py
+  tests/workflows/test_worker_registration.py
+  tests/agent_runtime/test_runtime.py::test_default_route_catalogue_registers_three_routes
+  -q`, `just contracts-check`, `just lint`, `just doctor`, and `git diff
+  --check`.
 - [ ] Implement a focused integration test (gated on credentials being set)
   that drives UC1, UC2, and UC3 happy-path fixtures through the live OpenAI
   route end-to-end, captures the comparator record, and asserts the
@@ -523,41 +543,49 @@ session is reprompted with the answer included.
 
 ```text
 We are in /home/ryan/Work/chorus. Continue R5 P3 — Live Provider Route
-Activation — by implementing the startup gate for live-provider route
-credentials.
+Activation — by implementing the credential-gated live OpenAI integration
+test.
 
 Read AGENTS.md and docs/transformation/r5-implementation-backlog.md, then run
 `git status --short --branch`. Preserve unrelated user changes.
 
-Inspect the live-route governance and worker boot path before editing:
-`just --list`, `justfile`, `chorus/workflows/worker.py`,
+Inspect the live-route governance, startup gate, and replay/eval path before
+editing: `just --list`, `justfile`, `chorus/workflows/worker.py`,
 `chorus/llm_provider/route_catalogue.py`, `chorus/llm_provider/adapter_openai.py`,
-`chorus/persistence/runtime_policy.py`,
-`chorus/persistence/provider_governance.py`,
+`chorus/agent_runtime/runtime.py`, `chorus/eval/replay.py`,
+`chorus/eval/replay_comparator.py`, `chorus/persistence/replay_runs.py`,
+`chorus/persistence/runtime_policy.py`, `chorus/persistence/provider_governance.py`,
 `infrastructure/postgres/seeds/002_provider_governance.sql`,
 `infrastructure/postgres/seeds/001_demo_tenants.sql`,
-`tests/agent_runtime/test_runtime.py`,
-`tests/persistence/test_postgres_foundation.py`, `docs/runbook.md`,
+`chorus/eval/uc2_workflow_playback.py`, `chorus/eval/uc3_workflow_playback.py`,
+`tests/eval/test_run.py`, `tests/persistence/test_postgres_foundation.py`,
+`tests/workflows/test_worker_startup_gate.py`, `docs/runbook.md`,
 `docs/evidence-map.md`, `docs/architecture.md`, and `README.md`.
 
-Implement the next narrow slice: when an approved `model_routing_policies` row
-selects a live OpenAI-compatible route and the route's required credential env
-var is missing, the worker startup path must fail fast with a specific error
-message naming the route and missing credential. Recorded-replay routes must
-continue to start without live credentials. Do not silently fall back to
-recorded replay.
+Before editing, confirm `OPENAI_API_KEY` is present and non-empty in the
+environment. If it is missing, stop without changing checkboxes or committing
+and report that this P3 slice requires a user-provided OpenAI key; do not add
+or commit credentials.
 
-Keep scope tight: do not add real provider credentials, do not run live
-provider calls, do not add the credential-gated live-provider integration
-tests yet, do not add production connector paths, do not add mutating approval
-or admin UI, and do not add a generic workflow-route DSL. Do not run
-destructive Docker/database operations.
+Implement the next narrow slice: a focused live-provider integration test,
+invoked explicitly and hard-gated on `OPENAI_API_KEY`, that drives UC1, UC2,
+and UC3 happy-path fixtures through the live OpenAI `demo-eval-canonical`
+route end-to-end, captures the comparator record, and asserts the comparator
+outcome is one of `success`, `review-finding`, or `metrics-only`. Treat
+`hard-fail` and `decision-fail` as test failures. The default recorded-replay
+tests and worker startup path must continue to run without live credentials.
+
+Keep scope tight: do not add real provider credentials, do not implement the
+DeepSeek live-provider test yet, do not add production connector paths, do not
+add mutating approval or admin UI, and do not add a generic workflow-route
+DSL. Do not run destructive Docker/database operations.
 
 Update code, focused tests, README, runbook, evidence-map, architecture, and
-this backlog for the startup-gate status only. Run the smallest focused tests
-that prove recorded-replay boot still passes and live-route-without-credential
-boot fails loudly, then run `just contracts-check`, `just lint`, `just
-doctor`, and `git diff --check`.
+this backlog for the live OpenAI integration-test status only. Run the smallest
+offline tests that prove the credential gate fails loudly when the live test is
+asked to run without `OPENAI_API_KEY`, then run the explicit live OpenAI
+integration test with the provided credential, followed by `just
+contracts-check`, `just lint`, `just doctor`, and `git diff --check`.
 
 End-of-session contract:
 - Update checkboxes and evidence notes for the slice you completed.

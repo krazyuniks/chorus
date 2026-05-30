@@ -40,6 +40,13 @@ class RouteCatalogueEntry:
     def adapter_version(self) -> str:
         return self.adapter.adapter_version
 
+    @property
+    def required_credential_env(self) -> str | None:
+        credential_env = getattr(self.adapter, "required_credential_env", None)
+        if isinstance(credential_env, str) and credential_env:
+            return credential_env
+        return None
+
 
 class RouteCatalogue:
     """Resolves route ids to their configured adapters."""

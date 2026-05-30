@@ -42,6 +42,10 @@ class OpenAICompatibleAdapter:
     response_format_mode: ResponseFormatMode = "json_schema"
     adapter_version: str = ADAPTER_VERSION
 
+    @property
+    def required_credential_env(self) -> str:
+        return self.api_key_env
+
     def invoke(self, args: InvocationArgs) -> InvocationResult:
         api_key = os.environ.get(self.api_key_env)
         if not api_key:

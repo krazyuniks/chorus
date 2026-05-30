@@ -192,7 +192,13 @@ inspection views, and eval replay fixtures all expose the governed local
 `local` / `uc1-happy-path-v1` route matrix for UC1 and the seeded UC2/UC3
 workflow agent tasks. Prompt loading, prompt-hash verification, and
 schema-bound structured output enforcement are active in the provider call
-path. Replay-run evidence records now capture original
+path. The worker startup path also validates approved route policies against
+the in-process route catalogue before connecting to Temporal: recorded replay
+has no credential requirement, while `dev` requires `DEEPSEEK_API_KEY` and
+`demo-eval-canonical` requires `OPENAI_API_KEY`. A selected live route with a
+blank or unset credential fails startup with the route and credential named;
+there is no fallback to recorded replay for a selected live route. Replay-run
+evidence records now capture original
 invocation/transcript refs, alternate route metadata, comparator status, safe
 lineage refs, and token/cost/latency metrics. The replay comparator now
 classifies hard-fail defects first, then decision-fail divergence for bounded
@@ -424,7 +430,8 @@ recorded-replay model routes for the five workflow agent tasks, and
 workflow-path eval playback for the happy issue path plus the
 vulnerability-support handoff branch, plus triggered-run projection evidence
 for the happy issue path through the documented relay/projection loop.
-Live-provider activation remains a deferred closure exception. UC2
+Live-provider startup credential gating is now in place, but live-provider
+end-to-end activation remains a deferred closure exception. UC2
 conflict-exception / AML EDD
 and UC3 risk-profile / vulnerability approval packages also remain
 workflow/manual-review conduct evidence until a later design slice binds them
