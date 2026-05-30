@@ -142,17 +142,17 @@ When code changes, update the matching docs and run the relevant gates. If a doc
 
 `compose.yml` defines the local evidence substrate:
 
-- Postgres: `localhost:5432`
-- Redpanda Kafka API: `localhost:9092`
-- Redpanda Schema Registry: `localhost:8081`
-- Redpanda Console: `http://localhost:8080`
+- Postgres: `localhost:55432`
+- Redpanda Kafka API: `localhost:19092`
+- Redpanda Schema Registry: `localhost:18081`
+- Redpanda Console: `http://localhost:18083`
 - Temporal: `localhost:7233`
 - Temporal UI: `http://localhost:8233`
 - Mailpit SMTP: `localhost:1025`
 - Mailpit UI/API: `http://localhost:8025`
 - Radicale / CalDAV sandbox: `http://localhost:5232`
 - Grafana: `http://localhost:3001`
-- OTLP: `localhost:4317` and `localhost:4318`
+- OTLP: `localhost:14317` and `localhost:14318`
 
 Use `just up`, `just status`, and `just logs <service>` for normal local operations.
 

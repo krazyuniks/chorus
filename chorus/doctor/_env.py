@@ -20,14 +20,14 @@ def load_local_env(path: Path | None = None) -> None:
     if not env_path.is_file():
         return
     for line in env_path.read_text(encoding="utf-8").splitlines():
-        parsed = _parse_env_assignment(line)
+        parsed = parse_env_assignment(line)
         if parsed is None:
             continue
         key, value = parsed
         os.environ.setdefault(key, value)
 
 
-def _parse_env_assignment(line: str) -> tuple[str, str] | None:
+def parse_env_assignment(line: str) -> tuple[str, str] | None:
     stripped = line.strip()
     if not stripped or stripped.startswith("#"):
         return None

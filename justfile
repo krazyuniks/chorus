@@ -79,6 +79,10 @@ doctor-quick:
 service-import-contracts:
     uv run python -m chorus.doctor.service_import_contracts
 
+# Verify repo-local environment keys and non-secret values match .env.example.
+env-check:
+    uv run python -m chorus.doctor.env_drift
+
 # Apply Postgres migrations and idempotent local demo seed data.
 db-migrate:
     uv run python -m chorus.persistence.migrate
@@ -157,8 +161,8 @@ eval:
 
 # ----- Lint / format -----
 
-# Run linters (Python ruff + pyright, frontend tsc).
-lint: lint-python lint-frontend
+# Run environment drift checks, linters, and type-checkers.
+lint: env-check lint-python lint-frontend
 
 # Run Python ruff lint + format check + service import contracts + pyright strict.
 lint-python: service-import-contracts

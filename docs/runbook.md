@@ -63,9 +63,11 @@ surfaces such as the frontend dev server remain non-gating.
 | `just logs <service>` | Tail logs for one service. |
 | `just doctor` | Scaffold and fail-fast required stack readiness checks. |
 | `just service-import-contracts` | Verify service pyprojects declare dependencies used by their service-owned `chorus` entrypoints. |
+| `just env-check` | Verify `.env` and `.env.example` declare the same keys and matching non-secret values. |
 | `just contracts-check` | Schema, generated-model, and sample drift gate. |
 | `just test` / `just test-replay` | Python tests; Temporal replay tests. |
-| `just lint` / `just fmt` | Linters and formatters. |
+| `just lint` | Environment drift checks, linters, and type-checkers. |
+| `just fmt` | Format Python and frontend code. |
 | `just eval` | Run the eval fixtures. |
 
 `just --list` is the discovery command.
@@ -74,22 +76,24 @@ surfaces such as the frontend dev server remain non-gating.
 
 | Service | URL / port |
 |---|---|
-| Postgres | `localhost:5432` |
-| Redpanda Kafka API | `localhost:9092` |
-| Redpanda Schema Registry | `localhost:8081` |
-| Redpanda Console | `http://localhost:8080` |
+| Postgres | `localhost:55432` |
+| Redpanda Kafka API | `localhost:19092` |
+| Redpanda Schema Registry | `localhost:18081` |
+| Redpanda Console | `http://localhost:18083` |
 | Temporal | `localhost:7233` |
 | Temporal UI | `http://localhost:8233` |
 | Mailpit SMTP | `localhost:1025` |
 | Mailpit UI / HTTP API | `http://localhost:8025` |
 | Radicale / CalDAV sandbox | `http://localhost:5232` |
 | Grafana | `http://localhost:3001` |
-| OTLP gRPC / HTTP | `localhost:4317` / `localhost:4318` |
-| BFF | `localhost:8000` |
-| Frontend | `http://localhost:5173` |
+| OTLP gRPC / HTTP | `localhost:14317` / `localhost:14318` |
+| BFF | `localhost:18001` |
+| Frontend | `http://localhost:5174` |
 
-Ports are parameterised in `.env`; defaults are shown. Rerun `just doctor`
-after editing `.env`.
+Ports are parameterised in `.env`; defaults are shown. Rerun `just env-check`
+and `just doctor` after editing `.env`. Long-lived local overrides must be
+reflected in `.env.example`; only the explicitly listed API-key and password
+values may differ between the two files.
 
 ## Per-port operations reference
 
@@ -235,19 +239,19 @@ route activation, full eval playback, and local intake adapters remain absent.
 Inspect approval packages through the read-only BFF:
 
 ```bash
-curl -s http://localhost:8000/api/approval-packages | jq '.[] | {workflow_id, workflow_type, requested_action, approval_state, latest_verdict, action_refs}'
+curl -s http://localhost:18001/api/approval-packages | jq '.[] | {workflow_id, workflow_type, requested_action, approval_state, latest_verdict, action_refs}'
 ```
 
 For a known UC2 workflow ID, narrow the same view:
 
 ```bash
-curl -s http://localhost:8000/api/workflows/<workflow-id>/approval-packages | jq '.[] | select(.workflow_type == "uc2_legal_services_intake_conflict_check")'
+curl -s http://localhost:18001/api/workflows/<workflow-id>/approval-packages | jq '.[] | select(.workflow_type == "uc2_legal_services_intake_conflict_check")'
 ```
 
 For a known UC3 workflow ID, inspect suitability report issue approvals:
 
 ```bash
-curl -s http://localhost:8000/api/workflows/<workflow-id>/approval-packages | jq '.[] | select(.requested_action == "suitability_report.issue.write") | {workflow_id, workflow_type, approval_state, latest_verdict, subject_refs, action_refs, grant_ref}'
+curl -s http://localhost:18001/api/workflows/<workflow-id>/approval-packages | jq '.[] | select(.requested_action == "suitability_report.issue.write") | {workflow_id, workflow_type, approval_state, latest_verdict, subject_refs, action_refs, grant_ref}'
 ```
 
 ### Audit / transcript ports
@@ -292,20 +296,20 @@ just relay-once     # publish pending workflow events to Redpanda
 just project-once   # project Redpanda events into Postgres read models
 ```
 
-Inspect the read models through the BFF at `localhost:8000` or the frontend at
-`http://localhost:5173`. The read model is the source of truth for the UI; the
+Inspect the read models through the BFF at `localhost:18001` or the frontend at
+`http://localhost:5174`. The read model is the source of truth for the UI; the
 progress stream is a convenience, not authoritative.
 
 Filter projected UC2 workflow rows through the BFF:
 
 ```bash
-curl -s http://localhost:8000/api/workflows | jq '.[] | select(.workflow_type == "uc2_legal_services_intake_conflict_check") | {workflow_id, status, current_step, subject_ref, subject_summary}'
+curl -s http://localhost:18001/api/workflows | jq '.[] | select(.workflow_type == "uc2_legal_services_intake_conflict_check") | {workflow_id, status, current_step, subject_ref, subject_summary}'
 ```
 
 Filter projected UC3 workflow rows through the BFF:
 
 ```bash
-curl -s http://localhost:8000/api/workflows | jq '.[] | select(.workflow_type == "uc3_ifa_suitability_intake") | {workflow_id, status, current_step, subject_ref, subject_summary}'
+curl -s http://localhost:18001/api/workflows | jq '.[] | select(.workflow_type == "uc3_ifa_suitability_intake") | {workflow_id, status, current_step, subject_ref, subject_summary}'
 ```
 
 ### Observability sink
@@ -409,6 +413,7 @@ activation, and full fixture playback land in a later phase.
 | `just doctor` reports an unapplied migration or checksum mismatch | Postgres schema state is behind the repo, or an applied migration was edited. | Run `just db-migrate` for unapplied migrations. For checksum drift, create a new migration rather than editing the applied file. |
 | `just doctor` reports missing Schema Registry subjects | Declared `x-subject` contracts are not registered. | Run `just schemas-register`; it registers missing declared subjects without creating new versions for subjects already present. |
 | `just service-import-contracts` reports a missing dependency | A service-owned `chorus` entrypoint now reaches a third-party runtime import not declared in that service's `services/<name>/pyproject.toml`. | Add the dependency to that service pyproject and rebuild the image with `just up`, or update the explicit service import contract if the Dockerfile entrypoint changed. |
+| `just env-check` reports `.env` drift | The local runtime file no longer matches the committed template. | Restore the local value to the committed default, add the key to both files, or extend the explicit secret-value allowlist only for genuine credentials. |
 | Docker compose fails validation | An unset variable lacks a `${VAR:-default}` fallback. | Run `./scripts/dc config` to see the rendered file; add the default in `compose.yml`. |
 | Pre-commit hooks reject a commit | A lint or contracts gate failed. | Run `just hooks` to reproduce outside the commit. Do not bypass with `--no-verify`. |
 | A workflow is stuck | A long-poll, a wait, or a deadlocked dependency. | Inspect the run in the Temporal UI at `http://localhost:8233`; terminate or reset from there. Never wipe Postgres to clear a stuck run; the audit trail is evidence. |

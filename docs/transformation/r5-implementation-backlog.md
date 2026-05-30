@@ -70,7 +70,7 @@ documented exit criteria are green.
   the gate runs green or the suite fails.
 - [x] Per-service pyprojects under `services/*/` are kept in sync with the
   runtime imports of the `chorus` package by an automated check.
-- [ ] `.env.example` declares the same keys with the same values as `.env`;
+- [x] `.env.example` declares the same keys with the same values as `.env`;
   drift is caught by a check in `just lint` or `just doctor`.
 - [ ] UC1, UC2, and UC3 each have a documented local intake command that
   starts a workflow and shows up in BFF/UI projections within a deterministic
@@ -157,9 +157,22 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
   `docs/runbook.md` documents the operator command and failure mode.
   Verified with `uv run pytest tests/doctor/test_service_import_contracts.py`,
   `just lint`, `just doctor`, and `git diff --check`.
-- [ ] Add a `.env` / `.env.example` drift check to `just lint`. The two files
+- [x] Add a `.env` / `.env.example` drift check to `just lint`. The two files
   must declare the same keys; values may differ only for explicitly listed
   secret keys (API keys, passwords).
+  Evidence (2026-05-30): `chorus/doctor/env_drift.py` compares parsed
+  assignments in `.env` and `.env.example`, fails on missing files, duplicate
+  keys, keys present on only one side, and non-secret value mismatches, and
+  allows value differences only for the explicit API-key / password allowlist.
+  `just env-check` exposes the check directly and `just lint` runs it before
+  the Python and frontend lint/type gates. `.env.example`, `AGENTS.md`, and
+  `docs/runbook.md` now declare the host ports used by the running local
+  stack; the ignored local `.env` is aligned to the template. Focused coverage
+  in `tests/doctor/test_env_drift.py` proves matching files, allowed secret
+  value differences, missing-file failures, duplicate-key failures, key drift,
+  and non-secret value drift. Verified with `uv run pytest
+  tests/doctor/test_env_drift.py`, `just env-check`, `just lint`, `just
+  doctor`, and `git diff --check`.
 - [x] Replace the per-test hardcoded Postgres URL fallbacks with a single
   shared helper that reads from environment only and fails loud when the
   variable is unset.
@@ -261,30 +274,30 @@ session is reprompted with the answer included.
 
 ```text
 We are in /home/ryan/Work/chorus. Continue R5 P0 — Infrastructure
-Prerequisites And Gate Hygiene — by adding the `.env` / `.env.example` drift
-check.
+Prerequisites And Gate Hygiene — by documenting the local development
+bootstrap end-to-end in docs/runbook.md.
 
 Read AGENTS.md and docs/transformation/r5-implementation-backlog.md, then run
 `git status --short --branch`. Preserve unrelated user changes.
 
-Inspect the current environment and gate surface before editing: `just --list`,
-`justfile`, `.env.example`, `.env`, `.github/workflows/ci.yml`,
-`.pre-commit-config.yaml`, `docs/runbook.md`, and any existing environment
-loading helpers under `chorus/doctor/`, `tests/conftest.py`, and `scripts/`.
+Inspect the current bootstrap and gate surface before editing: `just --list`,
+`justfile`, `.env.example`, `scripts/first-time-setup.sh`, `scripts/dc`,
+`tests/conftest.py`, `docs/runbook.md`, `.github/workflows/ci.yml`, and the
+doctor/env-check modules under `chorus/doctor/`.
 
-Implement a deterministic check that fails when `.env` and `.env.example` do
-not declare the same keys. Values must match unless the key is in an explicit
-secret-value allowlist such as API keys and passwords; for allowed secret
-keys, the check should still require both files to declare the key. Wire the
-check into `just lint` or `just doctor` where it best fits R5 gate hygiene,
-update `docs/runbook.md` if the operator command or failure mode changes, and
-add focused tests.
+Update `docs/runbook.md` so a fresh local developer can follow the bootstrap
+without relying on chat history: first-time setup, `.env` creation and drift
+checking, stack startup, migrations, schema registration, how
+`tests/conftest.py` obtains infrastructure URLs, what to do when migrations
+drift, and what to do when a service image needs rebuilding after a dependency
+change. Keep commands current, single-line, and aligned with `.env.example`.
+Do not add historical phase narration or change runtime behaviour unless the
+documentation audit exposes a real contradiction.
 
-Run the focused pytest target for the new check, `just lint`, `just doctor`,
-and `git diff --check`. Do not run destructive Docker, volume, database,
-reset, or checkout commands. If the secret-value allowlist or `.env` ownership
-boundary is ambiguous enough that multiple designs would be reasonable, stop
-without committing or touching checkboxes and surface the question.
+Run `just env-check`, `just lint`, `just doctor`, and `git diff --check`. Do
+not run destructive Docker, volume, database, reset, or checkout commands. If
+a required live stack gate cannot be made green without destructive action,
+stop without committing and surface the blocker.
 
 End-of-session contract:
 - Update checkboxes and evidence notes for the slice you completed.
