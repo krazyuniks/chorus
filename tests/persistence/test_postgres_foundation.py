@@ -1111,6 +1111,10 @@ def test_uc3_model_route_policies_are_seeded_with_route_versions(
         for route in routes
     )
     assert all(
+        "chorus/eval/fixtures/uc3/uc3_vulnerability_support_handoff_conduct.json" in route[11]
+        for route in routes
+    )
+    assert all(
         route[12]["future_live_route"]["status"] == "deferred_until_R5_P3" for route in routes
     )
     assert all(route[12]["future_live_route"]["provider_id"] == "openai" for route in routes)

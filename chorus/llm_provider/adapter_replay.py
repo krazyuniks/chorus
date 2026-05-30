@@ -434,8 +434,8 @@ def _replay_result_for(
                         "risk_questionnaire", agent_input, "demo_001"
                     ),
                     "risk_preference_band": "medium",
-                    "time_horizon_band": "medium_term",
-                    "liquidity_need_category": "standard_access",
+                    "time_horizon_band": "5_to_10_years",
+                    "liquidity_need_category": "medium",
                     "dependency_context_refs": [],
                     "product_candidate_refs": ["product_candidate_uc3_default_model_portfolio"],
                     "conduct_hook_refs": [
@@ -470,6 +470,32 @@ def _replay_result_for(
                 0.87,
             )
         case "uc3_consumer_duty_support_assessment":
+            if _is_uc3_vulnerability_support_fixture(agent_input):
+                return (
+                    "Consumer Duty support evidence requires a vulnerability-support handoff.",
+                    "approval_required",
+                    {
+                        "support_assessment_ref": _uc3_ref(
+                            "support_assessment", agent_input, "vulnerability_001"
+                        ),
+                        "support_status": "requires_handoff",
+                        "vulnerability_marker_categories": [
+                            "communication_adjustment",
+                            "third_party_authority",
+                            "health_marker",
+                        ],
+                        "approval_required": True,
+                        "consumer_understanding_check_ref": _uc3_ref(
+                            "consumer_understanding", agent_input, "vulnerability_001"
+                        ),
+                        "conduct_hook_refs": [
+                            "conduct_fca_prin_2a_consumer_duty",
+                            "conduct_fca_vulnerability_fg21_1",
+                        ],
+                        "policy_snapshot_ref": "policy_snapshot:uc3:default:v1",
+                    },
+                    0.84,
+                )
             return (
                 "Consumer Duty support evidence is recorded with no handoff required.",
                 "continue",
@@ -477,7 +503,7 @@ def _replay_result_for(
                     "support_assessment_ref": _uc3_ref(
                         "support_assessment", agent_input, "demo_001"
                     ),
-                    "support_status": "support_adjustment_recorded",
+                    "support_status": "clear",
                     "vulnerability_marker_categories": ["none"],
                     "approval_required": False,
                     "consumer_understanding_check_ref": _uc3_ref(
@@ -493,7 +519,10 @@ def _replay_result_for(
             )
         case "uc3_suitability_conclusion":
             fact_find_data = _dict_value(agent_input.get("fact_find_data"))
+            risk_profile_data = _dict_value(agent_input.get("risk_profile_data"))
+            capacity_output = _dict_value(agent_input.get("capacity_gateway_output"))
             support_data = _dict_value(agent_input.get("support_assessment_data"))
+            platform_output = _dict_value(agent_input.get("platform_research_gateway_output"))
             return (
                 "Suitability conclusion can proceed subject to adviser approval.",
                 "continue",
@@ -508,6 +537,7 @@ def _replay_result_for(
                     "report_summary_ref": _uc3_ref("report_summary", agent_input, "demo_001"),
                     "approval_package_ref": _uc3_ref("approval", agent_input, "demo_001"),
                     "adviser_approval_ref": _uc3_ref("approval_adviser", agent_input, "demo_001"),
+                    "advice_enquiry_ref": _string_value(agent_input.get("advice_enquiry_ref")),
                     "consumer_understanding_check_ref": _string_value(
                         support_data.get("consumer_understanding_check_ref")
                     )
@@ -516,6 +546,41 @@ def _replay_result_for(
                         fact_find_data.get("prospective_retail_client_ref")
                     )
                     or _uc3_ref("prospective_client", agent_input, "demo_001"),
+                    "fact_find_summary_ref": _string_value(
+                        fact_find_data.get("fact_find_summary_ref")
+                    )
+                    or _uc3_ref("fact_find", agent_input, "demo_001"),
+                    "risk_profile_ref": _string_value(risk_profile_data.get("risk_profile_ref"))
+                    or _uc3_ref("risk_profile", agent_input, "demo_001"),
+                    "risk_profile_status": _string_value(
+                        risk_profile_data.get("risk_profile_status")
+                    )
+                    or "aligned",
+                    "capacity_for_loss_ref": _string_value(
+                        capacity_output.get("capacity_for_loss_ref")
+                    )
+                    or _uc3_ref("capacity_for_loss", agent_input, "demo_001"),
+                    "capacity_for_loss_status": _string_value(
+                        capacity_output.get("capacity_for_loss_status")
+                    )
+                    or "adequate",
+                    "platform_research_ref": _string_value(
+                        platform_output.get("platform_research_ref")
+                    )
+                    or _uc3_ref("platform_research", agent_input, "demo_001"),
+                    "product_universe_coverage": _string_value(
+                        platform_output.get("product_universe_coverage")
+                    )
+                    or "sufficient_independent_range",
+                    "target_market_status": _string_value(
+                        platform_output.get("target_market_status")
+                    )
+                    or "in_target_market",
+                    "support_assessment_ref": _string_value(
+                        support_data.get("support_assessment_ref")
+                    )
+                    or _uc3_ref("support_assessment", agent_input, "demo_001"),
+                    "support_status": _string_value(support_data.get("support_status")) or "clear",
                     "issue_channel_category": "portal",
                     "decline_reason_category": None,
                     "review_reason_category": None,
@@ -525,6 +590,7 @@ def _replay_result_for(
                         "conduct_fca_cobs_9_suitability",
                         "conduct_fca_prod_3_target_market",
                         "conduct_fca_prin_2a_consumer_duty",
+                        "conduct_fca_vulnerability_fg21_1",
                         "conduct_fca_cobs_9_recordkeeping",
                     ],
                     "policy_snapshot_ref": "policy_snapshot:uc3:default:v1",
@@ -764,6 +830,28 @@ def _is_uc2_conflict_exception_fixture(agent_input: dict[str, Any]) -> bool:
         for key in ("subject_summary", "matter_scope_summary", "legal_intake_ref")
     )
     return "conflict-exception fixture" in marker_text
+
+
+def _is_uc3_vulnerability_support_fixture(agent_input: dict[str, Any]) -> bool:
+    support_categories = agent_input.get("support_need_categories")
+    if isinstance(support_categories, list):
+        category_set = {str(category) for category in cast(list[object], support_categories)}
+        if category_set.intersection(
+            {
+                "communication_adjustment",
+                "third_party_authority",
+                "financial_difficulty",
+                "bereavement",
+                "health_marker",
+                "low_capability",
+            }
+        ):
+            return True
+    marker_text = "\n".join(
+        str(agent_input.get(key, "")).lower()
+        for key in ("subject_summary", "advice_need_summary", "advice_enquiry_ref")
+    )
+    return "vulnerability support handoff fixture" in marker_text
 
 
 def _is_deeper_context_fixture(agent_input: dict[str, Any]) -> bool:

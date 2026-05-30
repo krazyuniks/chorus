@@ -5,7 +5,7 @@
   "workflow_type": "uc3_ifa_suitability_intake",
   "scenario": "synthetic_suitability_conduct",
   "input": {
-    "source_fixture_path": "contracts/intake/uc3/samples/web_advice_enquiry.sample.json",
+    "source_fixture_path": "contracts/intake/uc3/samples/email_advice_enquiry.sample.json",
     "subject_fixture_ref": "fixture_uc3_synthetic_suitability",
     "tenant_id": "tenant_demo"
   },

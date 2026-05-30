@@ -20,7 +20,13 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from chorus.contracts.generated.eval.eval_fixture import EvalFixture
-from chorus.eval.invariants import run_invariants
+from chorus.eval.invariants import (
+    UC1_INVARIANTS,
+    UC2_INVARIANTS,
+    UC3_INVARIANTS,
+    Invariant,
+    run_invariants,
+)
 from chorus.eval.replay import load_transcript, replay_transcript
 from chorus.eval.scenario_player import play_scenario
 from chorus.eval.types import EvalCheck
@@ -84,7 +90,7 @@ def _run_assert(args: argparse.Namespace) -> int:
     for index, fixture_path in enumerate(fixture_paths):
         fixture = load_fixture(fixture_path)
         run = play_scenario(fixture)
-        checks = run_invariants(run)
+        checks = run_invariants(run, invariants=_invariants_for_fixture(fixture))
         if index > 0:
             print()
         _print_report(fixture_id=fixture.fixture_id, name=fixture.name, checks=checks)
@@ -106,6 +112,17 @@ def _run_replay(args: argparse.Namespace) -> int:
 def load_fixture(path: Path) -> EvalFixture:
     data = json.loads(path.read_text(encoding="utf-8"))
     return EvalFixture.model_validate(data)
+
+
+def _invariants_for_fixture(fixture: EvalFixture) -> tuple[Invariant, ...]:
+    workflow_type = str(getattr(fixture.workflow_type, "value", fixture.workflow_type))
+    if workflow_type == "uc1_enquiry_qualification":
+        return UC1_INVARIANTS
+    if workflow_type == "uc2_legal_services_intake_conflict_check":
+        return UC2_INVARIANTS
+    if workflow_type == "uc3_ifa_suitability_intake":
+        return UC3_INVARIANTS
+    raise ValueError(f"unsupported eval workflow_type {workflow_type!r}")
 
 
 def _print_report(*, fixture_id: str, name: str, checks: Sequence[EvalCheck]) -> None:

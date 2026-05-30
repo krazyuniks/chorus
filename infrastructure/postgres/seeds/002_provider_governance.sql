@@ -243,7 +243,8 @@ SELECT
         ]::text[]
         WHEN task_kind LIKE 'uc3_%'
         THEN ARRAY[
-            'chorus/eval/fixtures/uc3/uc3_synthetic_suitability_conduct.json'
+            'chorus/eval/fixtures/uc3/uc3_synthetic_suitability_conduct.json',
+            'chorus/eval/fixtures/uc3/uc3_vulnerability_support_handoff_conduct.json'
         ]::text[]
         ELSE ARRAY[
             'chorus/eval/fixtures/uc1_happy_path.json',

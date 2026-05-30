@@ -13,7 +13,7 @@ import pytest
 from chorus.contracts.generated.eval.eval_fixture import EvalFixture
 from chorus.eval import run
 from chorus.eval.common_invariants import COMMON_INVARIANTS
-from chorus.eval.invariants import UC1_INVARIANTS, UC2_INVARIANTS, UC3_INVARIANTS, run_invariants
+from chorus.eval.invariants import UC1_INVARIANTS, UC2_INVARIANTS, UC3_INVARIANTS
 from chorus.eval.replay import load_transcript, replay_transcript_with_record
 from chorus.eval.scenario_player import (
     CapturedRun,
@@ -30,7 +30,13 @@ from chorus.eval.use_cases.uc2_conduct import (
     assert_uc2_engagement_decision_conduct,
     assert_uc2_engagement_letter_send_approval_gate,
 )
-from chorus.eval.use_cases.uc3_conduct import UC3_CONDUCT_INVARIANTS
+from chorus.eval.use_cases.uc3_conduct import (
+    UC3_CONDUCT_INVARIANTS,
+    assert_uc3_connector_ref_evidence,
+    assert_uc3_manual_handoff_boundaries,
+    assert_uc3_suitability_decision_conduct,
+    assert_uc3_suitability_report_issue_approval_gate,
+)
 from chorus.llm_provider import (
     InvocationArgs,
     InvocationResult,
@@ -96,6 +102,8 @@ def test_uc3_invariant_suite_composes_common_and_conduct_modules() -> None:
         "assert_governed_decision_provenance",
         "assert_audit_completeness",
         "assert_observability_emission",
+        "assert_uc3_workflow_progress_evidence",
+        "assert_uc3_agent_decision_and_transcript_evidence",
         "assert_uc3_suitability_decision_conduct",
         "assert_uc3_manual_handoff_boundaries",
         "assert_uc3_suitability_report_issue_approval_gate",
@@ -104,6 +112,8 @@ def test_uc3_invariant_suite_composes_common_and_conduct_modules() -> None:
         "assert_projection_convergence",
     ]
     assert [invariant.__name__ for invariant in UC3_CONDUCT_INVARIANTS] == [
+        "assert_uc3_workflow_progress_evidence",
+        "assert_uc3_agent_decision_and_transcript_evidence",
         "assert_uc3_suitability_decision_conduct",
         "assert_uc3_manual_handoff_boundaries",
         "assert_uc3_suitability_report_issue_approval_gate",
@@ -163,7 +173,15 @@ def test_uc2_conduct_invariants_fail_acceptance_with_blocked_conflict() -> None:
 def test_uc3_conduct_invariants_pass_safe_synthetic_suitability_run() -> None:
     captured = _uc3_captured_run()
 
-    checks = run_invariants(captured, invariants=UC3_INVARIANTS)
+    checks = [
+        check
+        for invariant in (
+            assert_uc3_suitability_decision_conduct,
+            assert_uc3_suitability_report_issue_approval_gate,
+            assert_uc3_connector_ref_evidence,
+        )
+        for check in invariant(captured)
+    ]
 
     assert [check for check in checks if check.status == "fail"] == []
     assert any(check.name == "UC3 suitability decision conduct" for check in checks)
@@ -176,8 +194,7 @@ def test_uc3_conduct_invariants_fail_completed_suitability_without_issue_apply()
 
     checks = [
         check
-        for invariant in UC3_CONDUCT_INVARIANTS
-        for check in invariant(captured)
+        for check in assert_uc3_suitability_report_issue_approval_gate(captured)
         if check.status == "fail"
     ]
 
@@ -193,8 +210,7 @@ def test_uc3_conduct_invariants_fail_positive_suitability_with_risk_mismatch() -
 
     checks = [
         check
-        for invariant in UC3_CONDUCT_INVARIANTS
-        for check in invariant(captured)
+        for check in assert_uc3_suitability_decision_conduct(captured)
         if check.status == "fail"
     ]
 
@@ -203,7 +219,7 @@ def test_uc3_conduct_invariants_fail_positive_suitability_with_risk_mismatch() -
     assert "requires aligned risk profile" in checks[0].detail
 
 
-def test_uc3_manual_handoff_invariants_pass_risk_profile_approval_branch() -> None:
+def test_uc3_manual_handoff_invariants_pass_vulnerability_support_branch() -> None:
     captured = _uc3_captured_run(
         include_issue_apply=False,
         include_manual_review=True,
@@ -211,11 +227,11 @@ def test_uc3_manual_handoff_invariants_pass_risk_profile_approval_branch() -> No
         use_case_outcome="manual_review",
         suitability_data={
             "suitability_outcome": "manual_review",
-            "risk_profile_status": "mismatch_requires_approval",
+            "support_status": "requires_handoff",
         },
     )
 
-    checks = [check for invariant in UC3_CONDUCT_INVARIANTS for check in invariant(captured)]
+    checks = assert_uc3_manual_handoff_boundaries(captured)
 
     assert [check for check in checks if check.status == "fail"] == []
     assert any(check.name == "UC3 manual handoff boundaries" for check in checks)
@@ -316,10 +332,34 @@ def test_uc3_schema_only_eval_fixture_validates_without_default_playback() -> No
     assert fixture.workflow_type.value == "uc3_ifa_suitability_intake"
     assert fixture.scenario == "synthetic_suitability_conduct"
     assert fixture.input.source_fixture_path == (
-        "contracts/intake/uc3/samples/web_advice_enquiry.sample.json"
+        "contracts/intake/uc3/samples/email_advice_enquiry.sample.json"
     )
     assert fixture.expected.use_case_outcome == ("suitability_report_issue_approval_gated")
-    with pytest.raises(ValueError, match="supports only 'uc1_enquiry_qualification'"):
+
+
+def test_scenario_player_rejects_unsupported_uc3_scenario() -> None:
+    fixture = EvalFixture.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "fixture_id": "uc3-unsupported-schema-only",
+            "name": "UC3 unsupported schema-only scenario",
+            "workflow_type": "uc3_ifa_suitability_intake",
+            "scenario": "schema_only_unsupported",
+            "input": {
+                "tenant_id": "tenant_demo",
+                "subject_fixture_ref": "fixture_uc3_schema_only",
+                "source_fixture_path": (
+                    "contracts/intake/uc3/samples/email_advice_enquiry.sample.json"
+                ),
+            },
+            "expected": {
+                "outcome_category": "propose",
+                "use_case_outcome": "suitability_report_issue_approval_gated",
+            },
+        }
+    )
+
+    with pytest.raises(ValueError, match="UC3 workflow playback does not support scenario"):
         play_scenario(fixture)
 
 
@@ -1316,32 +1356,16 @@ def _uc3_captured_run(
             include_issue_apply=include_issue_apply,
             include_manual_review=include_manual_review,
         ),
-        projection_events=[
-            _uc3_projection_event(
-                correlation_id=correlation_id,
-                workflow_id=workflow_id,
-                tenant_id=tenant_id,
-                subject_id=subject_id,
-                subject_ref=subject_ref,
-                sequence=1,
-                event_type="workflow.started",
-                step="intake",
-                occurred_at=now,
-                outcome=terminal_outcome,
-            ),
-            _uc3_projection_event(
-                correlation_id=correlation_id,
-                workflow_id=workflow_id,
-                tenant_id=tenant_id,
-                subject_id=subject_id,
-                subject_ref=subject_ref,
-                sequence=2,
-                event_type="workflow.completed",
-                step="close",
-                occurred_at=now + timedelta(seconds=1),
-                outcome=terminal_outcome,
-            ),
-        ],
+        projection_events=_uc3_projection_events(
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            subject_ref=subject_ref,
+            now=now,
+            terminal_outcome=terminal_outcome,
+            include_manual_review=include_manual_review,
+        ),
         terminal_outcome=terminal_outcome,
     )
 
@@ -1385,56 +1409,84 @@ def _uc3_tool_actions(
             occurred_at=now + timedelta(milliseconds=150),
             output={"capacity_for_loss_ref": "capacity_for_loss_eval_001_v1"},
         ),
-        _uc3_tool_action(
-            invocation_id=invocation_id,
-            correlation_id=correlation_id,
-            workflow_id=workflow_id,
-            tenant_id=tenant_id,
-            tool_name="platform_research.run",
-            mode="read",
-            actor_id="uc3.research_analyst",
-            verdict="allow",
-            approval_required=False,
-            approval_granted=None,
-            occurred_at=now + timedelta(milliseconds=200),
-            output={"platform_research_ref": "platform_research_eval_001_v1"},
-        ),
-        _uc3_tool_action(
-            invocation_id=invocation_id,
-            correlation_id=correlation_id,
-            workflow_id=workflow_id,
-            tenant_id=tenant_id,
-            tool_name="suitability_report.draft",
-            mode="write",
-            actor_id="uc3.suitability_decider",
-            verdict="allow",
-            approval_required=False,
-            approval_granted=None,
-            occurred_at=now + timedelta(milliseconds=250),
-            output={
-                "suitability_report_ref": "suitability_report_eval_001",
-                "draft_ref": "suitability_report_draft_eval_001",
-            },
-        ),
-        _uc3_tool_action(
-            invocation_id=invocation_id,
-            correlation_id=correlation_id,
-            workflow_id=workflow_id,
-            tenant_id=tenant_id,
-            tool_name="suitability_report.issue",
-            mode="write",
-            actor_id="uc3.suitability_decider",
-            verdict="approval_required",
-            approval_required=True,
-            approval_granted=None,
-            occurred_at=now + timedelta(milliseconds=300),
-            output={
-                "approval_id": str(uuid4()),
-                "approval_state": "requested",
-                "requested_action": "suitability_report.issue.write",
-            },
-        ),
     ]
+    if include_manual_review:
+        actions.append(
+            _uc3_tool_action(
+                invocation_id=invocation_id,
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                tenant_id=tenant_id,
+                tool_name="suitability_report.route_manual_review",
+                mode="write",
+                actor_id="uc3.suitability_decider",
+                verdict="allow",
+                approval_required=False,
+                approval_granted=None,
+                occurred_at=now + timedelta(milliseconds=200),
+                output={"handoff_ref": "manual_review_eval_001"},
+            )
+        )
+        return actions
+
+    actions.extend(
+        [
+            _uc3_tool_action(
+                invocation_id=invocation_id,
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                tenant_id=tenant_id,
+                tool_name="platform_research.run",
+                mode="read",
+                actor_id="uc3.research_analyst",
+                verdict="allow",
+                approval_required=False,
+                approval_granted=None,
+                occurred_at=now + timedelta(milliseconds=200),
+                output={"platform_research_ref": "platform_research_eval_001_v1"},
+            ),
+            _uc3_tool_action(
+                invocation_id=invocation_id,
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                tenant_id=tenant_id,
+                tool_name="suitability_report.draft",
+                mode="write",
+                actor_id="uc3.suitability_decider",
+                verdict="allow",
+                approval_required=False,
+                approval_granted=None,
+                occurred_at=now + timedelta(milliseconds=250),
+                output={
+                    "suitability_report_ref": "suitability_report_eval_001",
+                    "draft_ref": "suitability_report_draft_eval_001",
+                },
+            ),
+            _uc3_tool_action(
+                invocation_id=invocation_id,
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                tenant_id=tenant_id,
+                tool_name="suitability_report.issue",
+                mode="write",
+                actor_id="uc3.suitability_decider",
+                verdict="approval_required",
+                approval_required=True,
+                approval_granted=None,
+                occurred_at=now + timedelta(milliseconds=300),
+                output={
+                    "approval_id": str(uuid4()),
+                    "approval_state": "requested",
+                    "requested_action": "suitability_report.issue.write",
+                },
+                approval_package={
+                    "approval_id": str(uuid4()),
+                    "approval_state": "requested",
+                    "requested_action": "suitability_report.issue.write",
+                },
+            ),
+        ]
+    )
     if include_issue_apply:
         actions.append(
             _uc3_tool_action(
@@ -1457,23 +1509,6 @@ def _uc3_tool_actions(
                 },
             )
         )
-    if include_manual_review:
-        actions.append(
-            _uc3_tool_action(
-                invocation_id=invocation_id,
-                correlation_id=correlation_id,
-                workflow_id=workflow_id,
-                tenant_id=tenant_id,
-                tool_name="suitability_report.route_manual_review",
-                mode="write",
-                actor_id="uc3.suitability_decider",
-                verdict="allow",
-                approval_required=False,
-                approval_granted=None,
-                occurred_at=now + timedelta(milliseconds=400),
-                output={"handoff_ref": "manual_review_eval_001"},
-            )
-        )
     return actions
 
 
@@ -1493,6 +1528,7 @@ def _uc3_tool_action(
     output: dict[str, Any],
     actor_type: str = "agent",
     action: str = "tool_call.decided",
+    approval_package: dict[str, Any] | None = None,
 ) -> ToolActionRecord:
     return ToolActionRecord(
         audit_event_id=uuid4(),
@@ -1513,7 +1549,95 @@ def _uc3_tool_action(
         approval_granted=approval_granted,
         occurred_at=occurred_at,
         output=output,
+        approval_package=approval_package or {},
     )
+
+
+def _uc3_projection_events(
+    *,
+    correlation_id: str,
+    workflow_id: str,
+    tenant_id: str,
+    subject_id: UUID,
+    subject_ref: str,
+    now: datetime,
+    terminal_outcome: str,
+    include_manual_review: bool,
+) -> list[ProjectionEvent]:
+    if include_manual_review:
+        completed_steps = [
+            "intake",
+            "advice_scope_classification",
+            "fact_find_summary",
+            "attitude_to_risk_profile",
+            "risk_profile_assessment",
+            "capacity_for_loss_assessment",
+            "consumer_duty_support_assessment",
+            "vulnerability_handoff_approval",
+            "manual_review",
+            "close",
+        ]
+    else:
+        completed_steps = [
+            "intake",
+            "advice_scope_classification",
+            "fact_find_summary",
+            "attitude_to_risk_profile",
+            "risk_profile_assessment",
+            "capacity_for_loss_assessment",
+            "consumer_duty_support_assessment",
+            "platform_research",
+            "suitability_conclusion",
+            "suitability_report_draft",
+            "suitability_report_approval",
+            "suitability_report_issue",
+            "close",
+        ]
+
+    events = [
+        _uc3_projection_event(
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            subject_ref=subject_ref,
+            sequence=1,
+            event_type="workflow.started",
+            step="intake",
+            occurred_at=now,
+            outcome=terminal_outcome,
+        )
+    ]
+    for index, step in enumerate(completed_steps, start=2):
+        events.append(
+            _uc3_projection_event(
+                correlation_id=correlation_id,
+                workflow_id=workflow_id,
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                subject_ref=subject_ref,
+                sequence=index,
+                event_type="workflow.step.completed",
+                step=step,
+                occurred_at=now + timedelta(milliseconds=index * 10),
+                outcome=terminal_outcome,
+            )
+        )
+    events.append(
+        _uc3_projection_event(
+            correlation_id=correlation_id,
+            workflow_id=workflow_id,
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+            subject_ref=subject_ref,
+            sequence=len(events) + 1,
+            event_type="workflow.completed",
+            step="close",
+            occurred_at=now + timedelta(seconds=1),
+            outcome=terminal_outcome,
+        )
+    )
+    return events
 
 
 def _uc3_projection_event(

@@ -71,8 +71,10 @@ relay/projection loop exposes workflow progress, decision-trail rows, Tool
 Gateway verdicts, and the `engagement_letter.send` approval package in the
 existing BFF/UI surfaces. UC3 now has a code-level synthetic email advice
 intake adapter, worker registration, and recorded-replay route policies for
-its workflow agent tasks, but remains open until fixture playback, projection
-evidence, and the documented operator command land.
+its workflow agent tasks, plus workflow-path eval playback for a suitability
+report issue approval fixture and a Consumer Duty vulnerability-support
+handoff branch. UC3 remains open until projection evidence for a triggered
+local run and the documented operator command land.
 
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|
@@ -152,8 +154,9 @@ UC2, and UC3 definitions on it, per-port projection / doctor decomposition,
 and invariant-plus-replay eval. R4 is closed as local POC evidence; R5 is
 closing the documented runnable gaps, with UC2 now having a local synthetic
 intake command and evidence loop while UC3 has the code-level synthetic
-intake adapter and recorded-replay route policy but still lacks the later
-playback, projection, and operator-command slices. Live-provider route
+intake adapter, recorded-replay route policy, and workflow-path eval playback
+but still lacks the later projection and operator-command slices.
+Live-provider route
 activation remains open. The
 closed R4 backlog and closure notes live in
 [`docs/transformation/r4-implementation-backlog.md`](docs/transformation/r4-implementation-backlog.md).

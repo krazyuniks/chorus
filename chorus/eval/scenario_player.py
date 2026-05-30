@@ -8,8 +8,8 @@ shape an actual UC1 run on the live stack would persist - decision-trail
 entries, transcripts, tool-action audit rows, projection events - so the
 invariants can run identically against either source.
 
-UC2 scenarios that need workflow evidence delegate to the UC2 workflow
-playback helper instead of synthesising captured-run rows.
+UC2 and UC3 scenarios that need workflow evidence delegate to their workflow
+playback helpers instead of synthesising captured-run rows.
 
 The path-enumeration eval era is retired; this player exists so the
 invariants have something concrete to assert about offline.
@@ -241,10 +241,15 @@ def play_scenario(
         from chorus.eval.uc2_workflow_playback import play_uc2_workflow_fixture
 
         return play_uc2_workflow_fixture(fixture)
+    if workflow_type == "uc3_ifa_suitability_intake":
+        from chorus.eval.uc3_workflow_playback import play_uc3_workflow_fixture
+
+        return play_uc3_workflow_fixture(fixture)
     if workflow_type != UC1_WORKFLOW_TYPE:
         raise ValueError(
             "offline recorded-replay playback currently supports only "
-            f"{UC1_WORKFLOW_TYPE!r} and 'uc2_legal_services_intake_conflict_check'; "
+            f"{UC1_WORKFLOW_TYPE!r}, 'uc2_legal_services_intake_conflict_check', "
+            "and 'uc3_ifa_suitability_intake'; "
             f"got {workflow_type!r}"
         )
 

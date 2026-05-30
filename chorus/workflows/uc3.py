@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Any, cast
+from uuid import NAMESPACE_URL, uuid5
 
 from temporalio import workflow
 
@@ -1533,7 +1534,12 @@ def _draft_basis_categories(
 
 
 def _manual_route_invocation_id(intake: Uc3AdviceEnquiry) -> str:
-    return f"invocation_uc3_manual_route_{_ref_suffix(intake)}"
+    return str(
+        uuid5(
+            NAMESPACE_URL,
+            f"chorus:uc3:manual-route:{intake.tenant_id}:{intake.advice_enquiry_ref}",
+        )
+    )
 
 
 def _default_ref(prefix: str, intake: Uc3AdviceEnquiry) -> str:

@@ -35,11 +35,12 @@ R5 is not production hosting, not a SaaS build, and not a generic workflow DSL.
 - UC3 has intake and connector contracts, a shared-spine workflow definition,
   deterministic sandbox connector adapters, Tool Gateway grants,
   approval-package evidence for `suitability_report.issue`, conduct invariants,
-  read-only projection/BFF/UI inspection evidence, and schema-only eval
-  fixtures. It does **not** have:
+  read-only projection/BFF/UI inspection evidence, schema-only eval fixtures,
+  recorded-replay route policies for its workflow agent tasks, and
+  workflow-path eval playback for one happy issue fixture and one
+  Consumer Duty vulnerability-support handoff branch. It does **not** have:
   - a documented local intake start path,
-  - use-case-specific model route policies,
-  - full eval fixture playback against the runtime.
+  - projection evidence for a triggered local run.
 - The OpenAI-compatible provider adapter is hardened (prompt loading, prompt
   hash, response schema, structured output, route-governance alignment,
   replay-run records, tiered comparator). Live OpenAI and DeepSeek routes are
@@ -385,8 +386,44 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
   tests/test_contracts.py::test_generated_models_validate_representative_samples
   -q`, `just contracts-check`, `just db-migrate`, `just lint`, `just
   doctor`, and `git diff --check`.
-- [ ] Play UC3 happy-path and one branch fixture end-to-end through the
+- [x] Play UC3 happy-path and one branch fixture end-to-end through the
   running stack with tightened conduct invariants.
+  Evidence (2026-05-30): `chorus/eval/uc3_workflow_playback.py` now mirrors
+  the UC2 playback harness and plays UC3 eval fixtures through
+  `Uc3IfaSuitabilityIntakeWorkflow` in a Temporal test environment with the
+  real workflow activities, Agent Runtime, recorded-replay LLM provider route,
+  Tool Gateway, decision/transcript persistence, tool-action audit,
+  approval-package capture, and outbox workflow progress captured back into
+  `CapturedRun`. The happy fixture now reaches `suitability_report.issue` and
+  records the approval-required package path; new fixture
+  `uc3_vulnerability_support_handoff_conduct.json` and
+  `email_advice_enquiry_vulnerability_support.sample.json` drive the
+  Consumer Duty vulnerability-support handoff branch to manual review without
+  reaching report issue. UC3 conduct invariants now fail loudly when required
+  workflow progress, agent decision, transcript, tool-action audit, or issue
+  approval-package table evidence is missing, while keeping fixtures safe-ref
+  only and bounded-category only. Focused coverage in
+  `tests/eval/test_uc3_workflow_playback.py` proves both fixtures run through
+  the workflow path and that missing evidence fails at the absent stage. Route
+  version eval refs now include both UC3 fixtures. Docs were aligned in
+  README, architecture, evidence-map, and runbook while leaving triggered-run
+  projection evidence and the documented UC3 operator command to later P2
+  slices. Verified with `uv run pytest
+  tests/eval/test_uc3_workflow_playback.py
+  tests/eval/test_run.py::test_uc3_invariant_suite_composes_common_and_conduct_modules
+  tests/eval/test_run.py::test_uc3_conduct_invariants_pass_safe_synthetic_suitability_run
+  tests/eval/test_run.py::test_uc3_conduct_invariants_fail_completed_suitability_without_issue_apply
+  tests/eval/test_run.py::test_uc3_conduct_invariants_fail_positive_suitability_with_risk_mismatch
+  tests/eval/test_run.py::test_uc3_manual_handoff_invariants_pass_vulnerability_support_branch
+  tests/eval/test_run.py::test_uc3_schema_only_eval_fixture_validates_without_default_playback
+  tests/eval/test_run.py::test_scenario_player_rejects_unsupported_uc3_scenario
+  tests/workflows/test_uc3_workflow.py
+  tests/agent_runtime/test_runtime.py::test_runtime_passes_uc3_response_shape_to_provider_port
+  tests/agent_runtime/test_runtime.py::test_uc3_policy_resolution_invokes_recorded_replay_route_versions
+  tests/tool_gateway/test_gateway.py::test_uc3_seeded_suitability_report_issue_requires_approval_and_applies
+  tests/persistence/test_postgres_foundation.py::test_uc3_model_route_policies_are_seeded_with_route_versions
+  -q`, `just contracts-check`, `just lint`, `just doctor`, and `git diff
+  --check`.
 - [ ] Project UC3 workflow progress, decision trail, and approval-package
   state into BFF/UI with Playwright or frontend-test evidence.
 - [ ] Document the UC3 runnable command.
@@ -447,54 +484,46 @@ session is reprompted with the answer included.
 
 ```text
 We are in /home/ryan/Work/chorus. Continue R5 P2 — UC3 To Runnable — by
-playing UC3 happy-path and branch fixtures end-to-end through the workflow
-runtime and tightening UC3 conduct invariants.
+projecting UC3 workflow progress, decision trail, Tool Gateway audit, and
+approval-package state into the existing BFF/UI inspection surfaces.
 
 Read AGENTS.md and docs/transformation/r5-implementation-backlog.md, then run
 `git status --short --branch`. Preserve unrelated user changes.
 
-Inspect the UC3 workflow path, UC3 conduct invariants, and UC2 playback
-pattern before editing: `just --list`, `justfile`, `chorus/workflows/uc3.py`,
+Inspect the UC3 playback path and the UC2 projection/BFF/UI pattern before
+editing: `just --list`, `justfile`, `chorus/eval/uc3_workflow_playback.py`,
+`chorus/eval/uc2_workflow_playback.py`, `chorus/workflows/uc3.py`,
 `chorus/workflows/uc3_synthetic_intake.py`, `chorus/workflows/types.py`,
-`chorus/workflows/activities.py`, `chorus/eval/uc2_workflow_playback.py`,
-`chorus/eval/use_cases/uc3_conduct.py`, `chorus/eval/invariants.py`,
-`chorus/eval/scenario_player.py`, `chorus/eval/run.py`,
-`chorus/eval/fixtures/uc3/uc3_synthetic_suitability_conduct.json`,
-`chorus/agent_runtime/runtime.py`, `chorus/llm_provider/adapter_replay.py`,
-`chorus/tool_gateway/gateway.py`, `tests/eval/test_run.py`,
-`tests/eval/test_uc2_workflow_playback.py`, `tests/workflows/test_uc3_workflow.py`,
-`tests/agent_runtime/test_runtime.py`, `tests/tool_gateway/test_gateway.py`,
-`tests/persistence/test_postgres_foundation.py`, `docs/runbook.md`,
+`chorus/persistence/projection.py`, `chorus/persistence/audit_port.py`,
+`chorus/tool_gateway/gateway.py`, `chorus/bff/app.py`,
+`frontend/src/routes/workflows.$workflowId.tsx`, `frontend/src/api/queries.ts`,
+`frontend/src/api/fixtures.ts`, `tests/bff/test_app.py`,
+`tests/bff/test_app_unit.py`, `tests/eval/test_uc3_workflow_playback.py`,
+`tests/persistence/test_postgres_foundation.py`, `frontend/src/api/queries.test.ts`,
+`frontend/src/routes/-workflows.$workflowId.test.tsx`, `docs/runbook.md`,
 `docs/evidence-map.md`, `docs/architecture.md`, and `README.md`.
 
-Implement the next narrow slice: add UC3 workflow-path playback for one happy
-fixture that reaches the `suitability_report.issue` approval-required path and
-one conduct-relevant branch fixture that routes to manual review through the
-existing UC3 workflow semantics, preferably the Consumer Duty / vulnerability
-support handoff branch. Drive the actual `Uc3IfaSuitabilityIntakeWorkflow`
-path through real workflow activities, Agent Runtime, recorded-replay LLM
-provider route, Tool Gateway, decision/transcript persistence, tool-action
-audit, approval-package capture where applicable, and outbox workflow progress
-capture, mirroring the UC2 playback harness shape.
+Implement the next narrow slice: project a triggered UC3 happy issue fixture
+through the existing projection/BFF/UI inspection path, using the existing
+UC3 workflow playback/outbox evidence and the existing projection model. The
+test should prove, within a deterministic bound, that BFF/UI inspection can
+show UC3 workflow progress through `suitability_report_issue`, decision-trail
+rows for the UC3 agent tasks, Tool Gateway audit rows for the UC3 connector
+actions, and the `suitability_report.issue.write` approval-package state.
+Mirror the UC2 BFF/UI projection slice closely and reuse the current
+read-only surfaces; do not add a new projection model.
 
-Tighten `chorus/eval/use_cases/uc3_conduct.py` so UC3 invariants fail loudly
-when workflow progress, agent decision, transcript, tool-action audit, or
-approval-package evidence that the scenario requires is missing. Keep captured
-fixtures safe-ref-only and bounded-category-only. Add focused tests proving
-the happy fixture and branch fixture run through the workflow path and that
-missing required evidence fails at the absent stage.
-
-Mirror the UC2 playback slice closely; do not add projection/UI work, the UC3
-operator runbook command, live provider credentials or live-provider tests,
-destructive Docker/database operations, mutating approval/admin UI, production
-connector paths, a generic workflow-route DSL, or a new projection model.
+Keep scope tight: do not document the UC3 operator runbook command, do not add
+live provider credentials or live-provider tests, do not add mutating approval
+or admin UI, do not add production connector paths, do not add a generic
+workflow-route DSL, and do not run destructive Docker/database operations.
 Update README, runbook, evidence-map, and architecture only for the UC3
-workflow-playback/conduct-invariant status; leave triggered-run projection
-evidence and the documented UC3 operator command to later P2 slices.
+triggered-run projection/BFF/UI evidence status; leave the documented UC3
+operator command to the next P2 slice.
 
-Run the focused UC3 playback/conduct tests you add or change, any focused
-workflow/runtime tests needed to prove the path, `just contracts-check`, `just
-lint`, `just doctor`, and `git diff --check`.
+Run the focused UC3 projection/BFF/UI tests you add or change, any focused
+playback/projection tests needed to prove the path, `just contracts-check`,
+`just lint`, `just doctor`, and `git diff --check`.
 
 End-of-session contract:
 - Update checkboxes and evidence notes for the slice you completed.
