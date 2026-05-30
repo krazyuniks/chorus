@@ -163,4 +163,58 @@ describe("queries", () => {
     expect(verdict?.verdict).toBe("approval_required");
     expect(grant?.approval_required).toBe(true);
   });
+
+  it("fixture inspection data includes UC2 workflow evidence and send approval state", () => {
+    const workflow = workflowRuns.find(
+      (run) =>
+        run.workflow_type === "uc2_legal_services_intake_conflict_check",
+    );
+    const packageEntry = approvalPackages.find(
+      (entry) => entry.requested_action === "engagement_letter.send.write",
+    );
+    const verdicts = toolVerdicts.filter(
+      (entry) => entry.workflow_id === "uc2-2026-05-24-0001",
+    );
+
+    expect(workflow).toMatchObject({
+      workflow_id: "uc2-2026-05-24-0001",
+      subject_ref: "legal_intake_2026_05_24_0001",
+    });
+    expect(workflowEvents["uc2-2026-05-24-0001"]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ step: "engagement_letter_send" }),
+        expect.objectContaining({
+          step: "engagement_decision",
+          payload: expect.objectContaining({
+            engagement_decision_ref: "engagement_decision_demo_001",
+          }),
+        }),
+      ]),
+    );
+    expect(packageEntry).toMatchObject({
+      workflow_id: "uc2-2026-05-24-0001",
+      workflow_type: "uc2_legal_services_intake_conflict_check",
+      tool_name: "engagement_letter.send",
+      latest_verdict: "approval_required",
+      grant_ref: "tool_grant:grant-uc2-engagement-send-write",
+    });
+    expect(packageEntry?.action_refs).toMatchObject({
+      engagement_letter_ref: "engagement_letter_demo_001",
+      engagement_decision_ref: "engagement_decision_demo_001",
+      conduct_hook_refs: [
+        "conduct_sra_identify_client_8_1",
+        "conduct_mlr_cdd_reg_27_28",
+        "conduct_sra_accountability_7_1_7_2",
+      ],
+    });
+    expect(packageEntry?.action_refs).not.toHaveProperty("engagement_letter_text");
+    expect(verdicts.map((row) => row.tool_name)).toEqual([
+      "conflict_check.search",
+      "kyc_bo.lookup",
+      "aml_record_store.record_assessment",
+      "engagement_letter.draft",
+      "engagement_letter.send",
+    ]);
+    expect(verdicts.at(-1)?.verdict).toBe("approval_required");
+  });
 });

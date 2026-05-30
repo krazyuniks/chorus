@@ -49,6 +49,15 @@ export function subscribeProgress(
   }
 
   const source = new EventSource(buildUrl(path), { withCredentials: false });
+  const handleProgressEvent = (message: MessageEvent) => {
+    try {
+      const parsed = JSON.parse(message.data) as ProgressEvent;
+      onEvent(parsed);
+    } catch (error) {
+      // Best-effort: malformed events do not block the projection-driven UI.
+      console.warn("Failed to parse progress event", error);
+    }
+  };
 
   source.addEventListener("open", () => {
     onConnectionChange?.(true);
@@ -58,15 +67,8 @@ export function subscribeProgress(
     onConnectionChange?.(false);
   });
 
-  source.addEventListener("message", (message) => {
-    try {
-      const parsed = JSON.parse(message.data) as ProgressEvent;
-      onEvent(parsed);
-    } catch (error) {
-      // Best-effort: malformed events do not block the projection-driven UI.
-      console.warn("Failed to parse progress event", error);
-    }
-  });
+  source.addEventListener("progress", handleProgressEvent);
+  source.addEventListener("message", handleProgressEvent);
 
   return {
     close() {

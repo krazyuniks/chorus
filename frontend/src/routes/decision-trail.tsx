@@ -27,6 +27,7 @@ function DecisionTrailRoute() {
       [
         row.workflow_id,
         row.agent_id,
+        row.task_kind,
         row.prompt_ref,
         row.model_route,
         row.outcome,
@@ -53,6 +54,12 @@ function DecisionTrailRoute() {
       ),
     },
     { key: "agent_id", header: "Agent", mono: true, cell: (r) => r.agent_id },
+    {
+      key: "task_kind",
+      header: "Task",
+      mono: true,
+      cell: (r) => r.task_kind ?? "—",
+    },
     { key: "prompt_ref", header: "Prompt", mono: true, cell: (r) => r.prompt_ref },
     { key: "model_route", header: "Route", mono: true, cell: (r) => r.model_route },
     {

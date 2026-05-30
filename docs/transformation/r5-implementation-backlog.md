@@ -287,10 +287,34 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
   tests/agent_runtime/test_runtime.py::test_runtime_passes_uc2_response_shape_to_provider_port
   tests/workflows/test_uc2_workflow.py -q`, `just contracts-check`, `just
   lint`, `just doctor`, and `git diff --check`.
-- [ ] Project UC2 workflow progress, decision trail, and approval-package
+- [x] Project UC2 workflow progress, decision trail, and approval-package
   state into the existing BFF/UI surfaces with the same density and behaviour
   as UC1. Confirm via Playwright or a focused frontend test that a triggered
   UC2 workflow appears in projection within a deterministic bound.
+  Evidence (2026-05-30): `tests/bff/test_app.py` now drives the UC2 happy
+  acceptance fixture through `play_uc2_workflow_fixture_async`, applies the
+  emitted workflow events to the existing projection read model within a
+  two-second deterministic bound, and verifies the BFF exposes the triggered
+  UC2 workflow summary, timeline steps through `engagement_letter_send`,
+  decision-trail rows for all four UC2 agent tasks, Tool Gateway audit rows
+  for conflict/KYC/AML/draft/send, and the requested
+  `engagement_letter.send.write` approval package with safe action refs.
+  The frontend now handles the BFF's named `progress` SSE event, scopes
+  workflow-detail progress subscriptions by workflow ID, invalidates the
+  workflow summary, timeline, decision, verdict, and approval-package queries
+  together, and displays step and task-kind evidence in the dense read-only
+  timeline and decision tables. Fixture and E2E coverage prove the UC2 detail
+  view renders projected workflow progress, decision evidence, tool/audit
+  evidence, and approval-package state without adding a mutating admin UI or a
+  new projection model. Docs were aligned in README, architecture,
+  evidence-map, and runbook state text while leaving the operator-facing UC2
+  command to the next P1 slice. Verified with `uv run pytest
+  tests/bff/test_app.py tests/bff/test_app_unit.py
+  tests/persistence/test_postgres_foundation.py::test_projection_store_lists_uc2_approval_package_state
+  -q`, `cd frontend && npm test -- --run src/api/sse.test.ts
+  src/api/queries.test.ts 'src/routes/-workflows.$workflowId.test.tsx'`, `cd
+  frontend && npm run test:e2e`, `just contracts-check`, `just lint`, `just
+  doctor`, and `git diff --check`.
 - [ ] Document the UC2 runnable command in `docs/runbook.md` and the README
   with the exact one-liner used to start it locally.
 
@@ -360,44 +384,40 @@ session is reprompted with the answer included.
 
 ```text
 We are in /home/ryan/Work/chorus. Continue R5 P1 — UC2 To Runnable — by
-projecting UC2 workflow progress, decision trail, and approval-package state
-into the existing BFF/UI surfaces.
+documenting the UC2 runnable local intake command and evidence loop.
 
 Read AGENTS.md and docs/transformation/r5-implementation-backlog.md, then run
 `git status --short --branch`. Preserve unrelated user changes.
 
-Inspect the current UC2 workflow playback, projection, BFF, and frontend
-surfaces before editing: `just --list`, `justfile`,
-`chorus/workflows/uc2.py`, `chorus/workflows/uc2_synthetic_intake.py`,
-`chorus/workflows/activities.py`, `chorus/agent_runtime/runtime.py`,
-`chorus/eval/uc2_workflow_playback.py`, `chorus/eval/use_cases/uc2_conduct.py`,
-`chorus/persistence/projection.py`, `chorus/persistence/audit_port.py`,
-`chorus/bff/app.py`, `frontend/src/`, `tests/bff/`, `tests/eval/`,
-`tests/persistence/`, `tests/workflows/`, and `docs/runbook.md`.
+Inspect the current UC2 local start path and operator docs before editing:
+`just --list`, `justfile`, `chorus/workflows/uc2_synthetic_intake.py`,
+`chorus/workflows/worker.py`, `chorus/eval/uc2_workflow_playback.py`,
+`chorus/persistence/redpanda.py`, `chorus/bff/app.py`, `README.md`,
+`docs/runbook.md`, `docs/evidence-map.md`, `docs/architecture.md`,
+`tests/workflows/test_uc2_synthetic_intake.py`, `tests/bff/test_app.py`, and
+`frontend/tests/e2e/smoke.spec.ts`.
 
-Implement the next narrow slice: use the existing projection/BFF/UI patterns
-to make UC2 workflow progress, decision-trail rows, Tool Gateway audit rows,
-and `engagement_letter.send` approval packages inspectable with the same
-dense read-only behaviour as UC1. The happy fixture and conflict-exception
-branch from the UC2 playback slice should be usable as evidence sources, but
-do not broaden into a mutating admin UI, generic workflow framework, live
-provider credentials, UC3, or a new projection model unless the current BFF/UI
-shape makes that strictly necessary.
+Implement the next narrow slice: document the exact one-liner an operator
+uses locally to start the UC2 synthetic email-intake fixture, then relay and
+project its workflow events so the run is inspectable in the existing BFF/UI
+surfaces. Prefer the existing `uv run python -m
+chorus.workflows.uc2_synthetic_intake ...` path unless the current project
+shape already has or clearly needs a small `just` alias for operator
+ergonomics. Do not broaden into live provider credentials, UC3, a generic
+workflow-start DSL, mutating approval/admin UI, destructive Docker/database
+operations, or production connector paths.
 
-Add focused tests that prove a triggered UC2 workflow appears in the existing
-projection/BFF/UI surface within a deterministic bound and that the displayed
-state includes workflow progress, decision trail, tool/audit evidence, and the
-approval-package state for the happy path. Use Playwright via the
-`playwright-cli` skill when browser validation is needed; otherwise use the
-smallest focused frontend/BFF tests that prove the behaviour. Use the running
-local stack if required, but do not run destructive Docker, volume, database,
-reset, or checkout commands. If a required live stack gate cannot be made
-green without destructive action, stop without committing and surface the
-blocker.
+Update `docs/runbook.md` and README with the exact command sequence and the
+expected inspection commands/URLs. Keep evidence-map and architecture text
+current if their UC2 runnable-status language changes. Add or adjust focused
+tests only if the documented command or output contract changes; otherwise
+use the existing focused UC2 intake/projection/BFF/UI tests as evidence. Use
+the running local stack if required, but do not run destructive Docker, volume,
+database, reset, or checkout commands. If the stack gate cannot be made green
+without destructive action, stop without committing and surface the blocker.
 
-Run the focused pytest/frontend tests for the changed UC2 projection, BFF, and
-UI coverage, `just contracts-check`, `just lint`, `just doctor`, and
-`git diff --check`.
+Run the focused tests relevant to any command/doc-surface changes,
+`just contracts-check`, `just lint`, `just doctor`, and `git diff --check`.
 
 End-of-session contract:
 - Update checkboxes and evidence notes for the slice you completed.

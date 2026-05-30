@@ -17,8 +17,8 @@ test("top nav links to inspection routes", async ({ page }) => {
   await page.getByRole("link", { name: "Providers" }).click();
   await expect(page.getByRole("heading", { name: "Providers" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Graph Executions" }).click();
-  await expect(page.getByRole("heading", { name: "Graph executions" })).toBeVisible();
+  await page.getByRole("link", { name: "Eval" }).click();
+  await expect(page.getByRole("heading", { name: "Eval runs" })).toBeVisible();
 });
 
 test("workflow detail rehydrates from the read model after a refresh", async ({
@@ -33,4 +33,17 @@ test("workflow detail rehydrates from the read model after a refresh", async ({
   await expect(
     page.getByRole("heading", { name: "uc1-2026-04-29-0001" }),
   ).toBeVisible();
+});
+
+test("UC2 workflow detail shows projected progress and approval evidence", async ({
+  page,
+}) => {
+  await page.goto("/workflows/uc2-2026-05-24-0001");
+  await expect(
+    page.getByRole("heading", { name: "uc2-2026-05-24-0001" }),
+  ).toBeVisible();
+  await expect(page.getByText("engagement_letter_send")).toBeVisible();
+  await expect(page.getByText("uc2_engagement_decision")).toBeVisible();
+  await expect(page.getByText("engagement_letter.send.write")).toBeVisible();
+  await expect(page.getByText("approval_required").first()).toBeVisible();
 });

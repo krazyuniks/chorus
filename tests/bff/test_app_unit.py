@@ -413,8 +413,9 @@ class BffFixture:
                 "legal_intake_ref": "legal_intake_bff_unit_001",
                 "engagement_letter_ref": "engagement_letter_bff_unit_001",
                 "conduct_hook_refs": [
-                    "conduct_sra_conflict_6_1_6_2",
+                    "conduct_sra_identify_client_8_1",
                     "conduct_mlr_cdd_reg_27_28",
+                    "conduct_sra_accountability_7_1_7_2",
                 ],
             },
             requested_at=self.now,
@@ -806,8 +807,9 @@ def test_audit_and_runtime_policy_endpoints_are_read_only_views() -> None:
     assert approval_packages[0]["requested_action"] == "engagement_letter.send.write"
     assert approval_packages[0]["latest_verdict"] == "approval_required"
     assert approval_packages[0]["action_refs"]["conduct_hook_refs"] == [
-        "conduct_sra_conflict_6_1_6_2",
+        "conduct_sra_identify_client_8_1",
         "conduct_mlr_cdd_reg_27_28",
+        "conduct_sra_accountability_7_1_7_2",
     ]
     assert uc3_approval_packages[0]["workflow_type"] == "uc3_ifa_suitability_intake"
     assert uc3_approval_packages[0]["requested_action"] == "suitability_report.issue.write"

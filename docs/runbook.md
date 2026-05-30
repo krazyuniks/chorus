@@ -26,9 +26,12 @@ surfaces. UC2 has a code-level synthetic email-intake fixture adapter for R5
 P1 test evidence, recorded-replay model-route policies for the four UC2
 workflow agent tasks, and workflow-path eval playback for the happy
 acceptance/send-approval-gated fixture plus one conflict-exception branch.
-UC2 still lacks a documented operator command and projection/UI confirmation
-for that runnable path. UC3 does not yet have use-case route activation, full
-eval fixture playback, or a local intake start path.
+The happy-path playback now projects into the read-only BFF/UI surfaces with
+workflow progress, decision-trail rows, Tool Gateway audit rows, and the
+`engagement_letter.send` approval package inspectable. UC2 still lacks a
+documented operator command for that runnable path. UC3 does not yet have
+use-case route activation, full eval fixture playback, or a local intake
+start path.
 
 ## Local development bootstrap
 
@@ -273,8 +276,9 @@ UC3 intake contracts exist. R5 P1 adds a code-level UC2 synthetic email-intake
 fixture adapter that validates the documented contract sample and starts the
 UC2 workflow. The eval playback path now uses that adapter to run the UC2
 happy fixture and conflict-exception fixture through the workflow/runtime
-activities in tests; the operator-facing UC2 command remains a later runbook
-slice. UC3 still has no local intake adapter.
+activities in tests, and the happy-path evidence projects into the existing
+BFF/UI inspection surfaces; the operator-facing UC2 command remains a later
+runbook slice. UC3 still has no local intake adapter.
 
 ### LLM provider port
 
@@ -534,8 +538,8 @@ definitions on the same spine, but those use cases are inspection and
 schema-only evidence paths until documented operator intake commands and UC3
 provider route activation land in later phases. UC2 now has recorded-replay
 route policies and workflow-path eval playback for its happy acceptance path
-and conflict-exception branch, but its documented operator command and
-projection/UI confirmation remain open.
+and conflict-exception branch, but the documented UC2 operator command and
+UC3 provider route activation remain open.
 
 1. **Bring the stack up (all ports).** Run the bring-up commands above:
    `just up && just db-migrate && just schemas-register && just doctor`.

@@ -96,9 +96,10 @@ conduct-invariant modules, read-only projection / BFF / UI fixture evidence,
 and schema-only eval fixtures. R5 adds a code-level UC2 synthetic
 email-intake adapter and recorded-replay route policies for UC2 workflow
 agent tasks plus workflow-path eval playback for one happy fixture and one
-conflict-exception branch; a documented UC2 operator intake command, UC2
-projection/UI confirmation, UC3 provider route activation, and all UC3 local
-intake / fixture-playback work remain explicit closure exceptions.
+conflict-exception branch, with the happy-path evidence projected into the
+existing BFF/UI inspection surfaces; a documented UC2 operator intake command,
+UC3 provider route activation, and all UC3 local intake / fixture-playback
+work remain explicit closure exceptions.
 
 ## Workflow durability is not a port
 
@@ -407,10 +408,10 @@ R4 does not claim UC2 or UC3 as use-case runnable under the earlier
 definition. R5 has begun closing that gap with a code-level UC2 synthetic
 email-intake fixture adapter, recorded-replay model routes for the UC2
 workflow agent tasks, and workflow-path eval playback for the UC2 happy
-acceptance path and one conflict-exception branch, while the documented UC2
-operator command, UC2 projection/UI confirmation, UC3 provider route
-activation, and UC3 local intake / fixture playback remain deferred closure
-exceptions. UC2 conflict-exception / AML EDD
+acceptance path and one conflict-exception branch, plus BFF/UI projection
+confirmation for the happy path, while the documented UC2 operator command,
+UC3 provider route activation, and UC3 local intake / fixture playback remain
+deferred closure exceptions. UC2 conflict-exception / AML EDD
 and UC3 risk-profile / vulnerability approval packages also remain
 workflow/manual-review conduct evidence until a later design slice binds them
 to exact connector requests. Live OpenAI / DeepSeek calls remain

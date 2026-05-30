@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Timeline, type TimelineEntry } from "@/components/Timeline";
@@ -12,10 +12,12 @@ import {
   listWorkflowEvents,
   listWorkflowToolVerdicts,
 } from "@/api/queries";
-import { subscribeProgress } from "@/api/sse";
+import { progressPath, subscribeProgress } from "@/api/sse";
 import type {
   ApprovalPackageEntry,
   DecisionTrailEntry,
+  WorkflowEvent,
+  WorkflowRunSummary,
   ToolVerdictEntry,
 } from "@/api/types";
 import { formatCorrelationId, formatDurationMs, formatTimestamp } from "@/lib/utils";
@@ -54,18 +56,67 @@ function WorkflowDetail() {
   });
 
   useEffect(() => {
-    const stream = subscribeProgress("/progress", (event) => {
+    const stream = subscribeProgress(progressPath({ workflow_id: workflowId }), (event) => {
       if (event.workflow_id !== workflowId) return;
-      void queryClient.invalidateQueries({ queryKey: ["workflow", workflowId] });
+      invalidateWorkflowEvidence(queryClient, workflowId);
     });
     return () => stream.close();
   }, [queryClient, workflowId]);
 
+  return (
+    <WorkflowDetailView
+      workflowId={workflowId}
+      run={run ?? null}
+      events={events}
+      decisions={decisions}
+      verdicts={verdicts}
+      approvalPackages={approvalPackages}
+    />
+  );
+}
+
+export function invalidateWorkflowEvidence(
+  queryClient: QueryClient,
+  workflowId: string,
+) {
+  for (const queryKey of [
+    ["workflow", workflowId],
+    ["workflow", workflowId, "events"],
+    ["workflow", workflowId, "decisions"],
+    ["workflow", workflowId, "verdicts"],
+    ["workflow", workflowId, "approval-packages"],
+  ]) {
+    void queryClient.invalidateQueries({ queryKey });
+  }
+}
+
+export function WorkflowDetailView({
+  workflowId,
+  run,
+  events,
+  decisions,
+  verdicts,
+  approvalPackages,
+}: {
+  workflowId: string;
+  run: WorkflowRunSummary | null;
+  events: WorkflowEvent[];
+  decisions: DecisionTrailEntry[];
+  verdicts: ToolVerdictEntry[];
+  approvalPackages: ApprovalPackageEntry[];
+}) {
   const timelineEntries: TimelineEntry[] = events.map((event) => ({
     id: event.id,
     occurred_at: event.occurred_at,
     correlation_id: event.correlation_id,
-    label: <span className="mono">{event.event_type}</span>,
+    label: (
+      <span className="mono">
+        {event.event_type}
+        {event.step ? (
+          <span className="ml-2 text-text-muted">{event.step}</span>
+        ) : null}
+      </span>
+    ),
     detail: (
       <code className="mono text-[11px] text-text-muted">
         {JSON.stringify(event.payload)}
@@ -75,6 +126,12 @@ function WorkflowDetail() {
 
   const decisionColumns: DataTableColumn<DecisionTrailEntry>[] = [
     { key: "agent_id", header: "Agent", mono: true, cell: (r) => r.agent_id },
+    {
+      key: "task_kind",
+      header: "Task",
+      mono: true,
+      cell: (r) => r.task_kind ?? "—",
+    },
     { key: "prompt_ref", header: "Prompt", mono: true, cell: (r) => r.prompt_ref },
     { key: "model_route", header: "Route", mono: true, cell: (r) => r.model_route },
     {
