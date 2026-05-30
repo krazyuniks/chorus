@@ -158,7 +158,7 @@ def _nullable_string_array() -> dict[str, Any]:
 
 
 def _nullable_object_array() -> dict[str, Any]:
-    return {"type": ["array", "null"], "items": {"type": "object"}}
+    return {"type": ["array", "null"], "items": _object_schema({})}
 
 
 def _conduct_status_schema() -> dict[str, Any]:

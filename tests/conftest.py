@@ -37,6 +37,42 @@ if not ENV_FILE.is_file():
 load_dotenv(ENV_FILE, override=False)
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--live-openai",
+        action="store_true",
+        default=False,
+        help="Run credential-gated live OpenAI provider integration tests.",
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "live_openai: credential-gated live OpenAI provider integration test",
+    )
+    if bool(config.getoption("--live-openai")) and not os.environ.get("OPENAI_API_KEY", "").strip():
+        raise pytest.UsageError(
+            "Live OpenAI integration tests require OPENAI_API_KEY to be set and non-empty."
+        )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    if bool(config.getoption("--live-openai")):
+        return
+
+    selected: list[pytest.Item] = []
+    deselected: list[pytest.Item] = []
+    for item in items:
+        if "live_openai" in item.keywords:
+            deselected.append(item)
+        else:
+            selected.append(item)
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+        items[:] = selected
+
+
 def _required_env(name: str) -> str:
     value = os.environ.get(name)
     if value is None or value.strip() == "":

@@ -153,6 +153,10 @@ test-frontend:
 test-e2e:
     cd frontend && npm run test:e2e
 
+# Run the credential-gated live OpenAI provider integration test.
+test-live-openai:
+    uv run pytest tests/eval/test_live_openai_integration.py --live-openai -q
+
 # ----- Eval -----
 
 # Run eval fixtures.

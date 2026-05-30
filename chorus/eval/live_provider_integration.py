@@ -1,0 +1,145 @@
+"""Helpers for explicit credential-gated live-provider replay checks."""
+
+from __future__ import annotations
+
+import json
+import os
+from typing import Any, cast
+
+from chorus.contracts.generated.eval.replay_run_record import ReplayRunRecord
+from chorus.eval.replay import CapturedTranscript
+from chorus.eval.scenario_player import CapturedRun
+from chorus.llm_provider import RouteCatalogue, default_route_catalogue
+
+LIVE_OPENAI_ROUTE_ID = "demo-eval-canonical"
+ALLOWED_LIVE_COMPARATOR_OUTCOMES = frozenset({"success", "review-finding", "metrics-only"})
+
+
+class LiveProviderCredentialError(RuntimeError):
+    """Raised when an explicitly requested live route lacks its credential."""
+
+
+def require_live_route_credential(
+    route_id: str = LIVE_OPENAI_ROUTE_ID,
+    *,
+    route_catalogue: RouteCatalogue | None = None,
+) -> None:
+    """Fail loudly before an explicit live-provider integration run starts."""
+
+    catalogue = route_catalogue or default_route_catalogue()
+    route = catalogue.get(route_id)
+    credential_env = route.required_credential_env
+    if credential_env is None:
+        return
+    if os.environ.get(credential_env, "").strip():
+        return
+    raise LiveProviderCredentialError(
+        f"Live provider integration test for route {route_id!r} requires "
+        f"{credential_env} to be set and non-empty."
+    )
+
+
+def captured_transcripts_for_replay(run: CapturedRun) -> tuple[CapturedTranscript, ...]:
+    """Convert captured-run transcript rows into replay comparator inputs."""
+
+    decisions_by_invocation = {str(decision.invocation_id): decision for decision in run.decisions}
+    transcripts: list[CapturedTranscript] = []
+    for transcript in run.transcripts:
+        decision = decisions_by_invocation.get(str(transcript.invocation_id))
+        if decision is None:
+            raise ValueError(
+                "Captured run transcript lacks matching decision-trail row for "
+                f"invocation {transcript.invocation_id}."
+            )
+        expected_structured_data = dict(transcript.structured_data)
+        expected_structured_data.pop("route_catalogue", None)
+        policy_snapshot_ref = _optional_string(
+            expected_structured_data.get("policy_snapshot_ref")
+        ) or _default_policy_snapshot_ref(run)
+        transcripts.append(
+            CapturedTranscript(
+                invocation_id=str(transcript.invocation_id),
+                transcript_id=str(transcript.transcript_id),
+                correlation_id=transcript.correlation_id,
+                workflow_id=transcript.workflow_id,
+                route_id=transcript.route_id,
+                provider_id=transcript.provider_id,
+                model_id=transcript.model_id,
+                adapter_version=transcript.adapter_version,
+                parameters=dict(transcript.parameters),
+                request_messages=[dict(message) for message in transcript.request_messages],
+                expected_structured_data=expected_structured_data,
+                task_kind=decision.task_kind,
+                agent_role=decision.agent_role,
+                tenant_id=transcript.tenant_id,
+                enquiry_input=_input_from_summary(decision.input_summary),
+                prompt_reference=decision.prompt_reference,
+                prompt_hash=decision.prompt_hash,
+                policy_snapshot_ref=policy_snapshot_ref,
+                route_version_ref=None,
+                provider_catalogue_id=None,
+                eval_fixture_ref=run.fixture.fixture_id,
+                transcript_source_ref=(
+                    f"captured-run:{run.fixture.fixture_id}:{transcript.transcript_id}"
+                ),
+                original_cost_amount_usd=decision.cost_amount_usd,
+                original_latency_ms=decision.duration_ms,
+                token_usage={},
+                provider_metadata={},
+            )
+        )
+    return tuple(transcripts)
+
+
+def replay_comparator_outcome(record: ReplayRunRecord) -> str:
+    """Return the bounded outcome label used by live integration tests."""
+
+    status = record.comparator.status.value
+    tier = str(record.comparator.result.get("tier", "")).replace("_", "-")
+    reason_code = str(record.comparator.result.get("reason_code", ""))
+    if status == "pass" and tier == "metrics-only" and reason_code == "metrics_only_no_delta":
+        return "success"
+    if tier in {"review-finding", "metrics-only", "hard-fail", "decision-fail"}:
+        return tier
+    if status == "pass":
+        return "success"
+    if status == "error":
+        return "hard-fail"
+    return tier or status
+
+
+def _input_from_summary(input_summary: str) -> dict[str, Any]:
+    try:
+        value = json.loads(input_summary)
+    except json.JSONDecodeError:
+        return {"input_summary_ref": "unparseable"}
+    if isinstance(value, dict):
+        return cast(dict[str, Any], value)
+    return {"input_summary_ref": "non_object"}
+
+
+def _optional_string(value: object) -> str | None:
+    return value if isinstance(value, str) and value else None
+
+
+def _default_policy_snapshot_ref(run: CapturedRun) -> str | None:
+    workflow_type = str(getattr(run.fixture.workflow_type, "value", run.fixture.workflow_type))
+    match workflow_type:
+        case "uc1_enquiry_qualification":
+            return "policy_snapshot:uc1:default:v1"
+        case "uc2_legal_services_intake_conflict_check":
+            return "policy_snapshot:uc2:default:v1"
+        case "uc3_ifa_suitability_intake":
+            return "policy_snapshot:uc3:default:v1"
+        case _:
+            return None
+
+
+__all__ = [
+    "ALLOWED_LIVE_COMPARATOR_OUTCOMES",
+    "LIVE_OPENAI_ROUTE_ID",
+    "LiveProviderCredentialError",
+    "captured_transcripts_for_replay",
+    "replay_comparator_outcome",
+    "require_live_route_credential",
+]

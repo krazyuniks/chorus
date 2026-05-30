@@ -22,6 +22,8 @@ from uuid import NAMESPACE_URL, uuid5
 from chorus.agent_runtime.response_schemas import (
     response_shape_metadata,
     uc1_response_shape_for_task,
+    uc2_response_shape_for_task,
+    uc3_response_shape_for_task,
 )
 from chorus.contracts.generated.eval.replay_run_record import ReplayRunRecord
 from chorus.eval.replay_comparator import (
@@ -252,7 +254,7 @@ def replay_transcript_with_record(
     args = InvocationArgs(
         route_id=target_route,
         messages=tuple(_invocation_message(message) for message in transcript.request_messages),
-        response_shape=uc1_response_shape_for_task(transcript.task_kind),
+        response_shape=_response_shape_for_transcript(transcript),
         metadata={
             "task_kind": transcript.task_kind,
             "input": transcript.enquiry_input,
@@ -320,7 +322,7 @@ def _compare_structured_data(
     hard_fail = classify_replay_result_hard_failure(
         task_kind=transcript.task_kind,
         result=actual,
-        response_shape=uc1_response_shape_for_task(transcript.task_kind),
+        response_shape=_response_shape_for_transcript(transcript),
     )
     if hard_fail is not None:
         return _hard_fail_comparison(
@@ -389,33 +391,17 @@ def _compare_structured_data(
     changed = sorted(
         key for key in expected.keys() & actual_data.keys() if expected[key] != actual_data[key]
     )
-    diff_summary: list[str] = []
-    if missing:
-        diff_summary.append(f"missing fields: {missing}")
-    if extra:
-        diff_summary.append(f"extra fields: {extra}")
-    if changed:
-        diff_summary.append(f"changed fields: {changed}")
-    return _Comparison(
-        checks=[
-            EvalCheck(
-                "replay stability",
-                "fail",
-                (
-                    f"replay through route {route_id!r} for invocation {invocation_id!r} "
-                    f"diverged from the captured transcript: {'; '.join(diff_summary)}"
-                ),
-            )
-        ],
-        status="fail",
-        result={
-            "tier": "decision_comparator_pending",
-            "reason_code": "structured_data_diverged",
-            "missing_field_names": missing,
-            "extra_field_names": extra,
-            "changed_field_names": changed,
-            "tier_placeholder": "decision_comparator_pending",
-        },
+    field_names = tuple(
+        f"structured_data.{field}" for field in sorted(set(missing + extra + changed))
+    )
+    return _review_finding_comparison(
+        transcript=transcript,
+        target_route=route_id,
+        classification=ReviewFindingClassification(
+            reason_code="structured_data_review_required",
+            reason_codes=("structured_data_diverged",),
+            field_names=field_names,
+        ),
     )
 
 
@@ -525,27 +511,6 @@ def _provider_error_comparison(
     exc: LLMProviderInvocationError,
 ) -> _Comparison:
     reason = safe_reason_code(exc.reason)
-    if reason.startswith("missing_api_key:"):
-        return _Comparison(
-            checks=[
-                EvalCheck(
-                    "replay stability",
-                    "skip",
-                    (
-                        f"replay through route {target_route!r} for invocation "
-                        f"{transcript.invocation_id!r} skipped: {reason}"
-                    ),
-                )
-            ],
-            status="skipped",
-            result={
-                "tier": "live_provider_gate",
-                "reason_code": reason,
-                "changed_field_names": [],
-                "tier_placeholder": "live_provider_gate_skipped",
-            },
-            safe_skipped_reason=reason,
-        )
     classification = provider_port_error_hard_failure(reason)
     return _hard_fail_comparison(
         transcript=transcript,
@@ -589,7 +554,7 @@ def _replay_run_record(
     started_at: datetime,
     completed_at: datetime,
 ) -> ReplayRunRecord:
-    schema_metadata = response_shape_metadata(uc1_response_shape_for_task(transcript.task_kind))
+    schema_metadata = response_shape_metadata(_response_shape_for_transcript(transcript))
     alternate_cost = replay_result.cost_amount_usd if replay_result else Decimal("0")
     alternate_token_usage = replay_result.token_usage if replay_result else {}
     original_metrics = _run_metrics(
@@ -710,6 +675,14 @@ def _token_usage_delta(
 
 def _duration_ms(started: float) -> int:
     return max(0, round((perf_counter() - started) * 1000))
+
+
+def _response_shape_for_transcript(transcript: CapturedTranscript) -> dict[str, Any]:
+    if transcript.task_kind.startswith("uc2_"):
+        return uc2_response_shape_for_task(transcript.task_kind)
+    if transcript.task_kind.startswith("uc3_"):
+        return uc3_response_shape_for_task(transcript.task_kind)
+    return uc1_response_shape_for_task(transcript.task_kind)
 
 
 def _optional_str(value: Any) -> str | None:

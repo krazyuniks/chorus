@@ -106,7 +106,10 @@ workflow agent tasks and workflow-path eval playback for the happy
 suitability-report issue fixture and a Consumer Duty vulnerability-support
 handoff branch, with the happy issue evidence projected into the existing
 BFF/UI inspection surfaces through the Redpanda relay/projection loop.
-Live-provider activation remains an explicit closure exception.
+OpenAI live-provider replay activation now has an explicit
+`just test-live-openai` gate over UC1, UC2, and UC3 happy-path captured
+transcripts. DeepSeek live coverage and persisted live replay rows remain
+explicit closure exceptions.
 
 ## Workflow durability is not a port
 
@@ -209,7 +212,11 @@ optional field, and evidence-selection divergence without storing raw
 rationale or customer content, and finally metrics-only token, latency,
 retry-count, provider-cost, and safe provider-metadata deltas when semantics
 agree. Live-provider execution remains credential-gated and inactive by
-default.
+default. The explicit OpenAI integration gate is `just test-live-openai`; it
+requires `OPENAI_API_KEY`, replays captured UC1, UC2, and UC3 happy-path
+transcripts through `demo-eval-canonical`, and fails on hard-fail or
+decision-fail comparator tiers. DeepSeek live coverage and persistence of live
+comparison rows remain open R5 P3 work.
 
 The route catalogue plus the transcript port together make cross-provider
 replay possible. Without route metadata, replay can only target the original
@@ -430,12 +437,14 @@ recorded-replay model routes for the five workflow agent tasks, and
 workflow-path eval playback for the happy issue path plus the
 vulnerability-support handoff branch, plus triggered-run projection evidence
 for the happy issue path through the documented relay/projection loop.
-Live-provider startup credential gating is now in place, but live-provider
-end-to-end activation remains a deferred closure exception. UC2
+Live-provider startup credential gating is now in place, and OpenAI live
+replay activation is covered by the explicit `just test-live-openai`
+integration gate. UC2
 conflict-exception / AML EDD
 and UC3 risk-profile / vulnerability approval packages also remain
 workflow/manual-review conduct evidence until a later design slice binds them
 to exact connector requests. Live OpenAI / DeepSeek calls remain
-credential-gated and inactive by default.
+credential-gated and inactive by default; DeepSeek coverage and persisted live
+replay rows remain open.
 The closed R4 backlog and continuation handoff are in
 [`transformation/r4-implementation-backlog.md`](transformation/r4-implementation-backlog.md).

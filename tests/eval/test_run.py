@@ -14,6 +14,10 @@ from chorus.contracts.generated.eval.eval_fixture import EvalFixture
 from chorus.eval import run
 from chorus.eval.common_invariants import COMMON_INVARIANTS
 from chorus.eval.invariants import UC1_INVARIANTS, UC2_INVARIANTS, UC3_INVARIANTS
+from chorus.eval.live_provider_integration import (
+    LiveProviderCredentialError,
+    require_live_route_credential,
+)
 from chorus.eval.replay import load_transcript, replay_transcript_with_record
 from chorus.eval.scenario_player import (
     CapturedRun,
@@ -547,6 +551,21 @@ def test_replay_hard_fails_provider_port_errors() -> None:
     )
 
 
+def test_replay_hard_fails_missing_live_provider_credentials() -> None:
+    transcript = load_transcript(ROOT / TRANSCRIPT_FIXTURE)
+
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_raising("missing_api_key:OPENAI_API_KEY"),
+    )
+
+    assert result.record.comparator.status.value == "error"
+    assert result.record.comparator.result["tier"] == "hard_fail"
+    assert result.record.comparator.result["reason_code"] == "provider_port_replay_error"
+    assert result.record.comparator.safe_error_reason == "missing_api_key:OPENAI_API_KEY"
+    assert result.checks[0].status == "fail"
+
+
 def test_replay_decision_fails_terminal_verdict_mismatch() -> None:
     transcript = _qualifier_transcript()
     structured = _qualification_structured_data()
@@ -610,6 +629,28 @@ def test_replay_decision_fails_route_category_alias_mismatch() -> None:
         "structured_data.qualification_verdict_category",
         "structured_data.route_category",
     ]
+
+
+def test_replay_treats_regulated_status_aliases_as_review_findings() -> None:
+    transcript = _qualifier_transcript()
+    structured = _qualification_structured_data()
+    structured["target_market_check"] = {
+        **structured["target_market_check"],
+        "status": "partial",
+    }
+    structured["foreseeable_harm_check"] = {
+        **structured["foreseeable_harm_check"],
+        "status": "pass",
+    }
+
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_returning(_invocation_result(structured_data=structured)),
+    )
+
+    assert result.record.comparator.status.value == "pass"
+    assert result.record.comparator.result["tier"] == "review_finding"
+    assert result.record.comparator.result["reason_code"] == "structured_data_review_required"
 
 
 def test_replay_review_finds_recommended_next_step_rationale_and_confidence() -> None:
@@ -753,6 +794,67 @@ def test_replay_metrics_only_classifies_metric_and_safe_provider_metadata_deltas
     assert "tier_placeholder" not in payload
     assert "raw-original-response-id" not in str(payload)
     assert "raw-alternate-response-id" not in str(payload)
+
+
+def test_replay_records_structured_divergence_as_review_finding() -> None:
+    transcript = load_transcript(ROOT / TRANSCRIPT_FIXTURE)
+    structured = _classification_structured_data()
+    structured["product_family_category"] = "home_buildings"
+
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_returning(_invocation_result(structured_data=structured)),
+    )
+
+    assert result.checks[0].status == "pass"
+    assert result.record.comparator.status.value == "pass"
+    assert result.record.comparator.result["tier"] == "review_finding"
+    assert result.record.comparator.result["reason_code"] == "structured_data_review_required"
+    assert result.record.comparator.result["reason_codes"] == ["structured_data_diverged"]
+    assert result.record.comparator.result["changed_field_names"] == [
+        "structured_data.product_family_category"
+    ]
+    assert "decision_comparator_pending" not in str(result.record.comparator.result)
+
+
+def test_replay_uses_uc2_response_schema_for_uc2_transcripts() -> None:
+    transcript = replace(
+        load_transcript(ROOT / TRANSCRIPT_FIXTURE),
+        task_kind="uc2_engagement_decision",
+        agent_role="engagement_decider",
+        prompt_reference="prompts/uc2/engagement-decider/v1.md",
+        prompt_hash="sha256:8f793f9105211157a8f2faead42229753d9b7574efc491515816cda7aecf58e2",
+        expected_structured_data=_uc2_engagement_structured_data(),
+        policy_snapshot_ref="policy_snapshot:uc2:default:v1",
+    )
+
+    result = replay_transcript_with_record(
+        transcript,
+        route_catalogue=_catalogue_returning(
+            _invocation_result(structured_data=_uc2_engagement_structured_data())
+        ),
+    )
+
+    assert result.record.comparator.status.value == "pass"
+    assert result.record.comparator.result["tier"] == "metrics_only"
+    assert result.record.lineage.response_schema_name == "uc2_uc2_engagement_decision_response"
+    assert result.record.lineage.response_schema_contract_ref == (
+        "contracts/llm_provider/uc2_agent_io.schema.json"
+    )
+
+
+def test_live_openai_route_credential_gate_fails_loudly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+
+    with pytest.raises(LiveProviderCredentialError) as exc_info:
+        require_live_route_credential()
+
+    assert str(exc_info.value) == (
+        "Live provider integration test for route 'demo-eval-canonical' requires "
+        "OPENAI_API_KEY to be set and non-empty."
+    )
 
 
 def test_replay_hard_fail_takes_precedence_over_review_finding() -> None:
@@ -1746,6 +1848,37 @@ def _classification_structured_data() -> dict[str, Any]:
         "demanded_cover_shape": "third_party_fire_and_theft",
         "classification_attempt": None,
         "deeper_context_completed": None,
+    }
+
+
+def _uc2_engagement_structured_data() -> dict[str, Any]:
+    return {
+        "engagement_decision_ref": "engagement_decision_demo_uc2_001",
+        "engagement_outcome": "accept_for_engagement",
+        "approval_package_ref": "approval_demo_uc2_001",
+        "prospective_client_ref": "prospective_client_demo_uc2_001",
+        "instructing_contact_ref": "contact_instructing_001",
+        "authority_status": "confirmed",
+        "matter_scope_ref": "mscope_demo_001",
+        "scope_summary_ref": "scope_summary_demo_001",
+        "conflict_determination_ref": "conflict_determination_demo_uc2_001",
+        "conflict_status": "no_conflict",
+        "confidentiality_safeguard_status": "not_required",
+        "cdd_record_ref": "cdd_record_demo_001",
+        "cdd_status": "complete_standard",
+        "beneficial_ownership_status": "complete",
+        "aml_risk_assessment_ref": "aml_risk_demo_001_v1",
+        "aml_risk_rating": "standard",
+        "review_reason_category": None,
+        "decline_reason_category": None,
+        "conduct_hook_refs": [
+            "conduct_sra_identify_client_8_1",
+            "conduct_sra_conflict_6_1_6_2",
+            "conduct_sra_confidentiality_6_3_6_5",
+            "conduct_mlr_cdd_reg_27_28",
+            "conduct_sra_accountability_7_1_7_2",
+        ],
+        "policy_snapshot_ref": "policy_snapshot:uc2:default:v1",
     }
 
 

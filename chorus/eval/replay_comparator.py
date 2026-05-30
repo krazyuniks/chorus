@@ -306,11 +306,9 @@ def classify_replay_decision_failure(
             )
         )
 
-    regulated_fields = _changed_field_names(
+    regulated_fields = _changed_uc1_regulated_outcome_field_names(
         expected_structured_data,
         actual_structured_data,
-        _UC1_REGULATED_OUTCOME_FIELDS,
-        require_both_present=True,
     )
     if regulated_fields:
         mismatch_groups.append(("regulated_outcome_mismatch", regulated_fields))
@@ -370,11 +368,9 @@ def classify_replay_review_finding(
         return None
     if not _same_uc1_route_category(expected_structured_data, actual_structured_data):
         return None
-    if _changed_field_names(
+    if _changed_uc1_regulated_outcome_field_names(
         expected_structured_data,
         actual_structured_data,
-        _UC1_REGULATED_OUTCOME_FIELDS,
-        require_both_present=True,
     ):
         return None
     if _changed_field_names(
@@ -701,6 +697,56 @@ def _changed_field_names(
         if expected_value != actual_value:
             changed.append(_field_name(path))
     return tuple(sorted(set(changed)))
+
+
+def _changed_uc1_regulated_outcome_field_names(
+    expected: dict[str, Any],
+    actual: dict[str, Any],
+) -> tuple[str, ...]:
+    changed: list[str] = []
+    for path in _UC1_REGULATED_OUTCOME_FIELDS:
+        expected_present, expected_value = _path_value(expected, path)
+        actual_present, actual_value = _path_value(actual, path)
+        if not (expected_present and actual_present):
+            continue
+        if _normalise_uc1_regulated_outcome_value(path, expected_value) != (
+            _normalise_uc1_regulated_outcome_value(path, actual_value)
+        ):
+            changed.append(_field_name(path))
+    return tuple(sorted(set(changed)))
+
+
+def _normalise_uc1_regulated_outcome_value(
+    path: tuple[str, ...],
+    value: object,
+) -> object:
+    if path[-1:] != ("status",) or not isinstance(value, str):
+        return value
+    normalised = value.strip().lower().replace("-", "_").replace(" ", "_")
+    if path[0] == "foreseeable_harm_check" and normalised in {
+        "pass",
+        "passed",
+        "ok",
+        "no_harm",
+        "no_harm_identified",
+        "no_foreseeable_harm",
+        "no_foreseeable_harm_identified",
+    }:
+        return "pass"
+    if path[0] in {"best_interests_check", "target_market_check"} and normalised in {
+        "pass",
+        "passed",
+        "ok",
+        "aligned",
+        "in_scope",
+        "partial",
+        "pending",
+        "pending_data",
+        "pending_missing_data",
+        "within_target_market",
+    }:
+        return "pass"
+    return normalised
 
 
 def _path_value(data: dict[str, Any], path: tuple[str, ...]) -> tuple[bool, object]:

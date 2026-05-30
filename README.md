@@ -79,7 +79,7 @@ existing BFF/UI surfaces.
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|
 | Intake | email-channel, web-form-channel, partner-portal-channel, synthetic-channel | email-channel, corporate-intake-form, intermediary-referral-channel | web-form-channel, email-channel, introducer-referral-channel |
-| LLM provider | OpenAI-SDK adapter; route metadata: active local `recorded-replay` (`local` / `uc1-happy-path-v1`), DeepSeek `deepseek-v4-flash` (dev), and OpenAI `gpt-5.4-mini-2026-03-17` (demo / eval); worker startup fails when an approved live route is selected without its credential env var | same adapter and route shape | same adapter and route shape |
+| LLM provider | OpenAI-SDK adapter; route metadata: active local `recorded-replay` (`local` / `uc1-happy-path-v1`), DeepSeek `deepseek-v4-flash` (dev), and OpenAI `gpt-5.4-mini-2026-03-17` (demo / eval); worker startup fails when an approved live route is selected without its credential env var; explicit OpenAI replay integration runs with `just test-live-openai` when `OPENAI_API_KEY` is set | same adapter and route shape | same adapter and route shape |
 | Connector | sandbox-crm, sandbox-referral-inbox, sandbox-decline-ledger, sandbox-outbound-comms, sandbox-customer-profile, sandbox-product-catalogue | adds sandbox-conflict-check, sandbox-kyc-bo, sandbox-aml-record-store, sandbox-engagement-letter-store | adds sandbox-attitude-to-risk-profiler, sandbox-capacity-for-loss-tool, sandbox-suitability-report-store, sandbox-platform-research |
 | Audit / transcript | decision-trail adapter, transcript adapter (Postgres-backed) | same | same |
 | Projection sink | Postgres projection adapter; Redpanda event consumer feeding the read-only BFF | same | same |
@@ -176,22 +176,34 @@ or in the frontend at
 can inspect the same workflow ID. Re-running the same command prints
 `started: false` when that stable workflow ID already exists.
 
+The explicit live OpenAI replay check is:
+
+```bash
+just test-live-openai
+```
+
+It requires `OPENAI_API_KEY` in the process environment or `.env`; without
+that key the command fails before provider calls.
+
 The runtime code carries the named-port surface: the LLM provider port,
 connector adapter registry, audit / transcript split, workflow spine with UC1,
 UC2, and UC3 definitions on it, per-port projection / doctor decomposition,
 and invariant-plus-replay eval. R4 is closed as local POC evidence; R5 is
 closing the documented runnable gaps, with UC2 and UC3 now having local
 synthetic intake commands and relay/projection evidence loops.
-The live-provider startup credential gate is in place; live-provider
-end-to-end route activation and comparator evidence remain open. The
+The live-provider startup credential gate is in place. OpenAI live-provider
+replay integration now runs explicitly with `just test-live-openai`, hard
+fails when `OPENAI_API_KEY` is absent, and compares UC1, UC2, and UC3
+happy-path captured transcripts through `demo-eval-canonical`; DeepSeek
+coverage and persisted replay-run rows remain open. The
 closed R4 backlog and closure notes live in
 [`docs/transformation/r4-implementation-backlog.md`](docs/transformation/r4-implementation-backlog.md).
 
 ## Current Work
 
 R5 is active. Work proceeds from the R5 backlog, closing documented local
-runnable paths first and live-provider activation later without widening into
-production connectors or hosted deployment.
+runnable paths first and the remaining DeepSeek / live replay persistence
+slices later without widening into production connectors or hosted deployment.
 Architectural decisions are recorded in [`adrs/`](adrs/); only current
 decisions are kept in the repository.
 

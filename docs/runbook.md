@@ -227,6 +227,7 @@ No volume reset is required for dependency or application-code image rebuilds.
 | `just env-check` | Verify `.env` and `.env.example` declare the same keys and matching non-secret values. |
 | `just contracts-check` | Schema, generated-model, and sample drift gate. |
 | `just test` / `just test-replay` | Python tests; Temporal replay tests. |
+| `just test-live-openai` | Explicit credential-gated OpenAI replay integration test; requires `OPENAI_API_KEY`. |
 | `just lint` | Environment drift checks, linters, and type-checkers. |
 | `just fmt` | Format Python and frontend code. |
 | `just eval` | Run the eval fixtures. |
@@ -375,8 +376,18 @@ policies before connecting to Temporal: `recorded-replay` starts without live
 credentials, while an approved `demo-eval-canonical` route without
 `OPENAI_API_KEY` or an approved `dev` route without `DEEPSEEK_API_KEY` exits
 with `Live provider route credential gate failed` and names the route and
-missing credential. Live end-to-end provider calls and credential-gated replay
-comparisons remain deferred to the next R5 P3 slices. Replay-run evidence
+missing credential. The explicit OpenAI live replay integration command is:
+
+```bash
+just test-live-openai
+```
+
+It runs only when `OPENAI_API_KEY` is present and non-empty, replays captured
+UC1, UC2, and UC3 happy-path transcripts through `demo-eval-canonical`, and
+accepts comparator outcomes of success, review finding, or metrics-only.
+Hard-fail and decision-fail comparator tiers fail the test. DeepSeek live
+coverage and persisted `replay_run_records` rows for live comparisons remain
+open R5 P3 slices. Replay-run evidence
 records now persist the original invocation/transcript refs, alternate route
 metadata, comparator status, lineage refs, and token/cost/latency metrics. The
 hard-fail comparator tier classifies schema, policy snapshot, conduct hook,
@@ -468,8 +479,9 @@ happy `suitability_report.issue` approval package. The UC3 model-backed
 workflow tasks resolve through the recorded-replay provider route by default,
 and workflow-path eval playback captures decision/transcript, Tool Gateway
 audit, approval-package, and outbox-progress evidence for the happy issue path
-and the vulnerability-support handoff branch. Live-provider activation remains
-deferred to R5 P3.
+and the vulnerability-support handoff branch. OpenAI live replay activation is
+available through `just test-live-openai`; DeepSeek coverage and persisted live
+replay rows remain deferred to later R5 P3 slices.
 
 Inspect approval packages through the read-only BFF:
 
@@ -759,8 +771,9 @@ This is the end-to-end happy path threaded through the six ports. The port
 sequence is stable; the UC1 enquiry-qualification workflow runs it
 end-to-end on the shared `WorkflowSpine`. UC2 now has its own synthetic
 email-intake walk-through above, and UC3 has its own synthetic
-email-advice-intake walk-through above. Live-provider route activation remains
-deferred to R5 P3.
+email-advice-intake walk-through above. OpenAI live replay activation is
+available through `just test-live-openai`; DeepSeek coverage and persisted live
+replay rows remain deferred to later R5 P3 slices.
 
 1. **Bring the stack up (all ports).** Run the bring-up commands above:
    `just up && just db-migrate && just schemas-register && just doctor`.
@@ -808,8 +821,9 @@ deferred to R5 P3.
    builds contract-shaped replay-run records for Postgres/BFF inspection and
    classifies hard-fail defects, bounded UC1 decision-fail divergence, and
    non-terminal review findings; it records metrics-only deltas after those
-   semantic tiers agree. Live-provider execution remains credential-gated and
-   inactive by default. The target
+   semantic tiers agree. OpenAI live-provider replay now runs explicitly with
+   `just test-live-openai`; it remains credential-gated and inactive by
+   default. The target
    shape is in
    [`transformation/eval-reshape-directions.md`](transformation/eval-reshape-directions.md).
 
@@ -828,6 +842,7 @@ deferred to R5 P3.
 | `just service-import-contracts` reports a missing dependency | A service-owned `chorus` entrypoint now reaches a third-party runtime import not declared in that service's `services/<name>/pyproject.toml`. | Add the dependency to that service pyproject and rebuild the image with `just up`, or update the explicit service import contract if the Dockerfile entrypoint changed. |
 | `just env-check` reports `.env` drift | The local runtime file no longer matches the committed template. | Restore the local value to the committed default, add the key to both files, or extend the explicit secret-value allowlist only for genuine credentials. |
 | `just worker` prints `Live provider route credential gate failed` | An approved `model_routing_policies` row selects a live OpenAI-compatible route and the required credential env var is blank or unset. | Set the named credential in `.env` only for intentional live-provider testing, or restore the approved policy to `recorded-replay`. Do not rely on fallback replay for a selected live route. |
+| `just test-live-openai` reports `OPENAI_API_KEY` is required | The explicit live OpenAI integration test was requested without a non-empty key. | Export `OPENAI_API_KEY` for that command or leave the live test unrun; do not commit provider credentials. |
 | Docker compose fails validation | An unset variable lacks a `${VAR:-default}` fallback. | Run `./scripts/dc config` to see the rendered file; add the default in `compose.yml`. |
 | Pre-commit hooks reject a commit | A lint or contracts gate failed. | Run `just hooks` to reproduce outside the commit. Do not bypass with `--no-verify`. |
 | A workflow is stuck | A long-poll, a wait, or a deadlocked dependency. | Inspect the run in the Temporal UI at `http://localhost:8233`; terminate or reset from there. Never wipe Postgres to clear a stuck run; the audit trail is evidence. |

@@ -447,6 +447,7 @@ def _enquiry_input_for(scenario: str) -> dict[str, Any]:
             "enquiry_body_text": (
                 "Hi, I need a private car quote. Accepted-routing fixture marker."
             ),
+            "policy_snapshot_ref": "policy_snapshot:uc1:default:v1",
         }
     if scenario == UC1_SCENARIO_REFERRED_ROUTING:
         return {
@@ -454,6 +455,7 @@ def _enquiry_input_for(scenario: str) -> dict[str, Any]:
             "enquiry_body_text": (
                 "Hi, my car risk needs specialist review. Referred-routing fixture marker."
             ),
+            "policy_snapshot_ref": "policy_snapshot:uc1:default:v1",
         }
     if scenario == UC1_SCENARIO_DECLINED_ROUTING:
         return {
@@ -461,6 +463,7 @@ def _enquiry_input_for(scenario: str) -> dict[str, Any]:
             "enquiry_body_text": (
                 "Hi, the risk appears outside appetite. Declined-routing fixture marker."
             ),
+            "policy_snapshot_ref": "policy_snapshot:uc1:default:v1",
         }
     if scenario == UC1_SCENARIO_DEEPER_CONTEXT:
         return {
@@ -468,6 +471,7 @@ def _enquiry_input_for(scenario: str) -> dict[str, Any]:
             "enquiry_body_text": (
                 "Hi, I would like a quote for my car. Deeper-context fixture marker."
             ),
+            "policy_snapshot_ref": "policy_snapshot:uc1:default:v1",
         }
     if scenario == UC1_SCENARIO_VALIDATOR_REDRAFT:
         return {
@@ -475,6 +479,7 @@ def _enquiry_input_for(scenario: str) -> dict[str, Any]:
             "enquiry_body_text": (
                 "Hi, I would like a quote for my car. Validator-redraft fixture marker."
             ),
+            "policy_snapshot_ref": "policy_snapshot:uc1:default:v1",
             "validator_reason": {
                 "code": "scope_mismatch",
                 "missing_elements": ["cover_scope", "claims_history"],
@@ -483,8 +488,11 @@ def _enquiry_input_for(scenario: str) -> dict[str, Any]:
     return {
         "enquiry_subject": "Motor cover enquiry",
         "enquiry_body_text": (
-            "Hi, please could you quote me for third-party fire and theft on a 2018 hatchback."
+            "Hi, please could you quote me for third-party fire and theft on a 2018 "
+            "hatchback. I have not included my postcode, licence date, or previous "
+            "claims history yet."
         ),
+        "policy_snapshot_ref": "policy_snapshot:uc1:default:v1",
     }
 
 
@@ -517,7 +525,7 @@ def _invoke_stage(
         messages=(
             InvocationMessage(role="system", content=prompt.content),
             InvocationMessage(role="system", content=response_shape_instruction(response_shape)),
-            InvocationMessage(role="user", content=f"{task_kind} input"),
+            InvocationMessage(role="user", content=_summarise(enquiry_input)),
         ),
         response_shape=response_shape,
         metadata={
@@ -826,7 +834,7 @@ def _play_retry_exhaustion(
         messages=(
             InvocationMessage(role="system", content=prompt.content),
             InvocationMessage(role="system", content=response_shape_instruction(response_shape)),
-            InvocationMessage(role="user", content="enquiry_classification input"),
+            InvocationMessage(role="user", content=_summarise(enquiry_input)),
         ),
         response_shape=response_shape,
         metadata={
