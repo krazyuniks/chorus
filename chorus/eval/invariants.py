@@ -25,9 +25,12 @@ from chorus.eval.use_cases.uc1_conduct import (
     assert_uc1_terminal_connector_routing,
 )
 from chorus.eval.use_cases.uc2_conduct import (
+    assert_uc2_agent_decision_and_transcript_evidence,
+    assert_uc2_conflict_exception_approval_branch,
     assert_uc2_connector_ref_evidence,
     assert_uc2_engagement_decision_conduct,
     assert_uc2_engagement_letter_send_approval_gate,
+    assert_uc2_workflow_progress_evidence,
 )
 from chorus.eval.use_cases.uc3_conduct import (
     assert_uc3_connector_ref_evidence,
@@ -55,7 +58,10 @@ UC2_INVARIANTS: tuple[Invariant, ...] = (
     assert_governed_decision_provenance,
     assert_audit_completeness,
     assert_observability_emission,
+    assert_uc2_workflow_progress_evidence,
+    assert_uc2_agent_decision_and_transcript_evidence,
     assert_uc2_engagement_decision_conduct,
+    assert_uc2_conflict_exception_approval_branch,
     assert_uc2_engagement_letter_send_approval_gate,
     assert_uc2_connector_ref_evidence,
     assert_connector_authority_discipline,
@@ -102,9 +108,12 @@ __all__ = [
     "assert_projection_convergence",
     "assert_uc1_qualification_invariants",
     "assert_uc1_terminal_connector_routing",
+    "assert_uc2_agent_decision_and_transcript_evidence",
+    "assert_uc2_conflict_exception_approval_branch",
     "assert_uc2_connector_ref_evidence",
     "assert_uc2_engagement_decision_conduct",
     "assert_uc2_engagement_letter_send_approval_gate",
+    "assert_uc2_workflow_progress_evidence",
     "assert_uc3_connector_ref_evidence",
     "assert_uc3_manual_handoff_boundaries",
     "assert_uc3_suitability_decision_conduct",

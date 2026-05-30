@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0.0",
+  "legal_intake_id": "2381af58-33c8-4d59-a4cd-f8a5fdf2638e",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_legal_email_conflict_exception_001",
+  "channel": "email",
+  "adapter_id": "email-channel",
+  "message_id": "<legal-intake-conflict-exception-001@example.test>",
+  "received_at": "2026-05-01T10:15:00Z",
+  "source_payload_ref": "source_payload_legal_email_conflict_exception_001",
+  "mailbox_ref": "mailbox_corporate_commercial_intake",
+  "sender_contact_ref": "contact_instructing_002",
+  "subject_summary": "Commercial contract review enquiry conflict-exception fixture",
+  "matter_scope_summary": "Synthetic supplier-framework review with an adverse-party marker that requires partner conflict-exception review.",
+  "party_role_hints": [
+    {
+      "party_ref": "party_prospective_client_002",
+      "role": "prospective_client",
+      "party_category": "organisation"
+    },
+    {
+      "party_ref": "party_adverse_conflict_001",
+      "role": "adverse_party",
+      "party_category": "organisation"
+    }
+  ],
+  "attachments_summary": [
+    {
+      "attachment_ref": "attachment_heads_terms_conflict_001",
+      "document_category": "heads_of_terms",
+      "content_type": "application/pdf",
+      "size_bytes": 52301,
+      "sha256": "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+    }
+  ]
+}

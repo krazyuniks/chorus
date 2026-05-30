@@ -258,7 +258,7 @@ def _replay_result_for(
                 "continue",
                 {
                     "matter_type": "corporate_transaction",
-                    "matter_scope_ref": "matter_scope_demo_uc2_001",
+                    "matter_scope_ref": _uc2_ref("mscope", agent_input, "demo_001"),
                     "jurisdiction_categories": ["england_and_wales"],
                     "conduct_hook_refs": [
                         "conduct_sra_identify_client_8_1",
@@ -269,24 +269,25 @@ def _replay_result_for(
                 0.86,
             )
         case "uc2_party_extraction":
+            party_search_terms = _uc2_party_search_terms(agent_input)
             return (
                 "Extracted a bounded party graph for the prospective corporate client.",
                 "continue",
                 {
-                    "party_graph_ref": "party_graph_demo_uc2_001",
-                    "prospective_client_ref": "prospective_client_demo_uc2_001",
+                    "party_graph_ref": _uc2_ref("pgraph", agent_input, "demo_001_v1"),
+                    "prospective_client_ref": _uc2_ref(
+                        "prospective_client",
+                        agent_input,
+                        "demo_uc2_001",
+                    ),
                     "authority_status": "confirmed",
                     "party_graph_ambiguous": False,
-                    "party_search_terms": [
-                        {
-                            "party_ref": "party_demo_uc2_client",
-                            "role": "prospective_client",
-                            "party_category": "company",
-                        }
-                    ],
+                    "party_search_terms": party_search_terms,
                     "entity_category": "company",
-                    "beneficial_owner_refs": ["bo_demo_uc2_001"],
-                    "controller_refs": ["controller_demo_uc2_001"],
+                    "beneficial_owner_refs": [
+                        _uc2_ref("beneficial_owner", agent_input, "demo_001")
+                    ],
+                    "controller_refs": [_uc2_ref("controller", agent_input, "demo_uc2_001")],
                     "conduct_hook_refs": [
                         "conduct_sra_identify_client_8_1",
                         "conduct_mlr_cdd_reg_27_28",
@@ -296,11 +297,36 @@ def _replay_result_for(
                 0.84,
             )
         case "uc2_conflict_determination":
+            if _is_uc2_conflict_exception_fixture(agent_input):
+                return (
+                    "Conflict evidence needs partner review before any engagement decision.",
+                    "manual_review",
+                    {
+                        "conflict_determination_ref": _uc2_ref(
+                            "conflict_determination",
+                            agent_input,
+                            "demo_exception_001",
+                        ),
+                        "conflict_status": "permitted_exception_candidate",
+                        "confidentiality_safeguard_status": "missing",
+                        "aml_risk_rating": "standard",
+                        "conduct_hook_refs": [
+                            "conduct_sra_conflict_6_1_6_2",
+                            "conduct_sra_confidentiality_6_3_6_5",
+                        ],
+                        "policy_snapshot_ref": "policy_snapshot:uc2:default:v1",
+                    },
+                    0.83,
+                )
             return (
                 "Conflict evidence is clear for the local synthetic intake.",
                 "continue",
                 {
-                    "conflict_determination_ref": "conflict_determination_demo_uc2_001",
+                    "conflict_determination_ref": _uc2_ref(
+                        "conflict_determination",
+                        agent_input,
+                        "demo_uc2_001",
+                    ),
                     "conflict_status": "no_conflict",
                     "confidentiality_safeguard_status": "not_required",
                     "aml_risk_rating": "standard",
@@ -313,21 +339,55 @@ def _replay_result_for(
                 0.87,
             )
         case "uc2_engagement_decision":
+            classification_data = _dict_value(agent_input.get("classification_data"))
+            party_graph_data = _dict_value(agent_input.get("party_graph_data"))
+            conflict_data = _dict_value(agent_input.get("conflict_determination_data"))
+            kyc_output = _dict_value(agent_input.get("kyc_gateway_output"))
+            aml_output = _dict_value(agent_input.get("aml_gateway_output"))
             return (
                 "Engagement can proceed subject to the approval-gated send path.",
                 "continue",
                 {
-                    "engagement_decision_ref": "engagement_decision_demo_uc2_001",
+                    "engagement_decision_ref": _uc2_ref(
+                        "engagement_decision",
+                        agent_input,
+                        "demo_uc2_001",
+                    ),
                     "engagement_outcome": "accept_for_engagement",
-                    "approval_package_ref": "approval_demo_uc2_001",
-                    "prospective_client_ref": "prospective_client_demo_uc2_001",
-                    "matter_scope_ref": "matter_scope_demo_uc2_001",
-                    "scope_summary_ref": "scope_summary_demo_uc2_001",
-                    "conflict_determination_ref": "conflict_determination_demo_uc2_001",
-                    "aml_risk_assessment_ref": "aml_risk_demo_uc2_001",
+                    "approval_package_ref": _uc2_ref("approval", agent_input, "demo_uc2_001"),
+                    "prospective_client_ref": _string_value(
+                        party_graph_data.get("prospective_client_ref")
+                    )
+                    or _uc2_ref("prospective_client", agent_input, "demo_uc2_001"),
+                    "instructing_contact_ref": _string_value(
+                        agent_input.get("instructing_contact_ref")
+                    ),
+                    "authority_status": _string_value(party_graph_data.get("authority_status")),
+                    "matter_scope_ref": _string_value(classification_data.get("matter_scope_ref"))
+                    or _uc2_ref("mscope", agent_input, "demo_001"),
+                    "scope_summary_ref": _uc2_ref("scope_summary", agent_input, "demo_001"),
+                    "conflict_determination_ref": _string_value(
+                        conflict_data.get("conflict_determination_ref")
+                    )
+                    or _uc2_ref("conflict_determination", agent_input, "demo_uc2_001"),
+                    "conflict_status": _string_value(conflict_data.get("conflict_status")),
+                    "confidentiality_safeguard_status": _string_value(
+                        conflict_data.get("confidentiality_safeguard_status")
+                    ),
+                    "cdd_record_ref": _string_value(kyc_output.get("cdd_record_ref")),
+                    "cdd_status": _string_value(kyc_output.get("cdd_status")),
+                    "beneficial_ownership_status": _string_value(
+                        kyc_output.get("beneficial_ownership_status")
+                    ),
+                    "aml_risk_assessment_ref": _string_value(
+                        aml_output.get("aml_risk_assessment_ref")
+                    )
+                    or _uc2_ref("aml_risk", agent_input, "demo_001_v1"),
+                    "aml_risk_rating": _string_value(aml_output.get("aml_risk_rating")),
                     "conduct_hook_refs": [
                         "conduct_sra_identify_client_8_1",
                         "conduct_sra_conflict_6_1_6_2",
+                        "conduct_sra_confidentiality_6_3_6_5",
                         "conduct_mlr_cdd_reg_27_28",
                         "conduct_sra_accountability_7_1_7_2",
                     ],
@@ -514,6 +574,55 @@ def _terminal_route_fixture_category(agent_input: dict[str, Any]) -> str | None:
     return None
 
 
+def _uc2_party_search_terms(agent_input: dict[str, Any]) -> list[dict[str, str]]:
+    hints = agent_input.get("party_role_hints")
+    if isinstance(hints, list):
+        terms: list[dict[str, str]] = []
+        for hint in cast(list[object], hints):
+            if not isinstance(hint, dict):
+                continue
+            hint_data = cast(dict[str, Any], hint)
+            party_ref = _string_value(hint_data.get("party_ref"))
+            role = _string_value(hint_data.get("role"))
+            party_category = _string_value(hint_data.get("party_category"))
+            if party_ref and role and party_category:
+                terms.append(
+                    {
+                        "party_ref": party_ref,
+                        "role": role,
+                        "party_category": party_category,
+                    }
+                )
+        if terms:
+            return terms
+    return [
+        {
+            "party_ref": "party_demo_uc2_client",
+            "role": "prospective_client",
+            "party_category": "organisation",
+        }
+    ]
+
+
+def _uc2_ref(prefix: str, agent_input: dict[str, Any], fallback_suffix: str) -> str:
+    legal_intake_ref = _string_value(agent_input.get("legal_intake_ref"))
+    suffix = legal_intake_ref.removeprefix("legal_intake_") or fallback_suffix
+    safe_suffix = "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in suffix)
+    return f"{prefix}_{safe_suffix or fallback_suffix}"
+
+
+def _is_uc2_conflict_exception_fixture(agent_input: dict[str, Any]) -> bool:
+    conflict_output = _dict_value(agent_input.get("conflict_check_output"))
+    hit_refs = conflict_output.get("conflict_hit_refs")
+    if isinstance(hit_refs, list) and hit_refs:
+        return True
+    marker_text = "\n".join(
+        str(agent_input.get(key, "")).lower()
+        for key in ("subject_summary", "matter_scope_summary", "legal_intake_ref")
+    )
+    return "conflict-exception fixture" in marker_text
+
+
 def _is_deeper_context_fixture(agent_input: dict[str, Any]) -> bool:
     body = str(agent_input.get("enquiry_body_text", "")).lower()
     subject = str(agent_input.get("enquiry_subject", "")).lower()
@@ -530,3 +639,11 @@ def _is_retry_exhaustion_fixture(agent_input: dict[str, Any]) -> bool:
     subject = str(agent_input.get("enquiry_subject", "")).lower()
     body = str(agent_input.get("enquiry_body_text", "")).lower()
     return "retry-exhaustion fixture" in subject or "retry-exhaustion fixture" in body
+
+
+def _dict_value(value: object) -> dict[str, Any]:
+    return cast(dict[str, Any], value) if isinstance(value, dict) else {}
+
+
+def _string_value(value: object) -> str:
+    return value if isinstance(value, str) else ""

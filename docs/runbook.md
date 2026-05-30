@@ -23,10 +23,12 @@ shared-spine workflow definitions, deterministic sandbox connector adapters,
 Tool Gateway grants, approval-package evidence, conduct invariants,
 schema-only fixture evidence, and read-only projection/BFF/UI inspection
 surfaces. UC2 has a code-level synthetic email-intake fixture adapter for R5
-P1 test evidence and recorded-replay model-route policies for the four UC2
-workflow agent tasks, but no documented operator command or full eval fixture
-playback yet. UC3 does not yet have use-case route activation, full eval
-fixture playback, or a local intake start path.
+P1 test evidence, recorded-replay model-route policies for the four UC2
+workflow agent tasks, and workflow-path eval playback for the happy
+acceptance/send-approval-gated fixture plus one conflict-exception branch.
+UC2 still lacks a documented operator command and projection/UI confirmation
+for that runnable path. UC3 does not yet have use-case route activation, full
+eval fixture playback, or a local intake start path.
 
 ## Local development bootstrap
 
@@ -269,8 +271,10 @@ R4 closes with the Mailpit/email UC1 channel runnable and keeps the UC1
 web-form, partner-portal, and synthetic-channel contracts in place. UC2 and
 UC3 intake contracts exist. R5 P1 adds a code-level UC2 synthetic email-intake
 fixture adapter that validates the documented contract sample and starts the
-UC2 workflow; the operator-facing UC2 command remains a later runbook slice.
-UC3 still has no local intake adapter.
+UC2 workflow. The eval playback path now uses that adapter to run the UC2
+happy fixture and conflict-exception fixture through the workflow/runtime
+activities in tests; the operator-facing UC2 command remains a later runbook
+slice. UC3 still has no local intake adapter.
 
 ### LLM provider port
 
@@ -369,7 +373,10 @@ expresses UC2 Tool Gateway grants for those tool names; `engagement_letter.send`
 is the approval-required write, while conflict exception and AML EDD approval
 remain conduct-gated/manual-review evidence until a later slice adds an exact
 connector request shape for those packages. The runbook does not yet claim a
-runnable UC2 operator intake command.
+runnable UC2 operator intake command. The R5 P1 eval playback path does
+exercise the happy `engagement_letter.send` approval package and the
+`engagement_letter.route_manual_review` conflict-exception branch through real
+Tool Gateway audit rows.
 
 UC3 has a definition-first workflow for `uc3_ifa_suitability_intake` on the
 same `WorkflowSpine`. The workflow routes `attitude_to_risk.profile`,
@@ -524,10 +531,11 @@ This is the end-to-end happy path threaded through the six ports. The port
 sequence is stable; the UC1 enquiry-qualification workflow runs it
 end-to-end on the shared `WorkflowSpine`. R4 added UC2 and UC3 workflow
 definitions on the same spine, but those use cases are inspection and
-schema-only evidence paths until documented operator intake commands, UC3
-provider route activation, and full fixture playback land in a later phase.
-UC2 now has recorded-replay route policies for its workflow agent tasks, but
-its documented operator command and full fixture playback remain open.
+schema-only evidence paths until documented operator intake commands and UC3
+provider route activation land in later phases. UC2 now has recorded-replay
+route policies and workflow-path eval playback for its happy acceptance path
+and conflict-exception branch, but its documented operator command and
+projection/UI confirmation remain open.
 
 1. **Bring the stack up (all ports).** Run the bring-up commands above:
    `just up && just db-migrate && just schemas-register && just doctor`.

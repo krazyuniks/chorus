@@ -941,6 +941,13 @@ def _transcript_record(
             },
             "messages": request_messages + response_messages,
             "tool_calls": [_as_jsonable(call) for call in result.tool_calls],
+            "response_body": {
+                "summary": result.summary,
+                "confidence": result.confidence,
+                "structured_data": result.structured_data,
+                "recommended_next_step": result.recommended_next_step,
+                "rationale": result.rationale,
+            },
             "token_usage": result.token_usage,
             "provider_metadata": _as_jsonable(result.provider_metadata) or None,
             "started_at": started_at.isoformat(),

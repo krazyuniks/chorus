@@ -1,5 +1,4 @@
-"""Drive the recorded-replay route through a UC1 scenario and collect the
-captured-run artefacts the invariant suite asserts over.
+"""Drive supported eval scenarios and collect captured-run artefacts.
 
 This is the offline substrate the R3 G eval uses: each fixture's `scenario`
 field maps to a deterministic sequence of LLM provider invocations through
@@ -8,6 +7,9 @@ projection-event stream and connector-call audit. The result mirrors the
 shape an actual UC1 run on the live stack would persist - decision-trail
 entries, transcripts, tool-action audit rows, projection events - so the
 invariants can run identically against either source.
+
+UC2 scenarios that need workflow evidence delegate to the UC2 workflow
+playback helper instead of synthesising captured-run rows.
 
 The path-enumeration eval era is retired; this player exists so the
 invariants have something concrete to assert about offline.
@@ -196,6 +198,7 @@ class ToolActionRecord:
     approval_granted: bool | None
     occurred_at: datetime
     output: dict[str, Any] = field(default_factory=_empty_tool_output)
+    approval_package: dict[str, Any] = field(default_factory=_empty_tool_output)
 
 
 @dataclass(frozen=True)
@@ -216,7 +219,7 @@ class ProjectionEvent:
 
 @dataclass
 class CapturedRun:
-    """Offline-synthesised analogue of a real UC1 run's persisted artefacts."""
+    """Captured eval analogue of persisted workflow artefacts."""
 
     fixture: EvalFixture
     decisions: list[DecisionTrailRecord] = field(default_factory=lambda: [])
@@ -231,13 +234,18 @@ def play_scenario(
     *,
     route_catalogue: RouteCatalogue | None = None,
 ) -> CapturedRun:
-    """Drive a fixture's scenario through the recorded-replay adapter."""
+    """Drive a fixture's scenario through the supported eval playback path."""
 
     workflow_type = _string_value(fixture.workflow_type)
+    if workflow_type == "uc2_legal_services_intake_conflict_check":
+        from chorus.eval.uc2_workflow_playback import play_uc2_workflow_fixture
+
+        return play_uc2_workflow_fixture(fixture)
     if workflow_type != UC1_WORKFLOW_TYPE:
         raise ValueError(
             "offline recorded-replay playback currently supports only "
-            f"{UC1_WORKFLOW_TYPE!r}; got {workflow_type!r}"
+            f"{UC1_WORKFLOW_TYPE!r} and 'uc2_legal_services_intake_conflict_check'; "
+            f"got {workflow_type!r}"
         )
 
     scenario = _string_value(fixture.scenario)

@@ -7,7 +7,14 @@ from typing import TYPE_CHECKING, Any, cast
 from chorus.eval.types import EvalCheck
 
 if TYPE_CHECKING:
-    from chorus.eval.scenario_player import CapturedRun, DecisionTrailRecord, ToolActionRecord
+    from uuid import UUID
+
+    from chorus.eval.scenario_player import (
+        CapturedRun,
+        DecisionTrailRecord,
+        ToolActionRecord,
+        TranscriptRecord,
+    )
 
 
 _REQUIRED_ENGAGEMENT_FIELDS = (
@@ -75,19 +82,142 @@ _RAW_CONTENT_KEYS = frozenset(
 )
 
 
+_BASE_WORKFLOW_STEPS = (
+    "intake",
+    "matter_classification",
+    "party_extraction",
+    "conflict_check",
+    "conflict_determination",
+)
+
+_ACCEPTANCE_WORKFLOW_STEPS = (
+    "kyc_beneficial_ownership",
+    "aml_assessment",
+    "engagement_decision",
+    "engagement_letter_draft",
+    "engagement_letter_send",
+    "close",
+)
+
+_CONFLICT_EXCEPTION_WORKFLOW_STEPS = (
+    "conflict_exception_approval",
+    "manual_review",
+    "close",
+)
+
+_BASE_AGENT_TASKS = (
+    "uc2_matter_classification",
+    "uc2_party_extraction",
+    "uc2_conflict_determination",
+)
+
+_ACCEPTANCE_AGENT_TASKS = ("uc2_engagement_decision",)
+
+
+def assert_uc2_workflow_progress_evidence(run: CapturedRun) -> list[EvalCheck]:
+    """UC2 fixtures must carry the workflow step evidence for their branch."""
+
+    if not run.projection_events:
+        return [
+            EvalCheck(
+                "UC2 workflow progress evidence",
+                "fail",
+                "no workflow progress events captured",
+            )
+        ]
+
+    required_steps: list[str] = list(_BASE_WORKFLOW_STEPS)
+    if _is_conflict_exception_branch(run):
+        required_steps.extend(_CONFLICT_EXCEPTION_WORKFLOW_STEPS)
+    elif _is_acceptance_path(run):
+        required_steps.extend(_ACCEPTANCE_WORKFLOW_STEPS)
+    else:
+        required_steps.append("close")
+
+    completed_steps = _completed_step_set(run)
+    failures: list[str] = []
+    missing_steps = [step for step in required_steps if step not in completed_steps]
+    if missing_steps:
+        failures.append(f"missing workflow step completions: {missing_steps}")
+
+    terminal = _terminal_event_type(run)
+    if terminal is None:
+        failures.append("missing terminal workflow event")
+
+    if failures:
+        return [EvalCheck("UC2 workflow progress evidence", "fail", "; ".join(failures))]
+    return [
+        EvalCheck(
+            "UC2 workflow progress evidence",
+            "pass",
+            f"captured UC2 workflow progress through {required_steps[-1]!r}",
+        )
+    ]
+
+
+def assert_uc2_agent_decision_and_transcript_evidence(run: CapturedRun) -> list[EvalCheck]:
+    """Required UC2 agent stages must have decision-trail and transcript rows."""
+
+    if not run.decisions:
+        return [
+            EvalCheck(
+                "UC2 agent decision and transcript evidence",
+                "fail",
+                "no decision-trail rows captured",
+            )
+        ]
+
+    required_tasks: list[str] = list(_BASE_AGENT_TASKS)
+    if _is_acceptance_path(run):
+        required_tasks.extend(_ACCEPTANCE_AGENT_TASKS)
+
+    failures: list[str] = []
+    for task_kind in required_tasks:
+        decision = _decision_for_task(run, task_kind)
+        if decision is None:
+            failures.append(f"missing decision-trail row for {task_kind}")
+            continue
+        transcript = _transcript_for_invocation(run, decision.invocation_id)
+        if transcript is None:
+            failures.append(f"missing transcript row for {task_kind}")
+        elif not transcript.structured_data:
+            failures.append(f"transcript row for {task_kind} missing response structured_data")
+        if decision.outcome != "succeeded":
+            failures.append(f"{task_kind} decision outcome={decision.outcome!r}")
+        if not decision.structured_data:
+            failures.append(f"{task_kind} decision missing structured_data evidence")
+
+    if failures:
+        return [
+            EvalCheck(
+                "UC2 agent decision and transcript evidence",
+                "fail",
+                "; ".join(failures),
+            )
+        ]
+    return [
+        EvalCheck(
+            "UC2 agent decision and transcript evidence",
+            "pass",
+            f"captured decision and transcript evidence for {required_tasks}",
+        )
+    ]
+
+
 def assert_uc2_engagement_decision_conduct(run: CapturedRun) -> list[EvalCheck]:
     """UC2 engagement decisions carry SRA / AML conduct evidence and safe refs."""
 
+    if _is_conflict_exception_branch(run) and not _is_acceptance_path(run):
+        return [
+            EvalCheck(
+                "UC2 engagement decision conduct",
+                "pass",
+                "engagement decision correctly not reached before conflict-exception approval",
+            )
+        ]
+
     decision = _decision_for_task(run, "uc2_engagement_decision")
     if decision is None:
-        if run.terminal_outcome == "failed":
-            return [
-                EvalCheck(
-                    "UC2 engagement decision conduct",
-                    "skip",
-                    "engagement decision did not run because the workflow failed earlier",
-                )
-            ]
         return [
             EvalCheck(
                 "UC2 engagement decision conduct",
@@ -132,6 +262,66 @@ def assert_uc2_engagement_decision_conduct(run: CapturedRun) -> list[EvalCheck]:
     ]
 
 
+def assert_uc2_conflict_exception_approval_branch(run: CapturedRun) -> list[EvalCheck]:
+    """Conflict-exception branches must stop before engagement and route review."""
+
+    if not _is_conflict_exception_branch(run):
+        return []
+
+    failures: list[str] = []
+    conflict = _decision_for_task(run, "uc2_conflict_determination")
+    if conflict is None:
+        failures.append("missing uc2_conflict_determination decision-trail row")
+    else:
+        status = _string_value(conflict.structured_data.get("conflict_status"))
+        if status not in {"permitted_exception_candidate", "confidentiality_risk"}:
+            failures.append(f"conflict exception branch has conflict_status={status!r}")
+        confidentiality = _string_value(
+            conflict.structured_data.get("confidentiality_safeguard_status")
+        )
+        if not confidentiality:
+            failures.append("conflict exception branch missing confidentiality safeguard status")
+
+    completed_steps = _completed_step_set(run)
+    for step in _CONFLICT_EXCEPTION_WORKFLOW_STEPS:
+        if step not in completed_steps:
+            failures.append(f"missing workflow step completion for {step}")
+
+    handoff = _last_tool_action_for(
+        run,
+        "engagement_letter.route_manual_review",
+        mode="write",
+    )
+    if handoff is None:
+        failures.append("missing engagement_letter.route_manual_review write audit row")
+    else:
+        if handoff.verdict != "allow":
+            failures.append(f"manual review handoff verdict={handoff.verdict!r}")
+        if not _string_value(handoff.output.get("handoff_ref")):
+            failures.append("manual review handoff output missing handoff_ref")
+        if not _string_value(handoff.output.get("review_reason_category")):
+            failures.append("manual review handoff output missing review_reason_category")
+
+    if _tool_actions_for(run, "engagement_letter.send"):
+        failures.append("conflict exception branch reached engagement_letter.send")
+
+    if failures:
+        return [
+            EvalCheck(
+                "UC2 conflict-exception approval branch",
+                "fail",
+                "; ".join(failures),
+            )
+        ]
+    return [
+        EvalCheck(
+            "UC2 conflict-exception approval branch",
+            "pass",
+            "conflict exception is approval-gated and routed to manual review before send",
+        )
+    ]
+
+
 def assert_uc2_engagement_letter_send_approval_gate(run: CapturedRun) -> list[EvalCheck]:
     """UC2 engagement-letter send is always approval-gated before effect."""
 
@@ -144,9 +334,11 @@ def assert_uc2_engagement_letter_send_approval_gate(run: CapturedRun) -> list[Ev
     use_case_outcome = _use_case_outcome(run)
     terminal = run.terminal_outcome
     send_relevant = (
-        decision_outcome in (_ACCEPTANCE_OUTCOMES | _APPROVAL_WAITING_OUTCOMES)
+        _is_acceptance_path(run)
+        or decision_outcome in (_ACCEPTANCE_OUTCOMES | _APPROVAL_WAITING_OUTCOMES)
         or use_case_outcome in (_ACCEPTANCE_OUTCOMES | _APPROVAL_WAITING_OUTCOMES)
-        or terminal in (_ACCEPTANCE_OUTCOMES | _APPROVAL_WAITING_OUTCOMES)
+        or "engagement_letter" in use_case_outcome
+        or "accepted" in use_case_outcome
     )
     if not send_relevant:
         return []
@@ -175,21 +367,28 @@ def assert_uc2_engagement_letter_send_approval_gate(run: CapturedRun) -> list[Ev
     if not package_requests:
         failures.append("no approval_required package request for engagement_letter.send")
     else:
-        request_output = package_requests[-1].output
+        package_request = package_requests[-1]
+        request_output = package_request.output
         if request_output.get("requested_action") != "engagement_letter.send.write":
             failures.append("send approval package missing requested_action ref")
         if not _string_value(request_output.get("approval_id")):
             failures.append("send approval package missing approval_id")
+        if not package_request.approval_package:
+            failures.append("send approval package table evidence missing")
+        elif package_request.approval_package.get("requested_action") != (
+            "engagement_letter.send.write"
+        ):
+            failures.append("send approval package table row has wrong requested_action")
 
     waiting = (
         terminal in _APPROVAL_WAITING_OUTCOMES
         or decision_outcome in _APPROVAL_WAITING_OUTCOMES
         or use_case_outcome in _APPROVAL_WAITING_OUTCOMES
+        or "approval_gated" in use_case_outcome
+        or "approval_required" in use_case_outcome
     )
     completed_acceptance = (
-        terminal in _ACCEPTANCE_OUTCOMES
-        or use_case_outcome in _ACCEPTANCE_OUTCOMES
-        or decision_outcome == "accept_for_engagement"
+        terminal in _ACCEPTANCE_OUTCOMES or use_case_outcome in _ACCEPTANCE_OUTCOMES
     )
     if completed_acceptance and not approved_applies:
         failures.append("completed acceptance lacks approved engagement_letter.send apply")
@@ -221,20 +420,29 @@ def assert_uc2_engagement_letter_send_approval_gate(run: CapturedRun) -> list[Ev
 def assert_uc2_connector_ref_evidence(run: CapturedRun) -> list[EvalCheck]:
     """UC2 connector actions expose safe refs for conflict, AML, and engagement records."""
 
-    decision = _decision_for_task(run, "uc2_engagement_decision")
-    if decision is None:
-        return []
-    outcome = _string_value(decision.structured_data.get("engagement_outcome"))
-    if outcome not in _ACCEPTANCE_OUTCOMES:
-        return []
+    if not run.tool_actions:
+        return [
+            EvalCheck(
+                "UC2 connector ref evidence",
+                "fail",
+                "no tool-action audit rows captured",
+            )
+        ]
 
-    expected = {
+    expected: dict[str, tuple[str, tuple[str, ...]]] = {
         "conflict_check.search": ("read", ("conflict_check_ref",)),
-        "kyc_bo.lookup": ("read", ("cdd_record_ref", "beneficial_ownership_snapshot_ref")),
-        "aml_record_store.record_assessment": ("write", ("aml_risk_assessment_ref",)),
-        "engagement_letter.draft": ("write", ("engagement_letter_ref", "draft_ref")),
-        "engagement_letter.send": ("write", ("send_record_ref",)),
     }
+    if _is_conflict_exception_branch(run):
+        expected["engagement_letter.route_manual_review"] = ("write", ("handoff_ref",))
+    elif _is_acceptance_path(run):
+        expected.update(
+            {
+                "kyc_bo.lookup": ("read", ("cdd_record_ref", "beneficial_ownership_snapshot_ref")),
+                "aml_record_store.record_assessment": ("write", ("aml_risk_assessment_ref",)),
+                "engagement_letter.draft": ("write", ("engagement_letter_ref", "draft_ref")),
+            }
+        )
+
     failures: list[str] = []
     for tool_name, (mode, ref_keys) in expected.items():
         action = _last_tool_action_for(run, tool_name, mode=mode)
@@ -247,19 +455,35 @@ def assert_uc2_connector_ref_evidence(run: CapturedRun) -> list[EvalCheck]:
             if not _string_value(action.output.get(key)):
                 failures.append(f"{tool_name} output missing {key}")
 
+    if _is_acceptance_path(run):
+        send = _last_tool_action_for(run, "engagement_letter.send", mode="write")
+        if send is None:
+            failures.append("missing engagement_letter.send write action")
+        elif send.verdict == "approval_required":
+            if not _string_value(send.output.get("approval_id")):
+                failures.append("engagement_letter.send approval output missing approval_id")
+        elif send.verdict == "allow":
+            if not _string_value(send.output.get("send_record_ref")):
+                failures.append("engagement_letter.send output missing send_record_ref")
+        else:
+            failures.append(f"engagement_letter.send verdict={send.verdict!r}")
+
     if failures:
         return [EvalCheck("UC2 connector ref evidence", "fail", "; ".join(failures))]
     return [
         EvalCheck(
             "UC2 connector ref evidence",
             "pass",
-            "UC2 connector actions carry safe conflict, AML, draft, and send refs",
+            "UC2 connector actions carry safe conflict, AML, draft, send, or handoff refs",
         )
     ]
 
 
 UC2_CONDUCT_INVARIANTS = (
+    assert_uc2_workflow_progress_evidence,
+    assert_uc2_agent_decision_and_transcript_evidence,
     assert_uc2_engagement_decision_conduct,
+    assert_uc2_conflict_exception_approval_branch,
     assert_uc2_engagement_letter_send_approval_gate,
     assert_uc2_connector_ref_evidence,
 )
@@ -296,6 +520,14 @@ def _decision_for_task(run: CapturedRun, task_kind: str) -> DecisionTrailRecord 
     return matches[-1] if matches else None
 
 
+def _transcript_for_invocation(
+    run: CapturedRun,
+    invocation_id: UUID,
+) -> TranscriptRecord | None:
+    matches = [record for record in run.transcripts if record.invocation_id == invocation_id]
+    return matches[-1] if matches else None
+
+
 def _tool_actions_for(run: CapturedRun, tool_name: str) -> list[ToolActionRecord]:
     return [record for record in run.tool_actions if record.tool_name == tool_name]
 
@@ -312,6 +544,50 @@ def _last_tool_action_for(
         if record.tool_name == tool_name and record.enforced_mode == mode
     ]
     return matches[-1] if matches else None
+
+
+def _completed_step_set(run: CapturedRun) -> set[str]:
+    return {
+        event.step
+        for event in run.projection_events
+        if event.event_type == "workflow.step.completed" and event.step is not None
+    }
+
+
+def _terminal_event_type(run: CapturedRun) -> str | None:
+    terminal = next(
+        (
+            event.event_type
+            for event in reversed(run.projection_events)
+            if event.event_type in {"workflow.completed", "workflow.escalated", "workflow.failed"}
+        ),
+        None,
+    )
+    return terminal
+
+
+def _is_acceptance_path(run: CapturedRun) -> bool:
+    steps = _completed_step_set(run)
+    if steps.intersection({"engagement_decision", "engagement_letter_send"}):
+        return True
+    decision = _decision_for_task(run, "uc2_engagement_decision")
+    if decision is not None:
+        return True
+    use_case_outcome = _use_case_outcome(run)
+    return "engagement_letter" in use_case_outcome or "accepted" in use_case_outcome
+
+
+def _is_conflict_exception_branch(run: CapturedRun) -> bool:
+    if "conflict_exception_approval" in _completed_step_set(run):
+        return True
+    conflict = _decision_for_task(run, "uc2_conflict_determination")
+    if conflict is not None and _string_value(conflict.structured_data.get("conflict_status")) in {
+        "permitted_exception_candidate",
+        "confidentiality_risk",
+    }:
+        return True
+    use_case_outcome = _use_case_outcome(run)
+    return "conflict_exception" in use_case_outcome
 
 
 def _use_case_outcome(run: CapturedRun) -> str:
@@ -340,7 +616,10 @@ def _string_set(value: object) -> set[str]:
 
 __all__ = [
     "UC2_CONDUCT_INVARIANTS",
+    "assert_uc2_agent_decision_and_transcript_evidence",
+    "assert_uc2_conflict_exception_approval_branch",
     "assert_uc2_connector_ref_evidence",
     "assert_uc2_engagement_decision_conduct",
     "assert_uc2_engagement_letter_send_approval_gate",
+    "assert_uc2_workflow_progress_evidence",
 ]

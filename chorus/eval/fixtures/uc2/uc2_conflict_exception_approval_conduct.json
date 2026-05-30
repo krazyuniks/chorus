@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "uc2-conflict-exception-approval-conduct",
+  "name": "UC2 conflict exception approval conduct evidence",
+  "workflow_type": "uc2_legal_services_intake_conflict_check",
+  "scenario": "conflict_exception_approval",
+  "input": {
+    "source_fixture_path": "contracts/intake/uc2/samples/email_legal_intake_conflict_exception.sample.json",
+    "subject_fixture_ref": "fixture_uc2_conflict_exception_approval",
+    "tenant_id": "tenant_demo"
+  },
+  "expected": {
+    "outcome_category": "propose",
+    "use_case_outcome": "conflict_exception_approval_required",
+    "max_cost_usd": 1.25,
+    "max_latency_ms": 120000
+  }
+}

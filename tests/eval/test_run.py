@@ -24,7 +24,12 @@ from chorus.eval.scenario_player import (
     play_scenario,
 )
 from chorus.eval.use_cases.uc1_conduct import UC1_CONDUCT_INVARIANTS
-from chorus.eval.use_cases.uc2_conduct import UC2_CONDUCT_INVARIANTS
+from chorus.eval.use_cases.uc2_conduct import (
+    UC2_CONDUCT_INVARIANTS,
+    assert_uc2_connector_ref_evidence,
+    assert_uc2_engagement_decision_conduct,
+    assert_uc2_engagement_letter_send_approval_gate,
+)
 from chorus.eval.use_cases.uc3_conduct import UC3_CONDUCT_INVARIANTS
 from chorus.llm_provider import (
     InvocationArgs,
@@ -64,14 +69,20 @@ def test_uc2_invariant_suite_composes_common_and_conduct_modules() -> None:
         "assert_governed_decision_provenance",
         "assert_audit_completeness",
         "assert_observability_emission",
+        "assert_uc2_workflow_progress_evidence",
+        "assert_uc2_agent_decision_and_transcript_evidence",
         "assert_uc2_engagement_decision_conduct",
+        "assert_uc2_conflict_exception_approval_branch",
         "assert_uc2_engagement_letter_send_approval_gate",
         "assert_uc2_connector_ref_evidence",
         "assert_connector_authority_discipline",
         "assert_projection_convergence",
     ]
     assert [invariant.__name__ for invariant in UC2_CONDUCT_INVARIANTS] == [
+        "assert_uc2_workflow_progress_evidence",
+        "assert_uc2_agent_decision_and_transcript_evidence",
         "assert_uc2_engagement_decision_conduct",
+        "assert_uc2_conflict_exception_approval_branch",
         "assert_uc2_engagement_letter_send_approval_gate",
         "assert_uc2_connector_ref_evidence",
     ]
@@ -105,7 +116,15 @@ def test_uc3_invariant_suite_composes_common_and_conduct_modules() -> None:
 def test_uc2_conduct_invariants_pass_safe_synthetic_acceptance_run() -> None:
     captured = _uc2_captured_run()
 
-    checks = run_invariants(captured, invariants=UC2_INVARIANTS)
+    checks = [
+        check
+        for invariant in (
+            assert_uc2_engagement_decision_conduct,
+            assert_uc2_engagement_letter_send_approval_gate,
+            assert_uc2_connector_ref_evidence,
+        )
+        for check in invariant(captured)
+    ]
 
     assert [check for check in checks if check.status == "fail"] == []
     assert any(check.name == "UC2 engagement decision conduct" for check in checks)
@@ -118,8 +137,7 @@ def test_uc2_conduct_invariants_fail_completed_acceptance_without_send_apply() -
 
     checks = [
         check
-        for invariant in UC2_CONDUCT_INVARIANTS
-        for check in invariant(captured)
+        for check in assert_uc2_engagement_letter_send_approval_gate(captured)
         if check.status == "fail"
     ]
 
@@ -133,8 +151,7 @@ def test_uc2_conduct_invariants_fail_acceptance_with_blocked_conflict() -> None:
 
     checks = [
         check
-        for invariant in UC2_CONDUCT_INVARIANTS
-        for check in invariant(captured)
+        for check in assert_uc2_engagement_decision_conduct(captured)
         if check.status == "fail"
     ]
 
@@ -256,27 +273,29 @@ def test_eval_fixture_contract_accepts_r4_workflow_specific_scenarios() -> None:
         assert fixture.expected.use_case_outcome == outcome
 
 
-def test_scenario_player_rejects_non_uc1_fixtures_until_runtime_playback_lands() -> None:
+def test_scenario_player_rejects_unsupported_uc2_scenario() -> None:
     fixture = EvalFixture.model_validate(
         {
             "schema_version": "1.0.0",
-            "fixture_id": "uc2-conflict-exception-approval",
-            "name": "UC2 conflict exception approval",
+            "fixture_id": "uc2-unsupported-schema-only",
+            "name": "UC2 unsupported schema-only scenario",
             "workflow_type": "uc2_legal_services_intake_conflict_check",
-            "scenario": "conflict_exception_approval",
+            "scenario": "schema_only_unsupported",
             "input": {
                 "tenant_id": "tenant_demo",
-                "subject_fixture_ref": "fixture_uc2_conflict_exception",
-                "source_fixture_path": "fixtures/uc2/conflict-exception-approval.json",
+                "subject_fixture_ref": "fixture_uc2_schema_only",
+                "source_fixture_path": (
+                    "contracts/intake/uc2/samples/email_legal_intake.sample.json"
+                ),
             },
             "expected": {
                 "outcome_category": "propose",
-                "use_case_outcome": "accept_subject_to_approval",
+                "use_case_outcome": "accepted_engagement_letter_send_approval_gated",
             },
         }
     )
 
-    with pytest.raises(ValueError, match="supports only 'uc1_enquiry_qualification'"):
+    with pytest.raises(ValueError, match="UC2 workflow playback does not support scenario"):
         play_scenario(fixture)
 
 
@@ -289,8 +308,6 @@ def test_uc2_schema_only_eval_fixture_validates_without_default_playback() -> No
         "contracts/intake/uc2/samples/email_legal_intake.sample.json"
     )
     assert fixture.expected.use_case_outcome == ("accepted_engagement_letter_send_approval_gated")
-    with pytest.raises(ValueError, match="supports only 'uc1_enquiry_qualification'"):
-        play_scenario(fixture)
 
 
 def test_uc3_schema_only_eval_fixture_validates_without_default_playback() -> None:
@@ -1079,6 +1096,11 @@ def _uc2_tool_actions(
                 "approval_state": "requested",
                 "requested_action": "engagement_letter.send.write",
             },
+            approval_package={
+                "approval_id": str(uuid4()),
+                "approval_state": "requested",
+                "requested_action": "engagement_letter.send.write",
+            },
         ),
     ]
     if include_send_apply:
@@ -1122,6 +1144,7 @@ def _uc2_tool_action(
     output: dict[str, Any],
     actor_type: str = "agent",
     action: str = "tool_call.decided",
+    approval_package: dict[str, Any] | None = None,
 ) -> ToolActionRecord:
     return ToolActionRecord(
         audit_event_id=uuid4(),
@@ -1142,6 +1165,7 @@ def _uc2_tool_action(
         approval_granted=approval_granted,
         occurred_at=occurred_at,
         output=output,
+        approval_package=approval_package or {},
     )
 
 

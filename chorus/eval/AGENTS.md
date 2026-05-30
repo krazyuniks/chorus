@@ -9,8 +9,10 @@ R3 G; the invariants now do the asserting.
 - Keep fixtures JSON Schema-governed by `contracts/eval/eval_fixture.schema.json`.
 - A fixture describes its `workflow_type`, a use-case-owned `scenario`
   identifier, and the expected `outcome_category` (`propose` | `escalate` |
-  `dlq`). The current UC1 recorded-replay player supports `happy_path`,
-  `deeper_context`, `validator_redraft`, and `retry_exhaustion`; UC2 and UC3
+  `dlq`). The UC1 recorded-replay player supports `happy_path`,
+  `deeper_context`, `validator_redraft`, and `retry_exhaustion`; UC2 playback
+  currently supports `synthetic_acceptance_conduct` and
+  `conflict_exception_approval` through the workflow-path helper. UC3
   fixtures should use their own domain scenario labels once their runtime
   slices land. The invariants assert audit, transcript, connector, and
   projection shape directly.
@@ -33,18 +35,20 @@ R3 G; the invariants now do the asserting.
   transcript through the recorded-replay route and verifies the structured
   output matches.
 - `scenario_player.py` drives current UC1 scenarios through the recorded-
-  replay adapter and assembles the captured-run artefacts (decision-trail
-  rows, transcripts, tool-action audit, projection events) the invariants
-  consume. UC2 and UC3 fixture validation is contract/model breadth only until
-  their runtime slices add playback.
+  replay adapter and delegates supported UC2 scenarios to
+  `uc2_workflow_playback.py`; both paths assemble the captured-run artefacts
+  (decision-trail rows, transcripts, tool-action audit, projection events)
+  the invariants consume. UC3 fixture validation is contract/model breadth
+  only until its runtime slice adds playback.
 - `common_invariants.py` holds the architecture-wide invariant checks:
   cross-port payload validity, governed-decision provenance, audit
   completeness, observability emission, connector authority discipline, and
   projection convergence.
 - `use_cases/uc1_conduct.py` holds the UC1 conduct hooks for enquiry
-  qualification. `use_cases/uc2_conduct.py` and
-  `use_cases/uc3_conduct.py` hold safe synthetic conduct checks for their
-  R4 schema-only evidence; full fixture playback remains absent.
+  qualification. `use_cases/uc2_conduct.py` holds UC2 conduct checks over
+  workflow-path captured evidence for the happy and conflict-exception
+  fixtures. `use_cases/uc3_conduct.py` holds safe synthetic conduct checks
+  for its R4 schema-only evidence; UC3 full fixture playback remains absent.
 - `invariants.py` composes the current UC1 suite and keeps the runner-facing
   imports stable.
 - `replay.py` loads a captured transcript fixture, re-executes it through
@@ -52,6 +56,7 @@ R3 G; the invariants now do the asserting.
   persistence / BFF inspection.
 - `fixtures/` carries the active top-level UC1 fixtures plus the captured
   transcript fixtures under `fixtures/transcripts/` the replay subcommand
-  re-executes. `fixtures/uc2/` and `fixtures/uc3/` currently carry
-  schema-only synthetic fixture evidence; default offline playback remains
-  UC1-only until the UC2 and UC3 runtime playback slices land.
+  re-executes. `fixtures/uc2/` carries workflow-path UC2 playback fixtures.
+  `fixtures/uc3/` currently carries schema-only synthetic fixture evidence;
+  default top-level offline playback remains UC1-only until the remaining
+  runtime playback slices land.

@@ -24,11 +24,19 @@ R5 is not production hosting, not a SaaS build, and not a generic workflow DSL.
 
 - UC1 is locally runnable through the Mailpit email-intake path on the shared
   `WorkflowSpine`.
-- UC2 and UC3 have intake and connector contracts, shared-spine workflow
-  definitions, deterministic sandbox connector adapters, Tool Gateway grants,
-  approval-package evidence (`engagement_letter.send`, `suitability_report.issue`),
-  conduct invariants, read-only projection/BFF/UI inspection evidence, and
-  schema-only eval fixtures. They do **not** have:
+- UC2 has intake and connector contracts, a shared-spine workflow definition,
+  a code-level synthetic email-intake adapter, deterministic sandbox connector
+  adapters, Tool Gateway grants, recorded-replay route policies for its four
+  workflow agent tasks, approval-package evidence for `engagement_letter.send`,
+  tightened conduct invariants, and workflow-path eval playback for one happy
+  acceptance/send-approval-gated fixture and one conflict-exception branch. It
+  does **not** yet have a documented local operator command, projection/UI
+  confirmation for a triggered workflow, or live-provider replay.
+- UC3 has intake and connector contracts, a shared-spine workflow definition,
+  deterministic sandbox connector adapters, Tool Gateway grants,
+  approval-package evidence for `suitability_report.issue`, conduct invariants,
+  read-only projection/BFF/UI inspection evidence, and schema-only eval
+  fixtures. It does **not** have:
   - a documented local intake start path,
   - use-case-specific model route policies,
   - full eval fixture playback against the runtime.
@@ -38,8 +46,8 @@ R5 is not production hosting, not a SaaS build, and not a generic workflow DSL.
   credential-gated and inactive by default.
 - The Compose stack runs against Postgres on host `:55432` and Redpanda on
   `:19092`. Tests load `.env` automatically through `tests/conftest.py`.
-- 165 pytest cases pass against the running stack, including all DB-backed
-  persistence, BFF, agent-runtime, and tool-gateway suites.
+- The DB-backed persistence, BFF, agent-runtime, tool-gateway, and focused UC2
+  playback suites run against the running stack.
 
 ## Target State
 
@@ -246,10 +254,39 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
   tests/test_contracts.py::test_generated_models_validate_representative_samples
   -q`, `just contracts-check`, `just lint`, `just doctor`, and `git diff
   --check`.
-- [ ] Play UC2 happy-path and one branch fixture end-to-end through the
+- [x] Play UC2 happy-path and one branch fixture end-to-end through the
   running stack. The fixtures must drive the actual workflow code path, not
   synthetic captured-run artefacts only. Tighten `chorus/eval/use_cases/uc2_conduct.py`
   invariants so they fail loudly on missing evidence at any stage.
+  Evidence (2026-05-30): `chorus/eval/uc2_workflow_playback.py` now plays UC2
+  eval fixtures through `Uc2LegalServicesIntakeConflictCheckWorkflow` in a
+  Temporal test environment with the real workflow activities, Agent Runtime,
+  Tool Gateway, decision/transcript persistence, tool-action audit, approval
+  packages, and outbox workflow progress captured back into `CapturedRun`.
+  The existing happy fixture now runs through classification, party extraction,
+  conflict check, KYC/BO, AML, engagement decision, draft, and the
+  approval-required `engagement_letter.send` path. New fixture
+  `uc2_conflict_exception_approval_conduct.json` and
+  `email_legal_intake_conflict_exception.sample.json` drive the conflict-hit /
+  permitted-exception branch through manual review without reaching send. UC2
+  recorded replay now derives connector-valid per-run refs and carries the
+  conduct evidence required by the tightened invariants; Agent Runtime
+  transcripts now persist structured response evidence. Focused coverage in
+  `tests/eval/test_uc2_workflow_playback.py` proves both fixtures run through
+  the workflow path and that missing workflow progress, agent decision,
+  transcript, tool-action audit, or approval-package table evidence fails at
+  the absent stage. Verified with `uv run pytest
+  tests/eval/test_uc2_workflow_playback.py
+  tests/eval/test_run.py::test_uc2_invariant_suite_composes_common_and_conduct_modules
+  tests/eval/test_run.py::test_uc2_conduct_invariants_pass_safe_synthetic_acceptance_run
+  tests/eval/test_run.py::test_uc2_conduct_invariants_fail_completed_acceptance_without_send_apply
+  tests/eval/test_run.py::test_uc2_conduct_invariants_fail_acceptance_with_blocked_conflict
+  tests/eval/test_run.py::test_scenario_player_rejects_unsupported_uc2_scenario
+  tests/eval/test_run.py::test_uc2_schema_only_eval_fixture_validates_without_default_playback
+  tests/agent_runtime/test_runtime.py::test_runtime_records_decision_trail_and_transcript_on_every_invocation
+  tests/agent_runtime/test_runtime.py::test_runtime_passes_uc2_response_shape_to_provider_port
+  tests/workflows/test_uc2_workflow.py -q`, `just contracts-check`, `just
+  lint`, `just doctor`, and `git diff --check`.
 - [ ] Project UC2 workflow progress, decision trail, and approval-package
   state into the existing BFF/UI surfaces with the same density and behaviour
   as UC1. Confirm via Playwright or a focused frontend test that a triggered
@@ -323,39 +360,44 @@ session is reprompted with the answer included.
 
 ```text
 We are in /home/ryan/Work/chorus. Continue R5 P1 — UC2 To Runnable — by
-playing UC2 happy-path and one conduct-relevant branch fixture end-to-end
-through the running stack.
+projecting UC2 workflow progress, decision trail, and approval-package state
+into the existing BFF/UI surfaces.
 
 Read AGENTS.md and docs/transformation/r5-implementation-backlog.md, then run
 `git status --short --branch`. Preserve unrelated user changes.
 
-Inspect the current UC2 workflow, intake, route-policy, replay, and conduct
-evidence before editing: `just --list`, `justfile`,
+Inspect the current UC2 workflow playback, projection, BFF, and frontend
+surfaces before editing: `just --list`, `justfile`,
 `chorus/workflows/uc2.py`, `chorus/workflows/uc2_synthetic_intake.py`,
 `chorus/workflows/activities.py`, `chorus/agent_runtime/runtime.py`,
-`chorus/llm_provider/adapter_replay.py`, `chorus/eval/use_cases/uc2_conduct.py`,
-`chorus/eval/fixtures/uc2/`, `contracts/intake/uc2/`, `contracts/eval/`,
-`tests/workflows/`, `tests/agent_runtime/`, `tests/eval/`, and
-`docs/runbook.md`.
+`chorus/eval/uc2_workflow_playback.py`, `chorus/eval/use_cases/uc2_conduct.py`,
+`chorus/persistence/projection.py`, `chorus/persistence/audit_port.py`,
+`chorus/bff/app.py`, `frontend/src/`, `tests/bff/`, `tests/eval/`,
+`tests/persistence/`, `tests/workflows/`, and `docs/runbook.md`.
 
-Implement the next narrow slice: add or tighten the fixtures and runtime path
-needed to drive the UC2 happy path and one conduct-relevant branch through the
-actual workflow code path, not synthetic captured-run artefacts only. Tighten
-`chorus/eval/use_cases/uc2_conduct.py` invariants so missing workflow progress,
-agent decision, transcript, tool/audit, or approval-package evidence fails
-loudly at the stage where it is absent. Keep the change scoped to UC2; do not
-change projection/UI behaviour, live provider credentials, UC3, or eval fixture
-playback outside the minimum shared support needed for this UC2 playback slice.
+Implement the next narrow slice: use the existing projection/BFF/UI patterns
+to make UC2 workflow progress, decision-trail rows, Tool Gateway audit rows,
+and `engagement_letter.send` approval packages inspectable with the same
+dense read-only behaviour as UC1. The happy fixture and conflict-exception
+branch from the UC2 playback slice should be usable as evidence sources, but
+do not broaden into a mutating admin UI, generic workflow framework, live
+provider credentials, UC3, or a new projection model unless the current BFF/UI
+shape makes that strictly necessary.
 
-Add focused tests that prove both UC2 fixtures run through the workflow path
-and that the conduct invariants reject missing evidence rather than passing
-silently. Use the running local stack if required, but do not run destructive
-Docker, volume, database, reset, or checkout commands. If a required live stack
-gate cannot be made green without destructive action, stop without committing
-and surface the blocker.
+Add focused tests that prove a triggered UC2 workflow appears in the existing
+projection/BFF/UI surface within a deterministic bound and that the displayed
+state includes workflow progress, decision trail, tool/audit evidence, and the
+approval-package state for the happy path. Use Playwright via the
+`playwright-cli` skill when browser validation is needed; otherwise use the
+smallest focused frontend/BFF tests that prove the behaviour. Use the running
+local stack if required, but do not run destructive Docker, volume, database,
+reset, or checkout commands. If a required live stack gate cannot be made
+green without destructive action, stop without committing and surface the
+blocker.
 
-Run the focused pytest for the new/changed UC2 workflow and conduct coverage,
-`just contracts-check`, `just lint`, `just doctor`, and `git diff --check`.
+Run the focused pytest/frontend tests for the changed UC2 projection, BFF, and
+UI coverage, `just contracts-check`, `just lint`, `just doctor`, and
+`git diff --check`.
 
 End-of-session contract:
 - Update checkboxes and evidence notes for the slice you completed.

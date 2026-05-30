@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Any, cast
+from uuid import NAMESPACE_URL, uuid5
 
 from temporalio import workflow
 
@@ -1301,7 +1302,12 @@ def _engagement_letter_ref(intake: Uc2LegalIntake, structured_data: dict[str, An
 
 
 def _manual_review_invocation_id(intake: Uc2LegalIntake) -> str:
-    return f"invocation_uc2_manual_review_{_ref_suffix(intake)}"
+    return str(
+        uuid5(
+            NAMESPACE_URL,
+            f"chorus:uc2:manual-review:{intake.tenant_id}:{intake.legal_intake_ref}",
+        )
+    )
 
 
 def _default_ref(prefix: str, intake: Uc2LegalIntake) -> str:
