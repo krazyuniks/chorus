@@ -17,9 +17,11 @@ The map keeps design evidence and implementation evidence distinct. UC1 has
 the concrete runnable path today. UC2 and UC3 have product/domain scope,
 contracts, shared-spine workflows, sandbox connector adapters, grants,
 approval-package inspection, conduct invariants, read-only projection/BFF/UI
-inspection, and schema-only eval fixtures. They are not claimed as locally
-runnable use cases because local intake start paths, use-case provider route
-activation, and full fixture playback are recorded R4 closure exceptions.
+inspection, and schema-only eval fixtures. UC2 also has an R5 code-level
+synthetic email-intake adapter for the documented contract sample. UC2 and
+UC3 are not claimed as locally runnable use cases because documented operator
+intake commands, use-case provider route activation, and full fixture playback
+remain closure exceptions.
 
 ## How to use this map
 
@@ -36,7 +38,7 @@ contract-validate and normalise it.
 | Inbound work enters through a contract-validated channel adapter | `chorus/workflows/mailpit.py`, `chorus/workflows/intake.py`, `contracts/intake/uc1/` (email-channel, web-form-channel, partner-portal-channel), `tests/workflows/test_mailpit_intake.py` | UC1 Mailpit/email intake is runnable. UC1 web-form and partner-portal contracts are present, but additional runnable adapter paths are deferred beyond R4. |
 | Channel-specific idempotency maps to one work identifier | `chorus/workflows/mailpit.py` (Message-ID dedupe, stable workflow ID) | Implementation in code. |
 | UC1 intake shape is fully specified | [`product-brief.md`](product-brief.md), [`domain-model.md`](domain-model.md), [`r1-adapter-mapping.md`](r1-adapter-mapping.md) | Design complete. |
-| UC2 intake and conduct shape is fully specified | [`product-brief-uc2.md`](product-brief-uc2.md), [`domain-model-uc2.md`](domain-model-uc2.md), [`r1-adapter-mapping.md`](r1-adapter-mapping.md), `contracts/intake/uc2/` | Design and intake contracts complete. No UC2 local intake adapter starts a workflow yet; that is a recorded R4 closure exception. |
+| UC2 intake and conduct shape is fully specified | [`product-brief-uc2.md`](product-brief-uc2.md), [`domain-model-uc2.md`](domain-model-uc2.md), [`r1-adapter-mapping.md`](r1-adapter-mapping.md), `contracts/intake/uc2/`, `chorus/workflows/uc2_synthetic_intake.py`, `tests/workflows/test_uc2_synthetic_intake.py` | Design and intake contracts complete. The R5 synthetic email-intake adapter validates the `email_legal_intake` sample, normalises it to `Uc2LegalIntake`, derives stable workflow fields, and starts the UC2 workflow. The operator-facing command, provider route activation, and full eval playback remain open. |
 | UC3 intake and conduct shape is fully specified | [`product-brief-uc3.md`](product-brief-uc3.md), [`domain-model-uc3.md`](domain-model-uc3.md), [`r1-adapter-mapping.md`](r1-adapter-mapping.md), `contracts/intake/uc3/` | Design and intake contracts complete. No UC3 local intake adapter starts a workflow yet; that is a recorded R4 closure exception. |
 
 Decision record: [ADR 0020](../adrs/0020-domain-refocus-uk-regulated-use-cases.md).
@@ -134,7 +136,7 @@ Decision record: [ADR 0019](../adrs/0019-audit-ports-and-replay-eval.md).
 
 | Claim | Artefacts | Status |
 |---|---|---|
-| The workflow spine is durable and replay-stable | `chorus/workflows/spine.py` (`WorkflowSpine`, `WorkflowDefinition`, `WorkflowStepDefinition`), `chorus/workflows/uc1.py` (UC1 enquiry-qualification workflow), `chorus/workflows/uc2.py` (UC2 legal-services intake and conflict-check workflow), `chorus/workflows/uc3.py` (UC3 IFA suitability workflow), `tests/workflows/` | UC1 runs on the spine as the local runnable path. UC2 and UC3 now have definition-first workflows over the same primitives with focused Temporal tests, inline replay history, connector authority, conduct invariants, schema-only eval fixtures, and read-only projection inspection evidence. UC2 and UC3 are not registered as local runnable intake paths because use-case provider route activation, full eval fixture playback, and local intake remain absent. |
+| The workflow spine is durable and replay-stable | `chorus/workflows/spine.py` (`WorkflowSpine`, `WorkflowDefinition`, `WorkflowStepDefinition`), `chorus/workflows/uc1.py` (UC1 enquiry-qualification workflow), `chorus/workflows/uc2.py` (UC2 legal-services intake and conflict-check workflow), `chorus/workflows/uc2_synthetic_intake.py`, `chorus/workflows/uc3.py` (UC3 IFA suitability workflow), `tests/workflows/` | UC1 runs on the spine as the local runnable path. UC2 and UC3 now have definition-first workflows over the same primitives with focused Temporal tests, inline replay history, connector authority, conduct invariants, schema-only eval fixtures, and read-only projection inspection evidence. UC2 has a code-level synthetic start path for the email intake sample; it is not yet a documented runnable operator path because use-case provider route activation and full eval fixture playback remain open. UC3 local intake remains absent. |
 
 Decision records: [ADR 0017](../adrs/0017-langgraph-removed-from-agent-execution.md)
 and [ADR 0020](../adrs/0020-domain-refocus-uk-regulated-use-cases.md).

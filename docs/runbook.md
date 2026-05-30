@@ -22,8 +22,10 @@ enquiry-qualification path on the shared `WorkflowSpine`. UC2 and UC3 have
 shared-spine workflow definitions, deterministic sandbox connector adapters,
 Tool Gateway grants, approval-package evidence, conduct invariants,
 schema-only fixture evidence, and read-only projection/BFF/UI inspection
-surfaces. UC2 and UC3 do not yet have local intake start paths, use-case route
-activation, or full eval fixture playback through the running stack.
+surfaces. UC2 has a code-level synthetic email-intake fixture adapter for R5
+P1 test evidence, but no documented operator command yet. UC2 and UC3 do not
+yet have use-case route activation or full eval fixture playback through the
+running stack, and UC3 does not yet have a local intake start path.
 
 ## Local development bootstrap
 
@@ -264,8 +266,10 @@ Message-ID when rehearsing.
 
 R4 closes with the Mailpit/email UC1 channel runnable and keeps the UC1
 web-form, partner-portal, and synthetic-channel contracts in place. UC2 and
-UC3 intake contracts exist, but no UC2 or UC3 local intake adapter starts a
-workflow yet; that is a recorded closure exception.
+UC3 intake contracts exist. R5 P1 adds a code-level UC2 synthetic email-intake
+fixture adapter that validates the documented contract sample and starts the
+UC2 workflow; the operator-facing UC2 command remains a later runbook slice.
+UC3 still has no local intake adapter.
 
 ### LLM provider port
 
@@ -360,7 +364,7 @@ expresses UC2 Tool Gateway grants for those tool names; `engagement_letter.send`
 is the approval-required write, while conflict exception and AML EDD approval
 remain conduct-gated/manual-review evidence until a later slice adds an exact
 connector request shape for those packages. The runbook does not yet claim a
-runnable UC2 local intake path.
+runnable UC2 operator intake command.
 
 UC3 has a definition-first workflow for `uc3_ifa_suitability_intake` on the
 same `WorkflowSpine`. The workflow routes `attitude_to_risk.profile`,
@@ -515,8 +519,9 @@ This is the end-to-end happy path threaded through the six ports. The port
 sequence is stable; the UC1 enquiry-qualification workflow runs it
 end-to-end on the shared `WorkflowSpine`. R4 added UC2 and UC3 workflow
 definitions on the same spine, but those use cases are inspection and
-schema-only evidence paths until local intake start, use-case provider route
-activation, and full fixture playback land in a later phase.
+schema-only evidence paths until documented operator intake commands,
+use-case provider route activation, and full fixture playback land in a later
+phase.
 
 1. **Bring the stack up (all ports).** Run the bring-up commands above:
    `just up && just db-migrate && just schemas-register && just doctor`.

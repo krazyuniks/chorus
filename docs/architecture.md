@@ -93,8 +93,10 @@ connector ports. R4 closes with UC2 and UC3 intake and connector contracts,
 definition-first workflows on the shared spine, deterministic sandbox
 connector adapters, Tool Gateway grants, approval-package inspection,
 conduct-invariant modules, read-only projection / BFF / UI fixture evidence,
-and schema-only eval fixtures. Provider route activation, full eval playback,
-and local intake start paths are explicit closure exceptions for UC2 and UC3.
+and schema-only eval fixtures. R5 adds a code-level UC2 synthetic
+email-intake adapter; provider route activation, full eval playback, a
+documented UC2 operator intake command, and all UC3 local intake start work
+remain explicit closure exceptions.
 
 ## Workflow durability is not a port
 
@@ -363,7 +365,7 @@ The runtime code carries the named-port surface this document describes.
 | LLM provider port | `chorus/llm_provider/port.py` (surface), `chorus/llm_provider/adapter_openai.py` (OpenAI-SDK transport), `chorus/llm_provider/adapter_replay.py` (deterministic recorded-replay substrate), `chorus/llm_provider/route_catalogue.py` (route metadata). |
 | Audit / transcript port split | `chorus/persistence/audit_port.py`, `contracts/audit/agent_invocation_record.schema.json`, `contracts/audit/agent_invocation_transcript.schema.json`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`. The runtime writes both records on every invocation. |
 | Connector adapter registry | `chorus/connectors/types.py` (`ConnectorAdapter`, `ConnectorRegistry`, `ToolSpec`), `chorus/connectors/uc1.py` (six UC1 sandbox adapters), `chorus/persistence/uc1_connectors.py` (local UC1 quoting / referral / decline routing records plus seeded profile / catalogue read data), `chorus/connectors/uc2.py` (deterministic UC2 sandbox adapters for conflict check, KYC / beneficial ownership, AML record store, and engagement-letter store), `chorus/connectors/uc3.py` (deterministic UC3 sandbox adapters for attitude-to-risk profiling, capacity-for-loss assessment, platform research, and suitability-report store), `chorus/connectors/calendar.py`. The gateway dispatches through the registry. |
-| Workflow spine + use-case definitions | `chorus/workflows/spine.py` (`WorkflowSpine`, `WorkflowDefinition`, `WorkflowStepDefinition` over generic activity names), `chorus/workflows/uc1.py` (UC1 enquiry-qualification workflow, including Tool Gateway routing for accepted, referred, declined, and missing-data verdicts), `chorus/workflows/uc2.py` (definition-first UC2 legal-services intake and conflict-check workflow over the same primitives, with connector adapters, grant seeds, conduct invariants, schema-only fixture evidence, and read-only inspection surfaces now registered; provider route activation, full fixture playback, and local intake remain R4 closure exceptions), `chorus/workflows/uc3.py` (definition-first UC3 IFA suitability workflow over the same primitives, with connector adapters, grant seeds, suitability-report approval-package evidence, conduct invariants, read-only inspection fixture evidence, and fake-activity workflow / replay evidence; provider route activation, full fixture playback, and local intake remain R4 closure exceptions). |
+| Workflow spine + use-case definitions | `chorus/workflows/spine.py` (`WorkflowSpine`, `WorkflowDefinition`, `WorkflowStepDefinition` over generic activity names), `chorus/workflows/uc1.py` (UC1 enquiry-qualification workflow, including Tool Gateway routing for accepted, referred, declined, and missing-data verdicts), `chorus/workflows/uc2.py` (definition-first UC2 legal-services intake and conflict-check workflow over the same primitives), `chorus/workflows/uc2_synthetic_intake.py` (R5 code-level UC2 synthetic email-intake fixture adapter that validates `contracts/intake/uc2/email_legal_intake.schema.json`, derives stable start fields, and starts the UC2 workflow), `chorus/workflows/uc3.py` (definition-first UC3 IFA suitability workflow over the same primitives, with connector adapters, grant seeds, suitability-report approval-package evidence, conduct invariants, read-only inspection fixture evidence, and fake-activity workflow / replay evidence; provider route activation, full fixture playback, and local intake remain closure exceptions). |
 | Per-port persistence read surface | `chorus/persistence/projection.py` (workflow + generic approval-package inspection + calendar compatibility view), `chorus/persistence/audit_port.py`, `chorus/persistence/runtime_policy.py` (agent registry, route policy, grants, and policy snapshot rows), `chorus/persistence/provider_governance.py`, `chorus/persistence/replay_runs.py` (replay-run evidence records). The BFF binds them through `PortReaders` per request. |
 | Per-port doctor probes | `chorus/doctor/scaffold.py` (paths / executables / compose), `chorus/doctor/stack_health.py` (required Compose container state and restart counts), `chorus/doctor/projection_port.py`, `chorus/doctor/connector_port.py`, `chorus/doctor/observability_port.py`, `chorus/doctor/workflow_runtime.py`, `chorus/doctor/ui.py`. CLI entry at `chorus/doctor/__main__.py`. |
 | Invariant-plus-replay eval | `chorus/eval/common_invariants.py` (architecture-wide invariant checks), `chorus/eval/use_cases/uc1_conduct.py` (UC1 conduct hooks), `chorus/eval/use_cases/uc2_conduct.py` (UC2 SRA / AML conduct and engagement-letter approval checks over captured-run artefacts), `chorus/eval/use_cases/uc3_conduct.py` (UC3 FCA suitability / PROD / Consumer Duty conduct and suitability-report approval checks over captured-run artefacts), `chorus/eval/invariants.py` (current suite composition), `chorus/eval/scenario_player.py` (drives the recorded-replay route through a fixture's scenario), `chorus/eval/replay.py` (`eval replay` subcommand plus safe replay-run record construction), `contracts/eval/replay_run_record.schema.json`, `chorus/eval/run.py` (CLI). |
@@ -400,11 +402,13 @@ declared connector authority surface with suitability-report issue as the
 approval-required write.
 
 R4 does not claim UC2 or UC3 as use-case runnable under the earlier
-definition. Their local intake start paths, use-case provider route
-activation, and full eval fixture playback remain deferred closure
-exceptions. UC2 conflict-exception / AML EDD and UC3 risk-profile /
-vulnerability approval packages also remain workflow/manual-review conduct
-evidence until a later design slice binds them to exact connector requests.
-Live OpenAI / DeepSeek calls remain credential-gated and inactive by default.
+definition. R5 has begun closing that gap with a code-level UC2 synthetic
+email-intake fixture adapter, while the documented UC2 operator command,
+use-case provider route activation, full eval fixture playback, and UC3 local
+intake remain deferred closure exceptions. UC2 conflict-exception / AML EDD
+and UC3 risk-profile / vulnerability approval packages also remain
+workflow/manual-review conduct evidence until a later design slice binds them
+to exact connector requests. Live OpenAI / DeepSeek calls remain
+credential-gated and inactive by default.
 The closed R4 backlog and continuation handoff are in
 [`transformation/r4-implementation-backlog.md`](transformation/r4-implementation-backlog.md).

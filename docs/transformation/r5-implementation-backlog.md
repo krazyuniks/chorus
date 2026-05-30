@@ -195,12 +195,28 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
 
 ### P1 — UC2 To Runnable
 
-- [ ] Add the UC2 local intake adapter that turns a documented synthetic
+- [x] Add the UC2 local intake adapter that turns a documented synthetic
   intake artefact into a `start_workflow` call on the shared `WorkflowSpine`.
   Mirror the structure of the existing UC1 Mailpit intake path: a small
   poller or one-shot command that consumes a fixture, validates it against
   `contracts/intake/uc2/`, and starts the workflow with safe correlation
   fields populated.
+  Evidence (2026-05-30): `chorus/workflows/uc2_synthetic_intake.py` now reads
+  the documented `contracts/intake/uc2/samples/email_legal_intake.sample.json`
+  artefact, validates it with the generated `EmailLegalIntake` contract model,
+  normalises to `Uc2LegalIntake`, derives stable `uc2-legal-*` workflow IDs /
+  safe refs, and delegates to `TemporalUc2WorkflowStarter` for
+  `Uc2LegalServicesIntakeConflictCheckWorkflow.run` with duplicate rejection.
+  `chorus/workflows/worker.py` now registers the UC2 workflow on the existing
+  shared worker task queue. Focused coverage in
+  `tests/workflows/test_uc2_synthetic_intake.py` proves fixture parsing,
+  contract-validation failure, deterministic start-request construction, and
+  starter delegation without adding a generic workflow-start DSL or a
+  `just` operator command. Docs were aligned in README, architecture,
+  evidence-map, runbook state text, and the intake-poller service README while
+  leaving the operator-facing UC2 command to the later runbook slice. Verified
+  with `uv run pytest tests/workflows/test_uc2_synthetic_intake.py -q`, `just
+  contracts-check`, `just lint`, `just doctor`, and `git diff --check`.
 - [ ] Seed a UC2 model route policy that selects the recorded-replay route by
   default and the OpenAI route when credentials are present. Wire the policy
   through `model_routing_policies` and `model_route_versions` with the same
@@ -282,40 +298,43 @@ session is reprompted with the answer included.
 
 ```text
 We are in /home/ryan/Work/chorus. Continue R5 P1 — UC2 To Runnable — by
-adding the UC2 local intake adapter that turns a documented synthetic intake
-artefact into a `start_workflow` call on the shared `WorkflowSpine`.
+seeding the UC2 model route policy so the UC2 workflow can resolve governed
+agent-runtime routes.
 
 Read AGENTS.md and docs/transformation/r5-implementation-backlog.md, then run
 `git status --short --branch`. Preserve unrelated user changes.
 
-Inspect the current UC1 intake pattern and UC2 workflow/contracts before
-editing: `just --list`, `justfile`, `chorus/workflows/intake.py`,
-`chorus/workflows/mailpit.py`, `chorus/workflows/uc1.py`,
-`chorus/workflows/uc2.py`, `chorus/workflows/spine.py`,
-`chorus/workflows/worker.py`, `chorus/workflows/types.py`,
-`contracts/intake/uc2/`, `tests/workflows/`, and `docs/runbook.md`.
+Inspect the current UC1 governance and runtime route pattern plus the UC2
+workflow before editing: `just --list`, `justfile`,
+`infrastructure/postgres/seeds/001_demo_tenants.sql`,
+`infrastructure/postgres/seeds/002_provider_governance.sql`,
+`infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql`,
+`contracts/llm_provider/`, `chorus/agent_runtime/runtime.py`,
+`chorus/agent_runtime/response_schemas.py`, `chorus/llm_provider/`,
+`chorus/workflows/uc2.py`, `chorus/workflows/uc2_synthetic_intake.py`,
+`tests/agent_runtime/`, `tests/persistence/`, and `docs/runbook.md`.
 
-Implement one local UC2 synthetic intake path: a small one-shot adapter or
-command that reads a repo-local fixture, validates it against the relevant UC2
-intake contract, populates safe deterministic correlation/workflow fields, and
-starts `uc2_legal_services_intake_conflict_check` through the shared spine and
-Temporal. Use the UC1 Mailpit intake path as the structural reference, but do
-not broaden this into a generic workflow DSL. Add focused tests around
-fixture parsing, contract validation, and workflow-start request construction.
-Use real contract validation, not mocks for boundary evidence. Add a `just`
-recipe only if the command is operator-facing in this slice; otherwise keep
-the command discoverable in code/tests and leave the later runbook command
-slice to document the final operator path.
+Implement the next narrow slice: seed UC2 model-route policy rows for the UC2
+agent roles / task kinds used by `uc2_legal_services_intake_conflict_check`.
+The default local route must be recorded-replay, and the governance shape must
+match UC1's route-policy / route-version evidence. Add only the narrow runtime
+or contract support needed for UC2 route resolution to compile and fail loudly;
+do not activate live OpenAI or DeepSeek routes in this slice. When credentials
+are present, the policy metadata may describe the intended OpenAI route, but
+actual live-route activation remains the later R5 P3 gate.
 
-Do not change provider activation, eval fixture playback, projection/UI
-behaviour, live credentials, or UC3 in this slice unless the UC2 intake
-adapter cannot compile without a narrow supporting change.
+Add focused tests that prove UC2 route policies are seeded, route-version
+governance is aligned, and the Agent Runtime can resolve the UC2 roles/task
+kinds through the LLM provider port without falling back silently. Keep the
+change scoped to UC2; do not change eval fixture playback, projection/UI
+behaviour, live credentials, or UC3 unless the UC2 route-policy slice cannot
+compile without a narrow shared fix.
 
-Run the focused pytest for the new UC2 intake adapter, `just contracts-check`,
-`just lint`, `just doctor`, and `git diff --check`. Do not run destructive
-Docker, volume, database, reset, or checkout commands. If a required live stack
-gate cannot be made green without destructive action, stop without committing
-and surface the blocker.
+Run the focused pytest for the new/changed UC2 route-policy coverage, `just
+contracts-check`, `just lint`, `just doctor`, and `git diff --check`. Do not
+run destructive Docker, volume, database, reset, or checkout commands. If a
+required live stack gate cannot be made green without destructive action, stop
+without committing and surface the blocker.
 
 End-of-session contract:
 - Update checkboxes and evidence notes for the slice you completed.

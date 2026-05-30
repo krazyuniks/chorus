@@ -1,4 +1,4 @@
-"""Run the Chorus UC1 Temporal worker."""
+"""Run the Chorus Temporal worker."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ from chorus.workflows.activities import (
     record_workflow_event_activity,
 )
 from chorus.workflows.uc1 import Uc1EnquiryQualificationWorkflow
+from chorus.workflows.uc2 import Uc2LegalServicesIntakeConflictCheckWorkflow
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -52,7 +53,10 @@ async def _run(target_host: str, namespace: str, task_queue: str) -> None:
         worker = Worker(
             client,
             task_queue=task_queue,
-            workflows=[Uc1EnquiryQualificationWorkflow],
+            workflows=[
+                Uc1EnquiryQualificationWorkflow,
+                Uc2LegalServicesIntakeConflictCheckWorkflow,
+            ],
             activities=[
                 record_workflow_event_activity,
                 invoke_agent_runtime_activity,

@@ -105,7 +105,7 @@ project-once:
 demo fixture="docs/fixtures/enquiry-acme.eml":
     uv run python -m chorus.demo.send_fixture {{fixture}}
 
-# Run the UC1 Temporal worker.
+# Run the Chorus Temporal worker.
 worker:
     uv run python -m chorus.workflows.worker
 
