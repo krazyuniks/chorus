@@ -22,6 +22,7 @@ from chorus.workflows.activities import (
 )
 from chorus.workflows.uc1 import Uc1EnquiryQualificationWorkflow
 from chorus.workflows.uc2 import Uc2LegalServicesIntakeConflictCheckWorkflow
+from chorus.workflows.uc3 import Uc3IfaSuitabilityIntakeWorkflow
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -46,6 +47,14 @@ def _tracing_interceptors() -> list[Any]:
     return [TracingInterceptor()]
 
 
+def registered_workflow_classes() -> list[Any]:
+    return [
+        Uc1EnquiryQualificationWorkflow,
+        Uc2LegalServicesIntakeConflictCheckWorkflow,
+        Uc3IfaSuitabilityIntakeWorkflow,
+    ]
+
+
 async def _run(target_host: str, namespace: str, task_queue: str) -> None:
     interceptors = _tracing_interceptors()
     client = await Client.connect(target_host, namespace=namespace, interceptors=interceptors)
@@ -53,10 +62,7 @@ async def _run(target_host: str, namespace: str, task_queue: str) -> None:
         worker = Worker(
             client,
             task_queue=task_queue,
-            workflows=[
-                Uc1EnquiryQualificationWorkflow,
-                Uc2LegalServicesIntakeConflictCheckWorkflow,
-            ],
+            workflows=registered_workflow_classes(),
             activities=[
                 record_workflow_event_activity,
                 invoke_agent_runtime_activity,

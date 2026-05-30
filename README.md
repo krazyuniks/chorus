@@ -69,8 +69,10 @@ through the documented synthetic email legal-intake fixture: the one-shot
 command validates the intake contract sample, starts the UC2 workflow, and the
 relay/projection loop exposes workflow progress, decision-trail rows, Tool
 Gateway verdicts, and the `engagement_letter.send` approval package in the
-existing BFF/UI surfaces. UC3 remains a shared-surface adapter-reuse proof
-until local intake, provider route activation, and full fixture playback land.
+existing BFF/UI surfaces. UC3 now has a code-level synthetic email advice
+intake adapter and worker registration, but remains open until model-route
+seeding, fixture playback, projection evidence, and the documented operator
+command land.
 
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|
@@ -149,8 +151,10 @@ connector adapter registry, audit / transcript split, workflow spine with UC1,
 UC2, and UC3 definitions on it, per-port projection / doctor decomposition,
 and invariant-plus-replay eval. R4 is closed as local POC evidence; R5 is
 closing the documented runnable gaps, with UC2 now having a local synthetic
-intake command and evidence loop while UC3 and live-provider route activation
-remain open. The closed R4 backlog and closure notes live in
+intake command and evidence loop while UC3 has the code-level synthetic
+intake adapter but still lacks the later route, playback, projection, and
+operator-command slices. Live-provider route activation remains open. The
+closed R4 backlog and closure notes live in
 [`docs/transformation/r4-implementation-backlog.md`](docs/transformation/r4-implementation-backlog.md).
 
 ## Current Work

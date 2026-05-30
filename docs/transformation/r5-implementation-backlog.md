@@ -336,7 +336,26 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
 
 ### P2 — UC3 To Runnable
 
-- [ ] Add the UC3 local intake adapter following the same pattern as P1.
+- [x] Add the UC3 local intake adapter following the same pattern as P1.
+  Evidence (2026-05-30): `chorus/workflows/uc3_synthetic_intake.py` now reads
+  the documented
+  `contracts/intake/uc3/samples/email_advice_enquiry.sample.json` artefact,
+  validates it with the generated `EmailAdviceEnquiry` contract model,
+  normalises it to `Uc3AdviceEnquiry`, derives stable `uc3-advice-*` workflow
+  IDs / safe refs / idempotency refs, and delegates to
+  `TemporalUc3WorkflowStarter` for `Uc3IfaSuitabilityIntakeWorkflow.run` with
+  duplicate rejection. `chorus/workflows/worker.py` now registers the UC3
+  workflow on the existing shared worker task queue. Focused coverage in
+  `tests/workflows/test_uc3_synthetic_intake.py` proves fixture parsing,
+  contract-validation failure, deterministic start-request construction,
+  starter delegation, and duplicate behaviour without requiring live Temporal;
+  `tests/workflows/test_worker_registration.py` proves the shared worker
+  registers UC1, UC2, and UC3 workflows. Docs were aligned in README,
+  architecture, evidence-map, and runbook state text while leaving the
+  operator-facing UC3 command to the later P2 documentation slice. Verified
+  with `uv run pytest tests/workflows/test_uc3_synthetic_intake.py
+  tests/workflows/test_worker_registration.py -q`, `just contracts-check`,
+  `just lint`, `just doctor`, and `git diff --check`.
 - [ ] Seed a UC3 model route policy following the same pattern as P1.
 - [ ] Play UC3 happy-path and one branch fixture end-to-end through the
   running stack with tightened conduct invariants.
@@ -400,42 +419,57 @@ session is reprompted with the answer included.
 
 ```text
 We are in /home/ryan/Work/chorus. Continue R5 P2 — UC3 To Runnable — by
-adding the UC3 local synthetic intake adapter.
+seeding the UC3 model route policy.
 
 Read AGENTS.md and docs/transformation/r5-implementation-backlog.md, then run
 `git status --short --branch`. Preserve unrelated user changes.
 
-Inspect the current UC3 workflow/contracts and the UC2 local adapter pattern
-before editing: `just --list`, `justfile`,
-`chorus/workflows/uc2_synthetic_intake.py`, `chorus/workflows/uc3.py`,
-`chorus/workflows/types.py`, `chorus/workflows/worker.py`,
-`contracts/intake/uc3/email_advice_enquiry.schema.json`,
-`contracts/intake/uc3/samples/email_advice_enquiry.sample.json`,
-`tests/workflows/test_uc2_synthetic_intake.py`,
-`tests/workflows/test_uc3_workflow.py`, `docs/runbook.md`,
-`docs/evidence-map.md`, `docs/architecture.md`, and `README.md`.
+Inspect the current UC3 workflow agent tasks and the UC2 model-route policy
+pattern before editing: `just --list`, `justfile`, `chorus/workflows/uc3.py`,
+`chorus/workflows/uc3_synthetic_intake.py`, `chorus/workflows/types.py`,
+`chorus/agent_runtime/runtime.py`, `chorus/agent_runtime/response_schemas.py`,
+`chorus/llm_provider/adapter_replay.py`,
+`chorus/persistence/runtime_policy.py`,
+`chorus/persistence/provider_governance.py`,
+`infrastructure/postgres/migrations/001_current_state_baseline.sql`,
+`infrastructure/postgres/migrations/002_uc2_model_route_roles.sql`,
+`infrastructure/postgres/seeds/001_demo_tenants.sql`,
+`infrastructure/postgres/seeds/002_provider_governance.sql`,
+`tests/agent_runtime/test_runtime.py`,
+`tests/persistence/test_postgres_foundation.py`, `tests/test_contracts.py`,
+`docs/runbook.md`, `docs/evidence-map.md`, `docs/architecture.md`, and
+`README.md`.
 
-Implement the next narrow slice: add a UC3 one-shot synthetic intake adapter
-that validates the documented `email_advice_enquiry` sample with the generated
-contract model, normalises it to the existing `Uc3AdviceEnquiry` workflow DTO,
-derives stable safe workflow IDs / refs / idempotency refs, and delegates to a
-small Temporal starter for `Uc3IfaSuitabilityIntakeWorkflow.run` on the shared
-task queue. Register the UC3 workflow on the existing worker if it is not
-already registered. Mirror the UC2 adapter shape closely; do not add a generic
-workflow-start DSL, UC3 model route policy seeding, UC3 eval playback,
-operator runbook command, mutating approval/admin UI, live provider
-credentials, destructive Docker/database operations, or production connector
-paths.
+Implement the next narrow slice: seed UC3 model route policies that select the
+recorded-replay route by default for the UC3 model-backed workflow tasks
+(`uc3_advice_scope_classification`, `uc3_fact_find_summary`,
+`uc3_risk_profile_assessment`, `uc3_consumer_duty_support_assessment`, and
+`uc3_suitability_conclusion`) and record intended OpenAI promotion metadata
+without activating a live route before P3. Wire the policy through
+`model_routing_policies` and `model_route_versions` with the same governance
+shape as UC2. Add UC3 agent registry rows if absent. Add UC3 response-shape /
+recorded-replay runtime support only as needed for these seeded policies to
+resolve through the LLM provider port. If role constraints need widening, add
+a forward migration rather than rewriting the baseline migration.
 
-Add focused tests mirroring the UC2 synthetic-intake coverage: generated
-contract validation, invalid-fixture failure, deterministic safe start-request
-construction, and starter delegation / duplicate behaviour without requiring
-live Temporal. Update README, runbook, evidence-map, and architecture only for
-the new code-level UC3 adapter status; leave the documented UC3 runnable
-operator command to the later P2 documentation slice.
+Mirror the UC2 route-policy slice closely; do not add a generic workflow-route
+DSL, UC3 eval playback, projection/UI work, the UC3 operator runbook command,
+live provider credentials, destructive Docker/database operations, mutating
+approval/admin UI, or production connector paths.
 
-Run the focused UC3 intake tests plus any worker-registration tests you change,
-`just contracts-check`, `just lint`, `just doctor`, and `git diff --check`.
+Add focused tests mirroring the UC2 route-policy coverage: UC3 policy seeding,
+route-version alignment, Agent Runtime resolution through recorded replay with
+the UC3 response shape, and failure without silent fallback when an approved
+policy lacks a matching approved route version. Update README, runbook,
+evidence-map, and architecture only for the UC3 route-policy status; leave
+UC3 eval playback, projection evidence, and the documented operator command to
+later P2 slices.
+
+Run the focused UC3 route-policy/runtime tests you add or change, any focused
+persistence tests for the seed/migration work, `just contracts-check`, `just
+lint`, `just doctor`, and `git diff --check`. If you add a migration that the
+live local database has not applied, run `just db-migrate` before `just
+doctor`.
 
 End-of-session contract:
 - Update checkboxes and evidence notes for the slice you completed.

@@ -26,9 +26,10 @@ Tool Gateway audit rows, and the `engagement_letter.send` approval package
 inspectable in the existing BFF/UI surfaces. UC3 has shared-spine workflow
 definition, deterministic sandbox connector adapters, Tool Gateway grants,
 approval-package evidence, conduct invariants, schema-only fixture evidence,
-and read-only projection/BFF/UI inspection surfaces, but it does not yet have
-use-case route activation, full eval fixture playback, or a local intake
-start path.
+read-only projection/BFF/UI inspection surfaces, and a code-level synthetic
+email advice intake adapter registered with the shared worker. It does not
+yet have use-case route activation, full eval fixture playback, projection
+evidence for a triggered local run, or a documented operator command.
 
 ## Local development bootstrap
 
@@ -271,7 +272,11 @@ R4 closes with the Mailpit/email UC1 channel runnable and keeps the UC1
 web-form, partner-portal, and synthetic-channel contracts in place. UC2 and
 UC3 intake contracts exist. R5 P1 adds a local UC2 synthetic email-intake
 fixture adapter that validates the documented contract sample and starts the
-UC2 workflow. The operator command is:
+UC2 workflow. R5 P2 adds the equivalent code-level UC3 synthetic email advice
+intake adapter for the documented `email_advice_enquiry` sample, with stable
+workflow IDs / safe refs and shared-worker registration; the operator-facing
+UC3 command remains a later P2 documentation slice. The UC2 operator command
+is:
 
 ```bash
 uv run python -m chorus.workflows.uc2_synthetic_intake
@@ -295,7 +300,9 @@ already exists; inspect the existing run rather than resetting local data.
 The eval playback path uses the same adapter to run the UC2 happy fixture and
 conflict-exception fixture through the workflow/runtime activities in tests,
 and the happy-path evidence projects into the existing BFF/UI inspection
-surfaces. UC3 still has no local intake adapter.
+surfaces. UC3 has the code-level synthetic intake adapter only; model-route
+seeding, workflow-path playback, projection evidence, and command
+documentation remain open.
 
 ### LLM provider port
 
@@ -418,8 +425,13 @@ handoff remain workflow/manual-review conduct evidence until a later slice
 adds exact connector request shapes for those packages. Read-only projection,
 BFF, and UI fixture evidence can show safe UC3 workflow progress and generic
 approval-package state for `suitability_report.issue` when rows exist. The
-runbook does not yet claim a runnable UC3 local intake path: use-case provider
-route activation, full eval playback, and local intake adapters remain absent.
+code-level synthetic email advice intake adapter validates the documented
+`email_advice_enquiry` sample, normalises it to `Uc3AdviceEnquiry`, derives
+stable `uc3-advice-*` workflow IDs and safe refs, and delegates to the UC3
+Temporal workflow on the shared task queue. The runbook does not yet claim a
+runnable UC3 local intake path: use-case provider route activation, full eval
+playback, projection evidence for a triggered local run, and the documented
+operator command remain absent.
 
 Inspect approval packages through the read-only BFF:
 
@@ -629,9 +641,10 @@ systems.
 This is the end-to-end happy path threaded through the six ports. The port
 sequence is stable; the UC1 enquiry-qualification workflow runs it
 end-to-end on the shared `WorkflowSpine`. UC2 now has its own synthetic
-email-intake walk-through above. UC3 remains an inspection and schema-only
-evidence path until local intake, provider route activation, and full fixture
-playback land in later phases.
+email-intake walk-through above. UC3 has a code-level synthetic email intake
+adapter but remains an inspection and schema-only evidence path until route
+activation, full fixture playback, projection evidence, and the documented
+operator command land in later phases.
 
 1. **Bring the stack up (all ports).** Run the bring-up commands above:
    `just up && just db-migrate && just schemas-register && just doctor`.
