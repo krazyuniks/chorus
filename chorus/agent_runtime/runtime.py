@@ -28,15 +28,18 @@ from chorus.agent_runtime.prompt_loader import (
     load_registered_prompt,
 )
 from chorus.agent_runtime.response_schemas import (
+    UC2_AGENT_CONTRACT_REF,
     response_shape_instruction,
     response_shape_metadata,
     uc1_response_shape_for_task,
+    uc2_response_shape_for_task,
 )
 from chorus.contracts.generated.audit.agent_invocation_record import AgentInvocationRecord
 from chorus.contracts.generated.audit.agent_invocation_transcript import (
     AgentInvocationTranscript,
 )
 from chorus.contracts.generated.llm_provider.uc1_agent_io import Uc1AgentIO
+from chorus.contracts.generated.llm_provider.uc2_agent_io import Uc2AgentIO
 from chorus.llm_provider import (
     InvocationArgs,
     InvocationMessage,
@@ -59,7 +62,7 @@ EXECUTION_STEPS = (
     "final_response",
 )
 
-type AgentOutputContract = Uc1AgentIO
+type AgentOutputContract = Uc1AgentIO | Uc2AgentIO
 
 
 class AgentRuntimeError(RuntimeError):
@@ -680,7 +683,16 @@ class AgentRuntimeStore:
                 f"tenant={tenant_id!r}, role={agent_role!r}, "
                 f"task={task_kind!r}, tier={tenant_tier!r}"
             )
-        return ResolvedModelRoute.model_validate(row)
+        route = ResolvedModelRoute.model_validate(row)
+        if route.route_version is None:
+            raise AgentRuntimeError(
+                "No approved model route version for "
+                f"tenant={tenant_id!r}, role={agent_role!r}, "
+                f"task={task_kind!r}, tier={tenant_tier!r}, "
+                f"runtime_route={route.runtime_route_id!r}, "
+                f"provider={route.provider!r}, model={route.model!r}"
+            )
+        return route
 
 
 class AgentRuntime:
@@ -1008,6 +1020,12 @@ def _agent_output_contract(
             invocation_id=invocation_id,
             result=result,
         )
+    if request.expected_output_contract == UC2_AGENT_CONTRACT_REF:
+        return _uc2_contract(
+            request=request,
+            invocation_id=invocation_id,
+            result=result,
+        )
     raise AgentRuntimeError(
         f"Unsupported agent output contract {request.expected_output_contract!r}"
     )
@@ -1020,6 +1038,35 @@ def _uc1_contract(
     result: InvocationResult,
 ) -> Uc1AgentIO:
     return Uc1AgentIO.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "task_id": str(invocation_id),
+            "tenant_id": request.tenant_id,
+            "correlation_id": request.correlation_id,
+            "workflow_id": request.workflow_id,
+            "agent_role": request.agent_role,
+            "task_kind": request.task_kind,
+            "input": request.input,
+            "expected_output_contract": request.expected_output_contract,
+            "result": {
+                "summary": result.summary,
+                "confidence": result.confidence,
+                "structured_data": result.structured_data,
+                "recommended_next_step": result.recommended_next_step,
+                "rationale": result.rationale,
+                "citations": _result_citations(result),
+            },
+        }
+    )
+
+
+def _uc2_contract(
+    *,
+    request: AgentInvocationRequest,
+    invocation_id: UUID,
+    result: InvocationResult,
+) -> Uc2AgentIO:
+    return Uc2AgentIO.model_validate(
         {
             "schema_version": "1.0.0",
             "task_id": str(invocation_id),
@@ -1327,6 +1374,8 @@ def _policy_snapshot_metadata(contract: AgentOutputContract) -> dict[str, Any]:
 def _response_shape_for_request(request: AgentInvocationRequest) -> dict[str, Any]:
     if request.expected_output_contract == UC1_AGENT_CONTRACT_REF:
         return uc1_response_shape_for_task(request.task_kind)
+    if request.expected_output_contract == UC2_AGENT_CONTRACT_REF:
+        return uc2_response_shape_for_task(request.task_kind)
     raise AgentRuntimeError(
         f"Unsupported agent output contract {request.expected_output_contract!r}"
     )
@@ -1336,6 +1385,7 @@ __all__ = [
     "EXECUTION_PIPELINE_VERSION",
     "EXECUTION_STEPS",
     "UC1_AGENT_CONTRACT_REF",
+    "UC2_AGENT_CONTRACT_REF",
     "AgentExecutionResult",
     "AgentOutputContract",
     "AgentRuntime",

@@ -57,7 +57,11 @@
           "type": "string",
           "enum": [
             "classifier",
+            "conflict_analyst",
             "context_gatherer",
+            "engagement_decider",
+            "legal_matter_classifier",
+            "legal_party_extractor",
             "qualifier",
             "request_drafter",
             "validator"

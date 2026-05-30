@@ -252,6 +252,89 @@ def _replay_result_for(
                 },
                 0.88,
             )
+        case "uc2_matter_classification":
+            return (
+                "Classified the legal intake as a corporate transaction matter.",
+                "continue",
+                {
+                    "matter_type": "corporate_transaction",
+                    "matter_scope_ref": "matter_scope_demo_uc2_001",
+                    "jurisdiction_categories": ["england_and_wales"],
+                    "conduct_hook_refs": [
+                        "conduct_sra_identify_client_8_1",
+                        "conduct_sra_accountability_7_1_7_2",
+                    ],
+                    "policy_snapshot_ref": "policy_snapshot:uc2:default:v1",
+                },
+                0.86,
+            )
+        case "uc2_party_extraction":
+            return (
+                "Extracted a bounded party graph for the prospective corporate client.",
+                "continue",
+                {
+                    "party_graph_ref": "party_graph_demo_uc2_001",
+                    "prospective_client_ref": "prospective_client_demo_uc2_001",
+                    "authority_status": "confirmed",
+                    "party_graph_ambiguous": False,
+                    "party_search_terms": [
+                        {
+                            "party_ref": "party_demo_uc2_client",
+                            "role": "prospective_client",
+                            "party_category": "company",
+                        }
+                    ],
+                    "entity_category": "company",
+                    "beneficial_owner_refs": ["bo_demo_uc2_001"],
+                    "controller_refs": ["controller_demo_uc2_001"],
+                    "conduct_hook_refs": [
+                        "conduct_sra_identify_client_8_1",
+                        "conduct_mlr_cdd_reg_27_28",
+                    ],
+                    "policy_snapshot_ref": "policy_snapshot:uc2:default:v1",
+                },
+                0.84,
+            )
+        case "uc2_conflict_determination":
+            return (
+                "Conflict evidence is clear for the local synthetic intake.",
+                "continue",
+                {
+                    "conflict_determination_ref": "conflict_determination_demo_uc2_001",
+                    "conflict_status": "no_conflict",
+                    "confidentiality_safeguard_status": "not_required",
+                    "aml_risk_rating": "standard",
+                    "conduct_hook_refs": [
+                        "conduct_sra_conflict_6_1_6_2",
+                        "conduct_sra_confidentiality_6_3_6_5",
+                    ],
+                    "policy_snapshot_ref": "policy_snapshot:uc2:default:v1",
+                },
+                0.87,
+            )
+        case "uc2_engagement_decision":
+            return (
+                "Engagement can proceed subject to the approval-gated send path.",
+                "continue",
+                {
+                    "engagement_decision_ref": "engagement_decision_demo_uc2_001",
+                    "engagement_outcome": "accept_for_engagement",
+                    "approval_package_ref": "approval_demo_uc2_001",
+                    "prospective_client_ref": "prospective_client_demo_uc2_001",
+                    "matter_scope_ref": "matter_scope_demo_uc2_001",
+                    "scope_summary_ref": "scope_summary_demo_uc2_001",
+                    "conflict_determination_ref": "conflict_determination_demo_uc2_001",
+                    "aml_risk_assessment_ref": "aml_risk_demo_uc2_001",
+                    "conduct_hook_refs": [
+                        "conduct_sra_identify_client_8_1",
+                        "conduct_sra_conflict_6_1_6_2",
+                        "conduct_mlr_cdd_reg_27_28",
+                        "conduct_sra_accountability_7_1_7_2",
+                    ],
+                    "policy_snapshot_ref": "policy_snapshot:uc2:default:v1",
+                },
+                0.86,
+            )
         case _:
             return (
                 "Input accepted for UC1 processing.",

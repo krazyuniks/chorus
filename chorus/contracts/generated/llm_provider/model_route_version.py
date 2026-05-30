@@ -18,7 +18,11 @@ class LifecycleState(StrEnum):
 
 class AgentRole(StrEnum):
     CLASSIFIER = "classifier"
+    CONFLICT_ANALYST = "conflict_analyst"
     CONTEXT_GATHERER = "context_gatherer"
+    ENGAGEMENT_DECIDER = "engagement_decider"
+    LEGAL_MATTER_CLASSIFIER = "legal_matter_classifier"
+    LEGAL_PARTY_EXTRACTOR = "legal_party_extractor"
     QUALIFIER = "qualifier"
     REQUEST_DRAFTER = "request_drafter"
     VALIDATOR = "validator"

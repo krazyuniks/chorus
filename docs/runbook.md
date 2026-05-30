@@ -23,9 +23,10 @@ shared-spine workflow definitions, deterministic sandbox connector adapters,
 Tool Gateway grants, approval-package evidence, conduct invariants,
 schema-only fixture evidence, and read-only projection/BFF/UI inspection
 surfaces. UC2 has a code-level synthetic email-intake fixture adapter for R5
-P1 test evidence, but no documented operator command yet. UC2 and UC3 do not
-yet have use-case route activation or full eval fixture playback through the
-running stack, and UC3 does not yet have a local intake start path.
+P1 test evidence and recorded-replay model-route policies for the four UC2
+workflow agent tasks, but no documented operator command or full eval fixture
+playback yet. UC3 does not yet have use-case route activation, full eval
+fixture playback, or a local intake start path.
 
 ## Local development bootstrap
 
@@ -302,7 +303,11 @@ against the same task schema locally. Malformed JSON or an empty
 any connector action can be proposed. The active local route-governance rows
 now align on runtime route `recorded-replay`, provider `local`, and model
 `uc1-happy-path-v1` across routing policy, immutable route versions, provider
-catalogue rows, BFF inspection, and offline eval route selection. Live route
+catalogue rows, BFF inspection, and offline eval route selection for UC1, and
+across routing policy, immutable route versions, and provider catalogue rows
+for the UC2 workflow agent tasks
+(`uc2_matter_classification`, `uc2_party_extraction`,
+`uc2_conflict_determination`, and `uc2_engagement_decision`). Live route
 activation remains deferred until required local credentials and live route
 gates are aligned. Replay-run evidence
 records now persist the original invocation/transcript refs, alternate route
@@ -519,9 +524,10 @@ This is the end-to-end happy path threaded through the six ports. The port
 sequence is stable; the UC1 enquiry-qualification workflow runs it
 end-to-end on the shared `WorkflowSpine`. R4 added UC2 and UC3 workflow
 definitions on the same spine, but those use cases are inspection and
-schema-only evidence paths until documented operator intake commands,
-use-case provider route activation, and full fixture playback land in a later
-phase.
+schema-only evidence paths until documented operator intake commands, UC3
+provider route activation, and full fixture playback land in a later phase.
+UC2 now has recorded-replay route policies for its workflow agent tasks, but
+its documented operator command and full fixture playback remain open.
 
 1. **Bring the stack up (all ports).** Run the bring-up commands above:
    `just up && just db-migrate && just schemas-register && just doctor`.

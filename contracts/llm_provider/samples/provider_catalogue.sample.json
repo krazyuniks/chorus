@@ -21,14 +21,18 @@
       "supported_models": [
         {
           "model_id": "uc1-happy-path-v1",
-          "display_name": "UC1 local structured model",
+          "display_name": "Local recorded-replay structured model",
           "lifecycle_state": "approved",
           "supported_task_kinds": [
             "enquiry_classification",
             "context_gathering",
             "enquiry_qualification",
             "missing_data_request_draft",
-            "missing_data_request_validation"
+            "missing_data_request_validation",
+            "uc2_matter_classification",
+            "uc2_party_extraction",
+            "uc2_conflict_determination",
+            "uc2_engagement_decision"
           ],
           "supports_structured_output": true,
           "context_window_tokens": 8192,
@@ -47,7 +51,7 @@
       "audit": {
         "owner": "agent-runtime",
         "declared_in": "contracts/llm_provider/provider_catalogue.schema.json",
-        "notes": "Default runnable path for UC1 evidence."
+        "notes": "Default runnable path for UC1 evidence and R5 P1 UC2 route-resolution evidence."
       }
     },
     {
@@ -79,7 +83,11 @@
             "context_gathering",
             "enquiry_qualification",
             "missing_data_request_draft",
-            "missing_data_request_validation"
+            "missing_data_request_validation",
+            "uc2_matter_classification",
+            "uc2_party_extraction",
+            "uc2_conflict_determination",
+            "uc2_engagement_decision"
           ],
           "supports_structured_output": true,
           "context_window_tokens": 1000000,
@@ -130,7 +138,11 @@
             "context_gathering",
             "enquiry_qualification",
             "missing_data_request_draft",
-            "missing_data_request_validation"
+            "missing_data_request_validation",
+            "uc2_matter_classification",
+            "uc2_party_extraction",
+            "uc2_conflict_determination",
+            "uc2_engagement_decision"
           ],
           "supports_structured_output": true,
           "context_window_tokens": 400000,

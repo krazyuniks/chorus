@@ -2,9 +2,9 @@
 --
 -- Mirrors the contract samples and the model_routing_policies seeded in
 -- 001_demo_tenants.sql. The local recorded-replay route stays the runnable
--- structured boundary for UC1. The DeepSeek and OpenAI rows are verified but
--- disabled until live-provider gates and the tiered replay comparator are
--- complete.
+-- structured boundary for UC1 and R5 P1 UC2 route-resolution evidence. The
+-- DeepSeek and OpenAI rows are verified but disabled until live-provider
+-- gates and the tiered replay comparator are complete.
 
 INSERT INTO provider_catalogues (
     catalogue_id,
@@ -57,7 +57,7 @@ VALUES
         'allow',
         '{"mode": "local_only", "allowed_regions": [], "stores_customer_content": false}'::jsonb,
         '{"default_timeout_ms": 1000, "max_retries": 0, "rate_limit_policy": "local-process-boundary"}'::jsonb,
-        '{"owner": "agent-runtime", "declared_in": "infrastructure/postgres/seeds/002_provider_governance.sql", "notes": "Default runnable path for UC1 evidence."}'::jsonb
+        '{"owner": "agent-runtime", "declared_in": "infrastructure/postgres/seeds/002_provider_governance.sql", "notes": "Default runnable path for UC1 evidence and R5 P1 UC2 route-resolution evidence."}'::jsonb
     ),
     (
         'provider-catalogue.local.seed',
@@ -114,14 +114,18 @@ VALUES
         'provider-catalogue.local.seed',
         'local',
         'uc1-happy-path-v1',
-        'UC1 local structured model',
+        'Local recorded-replay structured model',
         'approved',
         ARRAY[
             'enquiry_classification',
             'context_gathering',
             'enquiry_qualification',
             'missing_data_request_draft',
-            'missing_data_request_validation'
+            'missing_data_request_validation',
+            'uc2_matter_classification',
+            'uc2_party_extraction',
+            'uc2_conflict_determination',
+            'uc2_engagement_decision'
         ]::text[],
         true,
         8192,
@@ -138,7 +142,11 @@ VALUES
             'context_gathering',
             'enquiry_qualification',
             'missing_data_request_draft',
-            'missing_data_request_validation'
+            'missing_data_request_validation',
+            'uc2_matter_classification',
+            'uc2_party_extraction',
+            'uc2_conflict_determination',
+            'uc2_engagement_decision'
         ]::text[],
         true,
         1000000,
@@ -155,7 +163,11 @@ VALUES
             'context_gathering',
             'enquiry_qualification',
             'missing_data_request_draft',
-            'missing_data_request_validation'
+            'missing_data_request_validation',
+            'uc2_matter_classification',
+            'uc2_party_extraction',
+            'uc2_conflict_determination',
+            'uc2_engagement_decision'
         ]::text[],
         true,
         400000,
@@ -208,16 +220,45 @@ SELECT
     5000,
     '{"mode": "escalate", "fallback_reasons": ["provider_error", "timeout", "rate_limited", "budget_exceeded"]}'::jsonb,
     true,
-    ARRAY[
-        'chorus/eval/fixtures/uc1_happy_path.json',
-        'chorus/eval/fixtures/uc1_validator_redraft.json',
-        'chorus/eval/fixtures/uc1_accepted_routing.json',
-        'chorus/eval/fixtures/uc1_referred_routing.json',
-        'chorus/eval/fixtures/uc1_declined_routing.json'
-    ]::text[],
-    '{"approved_by": "architecture-docs"}'::jsonb
+    CASE
+        WHEN task_kind LIKE 'uc2_%'
+        THEN ARRAY[
+            'chorus/eval/fixtures/uc2/uc2_synthetic_acceptance_conduct.json'
+        ]::text[]
+        ELSE ARRAY[
+            'chorus/eval/fixtures/uc1_happy_path.json',
+            'chorus/eval/fixtures/uc1_validator_redraft.json',
+            'chorus/eval/fixtures/uc1_accepted_routing.json',
+            'chorus/eval/fixtures/uc1_referred_routing.json',
+            'chorus/eval/fixtures/uc1_declined_routing.json'
+        ]::text[]
+    END,
+    CASE
+        WHEN task_kind LIKE 'uc2_%'
+        THEN '{
+            "approved_by": "architecture-docs",
+            "future_live_route": {
+                "status": "deferred_until_R5_P3",
+                "runtime_route_id": "demo-eval-canonical",
+                "provider_id": "openai",
+                "model_id": "gpt-5.4-mini-2026-03-17",
+                "credential_ref": "OPENAI_API_KEY"
+            }
+        }'::jsonb
+        ELSE '{"approved_by": "architecture-docs"}'::jsonb
+    END
 FROM model_routing_policies
 WHERE provider = 'local'
   AND model = 'uc1-happy-path-v1'
-  AND agent_role IN ('classifier', 'context_gatherer', 'qualifier', 'request_drafter', 'validator')
+  AND agent_role IN (
+      'classifier',
+      'context_gatherer',
+      'qualifier',
+      'request_drafter',
+      'validator',
+      'legal_matter_classifier',
+      'legal_party_extractor',
+      'conflict_analyst',
+      'engagement_decider'
+  )
 ON CONFLICT (route_id, route_version) DO NOTHING;

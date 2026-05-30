@@ -162,6 +162,30 @@ VALUES
     ),
     (
         'tenant_demo',
+        'uc2.legal_matter_classifier',
+        'legal_matter_classifier',
+        'v1',
+        'approved',
+        'agent-runtime',
+        'prompts/uc2/legal-matter-classifier/v1.md',
+        'sha256:dbecd98c5b3c96713903f8ebd7c480d86adb02585a1a3d04c8d63a11bdf872bc',
+        ARRAY['uc2', 'matter_classification']::text[],
+        '{"seed": true, "evidence": "UC2 workflow agent; recorded-replay provider route seeded in R5 P1"}'::jsonb
+    ),
+    (
+        'tenant_demo',
+        'uc2.legal_party_extractor',
+        'legal_party_extractor',
+        'v1',
+        'approved',
+        'agent-runtime',
+        'prompts/uc2/legal-party-extractor/v1.md',
+        'sha256:f4b1c9de5649601b29b23f477df016f554f9029ec24252b8cc49d2cde4674f01',
+        ARRAY['uc2', 'party_extraction']::text[],
+        '{"seed": true, "evidence": "UC2 workflow agent; recorded-replay provider route seeded in R5 P1"}'::jsonb
+    ),
+    (
+        'tenant_demo',
         'uc2.conflict_analyst',
         'conflict_analyst',
         'v1',
@@ -170,7 +194,7 @@ VALUES
         'prompts/uc2/conflict-analyst/v1.md',
         'sha256:dbcaf349e3a5184d036c07560706207c6c0e8ef5630e1ead1a7cc77152290bec',
         ARRAY['uc2', 'conflict_check', 'tool_gateway_grant_owner']::text[],
-        '{"seed": true, "evidence": "UC2 Tool Gateway grant owner; provider route pending"}'::jsonb
+        '{"seed": true, "evidence": "UC2 Tool Gateway grant owner; recorded-replay provider route seeded in R5 P1"}'::jsonb
     ),
     (
         'tenant_demo',
@@ -194,7 +218,7 @@ VALUES
         'prompts/uc2/engagement-decider/v1.md',
         'sha256:8f793f9105211157a8f2faead42229753d9b7574efc491515816cda7aecf58e2',
         ARRAY['uc2', 'engagement_letter', 'tool_gateway_grant_owner']::text[],
-        '{"seed": true, "evidence": "UC2 Tool Gateway grant owner; provider route pending"}'::jsonb
+        '{"seed": true, "evidence": "UC2 Tool Gateway grant owner; recorded-replay provider route seeded in R5 P1"}'::jsonb
     ),
     (
         'tenant_demo',
@@ -336,6 +360,62 @@ VALUES
         'local',
         'uc1-happy-path-v1',
         '{"temperature": 0}'::jsonb,
+        0.0100,
+        '{"on_provider_error": "escalate"}'::jsonb,
+        'approved'
+    ),
+    (
+        '11000000-0000-4000-8000-000000000020',
+        'tenant_demo',
+        'legal_matter_classifier',
+        'uc2_matter_classification',
+        'demo',
+        'recorded-replay',
+        'local',
+        'uc1-happy-path-v1',
+        '{"temperature": 0.2}'::jsonb,
+        0.0100,
+        '{"on_provider_error": "escalate"}'::jsonb,
+        'approved'
+    ),
+    (
+        '11000000-0000-4000-8000-000000000021',
+        'tenant_demo',
+        'legal_party_extractor',
+        'uc2_party_extraction',
+        'demo',
+        'recorded-replay',
+        'local',
+        'uc1-happy-path-v1',
+        '{"temperature": 0.2}'::jsonb,
+        0.0100,
+        '{"on_provider_error": "escalate"}'::jsonb,
+        'approved'
+    ),
+    (
+        '11000000-0000-4000-8000-000000000022',
+        'tenant_demo',
+        'conflict_analyst',
+        'uc2_conflict_determination',
+        'demo',
+        'recorded-replay',
+        'local',
+        'uc1-happy-path-v1',
+        '{"temperature": 0.1}'::jsonb,
+        0.0100,
+        '{"on_provider_error": "escalate"}'::jsonb,
+        'approved'
+    ),
+    (
+        '11000000-0000-4000-8000-000000000023',
+        'tenant_demo',
+        'engagement_decider',
+        'uc2_engagement_decision',
+        'demo',
+        'recorded-replay',
+        'local',
+        'uc1-happy-path-v1',
+        '{"temperature": 0.1}'::jsonb,
         0.0100,
         '{"on_provider_error": "escalate"}'::jsonb,
         'approved'

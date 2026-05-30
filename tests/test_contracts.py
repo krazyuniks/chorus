@@ -100,6 +100,7 @@ from chorus.contracts.generated.intake.uc3.web_advice_enquiry import WebAdviceEn
 from chorus.contracts.generated.llm_provider.model_route_version import ModelRouteVersion
 from chorus.contracts.generated.llm_provider.provider_catalogue import ProviderCatalogue
 from chorus.contracts.generated.llm_provider.uc1_agent_io import Uc1AgentIO
+from chorus.contracts.generated.llm_provider.uc2_agent_io import Uc2AgentIO
 from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -112,7 +113,7 @@ def test_contract_gate_passes() -> None:
 def test_contract_schemas_have_samples_and_generated_models() -> None:
     schemas = schema_files()
 
-    assert len(schemas) == 45
+    assert len(schemas) == 46
     for schema in schemas:
         name = schema.name.removesuffix(".schema.json")
         assert (schema.parent / "samples" / f"{name}.sample.json").exists()
@@ -181,6 +182,7 @@ def test_generated_models_validate_representative_samples() -> None:
         "contracts/connector/samples/calendar_hold_cancellation_args.sample.json"
     )
     uc1_agent_sample = _sample("contracts/llm_provider/samples/uc1_agent_io.sample.json")
+    uc2_agent_sample = _sample("contracts/llm_provider/samples/uc2_agent_io.sample.json")
     customer_profile_sample = _sample(
         "contracts/connector/uc1/samples/customer_profile_lookup_args.sample.json"
     )
@@ -305,6 +307,9 @@ def test_generated_models_validate_representative_samples() -> None:
     uc1_agent = Uc1AgentIO.model_validate(uc1_agent_sample)
     assert uc1_agent.agent_role.value == "classifier"
     assert uc1_agent.task_kind.value == "enquiry_classification"
+    uc2_agent = Uc2AgentIO.model_validate(uc2_agent_sample)
+    assert uc2_agent.agent_role.value == "legal_matter_classifier"
+    assert uc2_agent.task_kind.value == "uc2_matter_classification"
     assert (
         CustomerProfileLookupArgs.model_validate(customer_profile_sample).customer_ref
         == "cust_demo_001"

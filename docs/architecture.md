@@ -94,9 +94,10 @@ definition-first workflows on the shared spine, deterministic sandbox
 connector adapters, Tool Gateway grants, approval-package inspection,
 conduct-invariant modules, read-only projection / BFF / UI fixture evidence,
 and schema-only eval fixtures. R5 adds a code-level UC2 synthetic
-email-intake adapter; provider route activation, full eval playback, a
-documented UC2 operator intake command, and all UC3 local intake start work
-remain explicit closure exceptions.
+email-intake adapter and recorded-replay route policies for UC2 workflow
+agent tasks; full eval playback, a documented UC2 operator intake command,
+UC3 provider route activation, and all UC3 local intake start work remain
+explicit closure exceptions.
 
 ## Workflow durability is not a port
 
@@ -403,9 +404,10 @@ approval-required write.
 
 R4 does not claim UC2 or UC3 as use-case runnable under the earlier
 definition. R5 has begun closing that gap with a code-level UC2 synthetic
-email-intake fixture adapter, while the documented UC2 operator command,
-use-case provider route activation, full eval fixture playback, and UC3 local
-intake remain deferred closure exceptions. UC2 conflict-exception / AML EDD
+email-intake fixture adapter and recorded-replay model routes for the UC2
+workflow agent tasks, while the documented UC2 operator command, full eval
+fixture playback, UC3 provider route activation, and UC3 local intake remain
+deferred closure exceptions. UC2 conflict-exception / AML EDD
 and UC3 risk-profile / vulnerability approval packages also remain
 workflow/manual-review conduct evidence until a later design slice binds them
 to exact connector requests. Live OpenAI / DeepSeek calls remain

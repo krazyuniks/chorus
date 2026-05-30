@@ -26,12 +26,16 @@ from chorus.agent_runtime import (
     TenantPolicy,
     default_route_catalogue,
 )
-from chorus.agent_runtime.response_schemas import uc1_response_shape_for_task
+from chorus.agent_runtime.response_schemas import (
+    uc1_response_shape_for_task,
+    uc2_response_shape_for_task,
+)
 from chorus.contracts.generated.audit.agent_invocation_record import AgentInvocationRecord
 from chorus.contracts.generated.audit.agent_invocation_transcript import (
     AgentInvocationTranscript,
 )
 from chorus.contracts.generated.llm_provider.uc1_agent_io import Uc1AgentIO
+from chorus.contracts.generated.llm_provider.uc2_agent_io import Uc2AgentIO
 from chorus.llm_provider import (
     InvocationArgs,
     InvocationMessage,
@@ -53,6 +57,44 @@ PROMPT_HASHES = {
     "request_drafter": ("sha256:e25a62fe7137f6f88a0987cb9897417532a7a5dc807eb954a48c3b770923bcbd"),
     "validator": "sha256:157b1c9e3b0916bed7814bd01e912c62d38b87d4ceee9af25807f7b062fc0743",
 }
+UC2_PROMPT_HASHES = {
+    "legal_matter_classifier": (
+        "sha256:dbecd98c5b3c96713903f8ebd7c480d86adb02585a1a3d04c8d63a11bdf872bc"
+    ),
+    "legal_party_extractor": (
+        "sha256:f4b1c9de5649601b29b23f477df016f554f9029ec24252b8cc49d2cde4674f01"
+    ),
+    "conflict_analyst": ("sha256:dbcaf349e3a5184d036c07560706207c6c0e8ef5630e1ead1a7cc77152290bec"),
+    "engagement_decider": (
+        "sha256:8f793f9105211157a8f2faead42229753d9b7574efc491515816cda7aecf58e2"
+    ),
+}
+UC2_ROUTE_CASES = (
+    (
+        "legal_matter_classifier",
+        "uc2.legal_matter_classifier",
+        "uc2_matter_classification",
+        "prompts/uc2/legal-matter-classifier/v1.md",
+    ),
+    (
+        "legal_party_extractor",
+        "uc2.legal_party_extractor",
+        "uc2_party_extraction",
+        "prompts/uc2/legal-party-extractor/v1.md",
+    ),
+    (
+        "conflict_analyst",
+        "uc2.conflict_analyst",
+        "uc2_conflict_determination",
+        "prompts/uc2/conflict-analyst/v1.md",
+    ),
+    (
+        "engagement_decider",
+        "uc2.engagement_decider",
+        "uc2_engagement_decision",
+        "prompts/uc2/engagement-decider/v1.md",
+    ),
+)
 
 
 def _request(
@@ -69,6 +111,29 @@ def _request(
         task_kind=task_kind,
         input=input_payload or {"enquiry_subject": "Motor cover enquiry"},
         expected_output_contract="contracts/llm_provider/uc1_agent_io.schema.json",
+    )
+
+
+def _uc2_request(
+    *,
+    role: str = "legal_matter_classifier",
+    task_kind: str = "uc2_matter_classification",
+    input_payload: dict[str, Any] | None = None,
+) -> AgentInvocationRequest:
+    return AgentInvocationRequest(
+        tenant_id="tenant_demo",
+        correlation_id=f"cor_uc2_agent_runtime_{uuid4().hex}",
+        workflow_id=f"uc2-agent-runtime-{uuid4().hex}",
+        subject_id=str(uuid4()),
+        agent_role=role,
+        task_kind=task_kind,
+        input=input_payload
+        or {
+            "legal_intake_ref": "legal_intake_runtime_test",
+            "subject_summary": "Synthetic corporate transaction enquiry",
+            "matter_scope_summary": "Safe corporate transaction scope summary",
+        },
+        expected_output_contract="contracts/llm_provider/uc2_agent_io.schema.json",
     )
 
 
@@ -277,6 +342,57 @@ def test_runtime_passes_uc1_response_shape_to_provider_port() -> None:
     ] == ["accept", "refer", "decline", "missing_data"]
     assert args.metadata["response_schema"]["response_schema.name"] == (
         "uc1_enquiry_qualification_response"
+    )
+
+
+def test_runtime_passes_uc2_response_shape_to_provider_port() -> None:
+    """UC2 agent tasks resolve a strict response shape and contract through the port."""
+
+    adapter = _RecordingAdapter()
+    catalogue = RouteCatalogue(
+        [
+            RouteCatalogueEntry(
+                route_id="recorded-replay",
+                provider_id="local",
+                model_id="uc1-happy-path-v1",
+                adapter=adapter,
+            )
+        ]
+    )
+    request = _uc2_request(
+        role="legal_matter_classifier",
+        task_kind="uc2_matter_classification",
+    )
+    resolution = _resolution(
+        role="legal_matter_classifier",
+        agent_id="uc2.legal_matter_classifier",
+        task_kind="uc2_matter_classification",
+        prompt_reference="prompts/uc2/legal-matter-classifier/v1.md",
+        prompt_hash=UC2_PROMPT_HASHES["legal_matter_classifier"],
+    )
+    engine = SequentialAgentExecutionEngine(catalogue, ProviderRouteResolver())
+
+    execution = engine.invoke(request, resolution, uuid4())
+
+    assert isinstance(execution.contract, Uc2AgentIO)
+    assert uc2_response_shape_for_task("uc2_matter_classification")["source"] == (
+        "agent-runtime.uc2.response-schema.v1"
+    )
+    assert len(adapter.calls) == 1
+    args = adapter.calls[0]
+    assert args.response_shape is not None
+    assert args.response_shape["name"] == "uc2_uc2_matter_classification_response"
+    assert args.response_shape["contract_ref"] == (
+        "contracts/llm_provider/uc2_agent_io.schema.json"
+    )
+    schema = args.response_shape["schema"]
+    assert schema["properties"]["recommended_next_step"]["enum"] == [
+        "continue",
+        "manual_review",
+        "escalate",
+    ]
+    assert execution.decision_metadata["response_schema.source"] == (
+        "agent-runtime.uc2.response-schema.v1"
     )
 
 
@@ -642,6 +758,48 @@ def test_policy_resolution_uses_registry_prompt_and_model_route(
     assert resolution.model_route.runtime_route_id == "recorded-replay"
     assert resolution.model_route.provider == "local"
     assert resolution.model_route.model == "uc1-happy-path-v1"
+
+
+def test_uc2_policy_resolution_invokes_recorded_replay_route_versions(
+    migrated_database_url: str,
+) -> None:
+    """Seeded UC2 roles resolve route-version governance through the provider port."""
+
+    rows: list[tuple[str, str, str, str, dict[str, Any], list[str]]] = []
+    with psycopg.connect(migrated_database_url) as conn:
+        store = AgentRuntimeStore(conn)
+        runtime = AgentRuntime(store, _replay_catalogue())
+
+        for role, _agent_id, task_kind, _prompt_reference in UC2_ROUTE_CASES:
+            response = runtime.invoke(_uc2_request(role=role, task_kind=task_kind))
+            assert response.recommended_next_step == "continue"
+            row = conn.execute(
+                """
+                SELECT agent_role, task_kind, provider, model, metadata, contract_refs
+                FROM decision_trail_entries
+                WHERE invocation_id = %s
+                """,
+                (response.invocation_id,),
+            ).fetchone()
+            assert row is not None
+            rows.append(cast(tuple[str, str, str, str, dict[str, Any], list[str]], row))
+
+    assert [(row[0], row[1]) for row in rows] == [
+        (role, task_kind) for role, _agent_id, task_kind, _prompt_reference in UC2_ROUTE_CASES
+    ]
+    for _role, _task_kind, provider, model, metadata, contract_refs in rows:
+        assert provider == "local"
+        assert model == "uc1-happy-path-v1"
+        assert "contracts/llm_provider/uc2_agent_io.schema.json" in contract_refs
+        assert metadata["model_route.selection_source"] == (
+            "model_routing_policies+model_route_versions"
+        )
+        assert metadata["model_route.route_version"] == 1
+        assert metadata["model_route.runtime_route_id"] == "recorded-replay"
+        assert metadata["model_route.fallback_reason"] is None
+        assert metadata["route_catalogue.route_id"] == "recorded-replay"
+        assert metadata["route_catalogue.provider_id"] == "local"
+        assert metadata["policy_snapshot.ref"] == "policy_snapshot:uc2:default:v1"
 
 
 def test_activity_integration_invokes_runtime_boundary(

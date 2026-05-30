@@ -8,7 +8,9 @@ import json
 from typing import Any, cast
 
 UC1_AGENT_CONTRACT_REF = "contracts/llm_provider/uc1_agent_io.schema.json"
+UC2_AGENT_CONTRACT_REF = "contracts/llm_provider/uc2_agent_io.schema.json"
 UC1_RESPONSE_SCHEMA_SOURCE = "agent-runtime.uc1.response-schema.v1"
+UC2_RESPONSE_SCHEMA_SOURCE = "agent-runtime.uc2.response-schema.v1"
 
 
 def uc1_response_shape_for_task(task_kind: str) -> dict[str, Any]:
@@ -29,6 +31,28 @@ def uc1_response_shape_for_task(task_kind: str) -> dict[str, Any]:
         "schema": schema,
         "strict": True,
         "source": UC1_RESPONSE_SCHEMA_SOURCE,
+    }
+    return copy.deepcopy(shape)
+
+
+def uc2_response_shape_for_task(task_kind: str) -> dict[str, Any]:
+    """Return the provider-neutral response shape for a UC2 task kind."""
+
+    spec = _UC2_TASK_SPECS.get(task_kind)
+    if spec is None:
+        raise ValueError(f"Unsupported UC2 response schema task kind {task_kind!r}")
+
+    schema = _top_level_response_schema(
+        structured_data_schema=spec["structured_data_schema"],
+        recommended_next_steps=cast(tuple[str, ...], spec["recommended_next_steps"]),
+    )
+    shape: dict[str, Any] = {
+        "name": f"uc2_{task_kind}_response",
+        "contract_ref": UC2_AGENT_CONTRACT_REF,
+        "task_kind": task_kind,
+        "schema": schema,
+        "strict": True,
+        "source": UC2_RESPONSE_SCHEMA_SOURCE,
     }
     return copy.deepcopy(shape)
 
@@ -107,6 +131,10 @@ def _nullable(type_name: str) -> dict[str, Any]:
 
 def _nullable_string_array() -> dict[str, Any]:
     return {"type": ["array", "null"], "items": {"type": "string"}}
+
+
+def _nullable_object_array() -> dict[str, Any]:
+    return {"type": ["array", "null"], "items": {"type": "object"}}
 
 
 def _conduct_status_schema() -> dict[str, Any]:
@@ -216,6 +244,71 @@ _UC1_TASK_SPECS: dict[str, dict[str, Any]] = {
 }
 
 
+_UC2_TASK_SPECS: dict[str, dict[str, Any]] = {
+    "uc2_matter_classification": {
+        "recommended_next_steps": ("continue", "manual_review", "escalate"),
+        "structured_data_schema": _object_schema(
+            {
+                "matter_type": _nullable("string"),
+                "matter_scope_ref": _nullable("string"),
+                "jurisdiction_categories": _nullable_string_array(),
+                "conduct_hook_refs": _nullable_string_array(),
+                "policy_snapshot_ref": _nullable("string"),
+            }
+        ),
+    },
+    "uc2_party_extraction": {
+        "recommended_next_steps": ("continue", "manual_review", "escalate"),
+        "structured_data_schema": _object_schema(
+            {
+                "party_graph_ref": _nullable("string"),
+                "prospective_client_ref": _nullable("string"),
+                "authority_status": _nullable("string"),
+                "party_graph_ambiguous": _nullable("boolean"),
+                "party_search_terms": _nullable_object_array(),
+                "entity_category": _nullable("string"),
+                "beneficial_owner_refs": _nullable_string_array(),
+                "controller_refs": _nullable_string_array(),
+                "conduct_hook_refs": _nullable_string_array(),
+                "policy_snapshot_ref": _nullable("string"),
+            }
+        ),
+    },
+    "uc2_conflict_determination": {
+        "recommended_next_steps": ("continue", "manual_review", "escalate"),
+        "structured_data_schema": _object_schema(
+            {
+                "conflict_determination_ref": _nullable("string"),
+                "conflict_status": _nullable("string"),
+                "confidentiality_safeguard_status": _nullable("string"),
+                "aml_risk_rating": _nullable("string"),
+                "conduct_hook_refs": _nullable_string_array(),
+                "policy_snapshot_ref": _nullable("string"),
+            }
+        ),
+    },
+    "uc2_engagement_decision": {
+        "recommended_next_steps": ("continue", "manual_review", "escalate"),
+        "structured_data_schema": _object_schema(
+            {
+                "engagement_decision_ref": _nullable("string"),
+                "engagement_outcome": _nullable("string"),
+                "approval_package_ref": _nullable("string"),
+                "prospective_client_ref": _nullable("string"),
+                "matter_scope_ref": _nullable("string"),
+                "scope_summary_ref": _nullable("string"),
+                "conflict_determination_ref": _nullable("string"),
+                "aml_risk_assessment_ref": _nullable("string"),
+                "review_reason_category": _nullable("string"),
+                "decline_reason_category": _nullable("string"),
+                "conduct_hook_refs": _nullable_string_array(),
+                "policy_snapshot_ref": _nullable("string"),
+            }
+        ),
+    },
+}
+
+
 def _response_schema(response_shape: dict[str, Any]) -> dict[str, Any]:
     schema = response_shape.get("schema")
     if not isinstance(schema, dict):
@@ -274,7 +367,10 @@ def _example_from_schema(schema: dict[str, Any]) -> Any:
 __all__ = [
     "UC1_AGENT_CONTRACT_REF",
     "UC1_RESPONSE_SCHEMA_SOURCE",
+    "UC2_AGENT_CONTRACT_REF",
+    "UC2_RESPONSE_SCHEMA_SOURCE",
     "response_shape_instruction",
     "response_shape_metadata",
     "uc1_response_shape_for_task",
+    "uc2_response_shape_for_task",
 ]

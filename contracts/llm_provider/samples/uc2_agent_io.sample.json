@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "21000000-0000-4000-8000-000000000001",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_uc2_legal_intake_001",
+  "workflow_id": "uc2-legal-synthetic-001",
+  "agent_role": "legal_matter_classifier",
+  "task_kind": "uc2_matter_classification",
+  "input": {
+    "legal_intake_ref": "legal_intake_legal_email_001",
+    "subject_summary": "Synthetic corporate transaction enquiry",
+    "matter_scope_summary": "Safe summary ref for corporate transaction support"
+  },
+  "expected_output_contract": "contracts/llm_provider/uc2_agent_io.schema.json",
+  "result": {
+    "summary": "Classified as a corporate transaction matter in England and Wales.",
+    "confidence": 0.86,
+    "structured_data": {
+      "matter_type": "corporate_transaction",
+      "matter_scope_ref": "matter_scope_demo_uc2_001",
+      "jurisdiction_categories": [
+        "england_and_wales"
+      ],
+      "policy_snapshot_ref": "policy_snapshot:uc2:default:v1"
+    },
+    "recommended_next_step": "continue",
+    "rationale": "The safe intake summary maps to the local UC2 corporate transaction route.",
+    "citations": []
+  }
+}

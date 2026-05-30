@@ -217,10 +217,35 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
   leaving the operator-facing UC2 command to the later runbook slice. Verified
   with `uv run pytest tests/workflows/test_uc2_synthetic_intake.py -q`, `just
   contracts-check`, `just lint`, `just doctor`, and `git diff --check`.
-- [ ] Seed a UC2 model route policy that selects the recorded-replay route by
-  default and the OpenAI route when credentials are present. Wire the policy
-  through `model_routing_policies` and `model_route_versions` with the same
-  governance shape as UC1.
+- [x] Seed a UC2 model route policy that selects the recorded-replay route by
+  default and records the intended OpenAI promotion metadata without
+  activating a live route before the P3 gate. Wire the policy through
+  `model_routing_policies` and `model_route_versions` with the same governance
+  shape as UC1.
+  Evidence (2026-05-30): `infrastructure/postgres/seeds/001_demo_tenants.sql`
+  now seeds UC2 agent registry rows for the legal matter classifier and party
+  extractor, plus recorded-replay `model_routing_policies` for the four UC2
+  model-backed workflow tasks used by
+  `uc2_legal_services_intake_conflict_check`. `002_provider_governance.sql`
+  extends the recorded-replay provider catalogue and route-version evidence to
+  those UC2 task kinds while keeping OpenAI and DeepSeek disabled and recording
+  the intended future OpenAI promotion metadata for P3. Migration
+  `002_uc2_model_route_roles.sql` moves the role constraints forward without
+  rewriting the baseline migration. The Agent Runtime now resolves UC2
+  `Uc2AgentIO` contracts through the LLM provider port, passes UC2 response
+  shapes to recorded replay, and fails loudly when an approved policy lacks a
+  matching approved route version. Focused coverage proves UC2 policy seeding,
+  route-version alignment, and runtime resolution without silent fallback.
+  Verified with `uv run pytest
+  tests/agent_runtime/test_runtime.py::test_runtime_passes_uc2_response_shape_to_provider_port
+  tests/agent_runtime/test_runtime.py::test_uc2_policy_resolution_invokes_recorded_replay_route_versions
+  tests/persistence/test_postgres_foundation.py::test_uc2_model_route_policies_are_seeded_with_route_versions
+  tests/persistence/test_postgres_foundation.py::test_migrations_and_seeds_are_idempotent
+  tests/persistence/test_postgres_foundation.py::test_agent_registry_roles_are_constrained_for_seeded_r4_agents
+  tests/persistence/test_postgres_foundation.py::test_provider_catalogue_seed_uc1_model
+  tests/test_contracts.py::test_generated_models_validate_representative_samples
+  -q`, `just contracts-check`, `just lint`, `just doctor`, and `git diff
+  --check`.
 - [ ] Play UC2 happy-path and one branch fixture end-to-end through the
   running stack. The fixtures must drive the actual workflow code path, not
   synthetic captured-run artefacts only. Tighten `chorus/eval/use_cases/uc2_conduct.py`
@@ -298,43 +323,39 @@ session is reprompted with the answer included.
 
 ```text
 We are in /home/ryan/Work/chorus. Continue R5 P1 — UC2 To Runnable — by
-seeding the UC2 model route policy so the UC2 workflow can resolve governed
-agent-runtime routes.
+playing UC2 happy-path and one conduct-relevant branch fixture end-to-end
+through the running stack.
 
 Read AGENTS.md and docs/transformation/r5-implementation-backlog.md, then run
 `git status --short --branch`. Preserve unrelated user changes.
 
-Inspect the current UC1 governance and runtime route pattern plus the UC2
-workflow before editing: `just --list`, `justfile`,
-`infrastructure/postgres/seeds/001_demo_tenants.sql`,
-`infrastructure/postgres/seeds/002_provider_governance.sql`,
-`infrastructure/postgres/seeds/004_uc1_policy_snapshots.sql`,
-`contracts/llm_provider/`, `chorus/agent_runtime/runtime.py`,
-`chorus/agent_runtime/response_schemas.py`, `chorus/llm_provider/`,
+Inspect the current UC2 workflow, intake, route-policy, replay, and conduct
+evidence before editing: `just --list`, `justfile`,
 `chorus/workflows/uc2.py`, `chorus/workflows/uc2_synthetic_intake.py`,
-`tests/agent_runtime/`, `tests/persistence/`, and `docs/runbook.md`.
+`chorus/workflows/activities.py`, `chorus/agent_runtime/runtime.py`,
+`chorus/llm_provider/adapter_replay.py`, `chorus/eval/use_cases/uc2_conduct.py`,
+`chorus/eval/fixtures/uc2/`, `contracts/intake/uc2/`, `contracts/eval/`,
+`tests/workflows/`, `tests/agent_runtime/`, `tests/eval/`, and
+`docs/runbook.md`.
 
-Implement the next narrow slice: seed UC2 model-route policy rows for the UC2
-agent roles / task kinds used by `uc2_legal_services_intake_conflict_check`.
-The default local route must be recorded-replay, and the governance shape must
-match UC1's route-policy / route-version evidence. Add only the narrow runtime
-or contract support needed for UC2 route resolution to compile and fail loudly;
-do not activate live OpenAI or DeepSeek routes in this slice. When credentials
-are present, the policy metadata may describe the intended OpenAI route, but
-actual live-route activation remains the later R5 P3 gate.
+Implement the next narrow slice: add or tighten the fixtures and runtime path
+needed to drive the UC2 happy path and one conduct-relevant branch through the
+actual workflow code path, not synthetic captured-run artefacts only. Tighten
+`chorus/eval/use_cases/uc2_conduct.py` invariants so missing workflow progress,
+agent decision, transcript, tool/audit, or approval-package evidence fails
+loudly at the stage where it is absent. Keep the change scoped to UC2; do not
+change projection/UI behaviour, live provider credentials, UC3, or eval fixture
+playback outside the minimum shared support needed for this UC2 playback slice.
 
-Add focused tests that prove UC2 route policies are seeded, route-version
-governance is aligned, and the Agent Runtime can resolve the UC2 roles/task
-kinds through the LLM provider port without falling back silently. Keep the
-change scoped to UC2; do not change eval fixture playback, projection/UI
-behaviour, live credentials, or UC3 unless the UC2 route-policy slice cannot
-compile without a narrow shared fix.
+Add focused tests that prove both UC2 fixtures run through the workflow path
+and that the conduct invariants reject missing evidence rather than passing
+silently. Use the running local stack if required, but do not run destructive
+Docker, volume, database, reset, or checkout commands. If a required live stack
+gate cannot be made green without destructive action, stop without committing
+and surface the blocker.
 
-Run the focused pytest for the new/changed UC2 route-policy coverage, `just
-contracts-check`, `just lint`, `just doctor`, and `git diff --check`. Do not
-run destructive Docker, volume, database, reset, or checkout commands. If a
-required live stack gate cannot be made green without destructive action, stop
-without committing and surface the blocker.
+Run the focused pytest for the new/changed UC2 workflow and conduct coverage,
+`just contracts-check`, `just lint`, `just doctor`, and `git diff --check`.
 
 End-of-session contract:
 - Update checkboxes and evidence notes for the slice you completed.

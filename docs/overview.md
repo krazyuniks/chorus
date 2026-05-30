@@ -182,8 +182,9 @@ runnable through the Mailpit/email intake path. UC2 and UC3 prove shared
 workflow, connector, grant, approval-package, conduct-invariant, projection,
 BFF/UI inspection, and schema-only eval surfaces, but they are explicit R4
 closure exceptions to the earlier use-case runnable definition because local
-intake start paths, use-case provider route activation, and full fixture
-playback remain absent. The full mapping is in
+intake start paths, UC3 provider route activation, and full fixture playback
+remain absent. R5 has added UC2 synthetic intake and recorded-replay route
+policies for the UC2 workflow agent tasks. The full mapping is in
 [`r1-adapter-mapping.md`](r1-adapter-mapping.md); the closed R4 backlog is in
 [`transformation/r4-implementation-backlog.md`](transformation/r4-implementation-backlog.md).
 The UK-regulated use-case set is recorded in

@@ -65,9 +65,10 @@ flowchart TB
 
 The adapter inventory behind each port, as closed in R4 and extended in R5.
 UC1 is the locally runnable worked set. UC2 now has a code-level synthetic
-email-intake fixture adapter, but UC2 and UC3 are not claimed as locally
-runnable use cases because documented operator intake commands, use-case
-provider route activation, and full fixture playback remain deferred.
+email-intake fixture adapter and recorded-replay model routes for its workflow
+agent tasks, but UC2 and UC3 are not claimed as locally runnable use cases
+because documented operator intake commands, UC3 provider route activation,
+and full fixture playback remain deferred.
 
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|
