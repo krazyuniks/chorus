@@ -46,6 +46,37 @@ describe("WorkflowDetailView", () => {
     expect(screen.getAllByText("approval_required").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/engagement_letter_demo_001/).length).toBeGreaterThan(0);
   });
+
+  it("renders UC3 workflow progress, audit evidence, and approval-package state", () => {
+    const workflowId = "uc3-2026-05-24-0001";
+    const run = workflowRuns.find((row) => row.workflow_id === workflowId);
+
+    if (!run) {
+      throw new Error("UC3 fixture workflow is missing");
+    }
+
+    render(
+      <WorkflowDetailView
+        workflowId={workflowId}
+        run={run}
+        events={workflowEvents[workflowId] ?? []}
+        decisions={decisionTrail.filter((row) => row.workflow_id === workflowId)}
+        verdicts={toolVerdicts.filter((row) => row.workflow_id === workflowId)}
+        approvalPackages={approvalPackages.filter(
+          (row) => row.workflow_id === workflowId,
+        )}
+      />,
+    );
+
+    expect(screen.getByText(workflowId)).toBeInTheDocument();
+    expect(screen.getByText("uc3_ifa_suitability_intake")).toBeInTheDocument();
+    expect(screen.getByText("suitability_report_issue")).toBeInTheDocument();
+    expect(screen.getByText("uc3_suitability_conclusion")).toBeInTheDocument();
+    expect(screen.getAllByText("suitability_report.issue").length).toBeGreaterThan(0);
+    expect(screen.getByText("suitability_report.issue.write")).toBeInTheDocument();
+    expect(screen.getAllByText("approval_required").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/suitability_report_demo_001/).length).toBeGreaterThan(0);
+  });
 });
 
 describe("invalidateWorkflowEvidence", () => {

@@ -31,9 +31,9 @@ email advice intake adapter registered with the shared worker. UC3 workflow
 playback now exercises the recorded-replay Agent Runtime route, Tool Gateway,
 decision/transcript persistence, tool-action audit, approval-package capture,
 and outbox progress for a suitability-report issue approval fixture and a
-Consumer Duty vulnerability-support handoff branch. It does not yet have
-projection evidence for a triggered local run or a documented operator
-command.
+Consumer Duty vulnerability-support handoff branch. The happy issue fixture
+now also has triggered-run projection evidence through the existing BFF/UI
+inspection surfaces. UC3 does not yet have a documented operator command.
 
 ## Local development bootstrap
 
@@ -307,7 +307,7 @@ and the happy-path evidence projects into the existing BFF/UI inspection
 surfaces. UC3 has the code-level synthetic intake adapter, recorded-replay
 route policy for its workflow agent tasks, and workflow-path playback for a
 happy suitability-report issue approval fixture plus a vulnerability-support
-handoff branch; projection evidence and command documentation remain open.
+handoff branch; command documentation remains open.
 
 ### LLM provider port
 
@@ -431,14 +431,14 @@ grants for those tool names; `suitability_report.issue` is the
 approval-required write, while risk-profile override and vulnerability
 handoff remain workflow/manual-review conduct evidence until a later slice
 adds exact connector request shapes for those packages. Read-only projection,
-BFF, and UI fixture evidence can show safe UC3 workflow progress and generic
-approval-package state for `suitability_report.issue` when rows exist. The
+BFF, and UI evidence now show safe triggered UC3 workflow progress and generic
+approval-package state for `suitability_report.issue`. The
 code-level synthetic email advice intake adapter validates the documented
 `email_advice_enquiry` sample, normalises it to `Uc3AdviceEnquiry`, derives
 stable `uc3-advice-*` workflow IDs and safe refs, and delegates to the UC3
 Temporal workflow on the shared task queue. The runbook does not yet claim a
-runnable UC3 local intake path: projection evidence for a triggered local run
-and the documented operator command remain absent. The UC3 model-backed
+runnable UC3 local intake path: the documented operator command remains absent.
+The UC3 model-backed
 workflow tasks resolve through the recorded-replay provider route by default,
 and workflow-path eval playback now captures decision/transcript, Tool
 Gateway audit, approval-package, and outbox-progress evidence for the happy
@@ -655,8 +655,9 @@ sequence is stable; the UC1 enquiry-qualification workflow runs it
 end-to-end on the shared `WorkflowSpine`. UC2 now has its own synthetic
 email-intake walk-through above. UC3 has a code-level synthetic email intake
 adapter, recorded-replay route policy, and workflow-path playback for the
-happy issue path plus a vulnerability-support handoff branch, but remains
-open until projection evidence and the documented operator command land.
+happy issue path plus a vulnerability-support handoff branch, with triggered
+projection evidence for the happy issue path. It remains open until the
+documented operator command lands.
 Live-provider route
 activation remains deferred to R5 P3.
 

@@ -468,9 +468,9 @@ class BffFixture:
                 "suitability_conclusion_ref": "suitability_conclusion_bff_unit_001",
                 "consumer_understanding_check_ref": "consumer_understanding_bff_unit_001",
                 "conduct_hook_refs": [
-                    "conduct_fca_cobs_9_suitability",
-                    "conduct_fca_prod_3_target_market",
-                    "conduct_fca_prin_2a_consumer_duty",
+                    "conduct_fca_cobs_9_report",
+                    "conduct_fca_prin_2a_consumer_understanding",
+                    "conduct_fca_cobs_9_recordkeeping",
                 ],
             },
             requested_at=self.now,
@@ -818,9 +818,9 @@ def test_audit_and_runtime_policy_endpoints_are_read_only_views() -> None:
         "advice_enquiry_bff_unit_001"
     )
     assert uc3_approval_packages[0]["action_refs"]["conduct_hook_refs"] == [
-        "conduct_fca_cobs_9_suitability",
-        "conduct_fca_prod_3_target_market",
-        "conduct_fca_prin_2a_consumer_duty",
+        "conduct_fca_cobs_9_report",
+        "conduct_fca_prin_2a_consumer_understanding",
+        "conduct_fca_cobs_9_recordkeeping",
     ]
     assert "raw_suitability_report_text" not in uc3_approval_packages[0]["action_refs"]
     assert "client_name" not in uc3_approval_packages[0]["action_refs"]

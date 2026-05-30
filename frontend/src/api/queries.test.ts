@@ -10,6 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   approvalPackages,
+  decisionTrail,
   grants,
   toolVerdicts,
   workflowEvents,
@@ -120,6 +121,12 @@ describe("queries", () => {
     const verdict = toolVerdicts.find(
       (entry) => entry.tool_name === "suitability_report.issue",
     );
+    const decisions = decisionTrail.filter(
+      (entry) => entry.workflow_id === "uc3-2026-05-24-0001",
+    );
+    const verdicts = toolVerdicts.filter(
+      (entry) => entry.workflow_id === "uc3-2026-05-24-0001",
+    );
     const grant = grants.find(
       (entry) =>
         entry.tool_name === "suitability_report.issue" && entry.mode === "write",
@@ -137,8 +144,16 @@ describe("queries", () => {
             suitability_conclusion_ref: "suitability_conclusion_demo_001",
           }),
         }),
+        expect.objectContaining({ step: "suitability_report_issue" }),
       ]),
     );
+    expect(decisions.map((row) => row.task_kind)).toEqual([
+      "uc3_advice_scope_classification",
+      "uc3_fact_find_summary",
+      "uc3_risk_profile_assessment",
+      "uc3_consumer_duty_support_assessment",
+      "uc3_suitability_conclusion",
+    ]);
     expect(packageEntry).toMatchObject({
       workflow_id: "uc3-2026-05-24-0001",
       workflow_type: "uc3_ifa_suitability_intake",
@@ -153,13 +168,20 @@ describe("queries", () => {
       suitability_report_ref: "suitability_report_demo_001",
       suitability_conclusion_ref: "suitability_conclusion_demo_001",
       conduct_hook_refs: [
-        "conduct_fca_cobs_9_suitability",
-        "conduct_fca_prod_3_target_market",
-        "conduct_fca_prin_2a_consumer_duty",
+        "conduct_fca_cobs_9_report",
+        "conduct_fca_prin_2a_consumer_understanding",
+        "conduct_fca_cobs_9_recordkeeping",
       ],
     });
     expect(packageEntry?.action_refs).not.toHaveProperty("raw_suitability_report_text");
     expect(packageEntry?.action_refs).not.toHaveProperty("client_name");
+    expect(verdicts.map((row) => row.tool_name)).toEqual([
+      "attitude_to_risk.profile",
+      "capacity_for_loss.assess",
+      "platform_research.run",
+      "suitability_report.draft",
+      "suitability_report.issue",
+    ]);
     expect(verdict?.verdict).toBe("approval_required");
     expect(grant?.approval_required).toBe(true);
   });
