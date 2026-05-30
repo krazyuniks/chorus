@@ -130,10 +130,19 @@
         "agent_role": {
           "type": "string",
           "enum": [
+            "advice_scope_classifier",
             "classifier",
+            "conflict_analyst",
+            "consumer_duty_support_assessor",
             "context_gatherer",
+            "engagement_decider",
+            "fact_find_summariser",
+            "legal_matter_classifier",
+            "legal_party_extractor",
             "qualifier",
             "request_drafter",
+            "risk_profile_assessor",
+            "suitability_decider",
             "validator"
           ]
         },

@@ -9,8 +9,10 @@ from typing import Any, cast
 
 UC1_AGENT_CONTRACT_REF = "contracts/llm_provider/uc1_agent_io.schema.json"
 UC2_AGENT_CONTRACT_REF = "contracts/llm_provider/uc2_agent_io.schema.json"
+UC3_AGENT_CONTRACT_REF = "contracts/llm_provider/uc3_agent_io.schema.json"
 UC1_RESPONSE_SCHEMA_SOURCE = "agent-runtime.uc1.response-schema.v1"
 UC2_RESPONSE_SCHEMA_SOURCE = "agent-runtime.uc2.response-schema.v1"
+UC3_RESPONSE_SCHEMA_SOURCE = "agent-runtime.uc3.response-schema.v1"
 
 
 def uc1_response_shape_for_task(task_kind: str) -> dict[str, Any]:
@@ -53,6 +55,28 @@ def uc2_response_shape_for_task(task_kind: str) -> dict[str, Any]:
         "schema": schema,
         "strict": True,
         "source": UC2_RESPONSE_SCHEMA_SOURCE,
+    }
+    return copy.deepcopy(shape)
+
+
+def uc3_response_shape_for_task(task_kind: str) -> dict[str, Any]:
+    """Return the provider-neutral response shape for a UC3 task kind."""
+
+    spec = _UC3_TASK_SPECS.get(task_kind)
+    if spec is None:
+        raise ValueError(f"Unsupported UC3 response schema task kind {task_kind!r}")
+
+    schema = _top_level_response_schema(
+        structured_data_schema=spec["structured_data_schema"],
+        recommended_next_steps=cast(tuple[str, ...], spec["recommended_next_steps"]),
+    )
+    shape: dict[str, Any] = {
+        "name": f"uc3_{task_kind}_response",
+        "contract_ref": UC3_AGENT_CONTRACT_REF,
+        "task_kind": task_kind,
+        "schema": schema,
+        "strict": True,
+        "source": UC3_RESPONSE_SCHEMA_SOURCE,
     }
     return copy.deepcopy(shape)
 
@@ -317,6 +341,108 @@ _UC2_TASK_SPECS: dict[str, dict[str, Any]] = {
 }
 
 
+_UC3_TASK_SPECS: dict[str, dict[str, Any]] = {
+    "uc3_advice_scope_classification": {
+        "recommended_next_steps": ("continue", "manual_review", "escalate"),
+        "structured_data_schema": _object_schema(
+            {
+                "advice_scope_ref": _nullable("string"),
+                "advice_scope": _nullable("string"),
+                "client_category": _nullable("string"),
+                "authority_status": _nullable("string"),
+                "conduct_hook_refs": _nullable_string_array(),
+                "policy_snapshot_ref": _nullable("string"),
+            }
+        ),
+    },
+    "uc3_fact_find_summary": {
+        "recommended_next_steps": (
+            "continue",
+            "manual_review",
+            "fact_find_incomplete",
+            "escalate",
+        ),
+        "structured_data_schema": _object_schema(
+            {
+                "fact_find_summary_ref": _nullable("string"),
+                "fact_find_completeness": _nullable("string"),
+                "objective_refs": _nullable_string_array(),
+                "knowledge_experience_ref": _nullable("string"),
+                "prospective_retail_client_ref": _nullable("string"),
+                "financial_situation_ref": _nullable("string"),
+                "questionnaire_bundle_ref": _nullable("string"),
+                "risk_preference_band": _nullable("string"),
+                "time_horizon_band": _nullable("string"),
+                "liquidity_need_category": _nullable("string"),
+                "dependency_context_refs": _nullable_string_array(),
+                "product_candidate_refs": _nullable_string_array(),
+                "conduct_hook_refs": _nullable_string_array(),
+                "policy_snapshot_ref": _nullable("string"),
+            }
+        ),
+    },
+    "uc3_risk_profile_assessment": {
+        "recommended_next_steps": (
+            "continue",
+            "approval_required",
+            "manual_review",
+            "escalate",
+        ),
+        "structured_data_schema": _object_schema(
+            {
+                "risk_profile_ref": _nullable("string"),
+                "risk_profile_status": _nullable("string"),
+                "approval_required": _nullable("boolean"),
+                "risk_context_categories": _nullable_string_array(),
+                "product_universe_scope": _nullable("string"),
+                "draft_basis_categories": _nullable_string_array(),
+                "conduct_hook_refs": _nullable_string_array(),
+                "policy_snapshot_ref": _nullable("string"),
+            }
+        ),
+    },
+    "uc3_consumer_duty_support_assessment": {
+        "recommended_next_steps": (
+            "continue",
+            "approval_required",
+            "manual_review",
+            "escalate",
+        ),
+        "structured_data_schema": _object_schema(
+            {
+                "support_assessment_ref": _nullable("string"),
+                "support_status": _nullable("string"),
+                "vulnerability_marker_categories": _nullable_string_array(),
+                "approval_required": _nullable("boolean"),
+                "consumer_understanding_check_ref": _nullable("string"),
+                "conduct_hook_refs": _nullable_string_array(),
+                "policy_snapshot_ref": _nullable("string"),
+            }
+        ),
+    },
+    "uc3_suitability_conclusion": {
+        "recommended_next_steps": ("continue", "manual_review", "escalate"),
+        "structured_data_schema": _object_schema(
+            {
+                "suitability_conclusion_ref": _nullable("string"),
+                "suitability_outcome": _nullable("string"),
+                "suitability_report_ref": _nullable("string"),
+                "report_summary_ref": _nullable("string"),
+                "approval_package_ref": _nullable("string"),
+                "adviser_approval_ref": _nullable("string"),
+                "consumer_understanding_check_ref": _nullable("string"),
+                "prospective_retail_client_ref": _nullable("string"),
+                "issue_channel_category": _nullable("string"),
+                "decline_reason_category": _nullable("string"),
+                "review_reason_category": _nullable("string"),
+                "conduct_hook_refs": _nullable_string_array(),
+                "policy_snapshot_ref": _nullable("string"),
+            }
+        ),
+    },
+}
+
+
 def _response_schema(response_shape: dict[str, Any]) -> dict[str, Any]:
     schema = response_shape.get("schema")
     if not isinstance(schema, dict):
@@ -377,8 +503,11 @@ __all__ = [
     "UC1_RESPONSE_SCHEMA_SOURCE",
     "UC2_AGENT_CONTRACT_REF",
     "UC2_RESPONSE_SCHEMA_SOURCE",
+    "UC3_AGENT_CONTRACT_REF",
+    "UC3_RESPONSE_SCHEMA_SOURCE",
     "response_shape_instruction",
     "response_shape_metadata",
     "uc1_response_shape_for_task",
     "uc2_response_shape_for_task",
+    "uc3_response_shape_for_task",
 ]

@@ -2,9 +2,10 @@
 --
 -- Mirrors the contract samples and the model_routing_policies seeded in
 -- 001_demo_tenants.sql. The local recorded-replay route stays the runnable
--- structured boundary for UC1 and R5 P1 UC2 route-resolution evidence. The
--- DeepSeek and OpenAI rows are verified but disabled until live-provider
--- gates and the tiered replay comparator are complete.
+-- structured boundary for UC1, R5 P1 UC2 route-resolution evidence, and R5
+-- P2 UC3 route-resolution evidence. The DeepSeek and OpenAI rows are verified
+-- but disabled until live-provider gates and the tiered replay comparator are
+-- complete.
 
 INSERT INTO provider_catalogues (
     catalogue_id,
@@ -57,7 +58,7 @@ VALUES
         'allow',
         '{"mode": "local_only", "allowed_regions": [], "stores_customer_content": false}'::jsonb,
         '{"default_timeout_ms": 1000, "max_retries": 0, "rate_limit_policy": "local-process-boundary"}'::jsonb,
-        '{"owner": "agent-runtime", "declared_in": "infrastructure/postgres/seeds/002_provider_governance.sql", "notes": "Default runnable path for UC1 evidence and R5 P1 UC2 route-resolution evidence."}'::jsonb
+        '{"owner": "agent-runtime", "declared_in": "infrastructure/postgres/seeds/002_provider_governance.sql", "notes": "Default runnable path for UC1 evidence, R5 P1 UC2 route-resolution evidence, and R5 P2 UC3 route-resolution evidence."}'::jsonb
     ),
     (
         'provider-catalogue.local.seed',
@@ -125,7 +126,12 @@ VALUES
             'uc2_matter_classification',
             'uc2_party_extraction',
             'uc2_conflict_determination',
-            'uc2_engagement_decision'
+            'uc2_engagement_decision',
+            'uc3_advice_scope_classification',
+            'uc3_fact_find_summary',
+            'uc3_risk_profile_assessment',
+            'uc3_consumer_duty_support_assessment',
+            'uc3_suitability_conclusion'
         ]::text[],
         true,
         8192,
@@ -146,7 +152,12 @@ VALUES
             'uc2_matter_classification',
             'uc2_party_extraction',
             'uc2_conflict_determination',
-            'uc2_engagement_decision'
+            'uc2_engagement_decision',
+            'uc3_advice_scope_classification',
+            'uc3_fact_find_summary',
+            'uc3_risk_profile_assessment',
+            'uc3_consumer_duty_support_assessment',
+            'uc3_suitability_conclusion'
         ]::text[],
         true,
         1000000,
@@ -167,7 +178,12 @@ VALUES
             'uc2_matter_classification',
             'uc2_party_extraction',
             'uc2_conflict_determination',
-            'uc2_engagement_decision'
+            'uc2_engagement_decision',
+            'uc3_advice_scope_classification',
+            'uc3_fact_find_summary',
+            'uc3_risk_profile_assessment',
+            'uc3_consumer_duty_support_assessment',
+            'uc3_suitability_conclusion'
         ]::text[],
         true,
         400000,
@@ -225,6 +241,10 @@ SELECT
         THEN ARRAY[
             'chorus/eval/fixtures/uc2/uc2_synthetic_acceptance_conduct.json'
         ]::text[]
+        WHEN task_kind LIKE 'uc3_%'
+        THEN ARRAY[
+            'chorus/eval/fixtures/uc3/uc3_synthetic_suitability_conduct.json'
+        ]::text[]
         ELSE ARRAY[
             'chorus/eval/fixtures/uc1_happy_path.json',
             'chorus/eval/fixtures/uc1_validator_redraft.json',
@@ -234,7 +254,7 @@ SELECT
         ]::text[]
     END,
     CASE
-        WHEN task_kind LIKE 'uc2_%'
+        WHEN task_kind LIKE 'uc2_%' OR task_kind LIKE 'uc3_%'
         THEN '{
             "approved_by": "architecture-docs",
             "future_live_route": {
@@ -259,6 +279,11 @@ WHERE provider = 'local'
       'legal_matter_classifier',
       'legal_party_extractor',
       'conflict_analyst',
-      'engagement_decider'
+      'engagement_decider',
+      'advice_scope_classifier',
+      'fact_find_summariser',
+      'risk_profile_assessor',
+      'consumer_duty_support_assessor',
+      'suitability_decider'
   )
 ON CONFLICT (route_id, route_version) DO NOTHING;

@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "31000000-0000-4000-8000-000000000001",
+  "tenant_id": "tenant_demo",
+  "correlation_id": "cor_uc3_advice_enquiry_001",
+  "workflow_id": "uc3-advice-synthetic-001",
+  "agent_role": "advice_scope_classifier",
+  "task_kind": "uc3_advice_scope_classification",
+  "input": {
+    "advice_enquiry_ref": "advice_enquiry_email_001",
+    "subject_summary": "Synthetic pension consolidation enquiry",
+    "advice_need_categories": [
+      "pension_consolidation"
+    ]
+  },
+  "expected_output_contract": "contracts/llm_provider/uc3_agent_io.schema.json",
+  "result": {
+    "summary": "Classified as in-scope independent advice for a retail client.",
+    "confidence": 0.86,
+    "structured_data": {
+      "advice_scope": "independent_advice_in_scope",
+      "advice_scope_ref": "advice_scope_email_001",
+      "client_category": "retail_client",
+      "authority_status": "confirmed",
+      "policy_snapshot_ref": "policy_snapshot:uc3:default:v1"
+    },
+    "recommended_next_step": "continue",
+    "rationale": "The safe intake summary maps to the local UC3 independent advice route.",
+    "citations": []
+  }
+}

@@ -138,7 +138,7 @@ def test_migrations_and_seeds_are_idempotent(migrated_database_url: str) -> None
         "004_uc1_policy_snapshots.sql",
     ]
     assert tenant_count == (2,)
-    assert seed_agents == (19,)
+    assert seed_agents == (23,)
 
 
 def test_uc1_connector_reference_data_is_seeded(migrated_database_url: str) -> None:
@@ -190,18 +190,22 @@ def test_agent_registry_roles_are_constrained_for_seeded_r4_agents(
     with psycopg.connect(migrated_database_url) as conn:
         roles = conn.execute("SELECT DISTINCT role FROM agent_registry ORDER BY role").fetchall()
     assert roles == [
+        ("advice_scope_classifier",),
         ("aml_assessor",),
         ("capacity_assessor",),
         ("classifier",),
         ("conflict_analyst",),
+        ("consumer_duty_support_assessor",),
         ("context_gatherer",),
         ("engagement_decider",),
+        ("fact_find_summariser",),
         ("legal_matter_classifier",),
         ("legal_party_extractor",),
         ("qualifier",),
         ("request_drafter",),
         ("research_analyst",),
         ("risk_analyst",),
+        ("risk_profile_assessor",),
         ("suitability_decider",),
         ("validator",),
     ]
@@ -971,6 +975,7 @@ def test_provider_catalogue_seed_uc1_model(migrated_database_url: str) -> None:
              AND model.model_id = version.model_id
             WHERE policy.tenant_id = 'tenant_demo'
               AND policy.task_kind NOT LIKE 'uc2_%'
+              AND policy.task_kind NOT LIKE 'uc3_%'
             ORDER BY policy.agent_role, policy.task_kind
             """
         ).fetchall()
@@ -1047,6 +1052,72 @@ def test_uc2_model_route_policies_are_seeded_with_route_versions(
         route[12]["future_live_route"]["status"] == "deferred_until_R5_P3" for route in routes
     )
     assert all(route[12]["future_live_route"]["provider_id"] == "openai" for route in routes)
+
+
+def test_uc3_model_route_policies_are_seeded_with_route_versions(
+    migrated_database_url: str,
+) -> None:
+    with psycopg.connect(migrated_database_url) as conn:
+        routes = conn.execute(
+            """
+            SELECT
+                policy.agent_role,
+                policy.task_kind,
+                policy.runtime_route_id,
+                policy.provider,
+                policy.model,
+                version.route_version,
+                version.runtime_route_id,
+                version.provider_id,
+                version.model_id,
+                model.supported_task_kinds,
+                version.eval_required,
+                version.eval_fixture_refs,
+                version.promotion
+            FROM model_routing_policies AS policy
+            JOIN model_route_versions AS version
+              ON version.route_id = policy.policy_id
+             AND version.tenant_id = policy.tenant_id
+             AND version.agent_role = policy.agent_role
+             AND version.task_kind = policy.task_kind
+             AND version.tenant_tier = policy.tenant_tier
+             AND version.runtime_route_id = policy.runtime_route_id
+             AND version.provider_id = policy.provider
+             AND version.model_id = policy.model
+            JOIN provider_catalogue_models AS model
+              ON model.catalogue_id = version.provider_catalogue_id
+             AND model.provider_id = version.provider_id
+             AND model.model_id = version.model_id
+            WHERE policy.tenant_id = 'tenant_demo'
+              AND policy.task_kind LIKE 'uc3_%'
+            ORDER BY policy.agent_role, policy.task_kind
+            """
+        ).fetchall()
+
+    assert [(route[0], route[1]) for route in routes] == [
+        ("advice_scope_classifier", "uc3_advice_scope_classification"),
+        ("consumer_duty_support_assessor", "uc3_consumer_duty_support_assessment"),
+        ("fact_find_summariser", "uc3_fact_find_summary"),
+        ("risk_profile_assessor", "uc3_risk_profile_assessment"),
+        ("suitability_decider", "uc3_suitability_conclusion"),
+    ]
+    assert all(route[2] == "recorded-replay" and route[6] == "recorded-replay" for route in routes)
+    assert all(route[3] == "local" and route[4] == "uc1-happy-path-v1" for route in routes)
+    assert all(route[7] == "local" and route[8] == "uc1-happy-path-v1" for route in routes)
+    assert all(route[5] == 1 and route[10] is True for route in routes)
+    assert all(route[1] in route[9] for route in routes)
+    assert all(
+        "chorus/eval/fixtures/uc3/uc3_synthetic_suitability_conduct.json" in route[11]
+        for route in routes
+    )
+    assert all(
+        route[12]["future_live_route"]["status"] == "deferred_until_R5_P3" for route in routes
+    )
+    assert all(route[12]["future_live_route"]["provider_id"] == "openai" for route in routes)
+    assert all(
+        route[12]["future_live_route"]["runtime_route_id"] == "demo-eval-canonical"
+        for route in routes
+    )
 
 
 def test_runtime_policy_snapshot_is_tenant_scoped(migrated_database_url: str) -> None:

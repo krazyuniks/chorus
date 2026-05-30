@@ -395,6 +395,142 @@ def _replay_result_for(
                 },
                 0.86,
             )
+        case "uc3_advice_scope_classification":
+            return (
+                "Classified the advice enquiry as in-scope independent advice.",
+                "continue",
+                {
+                    "advice_scope_ref": _uc3_ref("advice_scope", agent_input, "demo_001"),
+                    "advice_scope": "independent_advice_in_scope",
+                    "client_category": "retail_client",
+                    "authority_status": "confirmed",
+                    "conduct_hook_refs": [
+                        "conduct_fca_cobs_6_2b_independent_advice",
+                        "conduct_fca_cobs_9_suitability",
+                        "conduct_fca_prin_2a_consumer_duty",
+                    ],
+                    "policy_snapshot_ref": "policy_snapshot:uc3:default:v1",
+                },
+                0.86,
+            )
+        case "uc3_fact_find_summary":
+            return (
+                "Summarised the synthetic fact find as complete for suitability.",
+                "continue",
+                {
+                    "fact_find_summary_ref": _uc3_ref("fact_find", agent_input, "demo_001"),
+                    "fact_find_completeness": "complete",
+                    "objective_refs": [_uc3_ref("objective_retirement", agent_input, "demo_001")],
+                    "knowledge_experience_ref": _uc3_ref(
+                        "knowledge_experience", agent_input, "demo_001"
+                    ),
+                    "prospective_retail_client_ref": _uc3_ref(
+                        "prospective_client", agent_input, "demo_001"
+                    ),
+                    "financial_situation_ref": _uc3_ref(
+                        "financial_situation", agent_input, "demo_001"
+                    ),
+                    "questionnaire_bundle_ref": _uc3_ref(
+                        "risk_questionnaire", agent_input, "demo_001"
+                    ),
+                    "risk_preference_band": "medium",
+                    "time_horizon_band": "medium_term",
+                    "liquidity_need_category": "standard_access",
+                    "dependency_context_refs": [],
+                    "product_candidate_refs": ["product_candidate_uc3_default_model_portfolio"],
+                    "conduct_hook_refs": [
+                        "conduct_fca_cobs_9_suitability",
+                        "conduct_fca_cobs_9_recordkeeping",
+                    ],
+                    "policy_snapshot_ref": "policy_snapshot:uc3:default:v1",
+                },
+                0.85,
+            )
+        case "uc3_risk_profile_assessment":
+            fact_find_data = _dict_value(agent_input.get("fact_find_data"))
+            risk_profile_ref = _string_value(fact_find_data.get("risk_profile_ref")) or _uc3_ref(
+                "risk_profile", agent_input, "demo_001"
+            )
+            return (
+                "Risk profile is aligned with the synthetic suitability evidence.",
+                "continue",
+                {
+                    "risk_profile_ref": risk_profile_ref,
+                    "risk_profile_status": "aligned",
+                    "approval_required": False,
+                    "risk_context_categories": ["standard_capacity"],
+                    "product_universe_scope": "independent_full_relevant_market",
+                    "draft_basis_categories": ["standard_independent_advice"],
+                    "conduct_hook_refs": [
+                        "conduct_fca_cobs_9_suitability",
+                        "conduct_fca_prin_2a_foreseeable_harm",
+                    ],
+                    "policy_snapshot_ref": "policy_snapshot:uc3:default:v1",
+                },
+                0.87,
+            )
+        case "uc3_consumer_duty_support_assessment":
+            return (
+                "Consumer Duty support evidence is recorded with no handoff required.",
+                "continue",
+                {
+                    "support_assessment_ref": _uc3_ref(
+                        "support_assessment", agent_input, "demo_001"
+                    ),
+                    "support_status": "support_adjustment_recorded",
+                    "vulnerability_marker_categories": ["none"],
+                    "approval_required": False,
+                    "consumer_understanding_check_ref": _uc3_ref(
+                        "consumer_understanding", agent_input, "demo_001"
+                    ),
+                    "conduct_hook_refs": [
+                        "conduct_fca_prin_2a_consumer_duty",
+                        "conduct_fca_vulnerability_fg21_1",
+                    ],
+                    "policy_snapshot_ref": "policy_snapshot:uc3:default:v1",
+                },
+                0.84,
+            )
+        case "uc3_suitability_conclusion":
+            fact_find_data = _dict_value(agent_input.get("fact_find_data"))
+            support_data = _dict_value(agent_input.get("support_assessment_data"))
+            return (
+                "Suitability conclusion can proceed subject to adviser approval.",
+                "continue",
+                {
+                    "suitability_conclusion_ref": _uc3_ref(
+                        "suitability_conclusion", agent_input, "demo_001"
+                    ),
+                    "suitability_outcome": "suitable_subject_to_adviser_approval",
+                    "suitability_report_ref": _uc3_ref(
+                        "suitability_report", agent_input, "demo_001"
+                    ),
+                    "report_summary_ref": _uc3_ref("report_summary", agent_input, "demo_001"),
+                    "approval_package_ref": _uc3_ref("approval", agent_input, "demo_001"),
+                    "adviser_approval_ref": _uc3_ref("approval_adviser", agent_input, "demo_001"),
+                    "consumer_understanding_check_ref": _string_value(
+                        support_data.get("consumer_understanding_check_ref")
+                    )
+                    or _uc3_ref("consumer_understanding", agent_input, "demo_001"),
+                    "prospective_retail_client_ref": _string_value(
+                        fact_find_data.get("prospective_retail_client_ref")
+                    )
+                    or _uc3_ref("prospective_client", agent_input, "demo_001"),
+                    "issue_channel_category": "portal",
+                    "decline_reason_category": None,
+                    "review_reason_category": None,
+                    "conduct_hook_refs": [
+                        "conduct_fca_cobs_2_1_client_best_interests",
+                        "conduct_fca_cobs_6_2b_independent_advice",
+                        "conduct_fca_cobs_9_suitability",
+                        "conduct_fca_prod_3_target_market",
+                        "conduct_fca_prin_2a_consumer_duty",
+                        "conduct_fca_cobs_9_recordkeeping",
+                    ],
+                    "policy_snapshot_ref": "policy_snapshot:uc3:default:v1",
+                },
+                0.86,
+            )
         case _:
             return (
                 "Input accepted for UC1 processing.",
@@ -607,6 +743,13 @@ def _uc2_party_search_terms(agent_input: dict[str, Any]) -> list[dict[str, str]]
 def _uc2_ref(prefix: str, agent_input: dict[str, Any], fallback_suffix: str) -> str:
     legal_intake_ref = _string_value(agent_input.get("legal_intake_ref"))
     suffix = legal_intake_ref.removeprefix("legal_intake_") or fallback_suffix
+    safe_suffix = "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in suffix)
+    return f"{prefix}_{safe_suffix or fallback_suffix}"
+
+
+def _uc3_ref(prefix: str, agent_input: dict[str, Any], fallback_suffix: str) -> str:
+    advice_enquiry_ref = _string_value(agent_input.get("advice_enquiry_ref"))
+    suffix = advice_enquiry_ref.removeprefix("advice_enquiry_") or fallback_suffix
     safe_suffix = "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in suffix)
     return f"{prefix}_{safe_suffix or fallback_suffix}"
 

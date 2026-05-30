@@ -33,10 +33,19 @@ class Alternate(BaseModel):
 
 
 class AgentRole(StrEnum):
+    ADVICE_SCOPE_CLASSIFIER = "advice_scope_classifier"
     CLASSIFIER = "classifier"
+    CONFLICT_ANALYST = "conflict_analyst"
+    CONSUMER_DUTY_SUPPORT_ASSESSOR = "consumer_duty_support_assessor"
     CONTEXT_GATHERER = "context_gatherer"
+    ENGAGEMENT_DECIDER = "engagement_decider"
+    FACT_FIND_SUMMARISER = "fact_find_summariser"
+    LEGAL_MATTER_CLASSIFIER = "legal_matter_classifier"
+    LEGAL_PARTY_EXTRACTOR = "legal_party_extractor"
     QUALIFIER = "qualifier"
     REQUEST_DRAFTER = "request_drafter"
+    RISK_PROFILE_ASSESSOR = "risk_profile_assessor"
+    SUITABILITY_DECIDER = "suitability_decider"
     VALIDATOR = "validator"
 
 

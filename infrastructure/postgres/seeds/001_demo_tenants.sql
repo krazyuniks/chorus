@@ -222,6 +222,54 @@ VALUES
     ),
     (
         'tenant_demo',
+        'uc3.advice_scope_classifier',
+        'advice_scope_classifier',
+        'v1',
+        'approved',
+        'agent-runtime',
+        'prompts/uc3/scope-classifier/v1.md',
+        'sha256:77b9a62cb7032b3679bf4195f403b1ad79a0d8e78185f05ab2e9bd357dcc6212',
+        ARRAY['uc3', 'advice_scope_classification']::text[],
+        '{"seed": true, "evidence": "UC3 workflow model agent; recorded-replay provider route seeded in R5 P2"}'::jsonb
+    ),
+    (
+        'tenant_demo',
+        'uc3.fact_find_summariser',
+        'fact_find_summariser',
+        'v1',
+        'approved',
+        'agent-runtime',
+        'prompts/uc3/fact-find-summariser/v1.md',
+        'sha256:eed4cde6f4a7dc402ff2335e940af71880e2c3016d1b90a84b3c4f723a0d9ec6',
+        ARRAY['uc3', 'fact_find_summary']::text[],
+        '{"seed": true, "evidence": "UC3 workflow model agent; recorded-replay provider route seeded in R5 P2"}'::jsonb
+    ),
+    (
+        'tenant_demo',
+        'uc3.risk_profile_assessor',
+        'risk_profile_assessor',
+        'v1',
+        'approved',
+        'agent-runtime',
+        'prompts/uc3/risk-profile-assessor/v1.md',
+        'sha256:26238bff383e727cb830c118dfdd1fd094d89770a28ca141270a3b19765f52c2',
+        ARRAY['uc3', 'risk_profile_assessment']::text[],
+        '{"seed": true, "evidence": "UC3 workflow model agent; recorded-replay provider route seeded in R5 P2"}'::jsonb
+    ),
+    (
+        'tenant_demo',
+        'uc3.consumer_duty_support_assessor',
+        'consumer_duty_support_assessor',
+        'v1',
+        'approved',
+        'agent-runtime',
+        'prompts/uc3/consumer-duty-support-assessor/v1.md',
+        'sha256:36eec630f5ce31ca5599f3134a7f17b6c1a9427ffe687b120a6c10be447c53b5',
+        ARRAY['uc3', 'consumer_duty_support_assessment']::text[],
+        '{"seed": true, "evidence": "UC3 workflow model agent; recorded-replay provider route seeded in R5 P2"}'::jsonb
+    ),
+    (
+        'tenant_demo',
         'uc3.risk_analyst',
         'risk_analyst',
         'v1',
@@ -266,7 +314,7 @@ VALUES
         'prompts/uc3/suitability-decider/v1.md',
         'sha256:ac04b11ffd2a9e5ffca3148799f029b079d4365a74b6a9239d924d7cb36bdf82',
         ARRAY['uc3', 'suitability_report', 'tool_gateway_grant_owner']::text[],
-        '{"seed": true, "evidence": "UC3 suitability-report grant owner; provider route pending"}'::jsonb
+        '{"seed": true, "evidence": "UC3 suitability-report grant owner and workflow model agent; recorded-replay provider route seeded in R5 P2"}'::jsonb
     )
 ON CONFLICT (tenant_id, agent_id, version) DO UPDATE
 SET
@@ -416,6 +464,76 @@ VALUES
         'local',
         'uc1-happy-path-v1',
         '{"temperature": 0.1}'::jsonb,
+        0.0100,
+        '{"on_provider_error": "escalate"}'::jsonb,
+        'approved'
+    ),
+    (
+        '11000000-0000-4000-8000-000000000030',
+        'tenant_demo',
+        'advice_scope_classifier',
+        'uc3_advice_scope_classification',
+        'demo',
+        'recorded-replay',
+        'local',
+        'uc1-happy-path-v1',
+        '{"temperature": 0.1}'::jsonb,
+        0.0100,
+        '{"on_provider_error": "escalate"}'::jsonb,
+        'approved'
+    ),
+    (
+        '11000000-0000-4000-8000-000000000031',
+        'tenant_demo',
+        'fact_find_summariser',
+        'uc3_fact_find_summary',
+        'demo',
+        'recorded-replay',
+        'local',
+        'uc1-happy-path-v1',
+        '{"temperature": 0.2}'::jsonb,
+        0.0100,
+        '{"on_provider_error": "escalate"}'::jsonb,
+        'approved'
+    ),
+    (
+        '11000000-0000-4000-8000-000000000032',
+        'tenant_demo',
+        'risk_profile_assessor',
+        'uc3_risk_profile_assessment',
+        'demo',
+        'recorded-replay',
+        'local',
+        'uc1-happy-path-v1',
+        '{"temperature": 0.1}'::jsonb,
+        0.0100,
+        '{"on_provider_error": "escalate"}'::jsonb,
+        'approved'
+    ),
+    (
+        '11000000-0000-4000-8000-000000000033',
+        'tenant_demo',
+        'consumer_duty_support_assessor',
+        'uc3_consumer_duty_support_assessment',
+        'demo',
+        'recorded-replay',
+        'local',
+        'uc1-happy-path-v1',
+        '{"temperature": 0.1}'::jsonb,
+        0.0100,
+        '{"on_provider_error": "escalate"}'::jsonb,
+        'approved'
+    ),
+    (
+        '11000000-0000-4000-8000-000000000034',
+        'tenant_demo',
+        'suitability_decider',
+        'uc3_suitability_conclusion',
+        'demo',
+        'recorded-replay',
+        'local',
+        'uc1-happy-path-v1',
+        '{"temperature": 0}'::jsonb,
         0.0100,
         '{"on_provider_error": "escalate"}'::jsonb,
         'approved'

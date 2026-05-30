@@ -29,10 +29,12 @@ from chorus.agent_runtime.prompt_loader import (
 )
 from chorus.agent_runtime.response_schemas import (
     UC2_AGENT_CONTRACT_REF,
+    UC3_AGENT_CONTRACT_REF,
     response_shape_instruction,
     response_shape_metadata,
     uc1_response_shape_for_task,
     uc2_response_shape_for_task,
+    uc3_response_shape_for_task,
 )
 from chorus.contracts.generated.audit.agent_invocation_record import AgentInvocationRecord
 from chorus.contracts.generated.audit.agent_invocation_transcript import (
@@ -40,6 +42,7 @@ from chorus.contracts.generated.audit.agent_invocation_transcript import (
 )
 from chorus.contracts.generated.llm_provider.uc1_agent_io import Uc1AgentIO
 from chorus.contracts.generated.llm_provider.uc2_agent_io import Uc2AgentIO
+from chorus.contracts.generated.llm_provider.uc3_agent_io import Uc3AgentIO
 from chorus.llm_provider import (
     InvocationArgs,
     InvocationMessage,
@@ -62,7 +65,7 @@ EXECUTION_STEPS = (
     "final_response",
 )
 
-type AgentOutputContract = Uc1AgentIO | Uc2AgentIO
+type AgentOutputContract = Uc1AgentIO | Uc2AgentIO | Uc3AgentIO
 
 
 class AgentRuntimeError(RuntimeError):
@@ -1033,6 +1036,12 @@ def _agent_output_contract(
             invocation_id=invocation_id,
             result=result,
         )
+    if request.expected_output_contract == UC3_AGENT_CONTRACT_REF:
+        return _uc3_contract(
+            request=request,
+            invocation_id=invocation_id,
+            result=result,
+        )
     raise AgentRuntimeError(
         f"Unsupported agent output contract {request.expected_output_contract!r}"
     )
@@ -1074,6 +1083,35 @@ def _uc2_contract(
     result: InvocationResult,
 ) -> Uc2AgentIO:
     return Uc2AgentIO.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "task_id": str(invocation_id),
+            "tenant_id": request.tenant_id,
+            "correlation_id": request.correlation_id,
+            "workflow_id": request.workflow_id,
+            "agent_role": request.agent_role,
+            "task_kind": request.task_kind,
+            "input": request.input,
+            "expected_output_contract": request.expected_output_contract,
+            "result": {
+                "summary": result.summary,
+                "confidence": result.confidence,
+                "structured_data": result.structured_data,
+                "recommended_next_step": result.recommended_next_step,
+                "rationale": result.rationale,
+                "citations": _result_citations(result),
+            },
+        }
+    )
+
+
+def _uc3_contract(
+    *,
+    request: AgentInvocationRequest,
+    invocation_id: UUID,
+    result: InvocationResult,
+) -> Uc3AgentIO:
+    return Uc3AgentIO.model_validate(
         {
             "schema_version": "1.0.0",
             "task_id": str(invocation_id),
@@ -1383,6 +1421,8 @@ def _response_shape_for_request(request: AgentInvocationRequest) -> dict[str, An
         return uc1_response_shape_for_task(request.task_kind)
     if request.expected_output_contract == UC2_AGENT_CONTRACT_REF:
         return uc2_response_shape_for_task(request.task_kind)
+    if request.expected_output_contract == UC3_AGENT_CONTRACT_REF:
+        return uc3_response_shape_for_task(request.task_kind)
     raise AgentRuntimeError(
         f"Unsupported agent output contract {request.expected_output_contract!r}"
     )
@@ -1393,6 +1433,7 @@ __all__ = [
     "EXECUTION_STEPS",
     "UC1_AGENT_CONTRACT_REF",
     "UC2_AGENT_CONTRACT_REF",
+    "UC3_AGENT_CONTRACT_REF",
     "AgentExecutionResult",
     "AgentOutputContract",
     "AgentRuntime",

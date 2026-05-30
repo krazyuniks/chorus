@@ -300,9 +300,9 @@ already exists; inspect the existing run rather than resetting local data.
 The eval playback path uses the same adapter to run the UC2 happy fixture and
 conflict-exception fixture through the workflow/runtime activities in tests,
 and the happy-path evidence projects into the existing BFF/UI inspection
-surfaces. UC3 has the code-level synthetic intake adapter only; model-route
-seeding, workflow-path playback, projection evidence, and command
-documentation remain open.
+surfaces. UC3 has the code-level synthetic intake adapter and recorded-replay
+route policy for its workflow agent tasks; workflow-path playback, projection
+evidence, and command documentation remain open.
 
 ### LLM provider port
 
@@ -339,9 +339,12 @@ catalogue rows, BFF inspection, and offline eval route selection for UC1, and
 across routing policy, immutable route versions, and provider catalogue rows
 for the UC2 workflow agent tasks
 (`uc2_matter_classification`, `uc2_party_extraction`,
-`uc2_conflict_determination`, and `uc2_engagement_decision`). Live route
-activation remains deferred until required local credentials and live route
-gates are aligned. Replay-run evidence
+`uc2_conflict_determination`, and `uc2_engagement_decision`) and for the UC3
+workflow agent tasks (`uc3_advice_scope_classification`,
+`uc3_fact_find_summary`, `uc3_risk_profile_assessment`,
+`uc3_consumer_duty_support_assessment`, and
+`uc3_suitability_conclusion`). Live route activation remains deferred until
+required local credentials and live route gates are aligned. Replay-run evidence
 records now persist the original invocation/transcript refs, alternate route
 metadata, comparator status, lineage refs, and token/cost/latency metrics. The
 hard-fail comparator tier classifies schema, policy snapshot, conduct hook,
@@ -429,9 +432,10 @@ code-level synthetic email advice intake adapter validates the documented
 `email_advice_enquiry` sample, normalises it to `Uc3AdviceEnquiry`, derives
 stable `uc3-advice-*` workflow IDs and safe refs, and delegates to the UC3
 Temporal workflow on the shared task queue. The runbook does not yet claim a
-runnable UC3 local intake path: use-case provider route activation, full eval
-playback, projection evidence for a triggered local run, and the documented
-operator command remain absent.
+runnable UC3 local intake path: full eval playback, projection evidence for a
+triggered local run, and the documented operator command remain absent. The
+UC3 model-backed workflow tasks now resolve through the recorded-replay
+provider route by default; live-provider activation remains deferred to R5 P3.
 
 Inspect approval packages through the read-only BFF:
 
@@ -642,9 +646,10 @@ This is the end-to-end happy path threaded through the six ports. The port
 sequence is stable; the UC1 enquiry-qualification workflow runs it
 end-to-end on the shared `WorkflowSpine`. UC2 now has its own synthetic
 email-intake walk-through above. UC3 has a code-level synthetic email intake
-adapter but remains an inspection and schema-only evidence path until route
-activation, full fixture playback, projection evidence, and the documented
-operator command land in later phases.
+adapter and recorded-replay route policy, but remains an inspection and
+schema-only evidence path until full fixture playback, projection evidence,
+and the documented operator command land in later phases. Live-provider route
+activation remains deferred to R5 P3.
 
 1. **Bring the stack up (all ports).** Run the bring-up commands above:
    `just up && just db-migrate && just schemas-register && just doctor`.
