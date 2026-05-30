@@ -180,10 +180,18 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
   tests now use the shared `migrated_database_url` fixture in `tests/conftest.py`;
   `CHORUS_TEST_ADMIN_DATABASE_URL` is required and no test module keeps a
   hardcoded Postgres URL fallback.
-- [ ] Document the local development bootstrap end-to-end in
+- [x] Document the local development bootstrap end-to-end in
   `docs/runbook.md`: how to bring the stack up, how `tests/conftest.py` picks
   the URLs up, what to do when migrations drift, what to do when an image
   needs rebuilding after a dependency change.
+  Evidence (2026-05-30): `docs/runbook.md` now documents the fresh-host
+  `./scripts/first-time-setup.sh` path, `just env` / `just env-check`,
+  `.env` / `.env.example` drift semantics, `scripts/dc`, stack startup,
+  migrations, Schema Registry registration, `tests/conftest.py` environment
+  loading and infrastructure fixtures, migration checksum recovery, schema
+  subject recovery, and service-image rebuilds after dependency changes.
+  Verified with `just env-check`, `just lint`, `just doctor`, and
+  `git diff --check`.
 
 ### P1 — UC2 To Runnable
 
@@ -273,31 +281,41 @@ session is reprompted with the answer included.
 ## Next Continuation Prompt
 
 ```text
-We are in /home/ryan/Work/chorus. Continue R5 P0 — Infrastructure
-Prerequisites And Gate Hygiene — by documenting the local development
-bootstrap end-to-end in docs/runbook.md.
+We are in /home/ryan/Work/chorus. Continue R5 P1 — UC2 To Runnable — by
+adding the UC2 local intake adapter that turns a documented synthetic intake
+artefact into a `start_workflow` call on the shared `WorkflowSpine`.
 
 Read AGENTS.md and docs/transformation/r5-implementation-backlog.md, then run
 `git status --short --branch`. Preserve unrelated user changes.
 
-Inspect the current bootstrap and gate surface before editing: `just --list`,
-`justfile`, `.env.example`, `scripts/first-time-setup.sh`, `scripts/dc`,
-`tests/conftest.py`, `docs/runbook.md`, `.github/workflows/ci.yml`, and the
-doctor/env-check modules under `chorus/doctor/`.
+Inspect the current UC1 intake pattern and UC2 workflow/contracts before
+editing: `just --list`, `justfile`, `chorus/workflows/intake.py`,
+`chorus/workflows/mailpit.py`, `chorus/workflows/uc1.py`,
+`chorus/workflows/uc2.py`, `chorus/workflows/spine.py`,
+`chorus/workflows/worker.py`, `chorus/workflows/types.py`,
+`contracts/intake/uc2/`, `tests/workflows/`, and `docs/runbook.md`.
 
-Update `docs/runbook.md` so a fresh local developer can follow the bootstrap
-without relying on chat history: first-time setup, `.env` creation and drift
-checking, stack startup, migrations, schema registration, how
-`tests/conftest.py` obtains infrastructure URLs, what to do when migrations
-drift, and what to do when a service image needs rebuilding after a dependency
-change. Keep commands current, single-line, and aligned with `.env.example`.
-Do not add historical phase narration or change runtime behaviour unless the
-documentation audit exposes a real contradiction.
+Implement one local UC2 synthetic intake path: a small one-shot adapter or
+command that reads a repo-local fixture, validates it against the relevant UC2
+intake contract, populates safe deterministic correlation/workflow fields, and
+starts `uc2_legal_services_intake_conflict_check` through the shared spine and
+Temporal. Use the UC1 Mailpit intake path as the structural reference, but do
+not broaden this into a generic workflow DSL. Add focused tests around
+fixture parsing, contract validation, and workflow-start request construction.
+Use real contract validation, not mocks for boundary evidence. Add a `just`
+recipe only if the command is operator-facing in this slice; otherwise keep
+the command discoverable in code/tests and leave the later runbook command
+slice to document the final operator path.
 
-Run `just env-check`, `just lint`, `just doctor`, and `git diff --check`. Do
-not run destructive Docker, volume, database, reset, or checkout commands. If
-a required live stack gate cannot be made green without destructive action,
-stop without committing and surface the blocker.
+Do not change provider activation, eval fixture playback, projection/UI
+behaviour, live credentials, or UC3 in this slice unless the UC2 intake
+adapter cannot compile without a narrow supporting change.
+
+Run the focused pytest for the new UC2 intake adapter, `just contracts-check`,
+`just lint`, `just doctor`, and `git diff --check`. Do not run destructive
+Docker, volume, database, reset, or checkout commands. If a required live stack
+gate cannot be made green without destructive action, stop without committing
+and surface the blocker.
 
 End-of-session contract:
 - Update checkboxes and evidence notes for the slice you completed.

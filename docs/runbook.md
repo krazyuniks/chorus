@@ -1,7 +1,7 @@
 ---
 type: project-doc
 status: active
-date: 2026-05-25
+date: 2026-05-30
 ---
 
 # Chorus - Local Runbook
@@ -12,47 +12,195 @@ and an OpenTelemetry and Grafana observability stack. There is no hosted
 dependency. Deployment and hosting are out of the Chorus repository; see
 [`overview.md`](overview.md).
 
-The runbook has two halves. The **per-port operations reference** is how to
-bring up and inspect each of the six named ports; every command in it runs
-today. The **UC1 happy-path walk-through** threads the ports into one
-end-to-end run and closes with cross-provider replay-eval.
+The runbook starts with the local development bootstrap. The **per-port
+operations reference** then shows how to inspect each of the six named ports,
+and the **UC1 happy-path walk-through** threads those ports into one
+end-to-end run.
 
-A note on what runs today. R4 is closed as local POC evidence. The runnable
-local intake path remains the UC1 enquiry-qualification workflow on the
-shared `WorkflowSpine`. UC2 now has a definition-first workflow on the same
-spine with focused fake-activity workflow / replay tests, deterministic
-sandbox connector adapters for conflict check, KYC / beneficial ownership,
-AML record-store, and engagement-letter-store tools, Tool Gateway grants,
-`engagement_letter.send` as the approval-required write, conduct invariants,
-schema-only fixture evidence, and read-only BFF/UI approval-package
-inspection. UC3 has the equivalent shared-spine proof for IFA suitability:
-deterministic sandbox connector adapters, Tool Gateway grants,
-`suitability_report.issue` as the approval-required write, conduct
-invariants, schema-only fixture evidence, and read-only BFF/UI
-approval-package inspection. UC2 and UC3 are recorded R4 closure exceptions to
-the earlier use-case runnable definition: local intake start paths, use-case
-provider route activation, and full eval fixture playback remain absent.
+Current runnable scope: UC1 runs locally through the Mailpit
+enquiry-qualification path on the shared `WorkflowSpine`. UC2 and UC3 have
+shared-spine workflow definitions, deterministic sandbox connector adapters,
+Tool Gateway grants, approval-package evidence, conduct invariants,
+schema-only fixture evidence, and read-only projection/BFF/UI inspection
+surfaces. UC2 and UC3 do not yet have local intake start paths, use-case route
+activation, or full eval fixture playback through the running stack.
 
-## Bring the stack up
+## Local development bootstrap
+
+Run every command from the repository root.
+
+### First-time setup
+
+Use the script directly on a fresh host because it installs `just` when it is
+missing:
 
 ```bash
-./scripts/first-time-setup.sh   # idempotent host bootstrap: just, uv, Python, hooks
-just env                        # ensure .env exists
-just up                         # docker compose up -d via scripts/dc
-just db-migrate                 # apply Postgres migrations and the demo seed
-just schemas-register           # register missing x-subject contracts with the Schema Registry
-just doctor                     # fail-fast scaffold and required stack readiness checks
+./scripts/first-time-setup.sh
 ```
 
-`scripts/dc` is the canonical `docker compose` wrapper: it sources `.env`,
-exports `UID`/`GID`, and execs `docker compose`. Use it for ad-hoc operations.
-`just doctor` now treats the local stack as a prerequisite gate: required
-Compose services must be running or healthy, one-shot init containers must have
-completed with exit 0, no container may have `RestartCount > 0`, Postgres must
-be reachable at `CHORUS_DATABASE_URL`, migrations must be applied with the
-recorded checksum, Redpanda bootstrap and Schema Registry must be reachable,
-Mailpit SMTP / HTTP, Radicale, and Temporal must respond. Optional development
-surfaces such as the frontend dev server remain non-gating.
+The script is idempotent. It installs or verifies `just`, `uv`, Python 3.14,
+and `prek`; runs `uv sync --all-extras`; copies `.env.example` to `.env` if
+`.env` is absent; and registers the prek-managed git hooks. It reports missing
+host-managed tools such as Docker, the Docker Compose v2 plugin, `git`, and
+`gh`, but it does not install them. After `just` exists, `just setup` runs the
+same script.
+
+Re-run the setup script after host tooling changes or after Python dependency
+metadata changes. It is non-destructive and does not touch Docker volumes.
+
+### Environment file and drift gate
+
+Create the local environment file and verify it against the committed
+template:
+
+```bash
+just env
+```
+
+```bash
+just env-check
+```
+
+`.env.example` is the committed local-stack contract. `.env` is the
+developer-local copy used by `scripts/dc`, `just` recipes, doctor probes, and
+tests. `scripts/dc` sources `.env`, exports `UID` and `GID` from the host, and
+then execs `docker compose`; use it for ad-hoc Compose operations instead of
+bare `docker compose`.
+
+`just env-check` fails when `.env` or `.env.example` is missing, a key is
+duplicated, the two files declare different keys, or a non-secret value differs.
+Only these value-only differences are allowed locally:
+`CHORUS_PG_PASSWORD`, `TEMPORAL_PG_PASSWORD`,
+`GRAFANA_ADMIN_PASSWORD`, `DEEPSEEK_API_KEY`, and `OPENAI_API_KEY`. If a new
+runtime variable is added, add it to both files and keep the runbook endpoint
+table current. Do not commit real provider keys or private credentials.
+
+The default infrastructure URLs consumed by host-side gates are:
+
+| Variable | Default |
+|---|---|
+| `CHORUS_DATABASE_URL` | `postgresql://chorus:chorus@localhost:55432/chorus` |
+| `CHORUS_TEST_ADMIN_DATABASE_URL` | `postgresql://chorus:chorus@localhost:55432/postgres` |
+| `CHORUS_REDPANDA_BOOTSTRAP_SERVERS` | `localhost:19092` |
+| `CHORUS_CALDAV_BASE_URL` | `http://localhost:5232` |
+
+### Start and initialise the stack
+
+Start the stack, apply database state, register event schemas, and run the
+live readiness gate:
+
+```bash
+just up
+```
+
+```bash
+just status
+```
+
+```bash
+just db-migrate
+```
+
+```bash
+just schemas-register
+```
+
+```bash
+just doctor
+```
+
+`just up` runs `./scripts/dc up -d --build`, so local service images are built
+from the current checkout before containers start. `just db-migrate` applies
+repo-controlled SQL migrations from `infrastructure/postgres/migrations/` and
+then runs idempotent seed files from `infrastructure/postgres/seeds/` against
+`CHORUS_DATABASE_URL`. `just schemas-register` registers missing
+`x-subject` JSON Schema contracts with the Redpanda Schema Registry; it does
+not create new versions for subjects that are already present.
+
+`just doctor` is the local prerequisite gate. It validates required paths,
+executables, Compose rendering, per-service dependency contracts, running
+Compose services, successful one-shot init containers, zero container restarts
+since boot, Postgres reachability, applied migration checksums, Redpanda
+bootstrap reachability, Schema Registry subjects, Mailpit SMTP and HTTP,
+Radicale, and Temporal. The Temporal probe also requires a worker poller on
+the configured task queue, which the `intake-poller` service provides in the
+Compose stack. BFF, frontend dev server, and observability probes are reported
+after required stack prerequisites pass; missing optional development surfaces
+are informational, while partially reachable observability services fail the
+gate.
+
+### How tests obtain infrastructure URLs
+
+`tests/conftest.py` requires the repository-local `.env` file to exist before
+pytest starts. It loads that file with `override=False`, so an explicitly set
+process environment variable wins over `.env`.
+
+Infrastructure-backed pytest fixtures fail loudly rather than skipping:
+
+| Fixture | Source variable | Behaviour |
+|---|---|---|
+| `test_admin_database_url` | `CHORUS_TEST_ADMIN_DATABASE_URL` | Required admin database URL for test database creation. |
+| `migrated_database_url` | `CHORUS_TEST_ADMIN_DATABASE_URL` | Creates a module-scoped temporary Postgres database, applies migrations and seeds through `chorus.persistence.apply_migrations`, yields its URL, then drops it. |
+| `redpanda_bootstrap` | `CHORUS_REDPANDA_BOOTSTRAP_SERVERS` | Uses a Redpanda `AdminClient` metadata request to prove the Kafka API is reachable. |
+
+Before running `just test`, make sure `just env`, `just up`, and
+`just schemas-register` have succeeded. Tests that only need Postgres create
+their own migrated database, but they still require the configured admin URL
+to point at the running local Postgres service.
+
+### Drift and rebuild recovery
+
+When `just doctor` reports `migration not applied`, run the migrator and then
+re-run the doctor gate:
+
+```bash
+just db-migrate
+```
+
+```bash
+just doctor
+```
+
+When `just doctor` or `just db-migrate` reports a migration checksum mismatch,
+an applied migration file has changed. Do not edit the `schema_migrations`
+table and do not wipe volumes as a first response. Restore the applied
+migration file or add a new migration that moves the schema forward, then run
+`just db-migrate` and `just doctor` again.
+
+When `just doctor` reports missing Schema Registry subjects, register the
+declared contracts and re-check:
+
+```bash
+just schemas-register
+```
+
+```bash
+just doctor
+```
+
+When a dependency change affects a containerised service, update the owning
+`services/<name>/pyproject.toml`, run the import-contract gate, and rebuild the
+service image:
+
+```bash
+just service-import-contracts
+```
+
+```bash
+just up
+```
+
+For a focused rebuild, use the Compose wrapper with the service name:
+
+```bash
+./scripts/dc up -d --build bff
+```
+
+```bash
+./scripts/dc up -d --build intake-poller
+```
+
+No volume reset is required for dependency or application-code image rebuilds.
 
 ### Daily commands
 
@@ -323,24 +471,43 @@ Every dashboard exposes a `$correlation` variable. Paste a run's
 audit queries above. Do not put secrets, credentials, raw content, or PII into
 span attributes, baggage, or dashboard labels.
 
-## R4 closure gates
+## Gate matrix
 
-The documentation-led R4 closure gate set is:
+For documentation-only bootstrap changes, run:
 
 ```bash
-just contracts-check
-just eval
-just test-replay
+just env-check
 just lint
 git diff --check
 ```
 
-Run `just test-frontend` when frontend code or fixture data changes. Run
-live-stack, DB-backed, provider, and e2e gates when the closure slice touches
-those surfaces or when the local credentials and stack are available. In R5,
-missing or unreachable infrastructure is a gate failure, not a skip. If local
-Postgres rejects the configured `chorus` user, fix the stack or stop and record
-the blocker; do not claim live DB evidence.
+For runtime or stack changes, add the relevant live gates:
+
+```bash
+just doctor
+```
+
+```bash
+just contracts-check
+```
+
+```bash
+just test
+```
+
+```bash
+just test-replay
+```
+
+```bash
+just eval
+```
+
+Run `just test-frontend` when frontend code or fixture data changes, and run
+`just test-e2e` when browser behaviour changes. In R5, missing or unreachable
+infrastructure is a gate failure, not a skip. If local Postgres rejects the
+configured `chorus` user, fix the stack or stop and record the blocker; do not
+claim live DB evidence.
 
 ## UC1 happy-path walk-through
 
@@ -407,6 +574,8 @@ activation, and full fixture playback land in a later phase.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `Port already allocated` | Another local stack holds the default port. | Set the relevant `*_PORT` variable in `.env`; defaults are in `.env.example`. |
+| `tests/conftest.py expected .../.env to exist` | Pytest started before the local environment file was created. | Run `just env`, then `just env-check`. |
+| A Postgres or Redpanda pytest fixture raises instead of skipping | Infrastructure-backed tests require live services and required URL variables. | Run `just up`, `just schemas-register`, and `just doctor`; confirm `.env` has `CHORUS_TEST_ADMIN_DATABASE_URL` and `CHORUS_REDPANDA_BOOTSTRAP_SERVERS`. |
 | `just doctor` fails on a missing path | A required artefact is absent. | Treat it as a contract violation, not a doctor bug. Restore the artefact. |
 | `just doctor` reports an unhealthy or missing Compose service | The local stack is not ready. | Run `just status` and `just logs <service>`, then rebuild with `just up` if an image was stale after a dependency change. |
 | `just doctor` reports `RestartCount > 0` | A container restarted since it was created. | Inspect `just logs <service>` and recreate only after preserving the evidence needed for the investigation. |
@@ -437,8 +606,10 @@ gate fails on the next regeneration.
 
 ## CI gates
 
-`.github/workflows/ci.yml` runs lint, service import contracts,
-contracts-check, doctor, Python tests, and frontend lint and test on every push
-and pull request. `replay.yml` runs the Temporal replay coverage; `eval.yml`
-runs the eval fixtures. Treat a red CI as the same severity as a red local
-`just doctor`.
+`.github/workflows/ci.yml` runs Python ruff, format, service import contracts,
+pyright, contracts-check, `just doctor-quick`, pytest, frontend type-check,
+and frontend tests on every push and pull request. `just doctor-quick`
+validates paths, executables, Compose rendering, and service import contracts;
+it does not start or probe the live stack. `replay.yml` runs the Temporal
+replay coverage; `eval.yml` runs the eval fixtures. Treat a red CI as the same
+severity as a red local `just doctor`.
