@@ -39,9 +39,9 @@ R5 is not production hosting, not a SaaS build, and not a generic workflow DSL.
   recorded-replay route policies for its workflow agent tasks, and
   workflow-path eval playback for one happy issue fixture and one
   Consumer Duty vulnerability-support handoff branch, with the happy issue
-  fixture now projected into the existing BFF/UI inspection surfaces. It does
-  **not** have:
-  - a documented local intake start path.
+  fixture now projected into the existing BFF/UI inspection surfaces. UC3 has
+  a documented local synthetic email advice-enquiry intake command for the
+  default contract fixture.
 - The OpenAI-compatible provider adapter is hardened (prompt loading, prompt
   hash, response schema, structured output, route-governance alignment,
   replay-run records, tiered comparator). Live OpenAI and DeepSeek routes are
@@ -82,7 +82,7 @@ documented exit criteria are green.
   runtime imports of the `chorus` package by an automated check.
 - [x] `.env.example` declares the same keys with the same values as `.env`;
   drift is caught by a check in `just lint` or `just doctor`.
-- [ ] UC1, UC2, and UC3 each have a documented local intake command that
+- [x] UC1, UC2, and UC3 each have a documented local intake command that
   starts a workflow and shows up in BFF/UI projections within a deterministic
   bound.
 - [ ] UC1, UC2, and UC3 each have at least one happy-path eval fixture and at
@@ -449,7 +449,23 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
   frontend && npm test -- --run src/api/queries.test.ts
   'src/routes/-workflows.$workflowId.test.tsx'`, `just contracts-check`,
   `just lint`, `just doctor`, and `git diff --check`.
-- [ ] Document the UC3 runnable command.
+- [x] Document the UC3 runnable command.
+  Evidence (2026-05-30): `docs/runbook.md` and `README.md` now document the
+  exact operator command `uv run python -m
+  chorus.workflows.uc3_synthetic_intake`, the default UC3
+  `email_advice_enquiry` fixture, the stable workflow ID
+  `uc3-advice-3e7d1d3cd3d8236776a0fb8a`, advice enquiry ref
+  `advice_enquiry_advice_email_001`, correlation ID
+  `cor_advice_email_001`, the `started: false` duplicate semantics, the
+  `just relay-once` / `just project-once` evidence loop, and the BFF,
+  frontend, and Temporal inspection targets. `docs/evidence-map.md` and
+  `docs/architecture.md` now describe UC3 as having a documented local
+  synthetic-intake path while leaving live-provider route activation open. No
+  command/output contract changed, so the existing focused UC3 intake,
+  worker-registration, and BFF projection suites remain the evidence surface.
+  Verified with `uv run pytest tests/workflows/test_uc3_synthetic_intake.py
+  tests/workflows/test_worker_registration.py tests/bff/test_app.py -q`,
+  `just contracts-check`, `just lint`, `just doctor`, and `git diff --check`.
 
 ### P3 — Live Provider Route Activation
 
@@ -506,42 +522,42 @@ session is reprompted with the answer included.
 ## Next Continuation Prompt
 
 ```text
-We are in /home/ryan/Work/chorus. Continue R5 P2 — UC3 To Runnable — by
-documenting the UC3 local synthetic intake operator command.
+We are in /home/ryan/Work/chorus. Continue R5 P3 — Live Provider Route
+Activation — by implementing the startup gate for live-provider route
+credentials.
 
 Read AGENTS.md and docs/transformation/r5-implementation-backlog.md, then run
 `git status --short --branch`. Preserve unrelated user changes.
 
-Inspect the UC3 synthetic intake and the UC2 command documentation pattern
-before editing: `just --list`, `justfile`,
-`chorus/workflows/uc3_synthetic_intake.py`,
-`chorus/workflows/uc2_synthetic_intake.py`, `chorus/workflows/worker.py`,
-`tests/workflows/test_uc3_synthetic_intake.py`,
-`tests/workflows/test_worker_registration.py`, `tests/bff/test_app.py`,
-`docs/runbook.md`, `docs/evidence-map.md`, `docs/architecture.md`, and
-`README.md`.
+Inspect the live-route governance and worker boot path before editing:
+`just --list`, `justfile`, `chorus/workflows/worker.py`,
+`chorus/llm_provider/route_catalogue.py`, `chorus/llm_provider/adapter_openai.py`,
+`chorus/persistence/runtime_policy.py`,
+`chorus/persistence/provider_governance.py`,
+`infrastructure/postgres/seeds/002_provider_governance.sql`,
+`infrastructure/postgres/seeds/001_demo_tenants.sql`,
+`tests/agent_runtime/test_runtime.py`,
+`tests/persistence/test_postgres_foundation.py`, `docs/runbook.md`,
+`docs/evidence-map.md`, `docs/architecture.md`, and `README.md`.
 
-Implement the next narrow slice: document the exact UC3 operator command
-`uv run python -m chorus.workflows.uc3_synthetic_intake`, the default
-`contracts/intake/uc3/samples/email_advice_enquiry.sample.json` fixture, the
-stable clean-database workflow ID `uc3-advice-3e7d1d3cd3d8236776a0fb8a`,
-advice enquiry ref `advice_enquiry_advice_email_001`, correlation ID
-`cor_advice_email_001`, duplicate `started: false` semantics, the bounded
-`just relay-once` / `just project-once` evidence loop, and the BFF,
-frontend, and Temporal inspection targets. Mirror the UC2 runbook and README
-documentation shape closely.
+Implement the next narrow slice: when an approved `model_routing_policies` row
+selects a live OpenAI-compatible route and the route's required credential env
+var is missing, the worker startup path must fail fast with a specific error
+message naming the route and missing credential. Recorded-replay routes must
+continue to start without live credentials. Do not silently fall back to
+recorded replay.
 
-Keep scope tight: do not add live provider credentials or live-provider tests,
-do not add mutating approval or admin UI, do not add production connector
-paths, do not add a generic workflow-route DSL, and do not run destructive
-Docker/database operations. Update README, runbook, evidence-map,
-architecture, and this backlog only for the documented UC3 operator command
-status.
+Keep scope tight: do not add real provider credentials, do not run live
+provider calls, do not add the credential-gated live-provider integration
+tests yet, do not add production connector paths, do not add mutating approval
+or admin UI, and do not add a generic workflow-route DSL. Do not run
+destructive Docker/database operations.
 
-Run focused docs-alignment tests that prove the documented command is still
-backed by code (`uv run pytest tests/workflows/test_uc3_synthetic_intake.py
-tests/workflows/test_worker_registration.py tests/bff/test_app.py -q`), plus
-`just contracts-check`, `just lint`, `just doctor`, and `git diff --check`.
+Update code, focused tests, README, runbook, evidence-map, architecture, and
+this backlog for the startup-gate status only. Run the smallest focused tests
+that prove recorded-replay boot still passes and live-route-without-credential
+boot fails loudly, then run `just contracts-check`, `just lint`, `just
+doctor`, and `git diff --check`.
 
 End-of-session contract:
 - Update checkboxes and evidence notes for the slice you completed.

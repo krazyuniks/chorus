@@ -67,10 +67,9 @@ flowchart TB
 The adapter inventory behind each port, as defined by the R1 adapter mapping
 and closed R4 evidence. UC1 is runnable through Mailpit/email intake. UC2 is
 runnable through the documented synthetic email legal-intake fixture and the
-shared relay/projection evidence loop. UC3 exercises shared workflow,
-connector, approval, projection, eval, and code-level synthetic intake
-surfaces plus recorded-replay route policies and triggered happy issue
-projection evidence without claiming full use-case runnable status yet.
+shared relay/projection evidence loop. UC3 is runnable through the documented
+synthetic email advice-enquiry fixture and the same shared relay/projection
+evidence loop.
 
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|
@@ -101,13 +100,13 @@ email-intake adapter and recorded-replay route policies for UC2 workflow
 agent tasks plus workflow-path eval playback for one happy fixture and one
 conflict-exception branch, with the happy-path evidence projected into the
 existing BFF/UI inspection surfaces through the Redpanda relay/projection
-loop. R5 also adds a code-level UC3 synthetic email advice intake adapter and
+loop. R5 also adds a documented UC3 synthetic email advice intake adapter and
 shared-worker registration plus recorded-replay route policies for UC3
 workflow agent tasks and workflow-path eval playback for the happy
 suitability-report issue fixture and a Consumer Duty vulnerability-support
 handoff branch, with the happy issue evidence projected into the existing
-BFF/UI inspection surfaces; the UC3 documented operator command and
-live-provider activation remain explicit closure exceptions.
+BFF/UI inspection surfaces through the Redpanda relay/projection loop.
+Live-provider activation remains an explicit closure exception.
 
 ## Workflow durability is not a port
 
@@ -378,7 +377,7 @@ The runtime code carries the named-port surface this document describes.
 | LLM provider port | `chorus/llm_provider/port.py` (surface), `chorus/llm_provider/adapter_openai.py` (OpenAI-SDK transport), `chorus/llm_provider/adapter_replay.py` (deterministic recorded-replay substrate), `chorus/llm_provider/route_catalogue.py` (route metadata). |
 | Audit / transcript port split | `chorus/persistence/audit_port.py`, `contracts/audit/agent_invocation_record.schema.json`, `contracts/audit/agent_invocation_transcript.schema.json`, `infrastructure/postgres/migrations/001_current_state_baseline.sql`. The runtime writes both records on every invocation. |
 | Connector adapter registry | `chorus/connectors/types.py` (`ConnectorAdapter`, `ConnectorRegistry`, `ToolSpec`), `chorus/connectors/uc1.py` (six UC1 sandbox adapters), `chorus/persistence/uc1_connectors.py` (local UC1 quoting / referral / decline routing records plus seeded profile / catalogue read data), `chorus/connectors/uc2.py` (deterministic UC2 sandbox adapters for conflict check, KYC / beneficial ownership, AML record store, and engagement-letter store), `chorus/connectors/uc3.py` (deterministic UC3 sandbox adapters for attitude-to-risk profiling, capacity-for-loss assessment, platform research, and suitability-report store), `chorus/connectors/calendar.py`. The gateway dispatches through the registry. |
-| Workflow spine + use-case definitions | `chorus/workflows/spine.py` (`WorkflowSpine`, `WorkflowDefinition`, `WorkflowStepDefinition` over generic activity names), `chorus/workflows/uc1.py` (UC1 enquiry-qualification workflow, including Tool Gateway routing for accepted, referred, declined, and missing-data verdicts), `chorus/workflows/uc2.py` (definition-first UC2 legal-services intake and conflict-check workflow over the same primitives), `chorus/workflows/uc2_synthetic_intake.py` (R5 documented UC2 synthetic email-intake fixture adapter that validates `contracts/intake/uc2/email_legal_intake.schema.json`, derives stable start fields, and starts the UC2 workflow), `chorus/workflows/uc3.py` (definition-first UC3 IFA suitability workflow over the same primitives, with connector adapters, grant seeds, suitability-report approval-package evidence, conduct invariants, read-only inspection evidence, recorded-replay route policies, workflow-path eval playback, and triggered-run BFF/UI projection evidence), `chorus/workflows/uc3_synthetic_intake.py` (R5 code-level UC3 synthetic email advice intake adapter that validates `contracts/intake/uc3/email_advice_enquiry.schema.json`, derives stable start fields, and delegates to the UC3 workflow starter; documented operator command and live-provider activation remain closure exceptions). |
+| Workflow spine + use-case definitions | `chorus/workflows/spine.py` (`WorkflowSpine`, `WorkflowDefinition`, `WorkflowStepDefinition` over generic activity names), `chorus/workflows/uc1.py` (UC1 enquiry-qualification workflow, including Tool Gateway routing for accepted, referred, declined, and missing-data verdicts), `chorus/workflows/uc2.py` (definition-first UC2 legal-services intake and conflict-check workflow over the same primitives), `chorus/workflows/uc2_synthetic_intake.py` (R5 documented UC2 synthetic email-intake fixture adapter that validates `contracts/intake/uc2/email_legal_intake.schema.json`, derives stable start fields, and starts the UC2 workflow), `chorus/workflows/uc3.py` (definition-first UC3 IFA suitability workflow over the same primitives, with connector adapters, grant seeds, suitability-report approval-package evidence, conduct invariants, read-only inspection evidence, recorded-replay route policies, workflow-path eval playback, and triggered-run BFF/UI projection evidence), `chorus/workflows/uc3_synthetic_intake.py` (R5 documented UC3 synthetic email advice intake adapter that validates `contracts/intake/uc3/email_advice_enquiry.schema.json`, derives stable start fields, starts the UC3 workflow, and reports duplicate fixture starts). |
 | Per-port persistence read surface | `chorus/persistence/projection.py` (workflow + generic approval-package inspection + calendar compatibility view), `chorus/persistence/audit_port.py`, `chorus/persistence/runtime_policy.py` (agent registry, route policy, grants, and policy snapshot rows), `chorus/persistence/provider_governance.py`, `chorus/persistence/replay_runs.py` (replay-run evidence records). The BFF binds them through `PortReaders` per request. |
 | Per-port doctor probes | `chorus/doctor/scaffold.py` (paths / executables / compose), `chorus/doctor/stack_health.py` (required Compose container state and restart counts), `chorus/doctor/projection_port.py`, `chorus/doctor/connector_port.py`, `chorus/doctor/observability_port.py`, `chorus/doctor/workflow_runtime.py`, `chorus/doctor/ui.py`. CLI entry at `chorus/doctor/__main__.py`. |
 | Invariant-plus-replay eval | `chorus/eval/common_invariants.py` (architecture-wide invariant checks), `chorus/eval/use_cases/uc1_conduct.py` (UC1 conduct hooks), `chorus/eval/use_cases/uc2_conduct.py` (UC2 SRA / AML conduct and engagement-letter approval checks over captured-run artefacts), `chorus/eval/uc2_workflow_playback.py` (UC2 fixture playback through the real workflow activities), `chorus/eval/use_cases/uc3_conduct.py` (UC3 FCA suitability / PROD / Consumer Duty conduct and suitability-report approval checks over captured-run artefacts), `chorus/eval/uc3_workflow_playback.py` (UC3 fixture playback through the real workflow activities), `chorus/eval/invariants.py` (current suite composition), `chorus/eval/scenario_player.py` (drives supported fixture scenarios), `chorus/eval/replay.py` (`eval replay` subcommand plus safe replay-run record construction), `contracts/eval/replay_run_record.schema.json`, `chorus/eval/run.py` (CLI). |
@@ -420,12 +419,12 @@ fixture adapter, recorded-replay model routes for the UC2 workflow agent
 tasks, and workflow-path eval playback for the UC2 happy acceptance path and
 one conflict-exception branch, plus BFF/UI projection confirmation for the
 happy path through the documented relay/projection loop. UC3 now has a
-code-level synthetic email advice intake adapter, shared-worker registration,
+documented synthetic email advice intake adapter, shared-worker registration,
 recorded-replay model routes for the five workflow agent tasks, and
 workflow-path eval playback for the happy issue path plus the
 vulnerability-support handoff branch, plus triggered-run projection evidence
-for the happy issue path, while the UC3 documented operator command and
-live-provider activation remain deferred closure exceptions. UC2
+for the happy issue path through the documented relay/projection loop.
+Live-provider activation remains a deferred closure exception. UC2
 conflict-exception / AML EDD
 and UC3 risk-profile / vulnerability approval packages also remain
 workflow/manual-review conduct evidence until a later design slice binds them

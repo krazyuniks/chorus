@@ -14,8 +14,8 @@ dependency. Deployment and hosting are out of the Chorus repository; see
 
 The runbook starts with the local development bootstrap. The **per-port
 operations reference** then shows how to inspect each of the six named ports,
-and the UC1 and UC2 walk-throughs thread those ports into end-to-end local
-runs.
+and the UC1, UC2, and UC3 walk-throughs thread those ports into end-to-end
+local runs.
 
 Current runnable scope: UC1 runs locally through the Mailpit
 enquiry-qualification path on the shared `WorkflowSpine`. UC2 runs locally
@@ -23,17 +23,16 @@ through the documented synthetic email legal-intake fixture on the same spine:
 the command validates the UC2 intake contract sample, starts the workflow,
 and the relay/projection loop makes workflow progress, decision-trail rows,
 Tool Gateway audit rows, and the `engagement_letter.send` approval package
-inspectable in the existing BFF/UI surfaces. UC3 has shared-spine workflow
-definition, deterministic sandbox connector adapters, Tool Gateway grants,
-approval-package evidence, conduct invariants, schema-only fixture evidence,
-read-only projection/BFF/UI inspection surfaces, and a code-level synthetic
-email advice intake adapter registered with the shared worker. UC3 workflow
-playback now exercises the recorded-replay Agent Runtime route, Tool Gateway,
-decision/transcript persistence, tool-action audit, approval-package capture,
-and outbox progress for a suitability-report issue approval fixture and a
-Consumer Duty vulnerability-support handoff branch. The happy issue fixture
-now also has triggered-run projection evidence through the existing BFF/UI
-inspection surfaces. UC3 does not yet have a documented operator command.
+inspectable in the existing BFF/UI surfaces. UC3 runs locally through the
+documented synthetic email advice-enquiry fixture on the same spine: the
+command validates the UC3 intake contract sample, starts the workflow, and the
+relay/projection loop makes workflow progress, decision-trail rows, Tool
+Gateway audit rows, and the `suitability_report.issue` approval package
+inspectable in the existing BFF/UI surfaces. UC3 workflow playback exercises
+the recorded-replay Agent Runtime route, Tool Gateway, decision/transcript
+persistence, tool-action audit, approval-package capture, and outbox progress
+for a suitability-report issue approval fixture and a Consumer Duty
+vulnerability-support handoff branch.
 
 ## Local development bootstrap
 
@@ -276,11 +275,9 @@ R4 closes with the Mailpit/email UC1 channel runnable and keeps the UC1
 web-form, partner-portal, and synthetic-channel contracts in place. UC2 and
 UC3 intake contracts exist. R5 P1 adds a local UC2 synthetic email-intake
 fixture adapter that validates the documented contract sample and starts the
-UC2 workflow. R5 P2 adds the equivalent code-level UC3 synthetic email advice
-intake adapter for the documented `email_advice_enquiry` sample, with stable
-workflow IDs / safe refs and shared-worker registration; the operator-facing
-UC3 command remains a later P2 documentation slice. The UC2 operator command
-is:
+UC2 workflow. R5 P2 adds the equivalent documented UC3 synthetic email advice
+intake adapter for the `email_advice_enquiry` sample, with stable workflow IDs
+/ safe refs and shared-worker registration. The UC2 operator command is:
 
 ```bash
 uv run python -m chorus.workflows.uc2_synthetic_intake
@@ -304,10 +301,31 @@ already exists; inspect the existing run rather than resetting local data.
 The eval playback path uses the same adapter to run the UC2 happy fixture and
 conflict-exception fixture through the workflow/runtime activities in tests,
 and the happy-path evidence projects into the existing BFF/UI inspection
-surfaces. UC3 has the code-level synthetic intake adapter, recorded-replay
-route policy for its workflow agent tasks, and workflow-path playback for a
-happy suitability-report issue approval fixture plus a vulnerability-support
-handoff branch; command documentation remains open.
+surfaces. The UC3 operator command is:
+
+```bash
+uv run python -m chorus.workflows.uc3_synthetic_intake
+```
+
+The command uses
+`contracts/intake/uc3/samples/email_advice_enquiry.sample.json` by default and
+prints the workflow ID, advice enquiry ref, correlation ID, and whether the
+workflow was newly started. On a clean database the default fixture prints:
+
+```text
+workflow_type: uc3_ifa_suitability_intake
+workflow: uc3-advice-3e7d1d3cd3d8236776a0fb8a
+advice_enquiry_ref: advice_enquiry_advice_email_001
+correlation_id: cor_advice_email_001
+started: true
+```
+
+`started: false` means the stable workflow ID for the fixture's Message-ID
+already exists; inspect the existing run rather than resetting local data.
+The eval playback path uses the same adapter to run the UC3 happy
+suitability-report issue fixture and vulnerability-support handoff fixture
+through the workflow/runtime activities in tests, and the happy-path evidence
+projects into the existing BFF/UI inspection surfaces.
 
 ### LLM provider port
 
@@ -433,17 +451,16 @@ handoff remain workflow/manual-review conduct evidence until a later slice
 adds exact connector request shapes for those packages. Read-only projection,
 BFF, and UI evidence now show safe triggered UC3 workflow progress and generic
 approval-package state for `suitability_report.issue`. The
-code-level synthetic email advice intake adapter validates the documented
+documented synthetic email advice intake adapter validates the
 `email_advice_enquiry` sample, normalises it to `Uc3AdviceEnquiry`, derives
 stable `uc3-advice-*` workflow IDs and safe refs, and delegates to the UC3
-Temporal workflow on the shared task queue. The runbook does not yet claim a
-runnable UC3 local intake path: the documented operator command remains absent.
-The UC3 model-backed
+Temporal workflow on the shared task queue. The operator command exercises the
+happy `suitability_report.issue` approval package. The UC3 model-backed
 workflow tasks resolve through the recorded-replay provider route by default,
-and workflow-path eval playback now captures decision/transcript, Tool
-Gateway audit, approval-package, and outbox-progress evidence for the happy
-issue path and the vulnerability-support handoff branch. Live-provider
-activation remains deferred to R5 P3.
+and workflow-path eval playback captures decision/transcript, Tool Gateway
+audit, approval-package, and outbox-progress evidence for the happy issue path
+and the vulnerability-support handoff branch. Live-provider activation remains
+deferred to R5 P3.
 
 Inspect approval packages through the read-only BFF:
 
@@ -648,18 +665,93 @@ systems.
    The Temporal UI at `http://localhost:8233` can be used to inspect the
    workflow execution by the same workflow ID.
 
+## UC3 synthetic email-advice-intake walk-through
+
+This is the local UC3 runnable path. It uses the documented synthetic
+`email_advice_enquiry` fixture, the shared `WorkflowSpine`, the
+recorded-replay LLM provider route, deterministic sandbox connector adapters,
+the Tool Gateway, Postgres audit/transcript stores, Redpanda relay, and the
+read-only BFF/UI projection surfaces. It does not require live provider
+credentials and does not call production IFA, platform, research, advice,
+client-record, portal, custody, or dealing systems.
+
+1. **Bring the stack up.** Run the standard bring-up commands:
+   `just up && just db-migrate && just schemas-register && just doctor`.
+   The `intake-poller` service started by Compose is the Temporal worker for
+   the shared `chorus-uc1` task queue; `just worker` is only needed when you
+   intentionally run the worker on the host instead.
+
+2. **Start the UC3 synthetic email-advice fixture.** Run the one-shot intake
+   command from the repository root:
+
+   ```bash
+   uv run python -m chorus.workflows.uc3_synthetic_intake
+   ```
+
+   The default fixture is
+   `contracts/intake/uc3/samples/email_advice_enquiry.sample.json`. On a clean
+   database it starts workflow
+   `uc3-advice-3e7d1d3cd3d8236776a0fb8a` for advice enquiry ref
+   `advice_enquiry_advice_email_001` with correlation ID
+   `cor_advice_email_001`. `started: false` means the deterministic workflow
+   ID already exists for that fixture Message-ID.
+
+3. **Relay and project workflow events.** After the worker has processed the
+   run, publish the outbox events and project them into the read model:
+
+   ```bash
+   just relay-once
+   ```
+
+   ```bash
+   just project-once
+   ```
+
+   If the BFF still shows a non-terminal status, wait for the Temporal worker
+   to finish and repeat the same two bounded commands. Do not reset Postgres
+   or Docker volumes to make a duplicate fixture start.
+
+4. **Inspect the workflow summary.** The BFF endpoint should show the UC3
+   workflow type, `completed` status, `close` current step, and the advice
+   enquiry subject summary:
+
+   ```bash
+   curl -s http://localhost:18001/api/workflows/uc3-advice-3e7d1d3cd3d8236776a0fb8a | jq '{workflow_id, workflow_type, status, current_step, subject_ref, subject_summary}'
+   ```
+
+5. **Inspect evidence rows.** These read-only endpoints expose the projected
+   event timeline, the five UC3 agent decisions, Tool Gateway verdicts, and
+   the approval-required suitability-report package:
+
+   ```bash
+   curl -s http://localhost:18001/api/workflows/uc3-advice-3e7d1d3cd3d8236776a0fb8a/events | jq '.[].step'
+   ```
+
+   ```bash
+   curl -s http://localhost:18001/api/workflows/uc3-advice-3e7d1d3cd3d8236776a0fb8a/decision-trail | jq '.[].task_kind'
+   ```
+
+   ```bash
+   curl -s http://localhost:18001/api/workflows/uc3-advice-3e7d1d3cd3d8236776a0fb8a/tool-verdicts | jq '.[].tool_name'
+   ```
+
+   ```bash
+   curl -s http://localhost:18001/api/workflows/uc3-advice-3e7d1d3cd3d8236776a0fb8a/approval-packages | jq '.[] | {requested_action, approval_state, latest_verdict, action_refs}'
+   ```
+
+   When the frontend dev server is running, inspect the same read model at
+   `http://localhost:5174/workflows/uc3-advice-3e7d1d3cd3d8236776a0fb8a`.
+   The Temporal UI at `http://localhost:8233` can be used to inspect the
+   workflow execution by the same workflow ID.
+
 ## UC1 happy-path walk-through
 
 This is the end-to-end happy path threaded through the six ports. The port
 sequence is stable; the UC1 enquiry-qualification workflow runs it
 end-to-end on the shared `WorkflowSpine`. UC2 now has its own synthetic
-email-intake walk-through above. UC3 has a code-level synthetic email intake
-adapter, recorded-replay route policy, and workflow-path playback for the
-happy issue path plus a vulnerability-support handoff branch, with triggered
-projection evidence for the happy issue path. It remains open until the
-documented operator command lands.
-Live-provider route
-activation remains deferred to R5 P3.
+email-intake walk-through above, and UC3 has its own synthetic
+email-advice-intake walk-through above. Live-provider route activation remains
+deferred to R5 P3.
 
 1. **Bring the stack up (all ports).** Run the bring-up commands above:
    `just up && just db-migrate && just schemas-register && just doctor`.

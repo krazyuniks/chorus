@@ -69,13 +69,12 @@ through the documented synthetic email legal-intake fixture: the one-shot
 command validates the intake contract sample, starts the UC2 workflow, and the
 relay/projection loop exposes workflow progress, decision-trail rows, Tool
 Gateway verdicts, and the `engagement_letter.send` approval package in the
-existing BFF/UI surfaces. UC3 now has a code-level synthetic email advice
-intake adapter, worker registration, and recorded-replay route policies for
-its workflow agent tasks, plus workflow-path eval playback for a suitability
-report issue approval fixture and a Consumer Duty vulnerability-support
-handoff branch. UC3 happy issue playback now also projects into the existing
-BFF/UI inspection surfaces. UC3 remains open until the documented operator
-command lands.
+existing BFF/UI surfaces. UC3 is locally runnable through the documented
+synthetic email advice-enquiry fixture on the same shape: the one-shot command
+validates the intake contract sample, starts the UC3 workflow, and the
+relay/projection loop exposes workflow progress, decision-trail rows, Tool
+Gateway verdicts, and the `suitability_report.issue` approval package in the
+existing BFF/UI surfaces.
 
 | Port | UC1 adapters | UC2 adapters | UC3 adapters |
 |---|---|---|---|
@@ -125,8 +124,8 @@ order:
 
 Chorus runs entirely on a local sandbox stack: Postgres, Redpanda, Temporal,
 Mailpit, and a local connector substrate, with OpenTelemetry and Grafana for
-observability. There is no hosted dependency. The full command path plus UC1
-and UC2 walk-throughs are in [`docs/runbook.md`](docs/runbook.md).
+observability. There is no hosted dependency. The full command path plus UC1,
+UC2, and UC3 walk-throughs are in [`docs/runbook.md`](docs/runbook.md).
 
 The UC2 local operator loop is:
 
@@ -147,19 +146,43 @@ The default UC2 fixture starts workflow
 `http://localhost:18001/api/workflows/uc2-legal-ddbe16eabd909b417f25119f`,
 or in the frontend at
 `http://localhost:5174/workflows/uc2-legal-ddbe16eabd909b417f25119f` when
-`just frontend-dev` is running.
+`just frontend-dev` is running. The Temporal UI at `http://localhost:8233`
+can inspect the same workflow ID. Re-running the same command prints
+`started: false` when that stable workflow ID already exists.
+
+The UC3 local operator loop is:
+
+```bash
+just up && just db-migrate && just schemas-register && just doctor
+```
+
+```bash
+uv run python -m chorus.workflows.uc3_synthetic_intake
+```
+
+```bash
+just relay-once && just project-once
+```
+
+The default UC3 fixture is
+`contracts/intake/uc3/samples/email_advice_enquiry.sample.json`. On a clean
+database it starts workflow `uc3-advice-3e7d1d3cd3d8236776a0fb8a` for advice
+enquiry ref `advice_enquiry_advice_email_001` with correlation ID
+`cor_advice_email_001`. Inspect it at
+`http://localhost:18001/api/workflows/uc3-advice-3e7d1d3cd3d8236776a0fb8a`,
+or in the frontend at
+`http://localhost:5174/workflows/uc3-advice-3e7d1d3cd3d8236776a0fb8a` when
+`just frontend-dev` is running. The Temporal UI at `http://localhost:8233`
+can inspect the same workflow ID. Re-running the same command prints
+`started: false` when that stable workflow ID already exists.
 
 The runtime code carries the named-port surface: the LLM provider port,
 connector adapter registry, audit / transcript split, workflow spine with UC1,
 UC2, and UC3 definitions on it, per-port projection / doctor decomposition,
 and invariant-plus-replay eval. R4 is closed as local POC evidence; R5 is
-closing the documented runnable gaps, with UC2 now having a local synthetic
-intake command and evidence loop while UC3 has the code-level synthetic
-intake adapter, recorded-replay route policy, and workflow-path eval playback
-with triggered-run projection evidence, but still lacks the later
-operator-command slice.
-Live-provider route
-activation remains open. The
+closing the documented runnable gaps, with UC2 and UC3 now having local
+synthetic intake commands and relay/projection evidence loops.
+Live-provider route activation remains open. The
 closed R4 backlog and closure notes live in
 [`docs/transformation/r4-implementation-backlog.md`](docs/transformation/r4-implementation-backlog.md).
 
