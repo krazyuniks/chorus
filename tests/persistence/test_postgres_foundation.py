@@ -11,6 +11,13 @@ from psycopg.types.json import Jsonb
 
 from chorus.contracts.generated.eval.replay_run_record import ReplayRunRecord
 from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
+from chorus.eval import run
+from chorus.eval.live_provider_integration import (
+    captured_transcripts_for_replay,
+    persist_captured_run_audit_refs,
+)
+from chorus.eval.replay import replay_transcript_with_record
+from chorus.eval.scenario_player import play_scenario
 from chorus.persistence import (
     OutboxStore,
     ProjectionStore,
@@ -1329,3 +1336,55 @@ def test_replay_run_records_link_invocation_transcript_route_and_metrics(
     assert row.original_latency_ms == 50
     assert row.alternate_latency_ms == 12
     assert row.metric_deltas["latency_ms"] == -38
+
+
+def test_replay_run_store_persists_captured_run_refs_for_live_comparison_shape(
+    migrated_database_url: str,
+) -> None:
+    captured = play_scenario(run.load_fixture(ROOT / "chorus/eval/fixtures/uc1_happy_path.json"))
+    transcript = captured_transcripts_for_replay(captured)[0]
+    replay = replay_transcript_with_record(transcript)
+    record = replay.record
+
+    with psycopg.connect(migrated_database_url) as conn:
+        conn.execute("SELECT set_config('app.tenant_id', %s, false)", (record.tenant_id,))
+        persist_captured_run_audit_refs(conn, captured)
+        store = ReplayRunStore(conn)
+        store.record_replay_run(record)
+        conn.commit()
+
+        row = conn.execute(
+            """
+            SELECT
+                replay.original_invocation_id,
+                replay.original_transcript_id,
+                replay.original_runtime_route_id,
+                replay.alternate_runtime_route_id,
+                replay.comparator_status,
+                replay.comparator_result,
+                decision.invocation_id AS joined_invocation_id,
+                transcript.transcript_id AS joined_transcript_id,
+                transcript.route_id AS joined_transcript_route
+            FROM replay_run_records AS replay
+            JOIN decision_trail_entries AS decision
+              ON decision.tenant_id = replay.tenant_id
+             AND decision.invocation_id = replay.original_invocation_id
+            JOIN agent_invocation_transcripts AS transcript
+              ON transcript.tenant_id = replay.tenant_id
+             AND transcript.transcript_id = replay.original_transcript_id
+            WHERE replay.tenant_id = %s
+              AND replay.replay_run_id = %s
+            """,
+            (record.tenant_id, record.replay_run_id),
+        ).fetchone()
+
+    assert row is not None
+    assert row[0] == record.original.invocation_id
+    assert row[1] == record.original.transcript_id
+    assert row[2] == "recorded-replay"
+    assert row[3] == "recorded-replay"
+    assert row[4] == record.comparator.status.value
+    assert row[5] == record.comparator.result
+    assert row[6] == record.original.invocation_id
+    assert row[7] == record.original.transcript_id
+    assert row[8] == "recorded-replay"
