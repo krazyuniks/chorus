@@ -121,6 +121,13 @@ bff:
 frontend-dev:
     cd frontend && npm run dev
 
+# ----- Gate -----
+
+# Deterministic gate: contract drift, lint (ruff + pyright strict + frontend), tests.
+# The canonical `just check` entrypoint VaultForeman drives. Requires the live
+# stack up (tests hit Postgres/Redpanda); run `just doctor` first for health.
+check: contracts-check lint test
+
 # ----- Contracts -----
 
 # Generate Pydantic models from JSON Schema contracts when schemas exist.
