@@ -490,8 +490,9 @@ and workflow-path eval playback captures decision/transcript, Tool Gateway
 audit, approval-package, and outbox-progress evidence for the happy issue path
 and the vulnerability-support handoff branch. OpenAI and DeepSeek live replay
 activation is available through `just test-live-openai` and
-`just test-live-deepseek`; persisted live replay rows remain deferred to a
-later R5 P3 slice.
+`just test-live-deepseek`; each run persists its comparator record to
+`replay_run_records`, joining the recorded-replay invocation and transcript
+refs with the live alternate route.
 
 Inspect approval packages through the read-only BFF:
 
@@ -783,8 +784,9 @@ end-to-end on the shared `WorkflowSpine`. UC2 now has its own synthetic
 email-intake walk-through above, and UC3 has its own synthetic
 email-advice-intake walk-through above. OpenAI and DeepSeek live replay
 activation is available through `just test-live-openai` and
-`just test-live-deepseek`; persisted live replay rows remain deferred to a
-later R5 P3 slice.
+`just test-live-deepseek`; each run persists its comparator record to
+`replay_run_records`, joining the recorded-replay invocation and transcript
+refs with the live alternate route.
 
 1. **Bring the stack up (all ports).** Run the bring-up commands above:
    `just up && just db-migrate && just schemas-register && just doctor`.

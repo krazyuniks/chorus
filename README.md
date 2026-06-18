@@ -206,8 +206,9 @@ fails when `OPENAI_API_KEY` is absent, and compares UC1, UC2, and UC3
 happy-path captured transcripts through `demo-eval-canonical`. DeepSeek
 live-provider replay integration runs with the `just test-live-deepseek`
 command, hard fails when `DEEPSEEK_API_KEY` is absent, and compares the same
-happy-path captured transcripts through `dev`; persisted replay-run rows
-remain open. The
+happy-path captured transcripts through `dev`. Each comparator record is
+persisted to `replay_run_records`, joining the recorded-replay invocation and
+transcript refs with the live alternate route. The
 closed R4 backlog and closure notes live in
 [`docs/transformation/r4-implementation-backlog.md`](docs/transformation/r4-implementation-backlog.md).
 

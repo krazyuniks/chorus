@@ -108,8 +108,9 @@ handoff branch, with the happy issue evidence projected into the existing
 BFF/UI inspection surfaces through the Redpanda relay/projection loop.
 OpenAI and DeepSeek live-provider replay activation now have explicit
 `just test-live-openai` and `just test-live-deepseek` gates over UC1, UC2,
-and UC3 happy-path captured transcripts. Persisted live replay rows remain an
-explicit closure exception.
+and UC3 happy-path captured transcripts. Each run persists its comparator
+record to `replay_run_records`, joining the recorded-replay invocation and
+transcript refs with the live alternate route.
 
 ## Workflow durability is not a port
 
@@ -218,7 +219,9 @@ transcripts through `demo-eval-canonical`, and fails on hard-fail or
 decision-fail comparator tiers. The explicit DeepSeek integration gate is
 `just test-live-deepseek`; it requires `DEEPSEEK_API_KEY`, replays the same
 happy-path captured transcripts through `dev`, and applies the same comparator
-outcome gate. Persistence of live comparison rows remains open R5 P3 work.
+outcome gate. Each run persists its comparator record to `replay_run_records`,
+joining the recorded-replay invocation and transcript refs with the live
+alternate route.
 
 The route catalogue plus the transcript port together make cross-provider
 replay possible. Without route metadata, replay can only target the original
@@ -446,7 +449,8 @@ conflict-exception / AML EDD
 and UC3 risk-profile / vulnerability approval packages also remain
 workflow/manual-review conduct evidence until a later design slice binds them
 to exact connector requests. Live OpenAI / DeepSeek calls remain
-credential-gated and inactive by default; persisted live replay rows remain
-open.
+credential-gated and inactive by default; each live run persists its
+comparator record to `replay_run_records`, joining the recorded-replay
+invocation and transcript refs with the live alternate route.
 The closed R4 backlog and continuation handoff are in
 [`transformation/r4-implementation-backlog.md`](transformation/r4-implementation-backlog.md).
