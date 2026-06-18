@@ -123,10 +123,12 @@ frontend-dev:
 
 # ----- Gate -----
 
-# Deterministic gate: contract drift, lint (ruff + pyright strict + frontend), tests.
-# The canonical `just check` entrypoint VaultForeman drives. Requires the live
-# stack up (tests hit Postgres/Redpanda); run `just doctor` first for health.
-check: contracts-check lint test
+# Canonical gate VaultForeman drives: contract drift, stack health, lint
+# (ruff + pyright strict + frontend tsc), Python tests (incl. replay), frontend
+# unit tests, and eval fixtures. Requires the live stack up (tests, doctor, and
+# eval hit Postgres/Redpanda/Temporal). Live-provider replay stays credential-
+# gated outside this gate.
+check: contracts-check doctor lint test test-frontend eval
 
 # ----- Contracts -----
 
