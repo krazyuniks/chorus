@@ -214,9 +214,9 @@ closed R4 backlog and closure notes live in
 
 ## Current Work
 
-R5 is active. Work proceeds from the R5 backlog, closing documented local
-runnable paths first and the remaining live replay persistence slice later
-without widening into production connectors or hosted deployment.
+R5 is active. Work proceeds from the R5 backlog, with documented local
+runnable paths and live replay persistence now landed and R5 closure the
+remaining step, without widening into production connectors or hosted deployment.
 Architectural decisions are recorded in [`adrs/`](adrs/); only current
 decisions are kept in the repository.
 

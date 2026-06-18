@@ -31,7 +31,9 @@ R5 is not production hosting, not a SaaS build, and not a generic workflow DSL.
   `engagement_letter.send`, tightened conduct invariants, workflow-path eval
   playback for one happy acceptance/send-approval-gated fixture and one
   conflict-exception branch, and projection/BFF/UI confirmation for triggered
-  happy-path evidence. Live-provider replay remains deferred to P3.
+  happy-path evidence. Live-provider replay for UC2 persists comparator
+  records to `replay_run_records` through the live OpenAI and DeepSeek
+  integration gates.
 - UC3 has intake and connector contracts, a shared-spine workflow definition,
   deterministic sandbox connector adapters, Tool Gateway grants,
   approval-package evidence for `suitability_report.issue`, conduct invariants,

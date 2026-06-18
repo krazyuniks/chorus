@@ -395,8 +395,8 @@ just test-live-deepseek
 
 It runs only when `DEEPSEEK_API_KEY` is present and non-empty, replays the
 same UC1, UC2, and UC3 happy-path transcripts through `dev`, and applies the
-same comparator outcome gate. Persisted `replay_run_records` rows for live
-comparisons remain an open R5 P3 slice. Replay-run evidence
+same comparator outcome gate. Each live comparison persists a
+`replay_run_records` row through `ReplayRunStore`. Replay-run evidence
 records now persist the original invocation/transcript refs, alternate route
 metadata, comparator status, lineage refs, and token/cost/latency metrics. The
 hard-fail comparator tier classifies schema, policy snapshot, conduct hook,
