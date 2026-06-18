@@ -46,9 +46,12 @@ R5 is not production hosting, not a SaaS build, and not a generic workflow DSL.
   hash, response schema, structured output, route-governance alignment,
   replay-run records, tiered comparator). Live OpenAI and DeepSeek routes are
   credential-gated at worker startup and inactive by default. The explicit
-  OpenAI and DeepSeek live replay integration tests now replay UC1, UC2, and
-  UC3 happy-path captured transcripts through `demo-eval-canonical` and
-  `dev`; persisted live replay rows remain deferred to the next P3 slice.
+  OpenAI and DeepSeek live replay integration tests replay UC1, UC2, and UC3
+  happy-path captured transcripts through `demo-eval-canonical` and `dev`,
+  persist each comparator record through `ReplayRunStore` to
+  `replay_run_records`, and assert the persisted rows join the original
+  recorded-replay invocation and transcript refs with the live alternate route
+  metadata. P3 is complete.
 - The Compose stack runs against Postgres on host `:55432` and Redpanda on
   `:19092`. Tests load `.env` automatically through `tests/conftest.py`.
 - The DB-backed persistence, BFF, agent-runtime, tool-gateway, and focused UC2
@@ -554,9 +557,29 @@ R5 proceeds in this order. Each phase must be closed before the next starts.
   `DEEPSEEK_API_KEY= uv run pytest tests/eval/test_live_deepseek_integration.py
   --live-deepseek -q`, `just test-live-deepseek`, `just contracts-check`,
   `just lint`, `just doctor`, and `git diff --check`.
-- [ ] Wire the replay comparator into the live integration test so each live
+- [x] Wire the replay comparator into the live integration test so each live
   run produces a `replay_run_records` row joining the live transcript with
   the recorded-replay transcript.
+  Evidence (2026-06-18): `tests/eval/test_live_openai_integration.py` and
+  `tests/eval/test_live_deepseek_integration.py` now call
+  `store.record_replay_run(replay.record)` after each
+  `replay_transcript_with_record` call and assert via
+  `_assert_persisted_live_replay_record` that the written row joins
+  `decision_trail_entries` on `original_invocation_id` and
+  `agent_invocation_transcripts` on `original_transcript_id`, carries
+  `original_runtime_route_id = "recorded-replay"`, and records the live
+  alternate route id, provider, model, comparator status, and comparator
+  result correctly. A new offline test
+  `test_replay_run_store_persists_live_alternate_route_shape` in
+  `tests/persistence/test_postgres_foundation.py` proves the same join
+  shape without live credentials by backing `demo-eval-canonical` with
+  `RecordedReplayAdapter` inside a custom `RouteCatalogue`. Verified with
+  `uv run pytest
+  tests/persistence/test_postgres_foundation.py::test_replay_run_store_persists_live_alternate_route_shape
+  tests/persistence/test_postgres_foundation.py::test_replay_run_store_persists_captured_run_refs_for_live_comparison_shape
+  tests/persistence/test_postgres_foundation.py::test_replay_run_records_link_invocation_transcript_route_and_metrics
+  -q`, `just test-live-openai`, `just test-live-deepseek`, `just
+  contracts-check`, `just lint`, `just doctor`, and `git diff --check`.
 
 ### P4 — Closure
 
@@ -597,62 +620,42 @@ session is reprompted with the answer included.
 ## Next Continuation Prompt
 
 ```text
-We are in /home/ryan/Work/chorus. Continue R5 P3 — Live Provider Route
-Activation — by persisting live replay comparator records.
+We are in /home/ryan/Work/chorus. Continue R5 P4 — Closure.
 
 Read AGENTS.md and docs/transformation/r5-implementation-backlog.md, then run
 `git status --short --branch`. Preserve unrelated user changes.
 
-Inspect the live-route governance, startup gate, and replay/eval path before
-editing: `just --list`, `justfile`, `chorus/workflows/worker.py`,
-`chorus/llm_provider/route_catalogue.py`, `chorus/llm_provider/adapter_openai.py`,
-`chorus/agent_runtime/runtime.py`, `chorus/eval/replay.py`,
-`chorus/eval/replay_comparator.py`, `chorus/eval/live_provider_integration.py`,
-`tests/eval/test_live_openai_integration.py`,
-`tests/eval/test_live_deepseek_integration.py`,
-`chorus/persistence/replay_runs.py`,
-`chorus/persistence/runtime_policy.py`, `chorus/persistence/provider_governance.py`,
-`infrastructure/postgres/seeds/002_provider_governance.sql`,
-`infrastructure/postgres/seeds/001_demo_tenants.sql`,
-`chorus/eval/uc2_workflow_playback.py`, `chorus/eval/uc3_workflow_playback.py`,
-`tests/eval/test_run.py`, `tests/persistence/test_postgres_foundation.py`,
-`tests/workflows/test_worker_startup_gate.py`, `docs/runbook.md`,
-`docs/evidence-map.md`, `docs/architecture.md`, and `README.md`.
+Before editing docs, orient with the current doc state:
+`docs/runbook.md`, `docs/evidence-map.md`, `docs/architecture.md`,
+`README.md`, and `adrs/`. Also check the P4 exit criteria unchecked items
+and the full gate list.
 
-Before editing, confirm `OPENAI_API_KEY` and `DEEPSEEK_API_KEY` are present
-and non-empty in the environment. If either is missing, stop without changing
-checkboxes or committing and report that this P3 persistence slice requires
-user-provided live-provider keys; do not add or commit credentials.
+Implement the P4 closure slice:
 
-Implement the next narrow slice: wire the explicit live OpenAI and live
-DeepSeek integration tests so each replay comparator record is written through
-`ReplayRunStore` to the test database's `replay_run_records` table. Assert
-that the persisted rows join the original recorded-replay invocation /
-transcript refs with the live alternate route metadata and preserve the same
-bounded comparator result that the in-memory live test asserted. The default
-recorded-replay tests and worker startup path must continue to run without
-live credentials.
+1. Update README, runbook, evidence-map, architecture, and ADRs to declare
+   UC1, UC2, and UC3 all runnable. Remove any "as of R4", "deferred to P3",
+   or "remains open" qualifiers. State only current, verified facts. Docs must
+   describe the system that exists, not its history.
 
-Keep scope tight: do not add real provider credentials, do not add production
-connector paths, do not add mutating approval or admin UI, do not add a
-generic workflow-route DSL, and do not create a new replay persistence
-subsystem when `chorus/persistence/replay_runs.py` already owns the table
-surface. Do not run destructive Docker/database operations.
+2. Run the full gate matrix and confirm every gate is green:
+   `just contracts-check`, `just lint`, `just doctor`, `just db-migrate`,
+   `just test-replay`, `just eval`, `just test-frontend`, `uv run pytest`.
+   Do not run `just test-live-openai` or `just test-live-deepseek` unless the
+   keys are present in the environment (check `chorus/.env` as before — the
+   `just` recipes load `.env` automatically). If a gate genuinely cannot run
+   because the live stack is not up, say so clearly without committing.
 
-Update code, focused tests, README, runbook, evidence-map, architecture, and
-this backlog for the persisted live replay-run status only. Run focused
-offline persistence/comparator tests first, then run `just test-live-openai`
-and `just test-live-deepseek` with the provided credentials, followed by
-`just contracts-check`, `just lint`, `just doctor`, and `git diff --check`.
+3. Update checkboxes and evidence notes for the P4 slice.
 
-End-of-session contract:
-- Update checkboxes and evidence notes for the slice you completed.
-- Rewrite the body of the `## Next Continuation Prompt` section in the
-  backlog with the next slice's prompt, in Strategy order. If R5 is fully
-  closed, write the literal `R5-COMPLETE` wrapped in a `text`-fenced code
-  block.
-- Run `git diff --check`, stage everything, and create one Conventional
-  Commit. No AI attribution. Leave the working tree clean.
+4. Rewrite the body of the `## Next Continuation Prompt` section in the
+   backlog with the literal `R5-COMPLETE` wrapped in a `text`-fenced code
+   block.
+
+5. Run `git diff --check`, stage everything, and create one Conventional
+   Commit. No AI attribution. Leave the working tree clean.
+
+Keep scope tight: do not add new features, do not add mutating UI, do not
+add a workflow DSL, and do not run destructive Docker/database operations.
 
 If a blocking decision the prompt does not cover comes up, stop without
 committing or touching checkboxes. Surface the question clearly as the final

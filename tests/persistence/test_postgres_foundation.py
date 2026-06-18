@@ -13,11 +13,14 @@ from chorus.contracts.generated.eval.replay_run_record import ReplayRunRecord
 from chorus.contracts.generated.projection.workflow_event import WorkflowEvent
 from chorus.eval import run
 from chorus.eval.live_provider_integration import (
+    LIVE_OPENAI_ROUTE_ID,
     captured_transcripts_for_replay,
     persist_captured_run_audit_refs,
 )
 from chorus.eval.replay import replay_transcript_with_record
 from chorus.eval.scenario_player import play_scenario
+from chorus.llm_provider import RouteCatalogue, RouteCatalogueEntry
+from chorus.llm_provider.adapter_replay import RecordedReplayAdapter
 from chorus.persistence import (
     OutboxStore,
     ProjectionStore,
@@ -1388,3 +1391,89 @@ def test_replay_run_store_persists_captured_run_refs_for_live_comparison_shape(
     assert row[6] == record.original.invocation_id
     assert row[7] == record.original.transcript_id
     assert row[8] == "recorded-replay"
+
+
+def test_replay_run_store_persists_live_alternate_route_shape(
+    migrated_database_url: str,
+) -> None:
+    """ReplayRunStore joins original recorded-replay refs with live alternate route columns.
+
+    Uses the RecordedReplayAdapter under the live OpenAI route ID so no HTTP
+    call is made, but the RouteCatalogueEntry carries live provider/model
+    metadata. Proves the persistence shape when original=recorded-replay and
+    alternate=demo-eval-canonical (the offline proxy for the live OpenAI route).
+    """
+    captured = play_scenario(run.load_fixture(ROOT / "chorus/eval/fixtures/uc1_happy_path.json"))
+    transcript = captured_transcripts_for_replay(captured)[0]
+
+    offline_live_catalogue = RouteCatalogue(
+        [
+            RouteCatalogueEntry(
+                route_id="recorded-replay",
+                provider_id="local",
+                model_id="uc1-happy-path-v1",
+                adapter=RecordedReplayAdapter(),
+            ),
+            RouteCatalogueEntry(
+                route_id=LIVE_OPENAI_ROUTE_ID,
+                provider_id="openai",
+                model_id="gpt-5.4-mini-2026-03-17",
+                adapter=RecordedReplayAdapter(),
+                parameters={"temperature": 0.1},
+            ),
+        ]
+    )
+
+    replay = replay_transcript_with_record(
+        transcript,
+        route_id=LIVE_OPENAI_ROUTE_ID,
+        route_catalogue=offline_live_catalogue,
+    )
+    record = replay.record
+
+    with psycopg.connect(migrated_database_url) as conn:
+        conn.execute("SELECT set_config('app.tenant_id', %s, false)", (record.tenant_id,))
+        persist_captured_run_audit_refs(conn, captured)
+        store = ReplayRunStore(conn)
+        store.record_replay_run(record)
+        conn.commit()
+
+        row = conn.execute(
+            """
+            SELECT
+                replay.original_runtime_route_id,
+                replay.original_provider_id,
+                replay.original_model_id,
+                replay.alternate_runtime_route_id,
+                replay.alternate_provider_id,
+                replay.alternate_model_id,
+                replay.comparator_status,
+                replay.comparator_result,
+                decision.invocation_id AS joined_invocation_id,
+                transcript.transcript_id AS joined_transcript_id,
+                transcript.route_id AS joined_transcript_route
+            FROM replay_run_records AS replay
+            JOIN decision_trail_entries AS decision
+              ON decision.tenant_id = replay.tenant_id
+             AND decision.invocation_id = replay.original_invocation_id
+            JOIN agent_invocation_transcripts AS transcript
+              ON transcript.tenant_id = replay.tenant_id
+             AND transcript.transcript_id = replay.original_transcript_id
+            WHERE replay.tenant_id = %s
+              AND replay.replay_run_id = %s
+            """,
+            (record.tenant_id, record.replay_run_id),
+        ).fetchone()
+
+    assert row is not None
+    assert row[0] == "recorded-replay"
+    assert row[1] == record.original.provider_id
+    assert row[2] == record.original.model_id
+    assert row[3] == LIVE_OPENAI_ROUTE_ID
+    assert row[4] == "openai"
+    assert row[5] == "gpt-5.4-mini-2026-03-17"
+    assert row[6] == record.comparator.status.value
+    assert row[7] == record.comparator.result
+    assert row[8] == record.original.invocation_id
+    assert row[9] == record.original.transcript_id
+    assert row[10] == "recorded-replay"
