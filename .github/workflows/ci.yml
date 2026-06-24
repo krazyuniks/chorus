@@ -16,7 +16,7 @@ jobs:
     name: lint-python
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set up uv
         uses: astral-sh/setup-uv@v4
         with:
@@ -41,7 +41,7 @@ jobs:
     name: contracts-check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set up uv
         uses: astral-sh/setup-uv@v4
         with:
@@ -57,7 +57,7 @@ jobs:
     name: doctor
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set up uv
         uses: astral-sh/setup-uv@v4
         with:
@@ -81,7 +81,7 @@ jobs:
     name: test-python
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set up uv
         uses: astral-sh/setup-uv@v4
         with:
@@ -97,7 +97,7 @@ jobs:
     name: lint-frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -115,7 +115,7 @@ jobs:
     name: test-frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
