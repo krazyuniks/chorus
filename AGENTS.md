@@ -1,6 +1,6 @@
 # Chorus - Agent Guide
 
-> For the architectural thesis, read [docs/transformation/](./docs/transformation/) and [docs/architecture.md](./docs/architecture.md). For the project overview, read [docs/overview.md](./docs/overview.md). For active R4 work, read [docs/transformation/r4-implementation-backlog.md](./docs/transformation/r4-implementation-backlog.md).
+> For the architectural thesis, read [docs/transformation/](./docs/transformation/) and [docs/architecture.md](./docs/architecture.md). For the project overview, read [docs/overview.md](./docs/overview.md). For active R5 work, read [docs/transformation/r5-implementation-backlog.md](./docs/transformation/r5-implementation-backlog.md).
 
 ## Authority Order
 
