@@ -67,7 +67,7 @@ Do not run `just down-volumes` unless explicitly requested; it destroys local da
 | Concern | Technology |
 |---|---|
 | Durable orchestration | Temporal Python SDK, on the shared `WorkflowSpine` (`chorus/workflows/spine.py`) |
-| Agent runtime | Python sequential five-step pipeline (`chorus/agent_runtime/runtime.py`); LangGraph retired in R3 B |
+| Agent runtime | Python sequential five-step pipeline (`chorus/agent_runtime/runtime.py`) |
 | LLM provider port | OpenAI Python SDK against any OpenAI-compatible endpoint plus a deterministic recorded-replay route (`chorus/llm_provider/`) |
 | Tool mediation | FastAPI Tool Gateway with a `ConnectorRegistry` (`chorus/connectors/types.py`) |
 | Storage | Postgres |

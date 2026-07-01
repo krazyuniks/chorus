@@ -401,8 +401,6 @@ The runtime code carries the named-port surface this document describes.
 | Invariant-plus-replay eval | `chorus/eval/common_invariants.py` (architecture-wide invariant checks), `chorus/eval/use_cases/uc1_conduct.py` (UC1 conduct hooks), `chorus/eval/use_cases/uc2_conduct.py` (UC2 SRA / AML conduct and engagement-letter approval checks over captured-run artefacts), `chorus/eval/uc2_workflow_playback.py` (UC2 fixture playback through the real workflow activities), `chorus/eval/use_cases/uc3_conduct.py` (UC3 FCA suitability / PROD / Consumer Duty conduct and suitability-report approval checks over captured-run artefacts), `chorus/eval/uc3_workflow_playback.py` (UC3 fixture playback through the real workflow activities), `chorus/eval/invariants.py` (current suite composition), `chorus/eval/scenario_player.py` (drives supported fixture scenarios), `chorus/eval/replay.py` (`eval replay` subcommand plus safe replay-run record construction), `contracts/eval/replay_run_record.schema.json`, `chorus/eval/run.py` (CLI). |
 
 The ADRs that govern the named-port surface are
-[ADR 0017](../adrs/0017-langgraph-removed-from-agent-execution.md)
-(agent execution without LangGraph),
 [ADR 0018](../adrs/0018-llm-provider-port.md) (LLM provider port),
 [ADR 0019](../adrs/0019-audit-ports-and-replay-eval.md) (audit ports and
 replay-eval), and

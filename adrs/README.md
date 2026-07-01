@@ -6,7 +6,6 @@ instead of keeping superseded material beside the active design.
 
 | ADR | Decision |
 |---|---|
-| [0017](0017-langgraph-removed-from-agent-execution.md) | Agent execution is plain domain code behind the LLM provider port; no LangGraph dependency. |
 | [0018](0018-llm-provider-port.md) | LLM provider port with OpenAI-compatible transport, route catalogue, and provider neutrality. |
 | [0019](0019-audit-ports-and-replay-eval.md) | Separate decision-trail and transcript ports; transcript replay is an eval substrate. |
 | [0020](0020-domain-refocus-uk-regulated-use-cases.md) | UC1, UC2, and UC3 are the UK-regulated use cases for the local POC. |

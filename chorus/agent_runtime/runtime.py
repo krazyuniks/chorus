@@ -3,8 +3,7 @@
 After R3 checkpoint B the runtime is the domain-side caller of the LLM
 provider port (ADR 0018) and runs the invocation pipeline as plain
 sequential Python: prepare context, invoke port, normalise result,
-validate the agent IO contract, build the response. LangGraph leaves the
-dependency set (ADR 0017).
+validate the agent IO contract, build the response.
 """
 
 from __future__ import annotations

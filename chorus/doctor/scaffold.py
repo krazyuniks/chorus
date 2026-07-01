@@ -27,7 +27,6 @@ PROJECT_PATHS = [
     "docs/runbook.md",
     "docs/transformation/r4-implementation-backlog.md",
     "adrs/README.md",
-    "adrs/0017-langgraph-removed-from-agent-execution.md",
     "adrs/0018-llm-provider-port.md",
     "adrs/0019-audit-ports-and-replay-eval.md",
     "adrs/0020-domain-refocus-uk-regulated-use-cases.md",

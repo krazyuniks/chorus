@@ -227,7 +227,6 @@ That is what makes the architecture a thesis rather than a vocabulary.
 
 The matching current ADRs are:
 
-- [ADR 0017](../../adrs/0017-langgraph-removed-from-agent-execution.md)
 - [ADR 0018](../../adrs/0018-llm-provider-port.md)
 - [ADR 0019](../../adrs/0019-audit-ports-and-replay-eval.md)
 - [ADR 0020](../../adrs/0020-domain-refocus-uk-regulated-use-cases.md)

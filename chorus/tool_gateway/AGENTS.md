@@ -1,8 +1,8 @@
 # Tool Gateway Implementation Instructions
 
 This package owns the governed authority boundary for external tool actions.
-Agents and LangGraph may request or propose actions; this package decides
-whether a connector may execute them.
+Agents may request or propose actions; this package decides whether a connector
+may execute them.
 
 ## Rules
 

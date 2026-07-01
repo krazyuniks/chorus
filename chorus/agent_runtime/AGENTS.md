@@ -1,13 +1,11 @@
 # Agent Runtime Implementation Instructions
 
 This package owns governed agent invocation inside the Agent Runtime boundary.
-LangGraph runs inside this package as a per-invocation execution engine; it does
-not own durable business workflow state.
 
 ## Rules
 
 - Keep Temporal as the durable workflow owner. Do not add long-running business
-  process state to LangGraph.
+  process state to the Agent Runtime.
 - Resolve agent identity, prompt reference, model route, budget, provider, and
   invocation ID before model execution.
 - Preserve generated contract validation for agent inputs, outputs, and
@@ -20,11 +18,10 @@ not own durable business workflow state.
   the Tool Gateway.
 - Commercial provider adapters must stay disabled unless credentials and policy
   explicitly enable them.
-- Runtime, provider, route, prompt, or graph changes require focused runtime
+- Runtime, provider, route, or prompt changes require focused runtime
   tests and relevant eval coverage.
 
 ## Local Map
 
 - `runtime.py` contains the runtime store, adapter registry, local/commercial
-  adapter boundaries, LangGraph execution engine, fallback handling, and
-  decision-trail persistence.
+  adapter boundaries, fallback handling, and decision-trail persistence.

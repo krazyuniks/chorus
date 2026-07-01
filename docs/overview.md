@@ -241,8 +241,6 @@ target any other provider the catalogue knows how to address.
 
 The LLM provider port and its provider-neutral design are recorded in
 [ADR 0018](../adrs/0018-llm-provider-port.md).
-[ADR 0017](../adrs/0017-langgraph-removed-from-agent-execution.md) removed
-LangGraph from the path that reaches this port.
 
 ## In scope and out of scope
 
